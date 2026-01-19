@@ -39,9 +39,9 @@ class NomadClient:
     def close(self) -> None:
         self._client.close()
 
-    def _get(self, path: str) -> Any:
+    def _request(self, method: str, path: str, json_payload: Any | None = None) -> Any:
         try:
-            r = self._client.get(path)
+            r = self._client.request(method, path, json=json_payload)
         except httpx.ConnectError as e:
             raise NomadConnectionError(str(e)) from e
         except httpx.ReadTimeout as e:
@@ -61,6 +61,12 @@ class NomadClient:
             return r.json()
         return r.text
 
+    def _get(self, path: str) -> Any:
+        return self._request("GET", path)
+
+    def _post(self, path: str, payload: Any) -> Any:
+        return self._request("POST", path, json_payload=payload)
+
     def status_leader(self) -> str:
         data = self._get("/v1/status/leader")
         if isinstance(data, str):
@@ -75,3 +81,12 @@ class NomadClient:
 
     def nodes(self) -> Any:
         return self._get("/v1/nodes")
+
+    def submit_job(self, job: Dict[str, Any]) -> Any:
+        return self._post("/v1/jobs", job)
+
+    def job_allocations(self, job_name: str) -> Any:
+        return self._get(f"/v1/job/{job_name}/allocations")
+
+    def allocation(self, alloc_id: str) -> Any:
+        return self._get(f"/v1/allocation/{alloc_id}")

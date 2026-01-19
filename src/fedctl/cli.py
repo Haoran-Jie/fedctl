@@ -206,14 +206,30 @@ def deploy(
     out: str | None = typer.Option(None, "--out"),
     format: str = typer.Option("json", "--format"),
     num_supernodes: int = typer.Option(2, "--num-supernodes"),
+    timeout: int = typer.Option(120, "--timeout"),
+    no_wait: bool = typer.Option(False, "--no-wait"),
+    profile: str | None = typer.Option(None, "--profile"),
+    endpoint: str | None = typer.Option(None, "--endpoint"),
+    namespace: str | None = typer.Option(None, "--namespace"),
+    token: str | None = typer.Option(None, "--token"),
+    tls_ca: str | None = typer.Option(None, "--tls-ca"),
+    tls_skip_verify: bool | None = typer.Option(None, "--tls-skip-verify"),
 ) -> None:
-    """Render Nomad job specs (dry-run only)."""
+    """Deploy Flower jobs to Nomad (or render with --dry-run)."""
     raise SystemExit(
         run_deploy(
             dry_run=dry_run,
             out=out,
             fmt=format,
             num_supernodes=num_supernodes,
+            timeout_seconds=timeout,
+            no_wait=no_wait,
+            profile=profile,
+            endpoint=endpoint,
+            namespace=namespace,
+            token=token,
+            tls_ca=tls_ca,
+            tls_skip_verify=tls_skip_verify,
         )
     )
 
