@@ -4,6 +4,7 @@ import typer
 from rich import print
 from rich.table import Table
 
+from fedctl.commands.deploy import run_deploy
 from fedctl.commands.discover import run_discover
 from fedctl.commands.doctor import run_doctor
 from fedctl.commands.inspect import run_inspect
@@ -197,6 +198,24 @@ def discover(
             node_class=node_class,
             )
         )
+
+
+@app.command()
+def deploy(
+    dry_run: bool = typer.Option(False, "--dry-run"),
+    out: str | None = typer.Option(None, "--out"),
+    format: str = typer.Option("json", "--format"),
+    num_supernodes: int = typer.Option(2, "--num-supernodes"),
+) -> None:
+    """Render Nomad job specs (dry-run only)."""
+    raise SystemExit(
+        run_deploy(
+            dry_run=dry_run,
+            out=out,
+            fmt=format,
+            num_supernodes=num_supernodes,
+        )
+    )
 
 
 @app.command()

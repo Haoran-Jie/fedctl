@@ -1,0 +1,44 @@
+{
+  "Job": {
+    "ID": "{{ job_name }}",
+    "Name": "{{ job_name }}",
+    "Type": "service",
+    "Datacenters": {{ datacenters | tojson }},
+    "TaskGroups": [
+      {
+        "Name": "{{ job_name }}",
+        "Count": 1,
+        "Constraints": [
+          {
+            "LTarget": "${node.class}",
+            "Operand": "=",
+            "RTarget": "{{ node_class }}"
+          }
+        ],
+        "Tasks": [
+          {
+            "Name": "{{ job_name }}",
+            "Driver": "docker",
+            "User": "{{ user }}",
+            "Config": {
+              "image": "{{ image }}",
+              "entrypoint": {{ entrypoint | tojson }},
+              "args": {{ args | tojson }}
+            },
+            "Resources": {
+              "CPU": {{ cpu }},
+              "MemoryMB": {{ memory_mb }}
+            },
+            "Templates": [
+              {
+                "EmbeddedTmpl": {{ template_data | tojson }},
+                "DestPath": "local/env.txt",
+                "Envvars": true
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

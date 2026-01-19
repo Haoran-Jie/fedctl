@@ -1,0 +1,16 @@
+{
+  "Job": {
+    "ID": "{{ job_name }}",
+    "Name": "{{ job_name }}",
+    "Type": "service",
+    "Datacenters": {{ datacenters | tojson }},
+    "Constraints": [
+      {
+        "LTarget": "${node.class}",
+        "Operand": "=",
+        "RTarget": "{{ node_class }}"
+      }
+    ],
+    "TaskGroups": {{ task_groups | tojson }}
+  }
+}

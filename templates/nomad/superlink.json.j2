@@ -1,0 +1,45 @@
+{
+  "Job": {
+    "ID": "{{ job_name }}",
+    "Name": "{{ job_name }}",
+    "Type": "service",
+    "Datacenters": {{ datacenters | tojson }},
+    "Constraints": [
+      {
+        "LTarget": "${node.class}",
+        "Operand": "=",
+        "RTarget": "{{ node_class }}"
+      }
+    ],
+    "TaskGroups": [
+      {
+        "Name": "{{ job_name }}",
+        "Networks": [
+          {
+            "DynamicPorts": [
+              { "Label": "serverappio" },
+              { "Label": "fleet" },
+              { "Label": "control" }
+            ]
+          }
+        ],
+        "Services": {{ services | tojson }},
+        "Tasks": [
+          {
+            "Name": "{{ job_name }}",
+            "Driver": "docker",
+            "Config": {
+              "image": "{{ image }}",
+              "ports": {{ ports | tojson }},
+              "args": {{ args | tojson }}
+            },
+            "Resources": {
+              "CPU": {{ cpu }},
+              "MemoryMB": {{ memory_mb }}
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
