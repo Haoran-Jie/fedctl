@@ -6,6 +6,7 @@ from rich.table import Table
 
 from fedctl.commands.discover import run_discover
 from fedctl.commands.doctor import run_doctor
+from fedctl.commands.inspect import run_inspect
 from fedctl.commands.local import run_local_down, run_local_status, run_local_up
 from fedctl.commands.ping import run_ping
 from fedctl.config.io import load_config, load_raw_toml, save_raw_toml
@@ -179,10 +180,10 @@ def discover(
     device: str = typer.Option(None, "--device"),
     status: str = typer.Option(None, "--status"),
     node_class: str = typer.Option(None, "--class"),
-) -> None:
-    """List Nomad nodes and their labels."""
-    raise SystemExit(
-        run_discover(
+    ) -> None:
+        """List Nomad nodes and their labels."""
+        raise SystemExit(
+            run_discover(
             profile=profile,
             endpoint=endpoint,
             namespace=namespace,
@@ -194,8 +195,16 @@ def discover(
             device=device,
             status=status,
             node_class=node_class,
+            )
         )
-    )
+
+
+@app.command()
+def inspect(
+    path: str = typer.Argument(".", help="Path to a Flower project (dir or pyproject.toml).")
+) -> None:
+    """Inspect a Flower project for fedctl metadata."""
+    raise SystemExit(run_inspect(path))
 
 
 @local_app.command("up")
