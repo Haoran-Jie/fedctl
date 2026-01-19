@@ -1,16 +1,47 @@
-# `fedctl` Repo Skeleton (Python CLI) — with detailed explanations
+# `fedctl` repo skeleton (Python CLI) — updated for the example flow
 
-This is a **practical, MVP-first** repository layout for `fedctl` as a Python CLI that:
-- connects to a remote Nomad cluster (VPN / SSH tunnel),
-- deploys Flower Fabric jobs via Nomad API,
-- resolves the SuperLink address,
-- patches a local Flower app’s `pyproject.toml`.
+*Updated: 2026-01-19*
 
-It’s designed so you can build in layers (config → nomad → deploy → patch), test each layer, and keep the codebase dissertation-friendly.
+This layout supports:
+- local laptop harness (start Nomad agents from HCL configs)
+- deploying **multiple job specs** (superlink/supernode/superexec apps)
+- resolving SuperLink address from alloc → node → port
+- patching user `pyproject.toml`
 
 ---
 
+## Layout
+
+```
+fedctl/
+  pyproject.toml
+  src/fedctl/
+    cli.py                 # Typer commands
+    config/                # user profiles, endpoints, TLS, access_mode
+    nomad/                 # HTTP client + endpoints + errors + (optional) models
+    local/                 # harness: spawn nomad agent processes for laptop testing
+    deploy/                # deploy stack, wait, resolve address, status, destroy
+    project/               # inspect + patch pyproject.toml, dockerfile generator
+    state/                 # deployment manifests (jobs + alloc ids + address)
+    util/                  # console, retry, validators
+  templates/
+    docker/Dockerfile.superexec.j2
+    nomad/                 # optional JSON job templates (phase 2)
+  docs/
+  tests/
+```
+
+---
+
+## What’s new vs earlier drafts (because of the example flow)
+1. **`local/` harness** exists (you already run multiple `nomad agent -config=...` locally)
+2. Deploy manages **4 kinds of jobs**, not just SuperLink/SuperNodes
+3. `deploy/resolve.py` must call `GET /v1/node/<node_id>` to output a LAN IP address
+
+
 ## 0) Tech choices (recommended)
+
+0) Tech choices (recommended)
 - CLI: **Typer** (nice UX, type hints)
 - HTTP: **httpx** (TLS options, timeouts, clean API)
 - Config files: **tomlkit** (preserves formatting) + **PyYAML** (repo-level defaults)
@@ -21,6 +52,8 @@ It’s designed so you can build in layers (config → nomad → deploy → patc
 ---
 
 ## 1) Directory structure
+
+1) Directory structure
 
 ```
 fedctl/
@@ -97,14 +130,22 @@ fedctl/
 
 ## 2) What each part does (module-by-module)
 
-### 2.1 Entry points
+2) What each part does (module-by-module)
 
-#### `src/fedctl/__main__.py`
+## 2.1 Entry points
+
+2.1 Entry points
+
+## `src/fedctl/__main__.py`
+
+`src/fedctl/__main__.py`
 - Allows running:
   - `python -m fedctl`
 - It typically just imports and runs `cli.app()`.
 
-#### `src/fedctl/cli.py`
+## `src/fedctl/cli.py`
+
+`src/fedctl/cli.py`
 - The Typer application definition:
   - defines commands (`ping`, `discover`, `deploy`, `configure`, `status`, `destroy`, `run`)
   - defines **global options** (profile, endpoint override, namespace override, TLS flags)
@@ -114,30 +155,40 @@ fedctl/
 
 ---
 
-### 2.2 Configuration layer (`fedctl/config/`)
+## 2.2 Configuration layer (`fedctl/config/`)
+
+2.2 Configuration layer (`fedctl/config/`)
 
 This layer answers: **“How does fedctl know where the cluster is and what defaults to use?”**
 
-#### `paths.py`
+## `paths.py`
+
+`paths.py`
 - Provides OS-correct paths:
   - `~/.config/fedctl/config.toml`
   - state dir: `~/.local/share/fedctl/`
 - One place to change path rules.
 
-#### `schema.py`
+## `schema.py`
+
+`schema.py`
 - Typed models for config:
   - `ProfileConfig(endpoint, namespace, tls_ca, tls_skip_verify, hint)`
   - `FedctlConfig(active_profile, profiles, state_dir)`
 - If you use pydantic, validation happens here.
 
-#### `io.py`
+## `io.py`
+
+`io.py`
 - Load/save config TOML.
 - Responsibilities:
   - `load_user_config()`
   - `save_user_config()`
   - never handles secrets beyond reading env var presence
 
-#### `merge.py`
+## `merge.py`
+
+`merge.py`
 - Merges settings from:
   1) user config profile
   2) environment variables overrides
@@ -148,11 +199,15 @@ This layer answers: **“How does fedctl know where the cluster is and what defa
 
 ---
 
-### 2.3 Nomad API layer (`fedctl/nomad/`)
+## 2.3 Nomad API layer (`fedctl/nomad/`)
+
+2.3 Nomad API layer (`fedctl/nomad/`)
 
 This layer answers: **“How do we talk to Nomad over HTTP safely?”**
 
-#### `client.py`
+## `client.py`
+
+`client.py`
 - A small wrapper around httpx:
   - sets base URL
   - injects headers (`X-Nomad-Token`, `X-Nomad-Namespace`)
@@ -165,7 +220,9 @@ This layer answers: **“How do we talk to Nomad over HTTP safely?”**
 
 You want the rest of your code to avoid raw HTTP details.
 
-#### `endpoints.py`
+## `endpoints.py`
+
+`endpoints.py`
 - Just string constants / helper functions:
   - `STATUS_LEADER = "/v1/status/leader"`
   - `NODES = "/v1/nodes"`
@@ -175,7 +232,9 @@ You want the rest of your code to avoid raw HTTP details.
 
 This avoids magic strings scattered everywhere.
 
-#### `errors.py`
+## `errors.py`
+
+`errors.py`
 - Domain-specific exceptions:
   - `NomadAuthError`
   - `NomadNotFoundError`
@@ -183,7 +242,9 @@ This avoids magic strings scattered everywhere.
   - `NomadServerError`
 - The client maps HTTP statuses into these.
 
-#### `models.py` (optional but helpful)
+## `models.py` (optional but helpful)
+
+`models.py` (optional but helpful)
 - Typed parsing of responses you care about:
   - Node summary model (Name, ID, Status, Class)
   - Allocation model (ClientStatus, TaskStates, Resources)
@@ -193,18 +254,24 @@ This avoids magic strings scattered everywhere.
 
 ---
 
-### 2.4 Project inspection & mutation (`fedctl/project/`)
+## 2.4 Project inspection & mutation (`fedctl/project/`)
+
+2.4 Project inspection & mutation (`fedctl/project/`)
 
 This layer answers: **“What does the user’s Flower project look like, and how do we modify it safely?”**
 
-#### `flwr_inspect.py`
+## `flwr_inspect.py`
+
+`flwr_inspect.py`
 - Reads `pyproject.toml` and extracts:
   - `[tool.flwr.app]` publisher
   - `[tool.flwr.app.components]` serverapp/clientapp paths
   - `[tool.flwr.app.config]` useful defaults (rounds, etc.)
 - Used to validate “this is a Flower app repo”.
 
-#### `pyproject_patch.py`
+## `pyproject_patch.py`
+
+`pyproject_patch.py`
 - Adds/updates federation stanza:
   - `[tool.flwr.federations.remote-deployment]`
 - Requirements:
@@ -214,17 +281,23 @@ This layer answers: **“What does the user’s Flower project look like, and ho
 - Exposes:
   - `ensure_federation(path, name, address, insecure, backup=True)`
 
-#### `dockerfile_gen.py`
+## `dockerfile_gen.py`
+
+`dockerfile_gen.py`
 - Generates your canonical Dockerfile into a temp dir or `.fedctl/`.
 - Used by `fedctl build` or `fedctl run`.
 
 ---
 
-### 2.5 Deployment pipeline (`fedctl/deploy/`)
+## 2.5 Deployment pipeline (`fedctl/deploy/`)
+
+2.5 Deployment pipeline (`fedctl/deploy/`)
 
 This is the heart of fedctl. It answers: **“How do we turn a user repo + constraints into running Nomad jobs?”**
 
-#### `spec.py`
+## `spec.py`
+
+`spec.py`
 Defines a structured **DeploySpec** (loaded from CLI + repo defaults):
 - `exp_name`
 - `image_ref`
@@ -240,7 +313,9 @@ Defines a structured **DeploySpec** (loaded from CLI + repo defaults):
 
 This object is what all deploy functions accept.
 
-#### `naming.py`
+## `naming.py`
+
+`naming.py`
 - Pure functions to generate consistent names:
   - job names: `fedctl-{namespace}-{exp}-superlink`
   - allocation labels
@@ -248,7 +323,9 @@ This object is what all deploy functions accept.
 
 **Why separate:** easy testing, avoids subtle naming drift.
 
-#### `render.py`
+## `render.py`
+
+`render.py`
 - Renders Jinja templates into Nomad job JSON.
 - Inputs:
   - DeploySpec + namespace + computed names
@@ -257,14 +334,18 @@ This object is what all deploy functions accept.
 
 This module should not do any HTTP or filesystem writes—only rendering.
 
-#### `submit.py`
+## `submit.py`
+
+`submit.py`
 - Calls Nomad API:
   - `POST /v1/jobs` for each job
 - Handles:
   - retries on transient failures
   - surfacing useful errors on 403/500
 
-#### `resolve.py`
+## `resolve.py`
+
+`resolve.py`
 - Waits for allocations to become running:
   - `GET /v1/job/<job>/allocations`
   - `GET /v1/allocation/<alloc_id>`
@@ -276,24 +357,32 @@ This module should not do any HTTP or filesystem writes—only rendering.
 Outputs something like:
 - `FederationAddress(host="nomad.lab.domain", port=27738)`
 
-#### `status.py`
+## `status.py`
+
+`status.py`
 - Implements `fedctl status`:
   - lists allocs for jobs
   - summarizes running/failed counts
   - restart counts if available
 
-#### `destroy.py`
+## `destroy.py`
+
+`destroy.py`
 - Implements `fedctl destroy`:
   - deregisters jobs in correct order
   - supports purge option
 
 ---
 
-### 2.6 State management (`fedctl/state/`)
+## 2.6 State management (`fedctl/state/`)
+
+2.6 State management (`fedctl/state/`)
 
 This layer answers: **“How do we remember what we deployed so later commands can operate?”**
 
-#### `manifest.py`
+## `manifest.py`
+
+`manifest.py`
 Defines schema for a DeploymentManifest:
 - exp name
 - namespace, endpoint used
@@ -303,7 +392,9 @@ Defines schema for a DeploymentManifest:
 - timestamps
 - image ref + inputs used
 
-#### `store.py`
+## `store.py`
+
+`store.py`
 - Loads/saves manifests from the state dir:
   - `${state_dir}/{namespace}/deployments/{exp}.json`
 - Also provides:
@@ -314,26 +405,36 @@ This is how `fedctl address/status/destroy` work without re-deriving everything.
 
 ---
 
-### 2.7 Utilities (`fedctl/util/`)
+## 2.7 Utilities (`fedctl/util/`)
+
+2.7 Utilities (`fedctl/util/`)
 
 These are shared helpers to keep code clean.
 
-#### `console.py`
+## `console.py`
+
+`console.py`
 - Pretty printing / tables
 - consistent error formatting
 - `--json` handling helpers
 
-#### `retry.py`
+## `retry.py`
+
+`retry.py`
 - simple retry wrapper with exponential backoff for:
   - polling allocations
   - transient HTTP 500s
 
-#### `subprocess.py`
+## `subprocess.py`
+
+`subprocess.py`
 - wrappers for calling:
   - `docker build`, `docker push`
 - consistent logging and error capture
 
-#### `validators.py`
+## `validators.py`
+
+`validators.py`
 - validate:
   - endpoint URL
   - exp name
@@ -344,7 +445,11 @@ These are shared helpers to keep code clean.
 
 ## 3) Templates (`templates/nomad/`)
 
-### `superlink.json.j2`
+3) Templates (`templates/nomad/`)
+
+## `superlink.json.j2`
+
+`superlink.json.j2`
 - A Nomad Job JSON template for SuperLink.
 - Includes:
   - `constraint` to pin to management node
@@ -352,7 +457,9 @@ These are shared helpers to keep code clean.
   - Docker image `flwr/superlink:<version>` (or your choice)
   - env vars / args
 
-### `supernode.json.j2`
+## `supernode.json.j2`
+
+`supernode.json.j2`
 - A Nomad Job JSON template for SuperNodes.
 - Includes:
   - `count = clients`
@@ -365,6 +472,8 @@ These are shared helpers to keep code clean.
 ---
 
 ## 4) Tests (`tests/`)
+
+4) Tests (`tests/`)
 
 Start with tests that protect the tricky parts:
 
@@ -383,6 +492,8 @@ Start with tests that protect the tricky parts:
 
 ## 5) Suggested `pyproject.toml` for fedctl itself
 
+5) Suggested `pyproject.toml` for fedctl itself
+
 Dependencies (approx):
 - `typer`
 - `httpx`
@@ -397,7 +508,11 @@ Dependencies (approx):
 
 ## 6) How the modules connect (call flow)
 
-### `fedctl run . --name demo --clients 4`
+6) How the modules connect (call flow)
+
+## `fedctl run . --name demo --clients 4`
+
+`fedctl run . --name demo --clients 4`
 1. `cli.py` parses flags, loads config/profile
 2. `config.merge` produces effective runtime config
 3. `project.flwr_inspect` validates repo + reads metadata
@@ -413,6 +528,8 @@ Dependencies (approx):
 ---
 
 ## 7) What to implement first (MVP priority order)
+
+7) What to implement first (MVP priority order)
 
 1) config + ping (`config/*`, `nomad/client.py`, `cli ping`)
 2) discover (`GET /v1/nodes`)

@@ -1,15 +1,132 @@
-# fedctl CLI Spec (MVP + near-term extensions)
+# fedctl CLI Spec (aligned with the Nomad+Flower example flow)
 
-This document defines the **command-line interface**, **flags**, and **configuration layout** for `fedctl`, the tool that:
-1) connects to a remote Nomad cluster (via VPN or SSH tunnel),
-2) deploys Flower Fabric components (e.g., SuperLink/SuperNodes),
-3) discovers the reachable SuperLink address,
-4) patches the local project's `pyproject.toml` with a `remote-deployment` federation stanza,
-5) prints the command the user should run: `flwr run . remote-deployment --stream`.
+*Updated: 2026-01-19*
+
+This spec matches the **working example flow** you ran manually:
+
+1. Start Nomad agents from `server.hcl` + `client*.hcl`
+2. `nomad job run` for:
+   - `superlink.hcl`
+   - `supernode*.hcl`
+   - `superexec_serverapp.hcl`
+   - `superexec_clientapp*.hcl`
+3. Read SuperLink allocation to get **control API host:port**
+4. Patch `pyproject.toml` federation:
+   ```toml
+   [tool.flwr.federations.remote-deployment]
+   address = "<HOST>:<PORT>"
+   insecure = true
+   ```
+5. User runs: `flwr run . remote-deployment --stream`
+
+**Current networking plan:** SuperLink may land on any client node; remote reachability is via **Tailscale subnet routing**, so `fedctl` should output a LAN IP like `10.3.192.x:<port>`.
 
 ---
 
+## Global flags
+
+| Flag | Meaning |
+|---|---|
+| `--profile` | Select profile |
+| `--endpoint` | Nomad API base URL |
+| `--namespace` | Nomad namespace |
+| `--token` | Nomad ACL token (`NOMAD_TOKEN`) |
+| `--tls-ca` / `--tls-skip-verify` | TLS controls |
+| `--timeout` | HTTP timeout |
+| `--json` | JSON output |
+| `-v/--verbose` | Verbosity |
+
+---
+
+## Config files
+
+### User config (required): `~/.config/fedctl/config.toml`
+```toml
+active_profile = "lab-ts"
+
+[profiles.lab-ts]
+endpoint = "https://nomad.lab.domain:4646"
+namespace = "samuel"
+tls_ca = "/Users/samuel/.config/fedctl/lab-ca.pem"
+access_mode = "tailscale-subnet"
+
+[profiles.lab-ts.tailscale]
+subnet_cidr = "10.3.192.0/24"
+```
+
+Token is read from `NOMAD_TOKEN` or `--token` (do not store in config).
+
+### Repo config (optional): `.fedctl/fedctl.yaml`
+```yaml
+flwr_version: "1.23.0"
+federation_name: "remote-deployment"
+deploy:
+  superlink_port: 27738
+  hcl_dir: ".fedctl/hcl"
+configure:
+  insecure: true
+  backup: true
+```
+
+---
+
+## Commands
+
+### `fedctl doctor`
+Connectivity + access-mode guidance (VPN/tunnel/tailscale-subnet).
+- Calls `/v1/status/leader`, `/v1/agent/self`, `/v1/nodes`
+- If `tailscale-subnet`, prints what must be enabled (route approval, subnet router up).
+
+### `fedctl local up` / `fedctl local down` (laptop harness)
+Reproduces your PoC agent start commands.
+```bash
+fedctl local up --hcl server.hcl client1.hcl client2.hcl client3.hcl
+fedctl local down
+```
+Stores PIDs in state dir; waits for leader + clients.
+
+### `fedctl deploy`
+Deploy the full example stack (superlink + supernodes + superexec apps).
+```bash
+fedctl deploy . --name demo --hcl-dir ./nomad
+```
+Options:
+- `--superlink superlink.hcl`
+- `--supernode supernode1.hcl --supernode supernode2.hcl ...`
+- `--serverapp superexec_serverapp.hcl`
+- `--clientapp superexec_clientapp1.hcl --clientapp superexec_clientapp2.hcl ...`
+- `--dry-run`
+- (optional later) `--backend nomad-http|nomad-cli`
+
+Writes a manifest containing job names + resolved address.
+
+### `fedctl address`
+Resolves SuperLink control API as **node LAN IP + host port**:
+```bash
+fedctl address demo --format plain
+fedctl address demo --format toml
+```
+
+### `fedctl configure`
+Patches `pyproject.toml` federation stanza from `--exp` (or `--address` override).
+```bash
+fedctl configure . --exp demo
+```
+
+### `fedctl run`
+Golden path: deploy → address → configure → print `flwr run ...`.
+```bash
+fedctl run . --name demo --hcl-dir ./nomad --stream
+```
+
+### `fedctl status` / `fedctl destroy`
+- `status`: summarize allocations for all jobs in the deployment
+- `destroy`: deregister jobs in safe order (clientapps → serverapp → supernodes → superlink)
+
+
 ## 0) Mental model
+
+0) Mental model
 
 `fedctl` manages **deployments** on a remote lab cluster and writes **connection metadata** into the user's local Flower app so the user can run Flower CLI against the deployed Fabric.
 
@@ -21,7 +138,11 @@ Key objects:
 
 ## 1) Global conventions
 
-### 1.1 Exit codes (recommended)
+1) Global conventions
+
+## 1.1 Exit codes (recommended)
+
+1.1 Exit codes (recommended)
 - `0`: success
 - `1`: generic error
 - `2`: config error (missing/invalid endpoint, token, profile)
@@ -29,12 +150,16 @@ Key objects:
 - `4`: Nomad API error (permission, invalid job spec)
 - `5`: project error (missing pyproject, invalid toml)
 
-### 1.2 Output formats
+## 1.2 Output formats
+
+1.2 Output formats
 Default: human-readable.
 Optional:
 - `--json`: machine-readable structured output (where applicable)
 
-### 1.3 Environment variables
+## 1.3 Environment variables
+
+1.3 Environment variables
 - `NOMAD_TOKEN`: Nomad ACL token (preferred)
 - `FEDCTL_PROFILE`: overrides active profile name
 - `FEDCTL_ENDPOINT`: overrides endpoint (debug)
@@ -43,6 +168,8 @@ Optional:
 ---
 
 ## 2) Global flags (apply to all commands)
+
+2) Global flags (apply to all commands)
 
 | Flag | Type | Default | Purpose |
 |---|---|---:|---|
@@ -60,7 +187,11 @@ Optional:
 
 ## 3) Configuration file layout
 
-### 3.1 User-level config file (required)
+3) Configuration file layout
+
+## 3.1 User-level config file (required)
+
+3.1 User-level config file (required)
 Locations:
 - macOS/Linux: `~/.config/fedctl/config.toml`
 - Windows: `%APPDATA%\\fedctl\\config.toml`
@@ -91,7 +222,9 @@ Token handling (MVP):
 - if `--token` provided, use it for this invocation only
 - DO NOT store tokens in plaintext config for MVP
 
-### 3.2 Repo-level config file (optional)
+## 3.2 Repo-level config file (optional)
+
+3.2 Repo-level config file (optional)
 In the user’s Flower app repo:
 - `.fedctl/fedctl.yaml`
 
@@ -123,38 +256,54 @@ configure:
 
 ## 4) Commands
 
-### 4.1 `fedctl config`
+4) Commands
+
+## 4.1 `fedctl config`
+
+4.1 `fedctl config`
 Inspect and edit global config quickly.
 
-#### `fedctl config show`
+## `fedctl config show`
+
+`fedctl config show`
 Print active profile and settings (excluding secrets).
 ```bash
 fedctl config show
 ```
 
-#### `fedctl profile ls`
+## `fedctl profile ls`
+
+`fedctl profile ls`
 ```bash
 fedctl profile ls
 ```
 
-#### `fedctl profile add`
+## `fedctl profile add`
+
+`fedctl profile add`
 ```bash
 fedctl profile add NAME --endpoint URL [--namespace NS] [--tls-ca PATH] [--tls-skip-verify]
 ```
 
-#### `fedctl profile use`
+## `fedctl profile use`
+
+`fedctl profile use`
 ```bash
 fedctl profile use NAME
 ```
 
-#### `fedctl profile rm`
+## `fedctl profile rm`
+
+`fedctl profile rm`
 ```bash
 fedctl profile rm NAME
 ```
 
 ---
 
-### 4.2 `fedctl ping`
+## 4.2 `fedctl ping`
+
+4.2 `fedctl ping`
 Connectivity check: endpoint reachable, token valid, namespace accessible.
 ```bash
 fedctl ping
@@ -168,7 +317,9 @@ Outputs:
 
 ---
 
-### 4.3 `fedctl doctor`
+## 4.3 `fedctl doctor`
+
+4.3 `fedctl doctor`
 More verbose diagnostics, especially for tunnel/TLS issues.
 ```bash
 fedctl doctor
@@ -182,7 +333,9 @@ Checks:
 
 ---
 
-### 4.4 `fedctl discover`
+## 4.4 `fedctl discover`
+
+4.4 `fedctl discover`
 List nodes and capabilities.
 
 ```bash
@@ -205,7 +358,9 @@ Recommended output columns:
 
 ---
 
-### 4.5 `fedctl init`
+## 4.5 `fedctl init`
+
+4.5 `fedctl init`
 Create `.fedctl/` in the repo (optional helper).
 ```bash
 fedctl init [PATH] [--name NAME]
@@ -217,7 +372,9 @@ Creates:
 
 ---
 
-### 4.6 `fedctl build` (optional for MVP; but in your "ideal usecase")
+## 4.6 `fedctl build` (optional for MVP; but in your "ideal usecase")
+
+4.6 `fedctl build` (optional for MVP; but in your "ideal usecase")
 Build and optionally push user app image.
 
 ```bash
@@ -243,7 +400,9 @@ Outputs:
 
 ---
 
-### 4.7 `fedctl deploy`
+## 4.7 `fedctl deploy`
+
+4.7 `fedctl deploy`
 Deploy Flower Fabric to remote cluster via Nomad.
 
 ```bash
@@ -281,7 +440,9 @@ Outputs:
 
 ---
 
-### 4.8 `fedctl address`
+## 4.8 `fedctl address`
+
+4.8 `fedctl address`
 Resolve and print the reachable SuperLink address for a deployment.
 
 ```bash
@@ -300,7 +461,9 @@ Outputs:
 
 ---
 
-### 4.9 `fedctl configure`
+## 4.9 `fedctl configure`
+
+4.9 `fedctl configure`
 Patch `pyproject.toml` to add/update the federation stanza.
 
 ```bash
@@ -325,7 +488,9 @@ insecure = true
 
 ---
 
-### 4.10 `fedctl status`
+## 4.10 `fedctl status`
+
+4.10 `fedctl status`
 Show job and allocation health for the deployment.
 
 ```bash
@@ -339,7 +504,9 @@ Suggested info:
 
 ---
 
-### 4.11 `fedctl destroy`
+## 4.11 `fedctl destroy`
+
+4.11 `fedctl destroy`
 Stop and remove jobs created by the deployment.
 
 ```bash
@@ -352,7 +519,9 @@ Semantics:
 
 ---
 
-### 4.12 `fedctl run` (convenience golden-path)
+## 4.12 `fedctl run` (convenience golden-path)
+
+4.12 `fedctl run` (convenience golden-path)
 One command that does build→deploy→configure and prints the Flower command.
 
 ```bash
@@ -378,13 +547,19 @@ fedctl run . --name demo --clients 4 --push
 
 ## 5) Naming conventions
 
-### 5.1 Nomad job names
+5) Naming conventions
+
+## 5.1 Nomad job names
+
+5.1 Nomad job names
 `fedctl-{namespace}-{exp}-{component}` (keep short)
 Examples:
 - `fedctl-samuel-demo-superlink`
 - `fedctl-samuel-demo-supernode`
 
-### 5.2 Deployment manifest
+## 5.2 Deployment manifest
+
+5.2 Deployment manifest
 Stored under `${state.dir}/{namespace}/deployments/{exp}.json`
 Tracks:
 - endpoint used
@@ -397,6 +572,8 @@ Tracks:
 ---
 
 ## 6) Notes on VPN vs SSH tunnel
+
+6) Notes on VPN vs SSH tunnel
 
 `fedctl` does not “do VPN”; it just requires the endpoint to be reachable.
 

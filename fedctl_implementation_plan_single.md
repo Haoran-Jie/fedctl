@@ -1,16 +1,70 @@
-# `fedctl` Implementation Plan (Ordered Milestones)
+# `fedctl` Implementation Plan — updated for the example flow
 
-This plan is designed to get you to a **working MVP quickly**, while keeping the architecture clean enough to extend (network shaping, fault injection, richer scheduling, logs, etc.).
+*Updated: 2026-01-19*
 
-Assumptions:
-- `fedctl` is a **local CLI** installed on a user machine.
-- `fedctl` controls the remote lab cluster **only via Nomad HTTP API**.
-- SuperLink is pinned to a **management node** with a stable hostname and (ideally) a fixed host port (so users can reach it from VPN/SSH tunnel).
-- Users run: `flwr run . remote-deployment --stream` locally after `fedctl configure`.
+MVP target: fully automate your manual run:
+- start local Nomad (for testing)
+- submit the Flower Fabric jobs
+- resolve SuperLink control API address
+- patch `pyproject.toml`
+- print the final `flwr run ... --stream` command
+
+Networking (current plan): Tailscale subnet routing → LAN IP reachability.
 
 ---
 
+## M0 — Repo skeleton + CLI entrypoint
+- installable package, `fedctl --help`, pytest smoke
+
+## M1 — Profiles/config + Nomad token
+- user config (`~/.config/fedctl/config.toml`)
+- `access_mode=tailscale-subnet` fields
+- env/flag overrides
+
+## M2 — Nomad HTTP client + doctor
+- `/v1/status/leader`, `/v1/agent/self`, `/v1/nodes`
+- helpful TLS/token/access-mode diagnostics
+
+## M3 — Local harness (laptop testbed)
+- `fedctl local up/down` to spawn `nomad agent -config=...`
+- wait for leader + clients
+
+## M4 — Deploy stack (multiple jobs)
+- `fedctl deploy --hcl-dir ...`
+- submit jobs via `POST /v1/jobs` (or later, add `--backend=nomad-cli`)
+- wait for SuperLink alloc running
+- write manifest
+
+## M5 — Resolve SuperLink address (dynamic placement)
+- alloc → node → port (`/v1/job/.../allocations`, `/v1/allocation/<id>`, `/v1/node/<id>`)
+- `fedctl address`
+
+## M6 — Patch user repo
+- `fedctl configure` inserts federation stanza
+- idempotent, backup
+
+## M7 — Golden path
+- `fedctl run` = deploy + configure + print `flwr run . remote-deployment --stream`
+
+## M8 — Ops
+- `status` + `destroy` (safe deregister order)
+
+---
+
+## Definition of done
+On laptop:
+1) `fedctl local up --hcl server.hcl client1.hcl ...`
+2) `fedctl run . --name demo --hcl-dir ./nomad`
+3) `flwr run . remote-deployment --stream`
+4) `fedctl destroy demo`
+5) `fedctl local down`
+
+Then later you switch profiles to the lab Nomad endpoint and reuse the same workflow.
+
+
 ## Milestone 0 — Repo + packaging skeleton (0.5 day)
+
+Milestone 0 — Repo + packaging skeleton (0.5 day)
 
 **Goal:** You can install and run `fedctl` locally, and CI/tests run.
 
@@ -35,6 +89,8 @@ Files:
 
 ## Milestone 1 — Config + profiles + auth plumbing (0.5–1 day)
 
+Milestone 1 — Config + profiles + auth plumbing (0.5–1 day)
+
 **Goal:** `fedctl` can load profiles and produce an “effective config” (endpoint, namespace, TLS).
 
 Deliverables:
@@ -56,6 +112,8 @@ Files:
 ---
 
 ## Milestone 2 — Nomad client wrapper + `ping`/`doctor` (1 day)
+
+Milestone 2 — Nomad client wrapper + `ping`/`doctor` (1 day)
 
 **Goal:** `fedctl` can connect to Nomad reliably with helpful errors (TLS mismatch, missing token, etc.).
 
@@ -80,6 +138,8 @@ Files:
 
 ## Milestone 3 — Node discovery (`discover`) (0.5 day)
 
+Milestone 3 — Node discovery (`discover`) (0.5 day)
+
 **Goal:** users can see available nodes and their scheduling attributes (pi/jetson/management).
 
 Deliverables:
@@ -98,6 +158,8 @@ Files:
 ---
 
 ## Milestone 4 — Project validation + pyproject parsing (0.5–1 day)
+
+Milestone 4 — Project validation + pyproject parsing (0.5–1 day)
 
 **Goal:** `fedctl` can confirm “this directory is a Flower app repo” and read key metadata.
 
@@ -118,6 +180,8 @@ Files:
 ---
 
 ## Milestone 5 — Render Nomad job specs (dry-run deploy) (1–1.5 days)
+
+Milestone 5 — Render Nomad job specs (dry-run deploy) (1–1.5 days)
 
 **Goal:** `fedctl deploy --dry-run` produces correct Nomad job JSON for SuperLink + SuperNodes.
 
@@ -147,6 +211,8 @@ Files:
 
 ## Milestone 6 — Submit jobs + wait for readiness (real deploy) (1–2 days)
 
+Milestone 6 — Submit jobs + wait for readiness (real deploy) (1–2 days)
+
 **Goal:** `fedctl deploy` can create jobs on Nomad and wait until SuperLink is running.
 
 Deliverables:
@@ -169,6 +235,8 @@ Files:
 
 ## Milestone 7 — Address resolution + `fedctl address` (0.5 day)
 
+Milestone 7 — Address resolution + `fedctl address` (0.5 day)
+
 **Goal:** compute the federation address reliably and print it (and optionally the Flower command).
 
 Deliverables:
@@ -187,6 +255,8 @@ Files:
 ---
 
 ## Milestone 8 — Patch `pyproject.toml` (`configure`) (0.5–1 day)
+
+Milestone 8 — Patch `pyproject.toml` (`configure`) (0.5–1 day)
 
 **Goal:** update the user project with the remote deployment federation stanza.
 
@@ -213,6 +283,8 @@ Files:
 
 ## Milestone 9 — End-to-end `fedctl run` (0.5 day)
 
+Milestone 9 — End-to-end `fedctl run` (0.5 day)
+
 **Goal:** one command does deploy + configure (build optional later).
 
 Deliverables:
@@ -227,6 +299,8 @@ Acceptance criteria:
 ---
 
 ## Milestone 10 — Destroy + status (0.5–1 day)
+
+Milestone 10 — Destroy + status (0.5–1 day)
 
 **Goal:** basic ops commands for shared lab usability.
 
@@ -250,21 +324,31 @@ Files:
 # Optional milestones (post-MVP)
 
 ## M11 — Build & push image (1 day)
+
+M11 — Build & push image (1 day)
 - `fedctl build` generates Dockerfile + runs docker build/push
 - integrate into `fedctl run`
 
 ## M12 — Logs (1 day)
+
+M12 — Logs (1 day)
 - implement Nomad log endpoint usage or artifact-based logs
 
 ## M13 — Service discovery / Consul (2+ days)
+
+M13 — Service discovery / Consul (2+ days)
 - register SuperLink, use stable service name instead of IP/port discovery
 
 ## M14 — Network shaping / faults (2–5 days)
+
+M14 — Network shaping / faults (2–5 days)
 - add netem/toxiproxy jobs and “profiles”
 
 ---
 
 ## Suggested MVP stopping point
+
+Suggested MVP stopping point
 
 A defensible dissertation MVP is completing **M0–M10**:
 - reproducible deploy/configure
