@@ -50,6 +50,10 @@ def test_status_leader_parses_string(monkeypatch) -> None:
     def fake_get(path: str):
         return DummyResp(status_code=200, text='"10.0.0.1:4647"', headers={"content-type": "text/plain"})
 
-    monkeypatch.setattr(client._client, "get", lambda path: fake_get(path))
+    monkeypatch.setattr(
+        client._client,
+        "request",
+        lambda method, path, json=None: fake_get(path),
+    )
     assert client.status_leader() == "10.0.0.1:4647"
     client.close()

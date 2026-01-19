@@ -26,12 +26,16 @@ def wait_for_superlink(
     deadline = time.monotonic() + timeout_seconds
     last_status: str | None = None
 
-    while time.monotonic() < deadline:
+    while True:
+        if time.monotonic() >= deadline:
+            break
+        
         alloc_id = _find_superlink_alloc(client, job_name)
+        print(0)
         if not alloc_id:
             time.sleep(poll_interval)
             continue
-
+        print(1)
         alloc = client.allocation(alloc_id)
         status = _alloc_status(alloc)
         last_status = status or last_status
@@ -55,7 +59,6 @@ def wait_for_superlink(
             )
             node_id = alloc.get("NodeID") if isinstance(alloc.get("NodeID"), str) else None
             return SuperlinkAllocation(alloc_id=alloc_id, node_id=node_id, ports=ports)
-
         time.sleep(poll_interval)
 
     msg = "Timed out waiting for SuperLink to become ready."
@@ -73,7 +76,8 @@ def _find_superlink_alloc(client: NomadClient, job_name: str) -> str | None:
         if not isinstance(alloc, dict):
             continue
         alloc_id = alloc.get("ID")
-        if isinstance(alloc_id, str) and alloc_id:
+        status = alloc.get("ClientStatus")
+        if isinstance(alloc_id, str) and alloc_id and status == "running":
             return alloc_id
     return None
 

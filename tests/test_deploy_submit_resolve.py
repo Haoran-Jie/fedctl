@@ -1,0 +1,75 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from fedctl.deploy import naming
+from fedctl.deploy.render import render_deploy
+from fedctl.deploy.resolve import wait_for_superlink
+from fedctl.deploy.spec import default_deploy_spec
+from fedctl.deploy.submit import submit_jobs
+
+
+def test_submit_jobs_order() -> None:
+    spec = default_deploy_spec(num_supernodes=2)
+    rendered = render_deploy(spec)
+
+    client = DummySubmitClient()
+    submitted = submit_jobs(client, rendered)
+
+    assert submitted == [
+        naming.job_superlink(),
+        naming.job_supernodes(),
+        naming.job_superexec_serverapp(),
+        naming.job_superexec_clientapp(1),
+        naming.job_superexec_clientapp(2),
+    ]
+
+    assert client.submitted == submitted
+
+
+def test_wait_for_superlink_success() -> None:
+    client = DummyResolveClient()
+    result = wait_for_superlink(client, timeout_seconds=5, poll_interval=0.2)
+
+    assert result.alloc_id == "alloc-1"
+    assert result.node_id == "node-123"
+    assert result.ports == {"control": 27738, "fleet": 27739, "serverappio": 27740}
+
+
+class DummySubmitClient:
+    def __init__(self) -> None:
+        self.submitted: list[str] = []
+
+    def submit_job(self, job: dict) -> None:
+        name = job.get("Job", {}).get("Name")
+        if isinstance(name, str):
+            self.submitted.append(name)
+
+
+@dataclass
+class DummyResolveClient:
+    def job_allocations(self, job_name: str) -> list[dict]:
+        assert job_name == naming.job_superlink()
+        return [{"ID": "alloc-1", "ClientStatus": "running"}]
+
+    def allocation(self, alloc_id: str) -> dict:
+        assert alloc_id == "alloc-1"
+        return {
+            "ID": "alloc-1",
+            "NodeID": "node-123",
+            "ClientStatus": "running",
+            "TaskStates": {"superlink": {"State": "running"}},
+            "AllocatedResources": {
+                "Shared": {
+                    "Networks": [
+                        {
+                            "DynamicPorts": [
+                                {"Label": "control", "Value": 27738},
+                                {"Label": "fleet", "Value": 27739},
+                                {"Label": "serverappio", "Value": 27740},
+                            ]
+                        }
+                    ]
+                }
+            },
+        }
