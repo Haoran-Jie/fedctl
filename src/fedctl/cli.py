@@ -4,7 +4,10 @@ import typer
 from rich import print
 from rich.table import Table
 
+from fedctl.commands.discover import run_discover
 from fedctl.commands.doctor import run_doctor
+from fedctl.commands.local import run_local_down, run_local_status, run_local_up
+from fedctl.commands.ping import run_ping
 from fedctl.config.io import load_config, load_raw_toml, save_raw_toml
 from fedctl.config.merge import get_effective_config
 
@@ -12,8 +15,10 @@ app = typer.Typer(add_completion=False, help="fedctl CLI")
 
 config_app = typer.Typer(help="Manage fedctl configuration")
 profile_app = typer.Typer(help="Manage profiles")
+local_app = typer.Typer(help="Local Nomad harness")
 app.add_typer(config_app, name="config")
 app.add_typer(profile_app, name="profile")
+app.add_typer(local_app, name="local")
 
 
 @app.callback(invoke_without_command=True)
@@ -137,3 +142,96 @@ def doctor(
             tls_skip_verify=tls_skip_verify,
         )
     )
+
+
+@app.command()
+def ping(
+    profile: str = typer.Option(None, "--profile"),
+    endpoint: str = typer.Option(None, "--endpoint"),
+    namespace: str = typer.Option(None, "--namespace"),
+    token: str = typer.Option(None, "--token"),
+    tls_ca: str = typer.Option(None, "--tls-ca"),
+    tls_skip_verify: bool = typer.Option(None, "--tls-skip-verify"),
+) -> None:
+    """Quick connectivity check to Nomad (/v1/status/leader)."""
+    raise SystemExit(
+        run_ping(
+            profile=profile,
+            endpoint=endpoint,
+            namespace=namespace,
+            token=token,
+            tls_ca=tls_ca,
+            tls_skip_verify=tls_skip_verify,
+        )
+    )
+
+
+@app.command()
+def discover(
+    profile: str = typer.Option(None, "--profile"),
+    endpoint: str = typer.Option(None, "--endpoint"),
+    namespace: str = typer.Option(None, "--namespace"),
+    token: str = typer.Option(None, "--token"),
+    tls_ca: str = typer.Option(None, "--tls-ca"),
+    tls_skip_verify: bool = typer.Option(None, "--tls-skip-verify"),
+    wide: bool = typer.Option(False, "--wide"),
+    json_output: bool = typer.Option(False, "--json"),
+    device: str = typer.Option(None, "--device"),
+    status: str = typer.Option(None, "--status"),
+    node_class: str = typer.Option(None, "--class"),
+) -> None:
+    """List Nomad nodes and their labels."""
+    raise SystemExit(
+        run_discover(
+            profile=profile,
+            endpoint=endpoint,
+            namespace=namespace,
+            token=token,
+            tls_ca=tls_ca,
+            tls_skip_verify=tls_skip_verify,
+            wide=wide,
+            json_output=json_output,
+            device=device,
+            status=status,
+            node_class=node_class,
+        )
+    )
+
+
+@local_app.command("up")
+def local_up(
+    server: str = typer.Option(..., "--server"),
+    client: list[str] = typer.Option([], "--client", "-c"),
+    wipe: bool = typer.Option(False, "--wipe"),
+    wait_seconds: int = typer.Option(30, "--wait-seconds"),
+    expected_nodes: int | None = typer.Option(None, "--expected-nodes"),
+    endpoint: str = typer.Option("http://127.0.0.1:4646", "--endpoint"),
+) -> None:
+    """Start a local Nomad harness from HCL configs."""
+    if not client:
+        raise typer.BadParameter("At least one --client is required.")
+    raise SystemExit(
+        run_local_up(
+            server_config=server,
+            client_configs=client,
+            wipe=wipe,
+            wait_seconds=wait_seconds,
+            expected_nodes=expected_nodes,
+            endpoint=endpoint,
+        )
+    )
+
+
+@local_app.command("down")
+def local_down(
+    wipe: bool = typer.Option(False, "--wipe"),
+    force: bool = typer.Option(False, "--force"),
+) -> None:
+    """Stop the local Nomad harness."""
+    raise SystemExit(run_local_down(wipe=wipe, force=force))
+
+
+@local_app.command("status")
+def local_status() -> None:
+    """Show local harness status."""
+    raise SystemExit(run_local_status())
