@@ -4,6 +4,7 @@ import typer
 from rich import print
 from rich.table import Table
 
+from fedctl.commands.doctor import run_doctor
 from fedctl.config.io import load_config, load_raw_toml, save_raw_toml
 from fedctl.config.merge import get_effective_config
 
@@ -114,3 +115,25 @@ def profile_rm(name: str) -> None:
     del doc["profiles"][name]
     save_raw_toml(doc)
     print(f"Removed profile: [bold]{name}[/bold]")
+
+
+@app.command()
+def doctor(
+    profile: str = typer.Option(None, "--profile"),
+    endpoint: str = typer.Option(None, "--endpoint"),
+    namespace: str = typer.Option(None, "--namespace"),
+    token: str = typer.Option(None, "--token"),
+    tls_ca: str = typer.Option(None, "--tls-ca"),
+    tls_skip_verify: bool = typer.Option(None, "--tls-skip-verify"),
+) -> None:
+    """Check connectivity/auth/TLS to Nomad."""
+    raise SystemExit(
+        run_doctor(
+            profile=profile,
+            endpoint=endpoint,
+            namespace=namespace,
+            token=token,
+            tls_ca=tls_ca,
+            tls_skip_verify=tls_skip_verify,
+        )
+    )

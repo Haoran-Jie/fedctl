@@ -1,0 +1,77 @@
+from __future__ import annotations
+
+from typing import Any, Dict
+
+import httpx
+
+from fedctl.config.schema import EffectiveConfig
+from .errors import NomadConnectionError, NomadHTTPError, NomadTLSError
+
+
+class NomadClient:
+    def __init__(self, cfg: EffectiveConfig):
+        self.cfg = cfg
+
+        headers: Dict[str, str] = {}
+        if cfg.nomad_token:
+            headers["X-Nomad-Token"] = cfg.nomad_token
+        if cfg.namespace:
+            headers["X-Nomad-Namespace"] = cfg.namespace
+
+        verify: Any = True
+        if cfg.endpoint.startswith("https://"):
+            if cfg.tls_skip_verify:
+                verify = False
+            elif cfg.tls_ca:
+                verify = cfg.tls_ca
+            else:
+                verify = True
+        else:
+            verify = True
+
+        self._client = httpx.Client(
+            base_url=cfg.endpoint.rstrip("/"),
+            headers=headers,
+            verify=verify,
+            timeout=10.0,
+        )
+
+    def close(self) -> None:
+        self._client.close()
+
+    def _get(self, path: str) -> Any:
+        try:
+            r = self._client.get(path)
+        except httpx.ConnectError as e:
+            raise NomadConnectionError(str(e)) from e
+        except httpx.ReadTimeout as e:
+            raise NomadConnectionError(f"Timeout: {e}") from e
+        except httpx.TransportError as e:
+            msg = str(e)
+            if "CERTIFICATE_VERIFY_FAILED" in msg or "certificate" in msg.lower():
+                raise NomadTLSError(msg) from e
+            raise NomadConnectionError(msg) from e
+
+        if r.status_code >= 400:
+            text = r.text.strip()
+            raise NomadHTTPError(r.status_code, text[:500])
+
+        ct = r.headers.get("content-type", "")
+        if "application/json" in ct:
+            return r.json()
+        return r.text
+
+    def status_leader(self) -> str:
+        data = self._get("/v1/status/leader")
+        if isinstance(data, str):
+            return data.strip().strip('"')
+        return str(data)
+
+    def agent_self(self) -> Dict[str, Any]:
+        data = self._get("/v1/agent/self")
+        if not isinstance(data, dict):
+            raise NomadHTTPError(500, "Unexpected response for agent self")
+        return data
+
+    def nodes(self) -> Any:
+        return self._get("/v1/nodes")
