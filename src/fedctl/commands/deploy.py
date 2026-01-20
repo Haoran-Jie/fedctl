@@ -11,7 +11,7 @@ from fedctl.deploy import naming
 from fedctl.deploy.errors import DeployError
 from fedctl.deploy.render import RenderedJobs, render_deploy
 from fedctl.deploy.resolve import wait_for_superlink
-from fedctl.deploy.spec import default_deploy_spec
+from fedctl.deploy.spec import default_deploy_spec, normalize_experiment_name
 from fedctl.deploy.submit import submit_jobs
 from fedctl.nomad.client import NomadClient
 from fedctl.nomad.errors import NomadConnectionError, NomadHTTPError, NomadTLSError
@@ -29,6 +29,7 @@ def run_deploy(
     fmt: str = "json",
     num_supernodes: int = 2,
     image: str | None = None,
+    experiment: str | None = None,
     timeout_seconds: int = 120,
     no_wait: bool = False,
     profile: str | None = None,
@@ -51,19 +52,25 @@ def run_deploy(
         console.print("[red]✗ --out is only supported with --dry-run.[/red]")
         return 1
 
-    spec = default_deploy_spec(num_supernodes=num_supernodes, image=image)
-    try:
-        rendered = render_deploy(spec)
-    except Exception as exc:
-        console.print(f"[red]✗ Render error:[/red] {exc}")
-        return 1
-
-    if out:
-        _write_rendered(Path(out), rendered)
-        console.print(f"[green]✓ Rendered jobs to:[/green] {out}")
-        return 0
-
     if dry_run:
+        exp_name = normalize_experiment_name(experiment or "experiment")
+        spec = default_deploy_spec(
+            num_supernodes=num_supernodes,
+            image=image,
+            namespace=namespace or "default",
+            experiment=exp_name,
+        )
+        try:
+            rendered = render_deploy(spec)
+        except Exception as exc:
+            console.print(f"[red]✗ Render error:[/red] {exc}")
+            return 1
+
+        if out:
+            _write_rendered(Path(out), rendered)
+            console.print(f"[green]✓ Rendered jobs to:[/green] {out}")
+            return 0
+
         bundle = _bundle_json(rendered)
         print(json.dumps(bundle, indent=2, sort_keys=True))
         return 0
@@ -83,6 +90,19 @@ def run_deploy(
         console.print(f"[red]✗ Config error:[/red] {exc}")
         return 1
 
+    exp_name = normalize_experiment_name(experiment or "experiment")
+    spec = default_deploy_spec(
+        num_supernodes=num_supernodes,
+        image=image,
+        namespace=eff.namespace or "default",
+        experiment=exp_name,
+    )
+    try:
+        rendered = render_deploy(spec)
+    except Exception as exc:
+        console.print(f"[red]✗ Render error:[/red] {exc}")
+        return 1
+
     client = NomadClient(eff)
     try:
         submit_jobs(client, rendered)
@@ -91,10 +111,16 @@ def run_deploy(
             return 0
 
         superlink_alloc = wait_for_superlink(
-            client, timeout_seconds=timeout_seconds
+            client,
+            job_name=rendered.superlink["Job"]["Name"],
+            timeout_seconds=timeout_seconds,
         )
         manifest = _build_manifest(rendered, superlink_alloc)
-        path = write_manifest(manifest, namespace=namespace or "default")
+        path = write_manifest(
+            manifest,
+            namespace=eff.namespace or "default",
+            experiment=exp_name,
+        )
         console.print(f"[green]✓ Deployment ready.[/green] Manifest: {path}")
         return 0
 
@@ -129,18 +155,21 @@ def run_deploy(
 
 def _bundle_json(rendered: RenderedJobs) -> dict[str, object]:
     return {
-        naming.job_superlink(): rendered.superlink,
-        naming.job_supernodes(): rendered.supernodes,
-        naming.job_superexec_serverapp(): rendered.superexec_serverapp,
+        rendered.superlink["Job"]["Name"]: rendered.superlink,
+        rendered.supernodes["Job"]["Name"]: rendered.supernodes,
+        rendered.superexec_serverapp["Job"]["Name"]: rendered.superexec_serverapp,
         "superexec-clientapps": rendered.superexec_clientapps,
     }
 
 
 def _write_rendered(out_dir: Path, rendered: RenderedJobs) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
-    _write_job(out_dir / f"{naming.job_superlink()}.json", rendered.superlink)
-    _write_job(out_dir / f"{naming.job_supernodes()}.json", rendered.supernodes)
-    _write_job(out_dir / f"{naming.job_superexec_serverapp()}.json", rendered.superexec_serverapp)
+    _write_job(out_dir / f"{rendered.superlink['Job']['Name']}.json", rendered.superlink)
+    _write_job(out_dir / f"{rendered.supernodes['Job']['Name']}.json", rendered.supernodes)
+    _write_job(
+        out_dir / f"{rendered.superexec_serverapp['Job']['Name']}.json",
+        rendered.superexec_serverapp,
+    )
     for job in rendered.superexec_clientapps:
         name = job.get("Job", {}).get("Name")
         if isinstance(name, str) and name:
@@ -161,12 +190,13 @@ def _build_manifest(
         raise DeployError("Unexpected SuperLink allocation result.")
 
     jobs = {
-        "superlink": naming.job_superlink(),
-        "supernodes": naming.job_supernodes(),
-        "superexec-serverapp": naming.job_superexec_serverapp(),
+        "superlink": rendered.superlink["Job"]["Name"],
+        "supernodes": rendered.supernodes["Job"]["Name"],
+        "superexec-serverapp": rendered.superexec_serverapp["Job"]["Name"],
         "superexec-clientapps": [
-            naming.job_superexec_clientapp(i)
-            for i in range(1, len(rendered.superexec_clientapps) + 1)
+            job["Job"]["Name"]
+            for job in rendered.superexec_clientapps
+            if isinstance(job.get("Job", {}).get("Name"), str)
         ],
     }
     superlink = SuperlinkManifest(
@@ -174,9 +204,14 @@ def _build_manifest(
         node_id=superlink_alloc.node_id,
         ports=superlink_alloc.ports,
     )
+    superlink_name = rendered.superlink.get("Job", {}).get("Name", "")
+    experiment = (
+        superlink_name[: -len("-superlink")] if superlink_name.endswith("-superlink") else ""
+    )
     return DeploymentManifest(
         schema_version=1,
         deployment_id=new_deployment_id(),
+        experiment=experiment or "experiment",
         jobs=jobs,
         superlink=superlink,
     )

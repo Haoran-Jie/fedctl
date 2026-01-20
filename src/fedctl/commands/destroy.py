@@ -1,27 +1,22 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from rich.console import Console
 
 from fedctl.config.io import load_config
 from fedctl.config.merge import get_effective_config
-from fedctl.deploy.errors import DeployError
-from fedctl.deploy.resolve import resolve_superlink_address
+from fedctl.deploy.destroy import destroy_all_experiments, destroy_experiment
 from fedctl.nomad.client import NomadClient
 from fedctl.nomad.errors import NomadConnectionError, NomadHTTPError, NomadTLSError
-from fedctl.project.pyproject_patch import patch_remote_deployment
 
 console = Console()
 
 
-def run_configure(
+def run_destroy(
     *,
-    path: str = ".",
+    experiment: str | None,
+    destroy_all: bool = False,
     namespace: str | None = None,
-    backup: bool = True,
-    show_next: bool = True,
-    experiment: str | None = None,
+    purge: bool = False,
     profile: str | None = None,
     endpoint: str | None = None,
     token: str | None = None,
@@ -45,24 +40,28 @@ def run_configure(
 
     client = NomadClient(eff)
     try:
-        addr = resolve_superlink_address(
-            client,
-            namespace=eff.namespace or "default",
-            experiment=experiment,
-        )
-        patched_path = patch_remote_deployment(
-            Path(path), address=addr, insecure=True, backup=backup
-        )
-        console.print(f"[green]✓ Updated[/green] {patched_path}")
-        if show_next:
-            console.print(
-                f"Next step:\n  flwr run {patched_path} remote-deployment --stream"
+        if destroy_all:
+            job_names = destroy_all_experiments(
+                client,
+                namespace=eff.namespace or "default",
+                purge=purge,
             )
+        else:
+            if not experiment:
+                console.print("[red]✗ Missing experiment name.[/red] Use --all to destroy all.")
+                return 1
+            job_names = destroy_experiment(
+                client,
+                experiment=experiment,
+                namespace=eff.namespace or "default",
+                purge=purge,
+            )
+        if not job_names:
+            console.print("[yellow]No jobs found for experiment.[/yellow]")
+        else:
+            for name in job_names:
+                console.print(f"[green]✓ Stopped job:[/green] {name}")
         return 0
-
-    except (DeployError, FileNotFoundError, ValueError) as exc:
-        console.print(f"[red]✗ Configure error:[/red] {exc}")
-        return 1
 
     except NomadTLSError as exc:
         console.print(f"[red]✗ TLS error:[/red] {exc}")

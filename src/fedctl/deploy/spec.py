@@ -32,6 +32,8 @@ class SuperExecSpec:
 @dataclass(frozen=True)
 class DeploySpec:
     datacenter: str
+    namespace: str
+    experiment: str
     flwr_version: str
     insecure: bool
     superlink: SuperLinkSpec
@@ -39,12 +41,25 @@ class DeploySpec:
     superexec: SuperExecSpec
 
 
-def default_deploy_spec(num_supernodes: int = 2, *, image: str) -> DeploySpec:
+def default_deploy_spec(
+    num_supernodes: int = 2,
+    *,
+    image: str,
+    namespace: str = "default",
+    experiment: str,
+) -> DeploySpec:
     return DeploySpec(
         datacenter="dc1",
+        namespace=namespace,
+        experiment=experiment,
         flwr_version="1.23.0",
         insecure=True,
         superlink=SuperLinkSpec(),
         supernodes=SuperNodesSpec(count=num_supernodes),
         superexec=SuperExecSpec(image=image),
     )
+
+
+def normalize_experiment_name(value: str) -> str:
+    cleaned = value.strip().replace(" ", "-")
+    return cleaned or "experiment"

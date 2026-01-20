@@ -24,6 +24,7 @@ class SuperlinkManifest:
 class DeploymentManifest:
     schema_version: int
     deployment_id: str
+    experiment: str
     jobs: dict[str, object]
     superlink: SuperlinkManifest
 
@@ -31,6 +32,7 @@ class DeploymentManifest:
         return {
             "schema_version": self.schema_version,
             "deployment_id": self.deployment_id,
+            "experiment": self.experiment,
             "jobs": self.jobs,
             "superlink": self.superlink.to_dict(),
         }

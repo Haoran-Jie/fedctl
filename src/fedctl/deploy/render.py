@@ -85,24 +85,25 @@ def _superlink_context(spec: DeploySpec) -> dict[str, Any]:
         args = [arg for arg in args if arg != "--insecure"]
 
     return {
-        "job_name": naming.job_superlink(),
+        "job_name": naming.job_superlink(spec.experiment),
         "datacenters": [spec.datacenter],
+        "namespace": spec.namespace,
         "node_class": spec.superlink.node_class,
         "image": f"flwr/superlink:{spec.flwr_version}",
         "ports": ["serverappio", "fleet", "control"],
         "services": [
             {
-                "Name": naming.service_superlink_serverappio(),
+                "Name": naming.service_superlink_serverappio(spec.experiment),
                 "PortLabel": "serverappio",
                 "Provider": "nomad",
             },
             {
-                "Name": naming.service_superlink_fleet(),
+                "Name": naming.service_superlink_fleet(spec.experiment),
                 "PortLabel": "fleet",
                 "Provider": "nomad",
             },
             {
-                "Name": naming.service_superlink_control(),
+                "Name": naming.service_superlink_control(spec.experiment),
                 "PortLabel": "control",
                 "Provider": "nomad",
             },
@@ -118,8 +119,11 @@ def _supernodes_context(spec: DeploySpec) -> dict[str, Any]:
     for index in range(1, spec.supernodes.count + 1):
         group_name = f"supernode-{index}"
         task_name = group_name
-        service_name = naming.service_supernode_clientappio(index)
-        template_data = _nomad_service_env(naming.service_superlink_fleet(), "SUP_LINK_ADDR")
+        service_name = naming.service_supernode_clientappio(spec.experiment, index)
+        template_data = _nomad_service_env(
+            naming.service_superlink_fleet(spec.experiment),
+            "SUP_LINK_ADDR",
+        )
         args = [
             "--insecure",
             "--superlink",
@@ -172,8 +176,9 @@ def _supernodes_context(spec: DeploySpec) -> dict[str, Any]:
         )
 
     return {
-        "job_name": naming.job_supernodes(),
+        "job_name": naming.job_supernodes(spec.experiment),
         "datacenters": [spec.datacenter],
+        "namespace": spec.namespace,
         "node_class": spec.supernodes.node_class,
         "task_groups": task_groups,
     }
@@ -193,14 +198,15 @@ def _superexec_serverapp_context(spec: DeploySpec) -> dict[str, Any]:
         args = [arg for arg in args if arg != "--insecure"]
 
     return {
-        "job_name": naming.job_superexec_serverapp(),
+        "job_name": naming.job_superexec_serverapp(spec.experiment),
         "datacenters": [spec.datacenter],
+        "namespace": spec.namespace,
         "node_class": spec.superexec.node_class_link,
         "image": spec.superexec.image,
         "entrypoint": ["flower-superexec"],
         "args": args,
         "template_data": _nomad_service_env(
-            naming.service_superlink_serverappio(), "SERVERAPP_IO"
+            naming.service_superlink_serverappio(spec.experiment), "SERVERAPP_IO"
         ),
         "cpu": spec.superexec.cpu,
         "memory_mb": spec.superexec.memory_mb,
@@ -222,14 +228,15 @@ def _superexec_clientapp_context(spec: DeploySpec, index: int) -> dict[str, Any]
         args = [arg for arg in args if arg != "--insecure"]
 
     return {
-        "job_name": naming.job_superexec_clientapp(index),
+        "job_name": naming.job_superexec_clientapp(spec.experiment, index),
         "datacenters": [spec.datacenter],
+        "namespace": spec.namespace,
         "node_class": spec.superexec.node_class_node,
         "image": spec.superexec.image,
         "entrypoint": ["flower-superexec"],
         "args": args,
         "template_data": _nomad_service_env(
-            naming.service_supernode_clientappio(index), "CLIENT_IO"
+            naming.service_supernode_clientappio(spec.experiment, index), "CLIENT_IO"
         ),
         "cpu": spec.superexec.cpu,
         "memory_mb": spec.superexec.memory_mb,
@@ -268,15 +275,15 @@ def _validate_jobs(
     supernodes_services = _collect_service_names(supernodes["Job"])
 
     required_superlink = {
-        naming.service_superlink_fleet(),
-        naming.service_superlink_serverappio(),
+        naming.service_superlink_fleet(spec.experiment),
+        naming.service_superlink_serverappio(spec.experiment),
     }
     if not required_superlink.issubset(superlink_services):
         missing = required_superlink - superlink_services
         raise ValueError(f"superlink missing services: {sorted(missing)}")
 
     for index in range(1, spec.supernodes.count + 1):
-        name = naming.service_supernode_clientappio(index)
+        name = naming.service_supernode_clientappio(spec.experiment, index)
         if name not in supernodes_services:
             raise ValueError(f"supernodes missing service: {name}")
 

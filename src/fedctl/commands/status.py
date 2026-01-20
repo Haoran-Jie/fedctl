@@ -1,27 +1,22 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 from rich.console import Console
 
 from fedctl.config.io import load_config
 from fedctl.config.merge import get_effective_config
-from fedctl.deploy.errors import DeployError
-from fedctl.deploy.resolve import resolve_superlink_address
+from fedctl.deploy.status import fetch_status
 from fedctl.nomad.client import NomadClient
 from fedctl.nomad.errors import NomadConnectionError, NomadHTTPError, NomadTLSError
-from fedctl.project.pyproject_patch import patch_remote_deployment
+from fedctl.util.console import print_table
 
 console = Console()
 
 
-def run_configure(
+def run_status(
     *,
-    path: str = ".",
+    experiment: str | None,
+    show_all: bool = False,
     namespace: str | None = None,
-    backup: bool = True,
-    show_next: bool = True,
-    experiment: str | None = None,
     profile: str | None = None,
     endpoint: str | None = None,
     token: str | None = None,
@@ -43,26 +38,20 @@ def run_configure(
         console.print(f"[red]✗ Config error:[/red] {exc}")
         return 1
 
+    if not show_all and not experiment:
+        console.print("[red]✗ Missing experiment name.[/red] Use --all to show all.")
+        return 1
+
     client = NomadClient(eff)
     try:
-        addr = resolve_superlink_address(
+        statuses = fetch_status(
             client,
-            namespace=eff.namespace or "default",
             experiment=experiment,
+            all_experiments=show_all,
         )
-        patched_path = patch_remote_deployment(
-            Path(path), address=addr, insecure=True, backup=backup
-        )
-        console.print(f"[green]✓ Updated[/green] {patched_path}")
-        if show_next:
-            console.print(
-                f"Next step:\n  flwr run {patched_path} remote-deployment --stream"
-            )
+        rows = [[s.name, s.status, str(s.running)] for s in statuses]
+        print_table("Jobs", ["Job", "Status", "Running"], rows)
         return 0
-
-    except (DeployError, FileNotFoundError, ValueError) as exc:
-        console.print(f"[red]✗ Configure error:[/red] {exc}")
-        return 1
 
     except NomadTLSError as exc:
         console.print(f"[red]✗ TLS error:[/red] {exc}")

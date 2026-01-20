@@ -90,3 +90,10 @@ class NomadClient:
 
     def allocation(self, alloc_id: str) -> Any:
         return self._get(f"/v1/allocation/{alloc_id}")
+
+    def jobs(self) -> Any:
+        return self._get("/v1/jobs")
+
+    def stop_job(self, job_name: str, *, purge: bool = False) -> Any:
+        suffix = "?purge=true" if purge else ""
+        return self._request("DELETE", f"/v1/job/{job_name}{suffix}")

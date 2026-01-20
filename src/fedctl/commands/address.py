@@ -15,6 +15,7 @@ console = Console()
 def run_address(
     *,
     namespace: str | None = None,
+    experiment: str | None = None,
     fmt: str = "plain",
     profile: str | None = None,
     endpoint: str | None = None,
@@ -43,7 +44,11 @@ def run_address(
 
     client = NomadClient(eff)
     try:
-        addr = resolve_superlink_address(client, namespace=eff.namespace or "default")
+        addr = resolve_superlink_address(
+            client,
+            namespace=eff.namespace or "default",
+            experiment=experiment,
+        )
         if fmt == "plain":
             print(addr)
         else:

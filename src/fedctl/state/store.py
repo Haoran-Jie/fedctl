@@ -9,8 +9,8 @@ from .errors import StateError
 from .manifest import DeploymentManifest
 
 
-def manifest_path(namespace: str = "default") -> Path:
-    return user_config_dir() / "state" / namespace / "deploy.json"
+def manifest_path(namespace: str = "default", experiment: str = "default") -> Path:
+    return user_config_dir() / "state" / namespace / experiment / "deploy.json"
 
 
 def write_manifest(
@@ -18,8 +18,9 @@ def write_manifest(
     *,
     namespace: str = "default",
     overwrite: bool = True,
+    experiment: str = "default",
 ) -> Path:
-    path = manifest_path(namespace)
+    path = manifest_path(namespace, experiment)
     if path.exists() and not overwrite:
         raise StateError(f"Manifest already exists at {path}.")
 
@@ -32,8 +33,8 @@ def write_manifest(
     return path
 
 
-def load_manifest(namespace: str = "default") -> dict[str, object]:
-    path = manifest_path(namespace)
+def load_manifest(namespace: str = "default", experiment: str = "default") -> dict[str, object]:
+    path = manifest_path(namespace, experiment)
     if not path.exists():
         raise StateError(f"Manifest not found at {path}.")
     try:

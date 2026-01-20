@@ -18,6 +18,7 @@ def test_write_manifest_uses_namespace(tmp_path: Path, monkeypatch: pytest.Monke
     manifest = DeploymentManifest(
         schema_version=1,
         deployment_id=new_deployment_id(),
+        experiment="trial",
         jobs={"superlink": "superlink"},
         superlink=SuperlinkManifest(
             alloc_id="alloc-1",
@@ -26,8 +27,8 @@ def test_write_manifest_uses_namespace(tmp_path: Path, monkeypatch: pytest.Monke
         ),
     )
 
-    path = write_manifest(manifest, namespace="exp1")
-    assert path == tmp_path / "state" / "exp1" / "deploy.json"
+    path = write_manifest(manifest, namespace="exp1", experiment="trial")
+    assert path == tmp_path / "state" / "exp1" / "trial" / "deploy.json"
     assert path.exists()
 
 
@@ -40,6 +41,7 @@ def test_write_manifest_overwrite_protection(tmp_path: Path, monkeypatch: pytest
     manifest = DeploymentManifest(
         schema_version=1,
         deployment_id=new_deployment_id(),
+        experiment="trial",
         jobs={"superlink": "superlink"},
         superlink=SuperlinkManifest(
             alloc_id="alloc-1",
@@ -48,6 +50,6 @@ def test_write_manifest_overwrite_protection(tmp_path: Path, monkeypatch: pytest
         ),
     )
 
-    write_manifest(manifest, namespace="default")
+    write_manifest(manifest, namespace="default", experiment="trial")
     with pytest.raises(StateError, match="Manifest already exists"):
-        write_manifest(manifest, namespace="default", overwrite=False)
+        write_manifest(manifest, namespace="default", experiment="trial", overwrite=False)

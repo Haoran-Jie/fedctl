@@ -10,18 +10,22 @@ from fedctl.deploy.submit import submit_jobs
 
 
 def test_submit_jobs_order() -> None:
-    spec = default_deploy_spec(num_supernodes=2, image="example/superexec:latest")
+    spec = default_deploy_spec(
+        num_supernodes=2,
+        image="example/superexec:latest",
+        experiment="exp-test",
+    )
     rendered = render_deploy(spec)
 
     client = DummySubmitClient()
     submitted = submit_jobs(client, rendered)
 
     assert submitted == [
-        naming.job_superlink(),
-        naming.job_supernodes(),
-        naming.job_superexec_serverapp(),
-        naming.job_superexec_clientapp(1),
-        naming.job_superexec_clientapp(2),
+        naming.job_superlink("exp-test"),
+        naming.job_supernodes("exp-test"),
+        naming.job_superexec_serverapp("exp-test"),
+        naming.job_superexec_clientapp("exp-test", 1),
+        naming.job_superexec_clientapp("exp-test", 2),
     ]
 
     assert client.submitted == submitted
@@ -29,7 +33,12 @@ def test_submit_jobs_order() -> None:
 
 def test_wait_for_superlink_success() -> None:
     client = DummyResolveClient()
-    result = wait_for_superlink(client, timeout_seconds=5, poll_interval=0.2)
+    result = wait_for_superlink(
+        client,
+        job_name=naming.job_superlink("exp-test"),
+        timeout_seconds=5,
+        poll_interval=0.2,
+    )
 
     assert result.alloc_id == "alloc-1"
     assert result.node_id == "node-123"
@@ -50,7 +59,7 @@ class DummySubmitClient:
 @dataclass
 class DummyResolveClient:
     def job_allocations(self, job_name: str) -> list[dict]:
-        assert job_name == naming.job_superlink()
+        assert job_name == naming.job_superlink("exp-test")
         return [{"ID": "alloc-1", "ClientStatus": "running"}]
 
     def allocation(self, alloc_id: str) -> dict:

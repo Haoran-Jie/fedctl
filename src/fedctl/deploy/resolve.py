@@ -21,13 +21,13 @@ class SuperlinkAllocation:
 def wait_for_superlink(
     client: NomadClient,
     *,
-    job_name: str = naming.job_superlink(),
+    job_name: str = "superlink",
     timeout_seconds: int = 120,
     poll_interval: float = 2.0,
 ) -> SuperlinkAllocation:
     deadline = time.monotonic() + timeout_seconds
     last_status: str | None = None
-
+    print(job_name)
     while True:
         if time.monotonic() >= deadline:
             break
@@ -43,11 +43,12 @@ def wait_for_superlink(
         if status in {"failed", "lost"}:
             raise DeployError(f"SuperLink allocation {alloc_id} entered {status}.")
 
-        task_state = _task_state(alloc, "superlink")
+        task_state = _task_state(alloc, job_name)
         if task_state == "dead":
             raise DeployError(f"SuperLink task exited for allocation {alloc_id}.")
-
+        print(f"Alloc status: {status}, task state: {task_state}")
         if status == "running" and task_state == "running":
+            print("Superlink is running")
             ports = _extract_ports(alloc)
             _ensure_ports(
                 ports,
@@ -77,14 +78,17 @@ def resolve_superlink_address(
     client: NomadClient,
     *,
     namespace: str = "default",
-    job_name: str = naming.job_superlink(),
+    experiment: str | None = None,
 ) -> str:
-    alloc = _resolve_superlink_allocation(client, namespace=namespace, job_name=job_name)
+    job_name = _resolve_superlink_job_name(client, experiment)
+    alloc = _resolve_superlink_allocation(
+        client, namespace=namespace, job_name=job_name, experiment=experiment
+    )
     status = _alloc_status(alloc)
     if status != "running":
         raise DeployError(f"SuperLink allocation not running (status={status}).")
 
-    task_state = _task_state(alloc, "superlink")
+    task_state = _task_state(alloc, job_name)
     if task_state != "running":
         raise DeployError(f"SuperLink task not running (state={task_state}).")
 
@@ -121,12 +125,13 @@ def _resolve_superlink_allocation(
     *,
     namespace: str,
     job_name: str,
+    experiment: str | None,
 ) -> dict[str, Any]:
-    # alloc_id = _alloc_id_from_manifest(namespace)
-    # if alloc_id:
-    #     alloc = client.allocation(alloc_id)
-    #     if isinstance(alloc, dict):
-    #         return alloc
+    alloc_id = _alloc_id_from_manifest(namespace, experiment)
+    if alloc_id:
+        alloc = client.allocation(alloc_id)
+        if isinstance(alloc, dict):
+            return alloc
 
     allocs = client.job_allocations(job_name)
     if not isinstance(allocs, list):
@@ -142,16 +147,17 @@ def _resolve_superlink_allocation(
         if not isinstance(alloc_detail, dict):
             continue
         status = _alloc_status(alloc_detail)
-        task_state = _task_state(alloc_detail, "superlink")
+        task_state = _task_state(alloc_detail, job_name)
         if status == "running" and task_state == "running":
             return alloc_detail
 
     raise DeployError("No running SuperLink allocation found.")
 
-
-def _alloc_id_from_manifest(namespace: str) -> str | None:
+def _alloc_id_from_manifest(namespace: str, experiment: str | None) -> str | None:
+    if not experiment:
+        return None
     try:
-        manifest = load_manifest(namespace)
+        manifest = load_manifest(namespace, experiment)
     except Exception:
         return None
     superlink = manifest.get("superlink")
@@ -159,6 +165,35 @@ def _alloc_id_from_manifest(namespace: str) -> str | None:
         return None
     alloc_id = superlink.get("alloc_id")
     return alloc_id if isinstance(alloc_id, str) else None
+
+
+def _resolve_superlink_job_name(
+    client: NomadClient,
+    experiment: str | None,
+) -> str:
+    if experiment:
+        return naming.job_superlink(experiment)
+
+    jobs = client.jobs()
+    candidates = _match_superlink_jobs(jobs)
+    if len(candidates) == 1:
+        return candidates[0]
+    if not candidates:
+        raise DeployError("No SuperLink job found. Specify --exp.")
+    raise DeployError("Multiple SuperLink jobs found. Specify --exp.")
+
+
+def _match_superlink_jobs(jobs: object) -> list[str]:
+    if not isinstance(jobs, list):
+        return []
+    names: list[str] = []
+    for job in jobs:
+        if not isinstance(job, dict):
+            continue
+        name = job.get("ID") or job.get("Name")
+        if isinstance(name, str) and name.endswith("-superlink"):
+            names.append(name)
+    return names
 
 
 def _alloc_status(alloc: dict[str, Any]) -> str | None:

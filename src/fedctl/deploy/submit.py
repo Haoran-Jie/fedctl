@@ -10,13 +10,13 @@ from fedctl.nomad.client import NomadClient
 def submit_jobs(client: NomadClient, rendered: RenderedJobs) -> list[str]:
     submitted: list[str] = []
     _submit(client, rendered.superlink)
-    submitted.append(naming.job_superlink())
+    submitted.append(_job_name(rendered.superlink) or "")
 
     _submit(client, rendered.supernodes)
-    submitted.append(naming.job_supernodes())
+    submitted.append(_job_name(rendered.supernodes) or "")
 
     _submit(client, rendered.superexec_serverapp)
-    submitted.append(naming.job_superexec_serverapp())
+    submitted.append(_job_name(rendered.superexec_serverapp) or "")
 
     for job in rendered.superexec_clientapps:
         _submit(client, job)
@@ -24,7 +24,7 @@ def submit_jobs(client: NomadClient, rendered: RenderedJobs) -> list[str]:
         if name:
             submitted.append(name)
 
-    return submitted
+    return [name for name in submitted if name]
 
 
 def _submit(client: NomadClient, job: dict[str, Any]) -> None:
