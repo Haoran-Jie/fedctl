@@ -1,6 +1,7 @@
 """CLI entrypoint for fedctl."""
 
 import typer
+import tomlkit
 from rich import print
 from rich.table import Table
 
@@ -10,6 +11,7 @@ from fedctl.commands.configure import run_configure
 from fedctl.commands.run import run_run
 from fedctl.commands.destroy import run_destroy
 from fedctl.commands.status import run_status
+from fedctl.commands.register import run_register
 from fedctl.commands.deploy import run_deploy
 from fedctl.commands.discover import run_discover
 from fedctl.commands.doctor import run_doctor
@@ -113,6 +115,54 @@ def profile_add(
     doc["profiles"][name] = p
     save_raw_toml(doc)
     print(f"Added profile: [bold]{name}[/bold]")
+
+
+@profile_app.command("set")
+def profile_set(
+    name: str,
+    endpoint: str | None = typer.Option(None, "--endpoint"),
+    namespace: str | None = typer.Option(None, "--namespace"),
+    access_mode: str | None = typer.Option(None, "--access-mode"),
+    tls_ca: str | None = typer.Option(None, "--tls-ca"),
+    tls_skip_verify: bool | None = typer.Option(None, "--tls-skip-verify"),
+    tailscale_subnet_cidr: str | None = typer.Option(None, "--tailscale-subnet-cidr"),
+    clear_namespace: bool = typer.Option(False, "--clear-namespace"),
+    clear_tls_ca: bool = typer.Option(False, "--clear-tls-ca"),
+    clear_tailscale_subnet: bool = typer.Option(False, "--clear-tailscale-subnet"),
+) -> None:
+    doc = load_raw_toml()
+    profiles = doc.get("profiles", {})
+    if name not in profiles:
+        raise typer.BadParameter(f"Unknown profile '{name}'.")
+
+    p = profiles[name]
+    if endpoint is not None:
+        p["endpoint"] = endpoint
+    if access_mode is not None:
+        p["access_mode"] = access_mode
+    if tls_skip_verify is not None:
+        p["tls_skip_verify"] = tls_skip_verify
+
+    if clear_namespace:
+        p.pop("namespace", None)
+    elif namespace is not None:
+        p["namespace"] = namespace
+
+    if clear_tls_ca:
+        p.pop("tls_ca", None)
+    elif tls_ca is not None:
+        p["tls_ca"] = tls_ca
+
+    if "tailscale" not in p:
+        p["tailscale"] = tomlkit.table()
+    ts = p["tailscale"]
+    if clear_tailscale_subnet:
+        ts.pop("subnet_cidr", None)
+    elif tailscale_subnet_cidr is not None:
+        ts["subnet_cidr"] = tailscale_subnet_cidr
+
+    save_raw_toml(doc)
+    print(f"Updated profile: [bold]{name}[/bold]")
 
 
 @profile_app.command("rm")
@@ -424,6 +474,34 @@ def status(
             profile=profile,
             endpoint=endpoint,
             token=token,
+            tls_ca=tls_ca,
+            tls_skip_verify=tls_skip_verify,
+        )
+    )
+
+
+@app.command()
+def register(
+    username: str = typer.Argument(..., help="Username (also namespace by default)."),
+    endpoint: str = typer.Option(..., "--endpoint"),
+    bootstrap_token: str = typer.Option(..., "--bootstrap-token"),
+    namespace: str | None = typer.Option(None, "--namespace"),
+    profile: str | None = typer.Option(None, "--profile"),
+    ttl: str | None = typer.Option(None, "--ttl"),
+    force: bool = typer.Option(False, "--force"),
+    tls_ca: str | None = typer.Option(None, "--tls-ca"),
+    tls_skip_verify: bool = typer.Option(False, "--tls-skip-verify"),
+) -> None:
+    """Register a user namespace and scoped ACL token using a bootstrap token."""
+    raise SystemExit(
+        run_register(
+            username=username,
+            endpoint=endpoint,
+            bootstrap_token=bootstrap_token,
+            namespace=namespace,
+            profile=profile,
+            ttl=ttl,
+            force=force,
             tls_ca=tls_ca,
             tls_skip_verify=tls_skip_verify,
         )

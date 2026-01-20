@@ -68,7 +68,7 @@ class DummyResolveClient:
             "ID": "alloc-1",
             "NodeID": "node-123",
             "ClientStatus": "running",
-            "TaskStates": {"superlink": {"State": "running"}},
+            "TaskStates": {"exp-test-superlink": {"State": "running"}},
             "AllocatedResources": {
                 "Shared": {
                     "Networks": [

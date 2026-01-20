@@ -15,6 +15,8 @@ from fedctl.config.schema import EffectiveConfig
 from fedctl.nomad.client import NomadClient
 from fedctl.nomad.errors import NomadConnectionError, NomadHTTPError, NomadTLSError
 from fedctl.util.console import print_table
+from fedctl.config.merge import get_effective_config
+from fedctl.config.io import load_config
 
 console = Console()
 
@@ -94,10 +96,12 @@ def _wait_for_ready(
         try:
             leader = client.status_leader()
             nodes = client.nodes()
+            print(nodes)
             count = len(nodes) if isinstance(nodes, list) else 0
             if leader and count >= expected_nodes:
                 return leader, count
         except (NomadConnectionError, NomadHTTPError, NomadTLSError) as e:
+            print(e)
             last_error = str(e)
         time.sleep(1)
 
@@ -193,17 +197,9 @@ def run_local_up(
     expected = expected_nodes if expected_nodes is not None else len(client_list)
     if expected == 0:
         expected = 1
-
-    eff = EffectiveConfig(
-        profile_name="local",
-        endpoint=endpoint,
-        namespace=None,
-        tls_ca=None,
-        tls_skip_verify=False,
-        access_mode="lan-only",
-        tailscale_subnet_cidr=None,
-        nomad_token=None,
-    )
+        
+    cfg = load_config()
+    eff = get_effective_config(cfg=cfg)
 
     client = NomadClient(eff)
     try:
