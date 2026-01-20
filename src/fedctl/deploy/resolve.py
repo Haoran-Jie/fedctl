@@ -7,6 +7,7 @@ from typing import Any
 from fedctl.deploy import naming
 from fedctl.deploy.errors import DeployError
 from fedctl.nomad.client import NomadClient
+from fedctl.state.store import load_manifest
 
 
 @dataclass(frozen=True)
@@ -14,6 +15,7 @@ class SuperlinkAllocation:
     alloc_id: str
     node_id: str | None
     ports: dict[str, int]
+    ip: str | None
 
 
 def wait_for_superlink(
@@ -31,11 +33,9 @@ def wait_for_superlink(
             break
         
         alloc_id = _find_superlink_alloc(client, job_name)
-        print(0)
         if not alloc_id:
             time.sleep(poll_interval)
             continue
-        print(1)
         alloc = client.allocation(alloc_id)
         status = _alloc_status(alloc)
         last_status = status or last_status
@@ -58,13 +58,47 @@ def wait_for_superlink(
                 },
             )
             node_id = alloc.get("NodeID") if isinstance(alloc.get("NodeID"), str) else None
-            return SuperlinkAllocation(alloc_id=alloc_id, node_id=node_id, ports=ports)
+            ip = _extract_ip(alloc)
+            return SuperlinkAllocation(
+                alloc_id=alloc_id,
+                node_id=node_id,
+                ports=ports,
+                ip=ip,
+            )
         time.sleep(poll_interval)
 
     msg = "Timed out waiting for SuperLink to become ready."
     if last_status:
         msg = f"{msg} Last status: {last_status}."
     raise DeployError(msg)
+
+
+def resolve_superlink_address(
+    client: NomadClient,
+    *,
+    namespace: str = "default",
+    job_name: str = naming.job_superlink(),
+) -> str:
+    alloc = _resolve_superlink_allocation(client, namespace=namespace, job_name=job_name)
+    status = _alloc_status(alloc)
+    if status != "running":
+        raise DeployError(f"SuperLink allocation not running (status={status}).")
+
+    task_state = _task_state(alloc, "superlink")
+    if task_state != "running":
+        raise DeployError(f"SuperLink task not running (state={task_state}).")
+
+    ports = _extract_ports(alloc)
+    control_port = ports.get("control")
+    if not isinstance(control_port, int):
+        raise DeployError("SuperLink control port not found.")
+
+    ip = _extract_ip(alloc)
+    if not ip:
+        raise DeployError(
+            "SuperLink allocation has no IP. Ensure Nomad advertises a reachable IP."
+        )
+    return f"{ip}:{control_port}"
 
 
 def _find_superlink_alloc(client: NomadClient, job_name: str) -> str | None:
@@ -80,6 +114,51 @@ def _find_superlink_alloc(client: NomadClient, job_name: str) -> str | None:
         if isinstance(alloc_id, str) and alloc_id and status == "running":
             return alloc_id
     return None
+
+
+def _resolve_superlink_allocation(
+    client: NomadClient,
+    *,
+    namespace: str,
+    job_name: str,
+) -> dict[str, Any]:
+    # alloc_id = _alloc_id_from_manifest(namespace)
+    # if alloc_id:
+    #     alloc = client.allocation(alloc_id)
+    #     if isinstance(alloc, dict):
+    #         return alloc
+
+    allocs = client.job_allocations(job_name)
+    if not isinstance(allocs, list):
+        raise DeployError("Unexpected allocation response from Nomad.")
+
+    for alloc in allocs:
+        if not isinstance(alloc, dict):
+            continue
+        alloc_id = alloc.get("ID")
+        if not isinstance(alloc_id, str) or not alloc_id:
+            continue
+        alloc_detail = client.allocation(alloc_id)
+        if not isinstance(alloc_detail, dict):
+            continue
+        status = _alloc_status(alloc_detail)
+        task_state = _task_state(alloc_detail, "superlink")
+        if status == "running" and task_state == "running":
+            return alloc_detail
+
+    raise DeployError("No running SuperLink allocation found.")
+
+
+def _alloc_id_from_manifest(namespace: str) -> str | None:
+    try:
+        manifest = load_manifest(namespace)
+    except Exception:
+        return None
+    superlink = manifest.get("superlink")
+    if not isinstance(superlink, dict):
+        return None
+    alloc_id = superlink.get("alloc_id")
+    return alloc_id if isinstance(alloc_id, str) else None
 
 
 def _alloc_status(alloc: dict[str, Any]) -> str | None:
@@ -116,6 +195,33 @@ def _extract_ports(alloc: dict[str, Any]) -> dict[str, int]:
         if isinstance(resources, dict):
             _collect_ports_from_networks(resources.get("Networks"), ports)
     return ports
+
+
+def _extract_ip(alloc: dict[str, Any]) -> str | None:
+    resources = alloc.get("AllocatedResources")
+    if isinstance(resources, dict):
+        shared = resources.get("Shared")
+        if isinstance(shared, dict):
+            ip = _first_network_ip(shared.get("Networks"))
+            if ip:
+                return ip
+
+    resources = alloc.get("Resources")
+    if isinstance(resources, dict):
+        return _first_network_ip(resources.get("Networks"))
+    return None
+
+
+def _first_network_ip(networks: Any) -> str | None:
+    if not isinstance(networks, list):
+        return None
+    for network in networks:
+        if not isinstance(network, dict):
+            continue
+        ip = network.get("IP")
+        if isinstance(ip, str) and ip:
+            return ip
+    return None
 
 
 def _collect_ports_from_networks(networks: Any, ports: dict[str, int]) -> None:

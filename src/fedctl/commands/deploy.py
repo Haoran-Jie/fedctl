@@ -28,6 +28,7 @@ def run_deploy(
     out: str | None = None,
     fmt: str = "json",
     num_supernodes: int = 2,
+    image: str | None = None,
     timeout_seconds: int = 120,
     no_wait: bool = False,
     profile: str | None = None,
@@ -37,6 +38,11 @@ def run_deploy(
     tls_ca: str | None = None,
     tls_skip_verify: bool | None = None,
 ) -> int:
+    if not image:
+        console.print("[red]✗ No SuperExec image specified.[/red]")
+        console.print("[yellow]Hint:[/yellow] Run `fedctl build` and deploy with --image.")
+        return 1
+
     if fmt != "json":
         console.print(f"[red]✗ Unsupported format:[/red] {fmt}")
         return 1
@@ -45,7 +51,7 @@ def run_deploy(
         console.print("[red]✗ --out is only supported with --dry-run.[/red]")
         return 1
 
-    spec = default_deploy_spec(num_supernodes=num_supernodes)
+    spec = default_deploy_spec(num_supernodes=num_supernodes, image=image)
     try:
         rendered = render_deploy(spec)
     except Exception as exc:

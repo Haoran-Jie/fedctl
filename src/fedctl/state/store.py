@@ -17,7 +17,7 @@ def write_manifest(
     manifest: DeploymentManifest,
     *,
     namespace: str = "default",
-    overwrite: bool = False,
+    overwrite: bool = True,
 ) -> Path:
     path = manifest_path(namespace)
     if path.exists() and not overwrite:
@@ -30,3 +30,13 @@ def write_manifest(
     tmp_path.write_text(payload, encoding="utf-8")
     os.replace(tmp_path, path)
     return path
+
+
+def load_manifest(namespace: str = "default") -> dict[str, object]:
+    path = manifest_path(namespace)
+    if not path.exists():
+        raise StateError(f"Manifest not found at {path}.")
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise StateError(f"Manifest at {path} is invalid JSON.") from exc

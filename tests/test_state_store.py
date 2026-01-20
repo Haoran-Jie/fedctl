@@ -50,4 +50,4 @@ def test_write_manifest_overwrite_protection(tmp_path: Path, monkeypatch: pytest
 
     write_manifest(manifest, namespace="default")
     with pytest.raises(StateError, match="Manifest already exists"):
-        write_manifest(manifest, namespace="default")
+        write_manifest(manifest, namespace="default", overwrite=False)

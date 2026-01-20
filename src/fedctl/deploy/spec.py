@@ -39,12 +39,12 @@ class DeploySpec:
     superexec: SuperExecSpec
 
 
-def default_deploy_spec(num_supernodes: int = 2) -> DeploySpec:
+def default_deploy_spec(num_supernodes: int = 2, *, image: str) -> DeploySpec:
     return DeploySpec(
         datacenter="dc1",
         flwr_version="1.23.0",
         insecure=True,
         superlink=SuperLinkSpec(),
         supernodes=SuperNodesSpec(count=num_supernodes),
-        superexec=SuperExecSpec(image="jiahborcn/flwr_superexec:0.0.1"),
+        superexec=SuperExecSpec(image=image),
     )

@@ -6,7 +6,7 @@ from fedctl.deploy.spec import default_deploy_spec
 
 
 def test_render_deploy_superlink_basic() -> None:
-    spec = default_deploy_spec(num_supernodes=2)
+    spec = default_deploy_spec(num_supernodes=2, image="example/superexec:latest")
     rendered = render_deploy(spec)
 
     job = rendered.superlink["Job"]
@@ -30,7 +30,7 @@ def test_render_deploy_superlink_basic() -> None:
 
 
 def test_render_deploy_supernodes_groups() -> None:
-    spec = default_deploy_spec(num_supernodes=2)
+    spec = default_deploy_spec(num_supernodes=2, image="example/superexec:latest")
     rendered = render_deploy(spec)
     job = rendered.supernodes["Job"]
 
@@ -54,7 +54,7 @@ def test_render_deploy_supernodes_groups() -> None:
 
 
 def test_render_deploy_superexec_jobs() -> None:
-    spec = default_deploy_spec(num_supernodes=1)
+    spec = default_deploy_spec(num_supernodes=1, image="example/superexec:latest")
     rendered = render_deploy(spec)
 
     server_job = rendered.superexec_serverapp["Job"]

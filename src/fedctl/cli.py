@@ -4,6 +4,9 @@ import typer
 from rich import print
 from rich.table import Table
 
+from fedctl.commands.address import run_address
+from fedctl.commands.build import run_build
+from fedctl.commands.configure import run_configure
 from fedctl.commands.deploy import run_deploy
 from fedctl.commands.discover import run_discover
 from fedctl.commands.doctor import run_doctor
@@ -206,6 +209,7 @@ def deploy(
     out: str | None = typer.Option(None, "--out"),
     format: str = typer.Option("json", "--format"),
     num_supernodes: int = typer.Option(2, "--num-supernodes"),
+    image: str | None = typer.Option(None, "--image"),
     timeout: int = typer.Option(120, "--timeout"),
     no_wait: bool = typer.Option(False, "--no-wait"),
     profile: str | None = typer.Option(None, "--profile"),
@@ -222,11 +226,86 @@ def deploy(
             out=out,
             fmt=format,
             num_supernodes=num_supernodes,
+            image=image,
             timeout_seconds=timeout,
             no_wait=no_wait,
             profile=profile,
             endpoint=endpoint,
             namespace=namespace,
+            token=token,
+            tls_ca=tls_ca,
+            tls_skip_verify=tls_skip_verify,
+        )
+    )
+
+
+@app.command()
+def build(
+    path: str = typer.Argument(".", help="Path to a Flower project (dir or pyproject.toml)."),
+    flwr_version: str = typer.Option("1.23.0", "--flwr-version"),
+    image: str | None = typer.Option(None, "--image"),
+    no_cache: bool = typer.Option(False, "--no-cache"),
+    platform: str | None = typer.Option(None, "--platform"),
+    context: str | None = typer.Option(None, "--context"),
+    push: bool = typer.Option(False, "--push"),
+) -> None:
+    """Build a SuperExec Docker image for a Flower project."""
+    raise SystemExit(
+        run_build(
+            path=path,
+            flwr_version=flwr_version,
+            image=image,
+            no_cache=no_cache,
+            platform=platform,
+            context=context,
+            push=push,
+        )
+    )
+
+
+@app.command()
+def address(
+    namespace: str | None = typer.Option(None, "--namespace"),
+    format: str = typer.Option("plain", "--format"),
+    profile: str | None = typer.Option(None, "--profile"),
+    endpoint: str | None = typer.Option(None, "--endpoint"),
+    token: str | None = typer.Option(None, "--token"),
+    tls_ca: str | None = typer.Option(None, "--tls-ca"),
+    tls_skip_verify: bool | None = typer.Option(None, "--tls-skip-verify"),
+) -> None:
+    """Resolve the SuperLink control address."""
+    raise SystemExit(
+        run_address(
+            namespace=namespace,
+            fmt=format,
+            profile=profile,
+            endpoint=endpoint,
+            token=token,
+            tls_ca=tls_ca,
+            tls_skip_verify=tls_skip_verify,
+        )
+    )
+
+
+@app.command()
+def configure(
+    path: str = typer.Argument(".", help="Path to a Flower project (dir or pyproject.toml)."),
+    namespace: str | None = typer.Option(None, "--namespace"),
+    backup: bool = typer.Option(True, "--backup/--no-backup"),
+    profile: str | None = typer.Option(None, "--profile"),
+    endpoint: str | None = typer.Option(None, "--endpoint"),
+    token: str | None = typer.Option(None, "--token"),
+    tls_ca: str | None = typer.Option(None, "--tls-ca"),
+    tls_skip_verify: bool | None = typer.Option(None, "--tls-skip-verify"),
+) -> None:
+    """Patch pyproject.toml with the resolved federation address."""
+    raise SystemExit(
+        run_configure(
+            path=path,
+            namespace=namespace,
+            backup=backup,
+            profile=profile,
+            endpoint=endpoint,
             token=token,
             tls_ca=tls_ca,
             tls_skip_verify=tls_skip_verify,

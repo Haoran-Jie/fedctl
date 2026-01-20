@@ -10,7 +10,7 @@ from fedctl.deploy.submit import submit_jobs
 
 
 def test_submit_jobs_order() -> None:
-    spec = default_deploy_spec(num_supernodes=2)
+    spec = default_deploy_spec(num_supernodes=2, image="example/superexec:latest")
     rendered = render_deploy(spec)
 
     client = DummySubmitClient()
@@ -33,6 +33,7 @@ def test_wait_for_superlink_success() -> None:
 
     assert result.alloc_id == "alloc-1"
     assert result.node_id == "node-123"
+    assert result.ip == "192.168.1.10"
     assert result.ports == {"control": 27738, "fleet": 27739, "serverappio": 27740}
 
 
@@ -63,6 +64,7 @@ class DummyResolveClient:
                 "Shared": {
                     "Networks": [
                         {
+                            "IP": "192.168.1.10",
                             "DynamicPorts": [
                                 {"Label": "control", "Value": 27738},
                                 {"Label": "fleet", "Value": 27739},
