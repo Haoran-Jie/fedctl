@@ -1,6 +1,7 @@
 """CLI entrypoint for fedctl."""
 
 import typer
+from pathlib import Path
 import tomlkit
 from rich import print
 from rich.table import Table
@@ -64,10 +65,18 @@ def profile_ls() -> None:
     table.add_column("Name")
     table.add_column("Endpoint")
     table.add_column("Namespace")
+    table.add_column("Repo config")
     table.add_column("Access mode")
     for name, p in cfg.profiles.items():
         marker = "*" if name == cfg.active_profile else ""
-        table.add_row(f"{name}{marker}", p.endpoint, str(p.namespace), p.access_mode)
+        repo_cfg = _format_repo_config(p.repo_config)
+        table.add_row(
+            f"{name}{marker}",
+            p.endpoint,
+            str(p.namespace),
+            repo_cfg,
+            p.access_mode,
+        )
     print(table)
 
 
@@ -87,6 +96,7 @@ def profile_add(
     name: str,
     endpoint: str = typer.Option(..., "--endpoint"),
     namespace: str = typer.Option(None, "--namespace"),
+    repo_config: str = typer.Option(None, "--repo-config"),
     access_mode: str = typer.Option("lan-only", "--access-mode"),
     tls_ca: str = typer.Option(None, "--tls-ca"),
     tls_skip_verify: bool = typer.Option(False, "--tls-skip-verify"),
@@ -107,6 +117,8 @@ def profile_add(
 
     if namespace is not None:
         p["namespace"] = namespace
+    if repo_config is not None:
+        p["repo_config"] = str(Path(repo_config).expanduser().resolve())
     if tls_ca is not None:
         p["tls_ca"] = tls_ca
     if tailscale_subnet_cidr is not None:
@@ -122,11 +134,13 @@ def profile_set(
     name: str,
     endpoint: str | None = typer.Option(None, "--endpoint"),
     namespace: str | None = typer.Option(None, "--namespace"),
+    repo_config: str | None = typer.Option(None, "--repo-config"),
     access_mode: str | None = typer.Option(None, "--access-mode"),
     tls_ca: str | None = typer.Option(None, "--tls-ca"),
     tls_skip_verify: bool | None = typer.Option(None, "--tls-skip-verify"),
     tailscale_subnet_cidr: str | None = typer.Option(None, "--tailscale-subnet-cidr"),
     clear_namespace: bool = typer.Option(False, "--clear-namespace"),
+    clear_repo_config: bool = typer.Option(False, "--clear-repo-config"),
     clear_tls_ca: bool = typer.Option(False, "--clear-tls-ca"),
     clear_tailscale_subnet: bool = typer.Option(False, "--clear-tailscale-subnet"),
 ) -> None:
@@ -148,6 +162,11 @@ def profile_set(
     elif namespace is not None:
         p["namespace"] = namespace
 
+    if clear_repo_config:
+        p.pop("repo_config", None)
+    elif repo_config is not None:
+        p["repo_config"] = str(Path(repo_config).expanduser().resolve())
+
     if clear_tls_ca:
         p.pop("tls_ca", None)
     elif tls_ca is not None:
@@ -163,6 +182,26 @@ def profile_set(
 
     save_raw_toml(doc)
     print(f"Updated profile: [bold]{name}[/bold]")
+
+
+def _format_repo_config(value: str | None) -> str:
+    if not value:
+        return "-"
+    path = Path(value)
+    display = str(path)
+    try:
+        cwd = Path.cwd()
+        if path.is_absolute() and str(path).startswith(str(cwd)):
+            display = f"./{path.relative_to(cwd)}"
+        else:
+            home = Path.home()
+            if path.is_absolute() and str(path).startswith(str(home)):
+                display = f"~/{path.relative_to(home)}"
+    except ValueError:
+        pass
+    if not path.exists():
+        display = f"{display} (missing)"
+    return display
 
 
 @profile_app.command("rm")
@@ -262,6 +301,11 @@ def deploy(
     out: str | None = typer.Option(None, "--out"),
     format: str = typer.Option("json", "--format"),
     num_supernodes: int = typer.Option(2, "--num-supernodes"),
+    supernodes: list[str] = typer.Option(None, "--supernodes"),
+    allow_oversubscribe: bool | None = typer.Option(
+        None, "--allow-oversubscribe/--no-allow-oversubscribe"
+    ),
+    repo_config: str | None = typer.Option(None, "--repo-config"),
     image: str | None = typer.Option(None, "--image"),
     exp: str | None = typer.Option(None, "--exp"),
     timeout: int = typer.Option(120, "--timeout"),
@@ -280,6 +324,9 @@ def deploy(
             out=out,
             fmt=format,
             num_supernodes=num_supernodes,
+            supernodes=supernodes,
+            allow_oversubscribe=allow_oversubscribe,
+            repo_config=repo_config,
             image=image,
             experiment=exp,
             timeout_seconds=timeout,
@@ -385,6 +432,11 @@ def run(
     push: bool = typer.Option(False, "--push"),
     num_supernodes: int = typer.Option(2, "--num-supernodes"),
     auto_supernodes: bool = typer.Option(True, "--auto-supernodes/--no-auto-supernodes"),
+    supernodes: list[str] = typer.Option(None, "--supernodes"),
+    allow_oversubscribe: bool | None = typer.Option(
+        None, "--allow-oversubscribe/--no-allow-oversubscribe"
+    ),
+    repo_config: str | None = typer.Option(None, "--repo-config"),
     exp: str | None = typer.Option(None, "--exp"),
     timeout: int = typer.Option(120, "--timeout"),
     no_wait: bool = typer.Option(False, "--no-wait"),
@@ -410,6 +462,9 @@ def run(
             push=push,
             num_supernodes=num_supernodes,
             auto_supernodes=auto_supernodes,
+            supernodes=supernodes,
+            allow_oversubscribe=allow_oversubscribe,
+            repo_config=repo_config,
             experiment=exp,
             timeout_seconds=timeout,
             no_wait=no_wait,

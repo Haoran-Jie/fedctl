@@ -59,6 +59,7 @@ def load_config() -> FedctlConfig:
         profiles[name] = ProfileConfig(
             endpoint=str(p["endpoint"]),
             namespace=p.get("namespace"),
+            repo_config=p.get("repo_config"),
             tls_ca=p.get("tls_ca"),
             tls_skip_verify=bool(p.get("tls_skip_verify", False)),
             access_mode=p.get("access_mode", "lan-only"),

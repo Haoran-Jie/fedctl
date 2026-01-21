@@ -9,7 +9,7 @@ from fedctl.config.io import load_config
 from fedctl.config.merge import get_effective_config
 from fedctl.nomad.client import NomadClient
 from fedctl.nomad.errors import NomadConnectionError, NomadHTTPError, NomadTLSError
-from fedctl.nomad.nodeview import extract_device, extract_gpu
+from fedctl.nomad.nodeview import extract_device, extract_device_type, extract_gpu
 from fedctl.util.console import print_table
 
 console = Console()
@@ -61,7 +61,7 @@ def run_discover(
             console.print_json(json.dumps(nodes))
             return 0
 
-        columns = ["Name", "Status", "DC", "Class", "Device", "GPU", "Addr"]
+        columns = ["Name", "Status", "DC", "Class", "DeviceType", "Device", "GPU", "Addr"]
         if wide:
             columns.extend(["Arch", "OS", "ID"])
 
@@ -72,6 +72,7 @@ def run_discover(
             dc = str(node.get("Datacenter", ""))
             nclass = str(node.get("NodeClass", ""))
             addr = str(node.get("Address", ""))
+            device_type = extract_device_type(node)
             device_val = extract_device(node)
             gpu_val = extract_gpu(node)
 
@@ -82,7 +83,16 @@ def run_discover(
             if not _matches(nclass, node_class):
                 continue
 
-            row = [name, node_status, dc, nclass, device_val or "", gpu_val or "", addr]
+            row = [
+                name,
+                node_status,
+                dc,
+                nclass,
+                device_type or "",
+                device_val or "",
+                gpu_val or "",
+                addr,
+            ]
             if wide:
                 attrs = node.get("Attributes", {}) if isinstance(node.get("Attributes"), dict) else {}
                 arch = attrs.get("arch", "")

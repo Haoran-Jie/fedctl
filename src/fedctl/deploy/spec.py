@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .plan import SupernodePlacement
+
 
 @dataclass(frozen=True)
 class SuperLinkSpec:
@@ -13,6 +15,11 @@ class SuperLinkSpec:
 @dataclass(frozen=True)
 class SuperNodesSpec:
     count: int
+    by_type: dict[str, int] | None = None
+    allow_oversubscribe: bool = False
+    placements: list["SupernodePlacement"] | None = None
+    resources_by_type: dict[str, dict[str, int]] | None = None
+    default_resources: dict[str, int] | None = None
     node_class: str = "node"
     cpu: int = 500
     memory_mb: int = 512
@@ -47,6 +54,11 @@ def default_deploy_spec(
     image: str,
     namespace: str = "default",
     experiment: str,
+    supernodes_by_type: dict[str, int] | None = None,
+    allow_oversubscribe: bool = False,
+    placements: list["SupernodePlacement"] | None = None,
+    resources_by_type: dict[str, dict[str, int]] | None = None,
+    default_resources: dict[str, int] | None = None,
 ) -> DeploySpec:
     return DeploySpec(
         datacenter="dc1",
@@ -55,7 +67,14 @@ def default_deploy_spec(
         flwr_version="1.23.0",
         insecure=True,
         superlink=SuperLinkSpec(),
-        supernodes=SuperNodesSpec(count=num_supernodes),
+        supernodes=SuperNodesSpec(
+            count=num_supernodes,
+            by_type=supernodes_by_type,
+            allow_oversubscribe=allow_oversubscribe,
+            placements=placements,
+            resources_by_type=resources_by_type,
+            default_resources=default_resources,
+        ),
         superexec=SuperExecSpec(image=image),
     )
 

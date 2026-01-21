@@ -9,6 +9,7 @@ from jinja2 import Environment, FileSystemLoader
 
 from . import naming
 from .spec import DeploySpec
+from .plan import SupernodePlacement
 
 
 @dataclass(frozen=True)
@@ -34,8 +35,8 @@ def render_deploy(spec: DeploySpec) -> RenderedJobs:
     )
 
     superexec_clientapps: list[dict[str, Any]] = []
-    for index in range(1, spec.supernodes.count + 1):
-        context = _superexec_clientapp_context(spec, index)
+    for placement in _supernode_placements(spec):
+        context = _superexec_clientapp_context(spec, placement)
         superexec_clientapps.append(
             _render_template(env, "superexec_clientapp.json.j2", context)
         )
@@ -115,11 +116,17 @@ def _superlink_context(spec: DeploySpec) -> dict[str, Any]:
 
 
 def _supernodes_context(spec: DeploySpec) -> dict[str, Any]:
+    placements = _supernode_placements(spec)
+    total_instances = len(placements)
     task_groups = []
-    for index in range(1, spec.supernodes.count + 1):
-        group_name = f"supernode-{index}"
+    for idx, placement in enumerate(placements, start=1):
+        device_type = placement.device_type
+        group_suffix = f"{device_type}-{placement.instance_idx}" if device_type else str(idx)
+        group_name = f"supernode-{group_suffix}"
         task_name = group_name
-        service_name = naming.service_supernode_clientappio(spec.experiment, index)
+        service_name = naming.service_supernode_clientappio(
+            spec.experiment, placement.instance_idx, device_type
+        )
         template_data = _nomad_service_env(
             naming.service_superlink_fleet(spec.experiment),
             "SUP_LINK_ADDR",
@@ -133,15 +140,41 @@ def _supernodes_context(spec: DeploySpec) -> dict[str, Any]:
             "--isolation",
             "process",
             "--node-config",
-            f"partition-id={index - 1} num-partitions={spec.supernodes.count}",
+            f"partition-id={idx - 1} num-partitions={max(total_instances, 1)}",
         ]
         if not spec.insecure:
             args = [arg for arg in args if arg != "--insecure"]
 
+        constraints = [
+            {
+                "LTarget": "${node.class}",
+                "Operand": "=",
+                "RTarget": spec.supernodes.node_class,
+            }
+        ]
+        if device_type:
+            constraints.append(
+                {
+                    "LTarget": "${node.meta.device_type}",
+                    "Operand": "=",
+                    "RTarget": device_type,
+                }
+            )
+        if placement.node_id:
+            constraints.append(
+                {
+                    "LTarget": "${node.unique.id}",
+                    "Operand": "=",
+                    "RTarget": placement.node_id,
+                }
+            )
+
+        cpu, mem = _supernode_resources(spec, device_type)
         task_groups.append(
             {
                 "Name": group_name,
                 "Count": 1,
+                "Constraints": constraints,
                 "Networks": [{"DynamicPorts": [{"Label": "clientappio"}]}],
                 "Tasks": [
                     {
@@ -160,8 +193,8 @@ def _supernodes_context(spec: DeploySpec) -> dict[str, Any]:
                             }
                         ],
                         "Resources": {
-                            "CPU": spec.supernodes.cpu,
-                            "MemoryMB": spec.supernodes.memory_mb,
+                            "CPU": cpu,
+                            "MemoryMB": mem,
                         },
                         "Services": [
                             {
@@ -214,7 +247,9 @@ def _superexec_serverapp_context(spec: DeploySpec) -> dict[str, Any]:
     }
 
 
-def _superexec_clientapp_context(spec: DeploySpec, index: int) -> dict[str, Any]:
+def _superexec_clientapp_context(
+    spec: DeploySpec, placement: SupernodePlacement
+) -> dict[str, Any]:
     args = [
         "--insecure",
         "--plugin-type",
@@ -228,7 +263,11 @@ def _superexec_clientapp_context(spec: DeploySpec, index: int) -> dict[str, Any]
         args = [arg for arg in args if arg != "--insecure"]
 
     return {
-        "job_name": naming.job_superexec_clientapp(spec.experiment, index),
+        "job_name": naming.job_superexec_clientapp(
+            spec.experiment,
+            placement.instance_idx,
+            placement.device_type,
+        ),
         "datacenters": [spec.datacenter],
         "namespace": spec.namespace,
         "node_class": spec.superexec.node_class_node,
@@ -236,7 +275,12 @@ def _superexec_clientapp_context(spec: DeploySpec, index: int) -> dict[str, Any]
         "entrypoint": ["flower-superexec"],
         "args": args,
         "template_data": _nomad_service_env(
-            naming.service_supernode_clientappio(spec.experiment, index), "CLIENT_IO"
+            naming.service_supernode_clientappio(
+                spec.experiment,
+                placement.instance_idx,
+                placement.device_type,
+            ),
+            "CLIENT_IO",
         ),
         "cpu": spec.superexec.cpu,
         "memory_mb": spec.superexec.memory_mb,
@@ -282,10 +326,50 @@ def _validate_jobs(
         missing = required_superlink - superlink_services
         raise ValueError(f"superlink missing services: {sorted(missing)}")
 
-    for index in range(1, spec.supernodes.count + 1):
-        name = naming.service_supernode_clientappio(spec.experiment, index)
+    for placement in _supernode_placements(spec):
+        name = naming.service_supernode_clientappio(
+            spec.experiment, placement.instance_idx, placement.device_type
+        )
         if name not in supernodes_services:
             raise ValueError(f"supernodes missing service: {name}")
+
+
+def _supernode_placements(spec: DeploySpec) -> list[SupernodePlacement]:
+    if spec.supernodes.placements:
+        return spec.supernodes.placements
+    placements: list[SupernodePlacement] = []
+    if spec.supernodes.by_type:
+        for device_type, count in spec.supernodes.by_type.items():
+            for idx in range(1, count + 1):
+                placements.append(
+                    SupernodePlacement(
+                        device_type=device_type,
+                        instance_idx=idx,
+                        node_id=None,
+                    )
+                )
+        return placements
+    for idx in range(1, spec.supernodes.count + 1):
+        placements.append(
+            SupernodePlacement(device_type=None, instance_idx=idx, node_id=None)
+        )
+    return placements
+
+
+def _supernode_resources(spec: DeploySpec, device_type: str | None) -> tuple[int, int]:
+    default_cpu = spec.supernodes.cpu
+    default_mem = spec.supernodes.memory_mb
+    if spec.supernodes.default_resources:
+        default_cpu = int(spec.supernodes.default_resources.get("cpu", default_cpu))
+        default_mem = int(spec.supernodes.default_resources.get("mem", default_mem))
+
+    if device_type and spec.supernodes.resources_by_type:
+        entry = spec.supernodes.resources_by_type.get(device_type)
+        if isinstance(entry, dict):
+            cpu = int(entry.get("cpu", default_cpu))
+            mem = int(entry.get("mem", default_mem))
+            return cpu, mem
+    return default_cpu, default_mem
 
     _validate_ports(superlink["Job"])
     _validate_ports(supernodes["Job"])

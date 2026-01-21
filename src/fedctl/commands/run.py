@@ -29,6 +29,9 @@ def run_run(
     push: bool = False,
     num_supernodes: int = 2,
     auto_supernodes: bool = False,
+    supernodes: list[str] | None = None,
+    allow_oversubscribe: bool | None = None,
+    repo_config: str | None = None,
     experiment: str | None = None,
     timeout_seconds: int = 120,
     no_wait: bool = False,
@@ -51,7 +54,7 @@ def run_run(
         return 1
 
     project_name = info.project_name or "project"
-    if auto_supernodes and info.local_sim_num_supernodes:
+    if not supernodes and auto_supernodes and info.local_sim_num_supernodes:
         num_supernodes = info.local_sim_num_supernodes
         console.print(f"[green]✓ Using num-supernodes={num_supernodes}[/green]")
 
@@ -83,6 +86,9 @@ def run_run(
         out=None,
         fmt="json",
         num_supernodes=num_supernodes,
+        supernodes=supernodes,
+        allow_oversubscribe=allow_oversubscribe,
+        repo_config=repo_config,
         image=image_tag,
         experiment=exp_name,
         timeout_seconds=timeout_seconds,

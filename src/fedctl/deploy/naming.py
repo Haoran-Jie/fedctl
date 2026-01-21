@@ -13,7 +13,11 @@ def job_superexec_serverapp(exp: str) -> str:
     return f"{exp}-superexec-serverapp"
 
 
-def job_superexec_clientapp(exp: str, index: int) -> str:
+def job_superexec_clientapp(
+    exp: str, index: int, device_type: str | None = None
+) -> str:
+    if device_type:
+        return f"{exp}-superexec-clientapp-{device_type}-{index}"
     return f"{exp}-superexec-clientapp-{index}"
 
 
@@ -29,5 +33,9 @@ def service_superlink_control(exp: str) -> str:
     return f"{exp}-superlink-control"
 
 
-def service_supernode_clientappio(exp: str, index: int) -> str:
+def service_supernode_clientappio(
+    exp: str, index: int, device_type: str | None = None
+) -> str:
+    if device_type:
+        return f"{exp}-supernode-{device_type}-{index}-clientappio"
     return f"{exp}-supernode-{index}-clientappio"

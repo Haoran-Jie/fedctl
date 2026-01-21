@@ -15,6 +15,7 @@ class TailscaleConfig:
 class ProfileConfig:
     endpoint: str
     namespace: Optional[str] = None
+    repo_config: Optional[str] = None
     tls_ca: Optional[str] = None
     tls_skip_verify: bool = False
     access_mode: AccessMode = "lan-only"

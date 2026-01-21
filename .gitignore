@@ -8,3 +8,4 @@ dist/
 .DS_Store
 rendered/
 *.token
+nomad-lab/

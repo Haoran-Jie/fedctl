@@ -24,6 +24,10 @@ def extract_device(node: dict) -> Optional[str]:
     return extract_from_meta_or_attr(node, "device")
 
 
+def extract_device_type(node: dict) -> Optional[str]:
+    return extract_from_meta_or_attr(node, "device_type")
+
+
 def extract_gpu(node: dict) -> Optional[str]:
     return extract_from_meta_or_attr(node, "gpu")
 
