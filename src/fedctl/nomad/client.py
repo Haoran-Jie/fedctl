@@ -35,7 +35,6 @@ class NomadClient:
             verify=verify,
             timeout=10.0,
         )
-        print(headers)
 
     def close(self) -> None:
         self._client.close()

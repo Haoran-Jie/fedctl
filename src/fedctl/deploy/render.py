@@ -8,6 +8,7 @@ from typing import Any, Iterable
 from jinja2 import Environment, FileSystemLoader
 
 from . import naming
+from .network import NetworkPlan, assignment_key
 from .spec import DeploySpec
 from .plan import SupernodePlacement
 
@@ -170,41 +171,46 @@ def _supernodes_context(spec: DeploySpec) -> dict[str, Any]:
             )
 
         cpu, mem = _supernode_resources(spec, device_type)
+        tasks = []
+        netem_task = _netem_task(spec, placement)
+        if netem_task is not None:
+            tasks.append(netem_task)
+        tasks.append(
+            {
+                "Name": task_name,
+                "Driver": "docker",
+                "Config": {
+                    "image": f"flwr/supernode:{spec.flwr_version}",
+                    "ports": ["clientappio"],
+                    "args": args,
+                },
+                "Templates": [
+                    {
+                        "EmbeddedTmpl": template_data,
+                        "DestPath": "local/env.txt",
+                        "Envvars": True,
+                    }
+                ],
+                "Resources": {
+                    "CPU": cpu,
+                    "MemoryMB": mem,
+                },
+                "Services": [
+                    {
+                        "Name": service_name,
+                        "PortLabel": "clientappio",
+                        "Provider": "nomad",
+                    }
+                ],
+            }
+        )
         task_groups.append(
             {
                 "Name": group_name,
                 "Count": 1,
                 "Constraints": constraints,
                 "Networks": [{"DynamicPorts": [{"Label": "clientappio"}]}],
-                "Tasks": [
-                    {
-                        "Name": task_name,
-                        "Driver": "docker",
-                        "Config": {
-                            "image": f"flwr/supernode:{spec.flwr_version}",
-                            "ports": ["clientappio"],
-                            "args": args,
-                        },
-                        "Templates": [
-                            {
-                                "EmbeddedTmpl": template_data,
-                                "DestPath": "local/env.txt",
-                                "Envvars": True,
-                            }
-                        ],
-                        "Resources": {
-                            "CPU": cpu,
-                            "MemoryMB": mem,
-                        },
-                        "Services": [
-                            {
-                                "Name": service_name,
-                                "PortLabel": "clientappio",
-                                "Provider": "nomad",
-                            }
-                        ],
-                    }
-                ],
+                "Tasks": tasks,
             }
         )
 
@@ -215,6 +221,92 @@ def _supernodes_context(spec: DeploySpec) -> dict[str, Any]:
         "node_class": spec.supernodes.node_class,
         "task_groups": task_groups,
     }
+
+
+def _netem_task(spec: DeploySpec, placement: SupernodePlacement) -> dict[str, Any] | None:
+    network_plan = spec.supernodes.network
+    netem_image = spec.supernodes.netem_image
+    if network_plan is None or not netem_image:
+        return None
+    profile_name = _network_profile_for(network_plan, placement)
+    profile_data = network_plan.profiles.get(profile_name, {})
+    env = _netem_env(profile_name, profile_data)
+    return {
+        "Name": "netem",
+        "Driver": "docker",
+        "Lifecycle": {"Hook": "prestart", "Sidecar": True},
+        "User": "root",
+        "Config": {
+            "image": netem_image,
+            "command": "/bin/sh",
+            "args": ["-c", _netem_script()],
+            "cap_add": ["NET_ADMIN"],
+        },
+        "Env": env,
+        "Resources": {
+            "CPU": 50,
+            "MemoryMB": 64,
+        },
+    }
+
+
+def _netem_env(
+    profile_name: str, profile_data: dict[str, float | int]
+) -> dict[str, str]:
+    env = {
+        "NET_PROFILE": profile_name,
+        "NET_IFACE": "eth0",
+    }
+    for key, env_key in (
+        ("delay_ms", "NET_DELAY_MS"),
+        ("jitter_ms", "NET_JITTER_MS"),
+        ("loss_pct", "NET_LOSS_PCT"),
+        ("rate_mbit", "NET_RATE_MBIT"),
+    ):
+        value = profile_data.get(key)
+        if isinstance(value, (int, float)):
+            env[env_key] = str(value)
+    return env
+
+
+def _netem_script() -> str:
+    lines = [
+        "set -eu",
+        'IFACE=\"$${NET_IFACE:-eth0}\"',
+        'PROFILE=\"$${NET_PROFILE:-none}\"',
+        "tc qdisc del dev \"$IFACE\" root 2>/dev/null || true",
+        "if [ \"$PROFILE\" = \"none\" ]; then",
+        "  echo \"netem disabled\"",
+        "else",
+        '  DELAY=\"$${NET_DELAY_MS:-0}\"',
+        '  JITTER=\"$${NET_JITTER_MS:-0}\"',
+        '  LOSS=\"$${NET_LOSS_PCT:-0}\"',
+        '  RATE=\"$${NET_RATE_MBIT:-}\"',
+        "  if [ -n \"$RATE\" ]; then",
+        "    tc qdisc add dev \"$IFACE\" root handle 1: tbf rate \"$${RATE}mbit\" burst 32kbit latency 400ms",
+        "    tc qdisc add dev \"$IFACE\" parent 1:1 handle 10: netem delay \"$${DELAY}ms\" \"$${JITTER}ms\" loss \"$${LOSS}%\"",
+        "  else",
+        "    tc qdisc add dev \"$IFACE\" root netem delay \"$${DELAY}ms\" \"$${JITTER}ms\" loss \"$${LOSS}%\"",
+        "  fi",
+        "fi",
+        "tc qdisc show dev \"$IFACE\" || true",
+        "trap 'tc qdisc del dev \"$IFACE\" root 2>/dev/null || true' TERM INT",
+        "sleep 3600",
+    ]
+    return "\n".join(lines)
+
+
+def _network_profile_for(network_plan: NetworkPlan, placement: SupernodePlacement) -> str:
+    device_type = placement.device_type if isinstance(placement.device_type, str) else None
+    key = assignment_key(device_type)
+    assignments = network_plan.assignments.get(key)
+    if not assignments:
+        return network_plan.default_profile
+    if not isinstance(placement.instance_idx, int):
+        return network_plan.default_profile
+    if placement.instance_idx < 1 or placement.instance_idx > len(assignments):
+        return network_plan.default_profile
+    return assignments[placement.instance_idx - 1]
 
 
 def _superexec_serverapp_context(spec: DeploySpec) -> dict[str, Any]:

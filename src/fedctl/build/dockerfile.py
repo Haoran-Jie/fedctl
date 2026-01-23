@@ -8,8 +8,12 @@ def render_dockerfile(flwr_version: str) -> str:
         "WORKDIR /app\n"
         "\n"
         "COPY pyproject.toml .\n"
-        "RUN sed -i 's/.*flwr\\[simulation\\].*//' pyproject.toml \\\n"
+        "USER root\n"
+        "RUN mkdir -p /app/.flwr \\\n"
+        "  && chown -R app:app /app/.flwr \\\n"
+        "  && sed -i 's/.*flwr\\[simulation\\].*//' pyproject.toml \\\n"
         "  && python -m pip install -U --no-cache-dir .\n"
+        "USER app\n"
         "\n"
         'ENTRYPOINT ["flower-superexec"]\n'
     )

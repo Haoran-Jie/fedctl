@@ -96,12 +96,10 @@ def _wait_for_ready(
         try:
             leader = client.status_leader()
             nodes = client.nodes()
-            print(nodes)
             count = len(nodes) if isinstance(nodes, list) else 0
             if leader and count >= expected_nodes:
                 return leader, count
         except (NomadConnectionError, NomadHTTPError, NomadTLSError) as e:
-            print(e)
             last_error = str(e)
         time.sleep(1)
 

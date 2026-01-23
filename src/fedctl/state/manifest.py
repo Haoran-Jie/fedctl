@@ -58,17 +58,37 @@ class SupernodePlacementManifest:
 
 
 @dataclass(frozen=True)
+class SupernodesNetworkManifest:
+    scope: str
+    default_profile: str
+    profiles: dict[str, dict[str, float | int]]
+    assignments: dict[str, list[str]]
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "scope": self.scope,
+            "default_profile": self.default_profile,
+            "profiles": self.profiles,
+            "assignments": self.assignments,
+        }
+
+
+@dataclass(frozen=True)
 class SupernodesManifest:
     requested_by_type: dict[str, int] | None
     allow_oversubscribe: bool
     placements: list[SupernodePlacementManifest]
+    network: SupernodesNetworkManifest | None = None
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        data: dict[str, object] = {
             "requested_by_type": self.requested_by_type or {},
             "allow_oversubscribe": self.allow_oversubscribe,
             "placements": [p.to_dict() for p in self.placements],
         }
+        if self.network is not None:
+            data["network"] = self.network.to_dict()
+        return data
 
 
 def new_deployment_id() -> str:

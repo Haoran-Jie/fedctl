@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from fedctl.deploy import naming
+from fedctl.deploy.network import parse_net_assignments, plan_network
 from fedctl.deploy.render import render_deploy
+from fedctl.deploy.plan import SupernodePlacement
 from fedctl.deploy.spec import default_deploy_spec
 
 
@@ -86,3 +88,34 @@ def test_render_deploy_superexec_jobs() -> None:
     client_group = client_job["TaskGroups"][0]
     template = client_group["Tasks"][0]["Templates"][0]["EmbeddedTmpl"]
     assert naming.service_supernode_clientappio("exp-test", 1) in template
+
+
+def test_render_deploy_supernodes_netem_task() -> None:
+    placements = [
+        SupernodePlacement(device_type="rpi", instance_idx=1, node_id=None),
+        SupernodePlacement(device_type="rpi", instance_idx=2, node_id=None),
+    ]
+    assignments = parse_net_assignments(["rpi[1]=med"])
+    network_plan = plan_network(
+        assignments=assignments,
+        placements=placements,
+        default_profile="none",
+        profiles={"med": {"delay_ms": 60}},
+    )
+    spec = default_deploy_spec(
+        num_supernodes=2,
+        image="example/superexec:latest",
+        experiment="exp-test",
+        supernodes_by_type={"rpi": 2},
+        allow_oversubscribe=True,
+        placements=placements,
+        network_plan=network_plan,
+        netem_image="example/netem:latest",
+    )
+    rendered = render_deploy(spec)
+    groups = rendered.supernodes["Job"]["TaskGroups"]
+    assert groups[0]["Tasks"][0]["Name"] == "netem"
+    assert groups[0]["Tasks"][0]["Lifecycle"]["Hook"] == "prestart"
+    assert groups[0]["Tasks"][0]["Lifecycle"]["Sidecar"] is True
+    assert groups[0]["Tasks"][0]["Env"]["NET_PROFILE"] == "med"
+    assert groups[1]["Tasks"][0]["Env"]["NET_PROFILE"] == "none"

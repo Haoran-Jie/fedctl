@@ -199,9 +199,19 @@ def _format_repo_config(value: str | None) -> str:
                 display = f"~/{path.relative_to(home)}"
     except ValueError:
         pass
+    display = _truncate_path(display)
     if not path.exists():
         display = f"{display} (missing)"
     return display
+
+
+def _truncate_path(value: str, max_len: int = 48) -> str:
+    if len(value) <= max_len:
+        return value
+    keep = max_len - 3
+    head = keep // 2
+    tail = keep - head
+    return f"{value[:head]}...{value[-tail:]}"
 
 
 @profile_app.command("rm")
@@ -300,8 +310,9 @@ def deploy(
     dry_run: bool = typer.Option(False, "--dry-run"),
     out: str | None = typer.Option(None, "--out"),
     format: str = typer.Option("json", "--format"),
-    num_supernodes: int = typer.Option(2, "--num-supernodes"),
+    num_supernodes: int | None = typer.Option(None, "--num-supernodes"),
     supernodes: list[str] = typer.Option(None, "--supernodes"),
+    net: list[str] = typer.Option(None, "--net"),
     allow_oversubscribe: bool | None = typer.Option(
         None, "--allow-oversubscribe/--no-allow-oversubscribe"
     ),
@@ -325,6 +336,7 @@ def deploy(
             fmt=format,
             num_supernodes=num_supernodes,
             supernodes=supernodes,
+            net=net,
             allow_oversubscribe=allow_oversubscribe,
             repo_config=repo_config,
             image=image,
@@ -433,6 +445,7 @@ def run(
     num_supernodes: int = typer.Option(2, "--num-supernodes"),
     auto_supernodes: bool = typer.Option(True, "--auto-supernodes/--no-auto-supernodes"),
     supernodes: list[str] = typer.Option(None, "--supernodes"),
+    net: list[str] = typer.Option(None, "--net"),
     allow_oversubscribe: bool | None = typer.Option(
         None, "--allow-oversubscribe/--no-allow-oversubscribe"
     ),
@@ -463,6 +476,7 @@ def run(
             num_supernodes=num_supernodes,
             auto_supernodes=auto_supernodes,
             supernodes=supernodes,
+            net=net,
             allow_oversubscribe=allow_oversubscribe,
             repo_config=repo_config,
             experiment=exp,
