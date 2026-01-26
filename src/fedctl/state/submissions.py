@@ -1,0 +1,61 @@
+from __future__ import annotations
+
+import json
+import os
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+from fedctl.config.paths import user_config_dir
+from .errors import StateError
+
+
+@dataclass(frozen=True)
+class SubmissionRecord:
+    submission_id: str
+    experiment: str
+    created_at: str
+    namespace: str | None = None
+    artifact_url: str | None = None
+    submit_image: str | None = None
+    node_class: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "submission_id": self.submission_id,
+            "experiment": self.experiment,
+            "created_at": self.created_at,
+            "namespace": self.namespace,
+            "artifact_url": self.artifact_url,
+            "submit_image": self.submit_image,
+            "node_class": self.node_class,
+        }
+
+
+def submissions_path() -> Path:
+    return user_config_dir() / "state" / "submissions.json"
+
+
+def load_submissions() -> list[dict[str, Any]]:
+    path = submissions_path()
+    if not path.exists():
+        return []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise StateError(f"Submissions state at {path} is invalid JSON.") from exc
+    return data if isinstance(data, list) else []
+
+
+def record_submission(record: SubmissionRecord, *, max_entries: int = 200) -> Path:
+    path = submissions_path()
+    entries = load_submissions()
+    entries.insert(0, record.to_dict())
+    if max_entries > 0:
+        entries = entries[:max_entries]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = json.dumps(entries, indent=2, sort_keys=True)
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    tmp_path.write_text(payload, encoding="utf-8")
+    os.replace(tmp_path, path)
+    return path

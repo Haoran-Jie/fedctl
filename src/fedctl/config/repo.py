@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,27 @@ def load_repo_config(base: Path | None = None, config_path: Path | None = None) 
         return {}
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
     return data if isinstance(data, dict) else {}
+
+
+@dataclass(frozen=True)
+class SubmitRepoConfig:
+    node_class: str | None = None
+    image: str | None = None
+    artifact_store: str | None = None
+
+
+def parse_submit_repo_config(repo_cfg: dict[str, Any]) -> SubmitRepoConfig:
+    submit = repo_cfg.get("submit", {}) if isinstance(repo_cfg.get("submit"), dict) else {}
+    node_class = submit.get("node_class")
+    image = submit.get("image")
+    artifact_store = submit.get("artifact_store")
+    return SubmitRepoConfig(
+        node_class=str(node_class) if isinstance(node_class, str) and node_class else None,
+        image=str(image) if isinstance(image, str) and image else None,
+        artifact_store=(
+            str(artifact_store) if isinstance(artifact_store, str) and artifact_store else None
+        ),
+    )
 
 
 def _find_repo_config(base: Path) -> Path | None:

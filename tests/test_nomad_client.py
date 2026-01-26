@@ -53,7 +53,32 @@ def test_status_leader_parses_string(monkeypatch) -> None:
     monkeypatch.setattr(
         client._client,
         "request",
-        lambda method, path, json=None: fake_get(path),
+        lambda method, path, json=None, params=None: fake_get(path),
     )
     assert client.status_leader() == "10.0.0.1:4647"
+    client.close()
+
+
+def test_alloc_logs_follow_flag(monkeypatch) -> None:
+    cfg = EffectiveConfig(
+        profile_name="p",
+        endpoint="http://127.0.0.1:4646",
+        namespace=None,
+        tls_ca=None,
+        tls_skip_verify=False,
+        access_mode="lan-only",
+        tailscale_subnet_cidr=None,
+        nomad_token=None,
+    )
+    client = NomadClient(cfg)
+    captured = {}
+
+    def fake_request(method, path, json=None, params=None):
+        captured["params"] = params
+        return DummyResp(status_code=200, text="", json_obj={"Data": ""})
+
+    monkeypatch.setattr(client._client, "request", fake_request)
+    client.alloc_logs("alloc", "task", stderr=False, follow=True)
+    assert captured["params"]["follow"] == "true"
+    assert captured["params"]["type"] == "stdout"
     client.close()

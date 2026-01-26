@@ -18,7 +18,14 @@ from fedctl.commands.discover import run_discover
 from fedctl.commands.doctor import run_doctor
 from fedctl.commands.inspect import run_inspect
 from fedctl.commands.local import run_local_down, run_local_status, run_local_up
+from fedctl.commands.logs import run_logs
 from fedctl.commands.ping import run_ping
+from fedctl.commands.submit import (
+    run_submit,
+    run_submit_logs,
+    run_submit_ls,
+    run_submit_status,
+)
 from fedctl.config.io import load_config, load_raw_toml, save_raw_toml
 from fedctl.config.merge import get_effective_config
 
@@ -27,9 +34,11 @@ app = typer.Typer(add_completion=False, help="fedctl CLI")
 config_app = typer.Typer(help="Manage fedctl configuration")
 profile_app = typer.Typer(help="Manage profiles")
 local_app = typer.Typer(help="Local Nomad harness")
+submit_app = typer.Typer(help="Submit jobs to Nomad")
 app.add_typer(config_app, name="config")
 app.add_typer(profile_app, name="profile")
 app.add_typer(local_app, name="local")
+app.add_typer(submit_app, name="submit")
 
 
 @app.callback(invoke_without_command=True)
@@ -184,6 +193,108 @@ def profile_set(
     print(f"Updated profile: [bold]{name}[/bold]")
 
 
+@submit_app.callback(invoke_without_command=True)
+def submit(
+    ctx: typer.Context,
+) -> None:
+    """Submit a project for queued execution."""
+    if ctx.invoked_subcommand is None:
+        typer.echo(ctx.get_help())
+        raise typer.Exit()
+
+
+@submit_app.command("run")
+def submit_run(
+    path: str = typer.Argument(".", help="Path to a Flower project (dir or pyproject.toml)."),
+    flwr_version: str = typer.Option("1.23.0", "--flwr-version"),
+    image: str | None = typer.Option(None, "--image"),
+    no_cache: bool = typer.Option(False, "--no-cache"),
+    platform: str | None = typer.Option(None, "--platform"),
+    context: str | None = typer.Option(None, "--context"),
+    push: bool = typer.Option(False, "--push"),
+    num_supernodes: int = typer.Option(2, "--num-supernodes"),
+    auto_supernodes: bool = typer.Option(True, "--auto-supernodes/--no-auto-supernodes"),
+    supernodes: list[str] = typer.Option(None, "--supernodes"),
+    net: list[str] = typer.Option(None, "--net"),
+    allow_oversubscribe: bool | None = typer.Option(
+        None, "--allow-oversubscribe/--no-allow-oversubscribe"
+    ),
+    repo_config: str | None = typer.Option(None, "--repo-config"),
+    exp: str | None = typer.Option(None, "--exp"),
+    timeout: int = typer.Option(120, "--timeout"),
+    no_wait: bool = typer.Option(False, "--no-wait"),
+    federation: str = typer.Option("remote-deployment", "--federation"),
+    stream: bool = typer.Option(True, "--stream/--no-stream"),
+    verbose: bool = typer.Option(False, "--verbose"),
+    submit_node_class: str | None = typer.Option(None, "--submit-node-class"),
+    submit_image: str | None = typer.Option(None, "--submit-image"),
+    artifact_store: str | None = typer.Option(None, "--artifact-store"),
+    priority: int | None = typer.Option(None, "--priority"),
+) -> None:
+    """Submit a project for queued execution."""
+    raise SystemExit(
+        run_submit(
+            path=path,
+            flwr_version=flwr_version,
+            image=image,
+            no_cache=no_cache,
+            platform=platform,
+            context=context,
+            push=push,
+            num_supernodes=num_supernodes,
+            auto_supernodes=auto_supernodes,
+            supernodes=supernodes,
+            net=net,
+            allow_oversubscribe=allow_oversubscribe,
+            repo_config=repo_config,
+            experiment=exp,
+            timeout_seconds=timeout,
+            no_wait=no_wait,
+            federation=federation,
+            stream=stream,
+            verbose=verbose,
+            submit_node_class=submit_node_class,
+            submit_image=submit_image,
+            artifact_store=artifact_store,
+            priority=priority,
+        )
+    )
+
+
+@submit_app.command("status")
+def submit_status(
+    submission_id: str = typer.Argument(..., help="Submission ID."),
+) -> None:
+    """Show status for a submitted job."""
+    raise SystemExit(run_submit_status(submission_id=submission_id))
+
+
+@submit_app.command("logs")
+def submit_logs(
+    submission_id: str = typer.Argument(..., help="Submission ID."),
+    task: str = typer.Option("submit", "--task"),
+    stderr: bool = typer.Option(False, "--stderr/--stdout"),
+    follow: bool = typer.Option(False, "--follow"),
+) -> None:
+    """Fetch logs for a submitted job."""
+    raise SystemExit(
+        run_submit_logs(
+            submission_id=submission_id,
+            task=task,
+            stderr=stderr,
+            follow=follow,
+        )
+    )
+
+
+@submit_app.command("ls")
+def submit_ls(
+    limit: int = typer.Option(20, "--limit"),
+) -> None:
+    """List recent submissions."""
+    raise SystemExit(run_submit_ls(limit=limit))
+
+
 def _format_repo_config(value: str | None) -> str:
     if not value:
         return "-"
@@ -275,34 +386,22 @@ def ping(
 
 @app.command()
 def discover(
-    profile: str = typer.Option(None, "--profile"),
-    endpoint: str = typer.Option(None, "--endpoint"),
-    namespace: str = typer.Option(None, "--namespace"),
-    token: str = typer.Option(None, "--token"),
-    tls_ca: str = typer.Option(None, "--tls-ca"),
-    tls_skip_verify: bool = typer.Option(None, "--tls-skip-verify"),
     wide: bool = typer.Option(False, "--wide"),
     json_output: bool = typer.Option(False, "--json"),
     device: str = typer.Option(None, "--device"),
     status: str = typer.Option(None, "--status"),
     node_class: str = typer.Option(None, "--class"),
-    ) -> None:
-        """List Nomad nodes and their labels."""
-        raise SystemExit(
-            run_discover(
-            profile=profile,
-            endpoint=endpoint,
-            namespace=namespace,
-            token=token,
-            tls_ca=tls_ca,
-            tls_skip_verify=tls_skip_verify,
+) -> None:
+    """List Nomad nodes and their labels."""
+    raise SystemExit(
+        run_discover(
             wide=wide,
             json_output=json_output,
             device=device,
             status=status,
             node_class=node_class,
-            )
         )
+    )
 
 
 @app.command()
@@ -321,12 +420,6 @@ def deploy(
     exp: str | None = typer.Option(None, "--exp"),
     timeout: int = typer.Option(120, "--timeout"),
     no_wait: bool = typer.Option(False, "--no-wait"),
-    profile: str | None = typer.Option(None, "--profile"),
-    endpoint: str | None = typer.Option(None, "--endpoint"),
-    namespace: str | None = typer.Option(None, "--namespace"),
-    token: str | None = typer.Option(None, "--token"),
-    tls_ca: str | None = typer.Option(None, "--tls-ca"),
-    tls_skip_verify: bool | None = typer.Option(None, "--tls-skip-verify"),
 ) -> None:
     """Deploy Flower jobs to Nomad (or render with --dry-run)."""
     raise SystemExit(
@@ -343,12 +436,6 @@ def deploy(
             experiment=exp,
             timeout_seconds=timeout,
             no_wait=no_wait,
-            profile=profile,
-            endpoint=endpoint,
-            namespace=namespace,
-            token=token,
-            tls_ca=tls_ca,
-            tls_skip_verify=tls_skip_verify,
         )
     )
 
@@ -381,26 +468,14 @@ def build(
 
 @app.command()
 def address(
-    namespace: str | None = typer.Option(None, "--namespace"),
     exp: str | None = typer.Option(None, "--exp"),
     format: str = typer.Option("plain", "--format"),
-    profile: str | None = typer.Option(None, "--profile"),
-    endpoint: str | None = typer.Option(None, "--endpoint"),
-    token: str | None = typer.Option(None, "--token"),
-    tls_ca: str | None = typer.Option(None, "--tls-ca"),
-    tls_skip_verify: bool | None = typer.Option(None, "--tls-skip-verify"),
 ) -> None:
     """Resolve the SuperLink control address."""
     raise SystemExit(
         run_address(
-            namespace=namespace,
             experiment=exp,
             fmt=format,
-            profile=profile,
-            endpoint=endpoint,
-            token=token,
-            tls_ca=tls_ca,
-            tls_skip_verify=tls_skip_verify,
         )
     )
 
@@ -408,27 +483,15 @@ def address(
 @app.command()
 def configure(
     path: str = typer.Argument(".", help="Path to a Flower project (dir or pyproject.toml)."),
-    namespace: str | None = typer.Option(None, "--namespace"),
     exp: str | None = typer.Option(None, "--exp"),
     backup: bool = typer.Option(True, "--backup/--no-backup"),
-    profile: str | None = typer.Option(None, "--profile"),
-    endpoint: str | None = typer.Option(None, "--endpoint"),
-    token: str | None = typer.Option(None, "--token"),
-    tls_ca: str | None = typer.Option(None, "--tls-ca"),
-    tls_skip_verify: bool | None = typer.Option(None, "--tls-skip-verify"),
 ) -> None:
     """Patch pyproject.toml with the resolved federation address."""
     raise SystemExit(
         run_configure(
             path=path,
-            namespace=namespace,
             backup=backup,
             experiment=exp,
-            profile=profile,
-            endpoint=endpoint,
-            token=token,
-            tls_ca=tls_ca,
-            tls_skip_verify=tls_skip_verify,
         )
     )
 
@@ -453,12 +516,6 @@ def run(
     exp: str | None = typer.Option(None, "--exp"),
     timeout: int = typer.Option(120, "--timeout"),
     no_wait: bool = typer.Option(False, "--no-wait"),
-    namespace: str | None = typer.Option(None, "--namespace"),
-    profile: str | None = typer.Option(None, "--profile"),
-    endpoint: str | None = typer.Option(None, "--endpoint"),
-    token: str | None = typer.Option(None, "--token"),
-    tls_ca: str | None = typer.Option(None, "--tls-ca"),
-    tls_skip_verify: bool | None = typer.Option(None, "--tls-skip-verify"),
     federation: str = typer.Option("remote-deployment", "--federation"),
     stream: bool = typer.Option(True, "--stream/--no-stream"),
     verbose: bool = typer.Option(False, "--verbose"),
@@ -482,12 +539,6 @@ def run(
             experiment=exp,
             timeout_seconds=timeout,
             no_wait=no_wait,
-            namespace=namespace,
-            profile=profile,
-            endpoint=endpoint,
-            token=token,
-            tls_ca=tls_ca,
-            tls_skip_verify=tls_skip_verify,
             federation=federation,
             stream=stream,
             verbose=verbose,
@@ -498,27 +549,15 @@ def run(
 @app.command()
 def destroy(
     exp: str | None = typer.Argument(None, help="Experiment name."),
-    namespace: str | None = typer.Option(None, "--namespace"),
     purge: bool = typer.Option(False, "--purge"),
     all: bool = typer.Option(False, "--all"),
-    profile: str | None = typer.Option(None, "--profile"),
-    endpoint: str | None = typer.Option(None, "--endpoint"),
-    token: str | None = typer.Option(None, "--token"),
-    tls_ca: str | None = typer.Option(None, "--tls-ca"),
-    tls_skip_verify: bool | None = typer.Option(None, "--tls-skip-verify"),
 ) -> None:
     """Stop jobs for an experiment, optionally purging them."""
     raise SystemExit(
         run_destroy(
             experiment=exp,
             destroy_all=all,
-            namespace=namespace,
             purge=purge,
-            profile=profile,
-            endpoint=endpoint,
-            token=token,
-            tls_ca=tls_ca,
-            tls_skip_verify=tls_skip_verify,
         )
     )
 
@@ -527,24 +566,28 @@ def destroy(
 def status(
     exp: str | None = typer.Argument(None, help="Experiment name."),
     all: bool = typer.Option(False, "--all"),
-    namespace: str | None = typer.Option(None, "--namespace"),
-    profile: str | None = typer.Option(None, "--profile"),
-    endpoint: str | None = typer.Option(None, "--endpoint"),
-    token: str | None = typer.Option(None, "--token"),
-    tls_ca: str | None = typer.Option(None, "--tls-ca"),
-    tls_skip_verify: bool | None = typer.Option(None, "--tls-skip-verify"),
 ) -> None:
     """Show allocation status for an experiment."""
     raise SystemExit(
         run_status(
             experiment=exp,
             show_all=all,
-            namespace=namespace,
-            profile=profile,
-            endpoint=endpoint,
-            token=token,
-            tls_ca=tls_ca,
-            tls_skip_verify=tls_skip_verify,
+        )
+    )
+
+
+@app.command()
+def logs(
+    exp: str | None = typer.Argument(None, help="Experiment name."),
+    component: str = typer.Option("all", "--component"),
+    stderr: bool = typer.Option(True, "--stderr/--stdout"),
+) -> None:
+    """Fetch active allocation logs for an experiment."""
+    raise SystemExit(
+        run_logs(
+            experiment=exp,
+            component=component,
+            stderr=stderr,
         )
     )
 

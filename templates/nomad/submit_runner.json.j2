@@ -1,0 +1,64 @@
+{
+  "Job": {
+    "ID": "{{ job_name }}",
+    "Name": "{{ job_name }}",
+    "Namespace": "{{ namespace }}",
+    "Type": "batch",
+    "Priority": {{ priority }},
+    "Datacenters": {{ datacenters | tojson }},
+    "Constraints": [
+      {
+        "LTarget": "${node.class}",
+        "Operand": "=",
+        "RTarget": "{{ node_class }}"
+      }
+    ],
+    "TaskGroups": [
+      {
+        "Name": "submit",
+        {% if docker_socket %}
+        "Volumes": {
+          "{{ docker_socket_name }}": {
+            "Type": "host",
+            "Source": "{{ docker_socket_name }}",
+            "ReadOnly": false
+          }
+        },
+        {% endif %}
+        "Tasks": [
+          {
+            "Name": "submit",
+            "Driver": "docker",
+            "Config": {
+              "image": "{{ image }}",
+              "command": "{{ command }}",
+              "args": {{ args | tojson }},
+              "force_pull": true,
+              "work_dir": "{{ work_dir }}"
+            },
+            "Artifacts": [
+              {
+                "GetterSource": "{{ artifact_url }}",
+                "RelativeDest": "{{ artifact_dest }}"
+              }
+            ],
+            "Env": {{ env | tojson }},
+            {% if docker_socket %}
+            "VolumeMounts": [
+              {
+                "Volume": "{{ docker_socket_name }}",
+                "Destination": "/var/run/docker.sock",
+                "ReadOnly": false
+              }
+            ],
+            {% endif %}
+            "Resources": {
+              "CPU": {{ cpu }},
+              "MemoryMB": {{ memory_mb }}
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

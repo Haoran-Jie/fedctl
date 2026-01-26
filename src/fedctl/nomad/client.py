@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Dict
 
 import httpx
+import base64
 
 from fedctl.config.schema import EffectiveConfig
 from .errors import NomadConnectionError, NomadHTTPError, NomadTLSError
@@ -39,9 +40,15 @@ class NomadClient:
     def close(self) -> None:
         self._client.close()
 
-    def _request(self, method: str, path: str, json_payload: Any | None = None) -> Any:
+    def _request(
+        self,
+        method: str,
+        path: str,
+        json_payload: Any | None = None,
+        params: Dict[str, str] | None = None,
+    ) -> Any:
         try:
-            r = self._client.request(method, path, json=json_payload)
+            r = self._client.request(method, path, json=json_payload, params=params)
         except httpx.ConnectError as e:
             raise NomadConnectionError(str(e)) from e
         except httpx.ReadTimeout as e:
@@ -61,8 +68,8 @@ class NomadClient:
             return r.json()
         return r.text
 
-    def _get(self, path: str) -> Any:
-        return self._request("GET", path)
+    def _get(self, path: str, params: Dict[str, str] | None = None) -> Any:
+        return self._request("GET", path, params=params)
 
     def _post(self, path: str, payload: Any) -> Any:
         return self._request("POST", path, json_payload=payload)
@@ -87,6 +94,33 @@ class NomadClient:
 
     def job_allocations(self, job_name: str) -> Any:
         return self._get(f"/v1/job/{job_name}/allocations")
+
+    def job(self, job_name: str) -> Any:
+        return self._get(f"/v1/job/{job_name}")
+
+    def alloc_logs(
+        self,
+        alloc_id: str,
+        task: str,
+        *,
+        stderr: bool = True,
+        follow: bool = False,
+    ) -> str:
+        params = {
+            "task": task,
+            "type": "stderr" if stderr else "stdout",
+            "follow": "true" if follow else "false",
+        }
+        data = self._get(f"/v1/client/fs/logs/{alloc_id}", params=params)
+        if isinstance(data, dict):
+            raw = data.get("Data")
+            if isinstance(raw, str):
+                try:
+                    return base64.b64decode(raw).decode("utf-8", errors="replace")
+                except (ValueError, OSError):
+                    return raw
+            return str(data)
+        return data if isinstance(data, str) else str(data)
 
     def allocation(self, alloc_id: str) -> Any:
         return self._get(f"/v1/allocation/{alloc_id}")
