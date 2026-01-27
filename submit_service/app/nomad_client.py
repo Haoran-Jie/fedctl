@@ -1,0 +1,101 @@
+from __future__ import annotations
+
+import base64
+from typing import Any, Dict
+
+import httpx
+
+
+class NomadError(RuntimeError):
+    pass
+
+
+class NomadClient:
+    def __init__(
+        self,
+        endpoint: str,
+        *,
+        token: str | None = None,
+        namespace: str | None = None,
+        tls_ca: str | None = None,
+        tls_skip_verify: bool = False,
+        timeout: float = 15.0,
+    ) -> None:
+        self._endpoint = endpoint.rstrip("/")
+        self._headers: dict[str, str] = {}
+        if token:
+            self._headers["X-Nomad-Token"] = token
+        if namespace:
+            self._headers["X-Nomad-Namespace"] = namespace
+        verify: bool | str = True
+        if tls_ca:
+            verify = tls_ca
+        if tls_skip_verify:
+            verify = False
+        self._client = httpx.Client(base_url=self._endpoint, headers=self._headers, verify=verify, timeout=timeout)
+
+    def close(self) -> None:
+        self._client.close()
+
+    def submit_job(self, job: dict[str, Any]) -> Any:
+        return self._post("/v1/jobs", job)
+
+    def stop_job(self, job_id: str) -> Any:
+        return self._delete(f"/v1/job/{job_id}")
+
+    def job(self, job_id: str) -> Any:
+        return self._get(f"/v1/job/{job_id}")
+
+    def job_allocations(self, job_id: str) -> Any:
+        return self._get(f"/v1/job/{job_id}/allocations")
+
+    def alloc_logs(
+        self,
+        alloc_id: str,
+        task: str,
+        *,
+        stderr: bool = True,
+        follow: bool = False,
+    ) -> str:
+        params = {
+            "task": task,
+            "type": "stderr" if stderr else "stdout",
+            "follow": "true" if follow else "false",
+        }
+        data = self._get(f"/v1/client/fs/logs/{alloc_id}", params=params)
+        if isinstance(data, dict):
+            raw = data.get("Data")
+            if isinstance(raw, str):
+                try:
+                    return base64.b64decode(raw).decode("utf-8", errors="replace")
+                except (ValueError, OSError):
+                    return raw
+            return str(data)
+        return data if isinstance(data, str) else str(data)
+
+    def _get(self, path: str, params: Dict[str, str] | None = None) -> Any:
+        return self._request("GET", path, params=params)
+
+    def _post(self, path: str, payload: Any) -> Any:
+        return self._request("POST", path, json_payload=payload)
+
+    def _delete(self, path: str) -> Any:
+        return self._request("DELETE", path)
+
+    def _request(
+        self,
+        method: str,
+        path: str,
+        *,
+        json_payload: Any | None = None,
+        params: Dict[str, str] | None = None,
+    ) -> Any:
+        try:
+            resp = self._client.request(method, path, json=json_payload, params=params)
+        except httpx.HTTPError as exc:
+            raise NomadError(str(exc)) from exc
+        if resp.status_code >= 400:
+            raise NomadError(f"Nomad error {resp.status_code}: {resp.text[:200]}")
+        if "application/json" in resp.headers.get("content-type", ""):
+            return resp.json()
+        return resp.text

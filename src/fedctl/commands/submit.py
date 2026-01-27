@@ -17,6 +17,7 @@ from fedctl.nomad.errors import NomadConnectionError, NomadHTTPError, NomadTLSEr
 from fedctl.project.errors import ProjectError
 from fedctl.project.flwr_inspect import inspect_flwr_project
 from fedctl.submit.artifact import ArtifactUploadError, upload_artifact
+from fedctl.submit.client import SubmitServiceClient, SubmitServiceError
 from fedctl.submit.render import SubmitJobSpec, render_submit_job
 from fedctl.deploy.spec import normalize_experiment_name
 from fedctl.state.errors import StateError
@@ -82,8 +83,11 @@ def run_submit(
     exp_name = normalize_experiment_name(
         experiment or f"{project_name}-{_timestamp_compact()}"
     )
-    submission_id = f"submit-{exp_name}-{_timestamp_compact()}"
-    console.print(f"[green]✓ Submission ID:[/green] {submission_id}")
+    submit_client = _submit_service_client()
+    submission_id = None
+    if not submit_client:
+        submission_id = f"submit-{exp_name}-{_timestamp_compact()}"
+        console.print(f"[green]✓ Submission ID:[/green] {submission_id}")
 
     repo_cfg = _load_repo_cfg(repo_config=repo_config)
     submit_cfg = parse_submit_repo_config(repo_cfg)
@@ -123,9 +127,52 @@ def run_submit(
         console.print(f"[red]✗ Config error:[/red] {exc}")
         return 1
 
+    if submit_client:
+        try:
+            response = submit_client.create_submission(
+                {
+                    "project_name": project_name,
+                    "experiment": exp_name,
+                    "artifact_url": artifact_url,
+                    "submit_image": resolved_image,
+                    "node_class": resolved_node_class,
+                    "args": _runner_args(
+                        project_root=info.root,
+                        artifact_dest="/local/project",
+                        project_dir_name=project_path.name,
+                        exp_name=exp_name,
+                        flwr_version=flwr_version,
+                        image=image,
+                        no_cache=no_cache,
+                        platform=platform,
+                        context=context,
+                        push=push,
+                        num_supernodes=num_supernodes,
+                        auto_supernodes=auto_supernodes,
+                        supernodes=supernodes,
+                        net=net,
+                        allow_oversubscribe=allow_oversubscribe,
+                        federation=federation,
+                        stream=stream,
+                        timeout_seconds=timeout_seconds,
+                        verbose=verbose,
+                    ),
+                    "env": _runner_env(eff),
+                    "priority": priority or 50,
+                    "namespace": eff.namespace,
+                }
+            )
+        except SubmitServiceError as exc:
+            console.print(f"[red]✗ Submit service error:[/red] {exc}")
+            return 1
+        submission_id = response.get("submission_id", "<unknown>")
+        console.print(f"[green]✓ Submitted job:[/green] {submission_id}")
+        console.print(f"[blue]Next:[/blue] fedctl submit status {submission_id}")
+        return 0
+
     job = render_submit_job(
         SubmitJobSpec(
-            job_name=submission_id,
+            job_name=submission_id or f"submit-{exp_name}-{_timestamp_compact()}",
             node_class=resolved_node_class,
             image=resolved_image,
             artifact_url=artifact_url,
@@ -179,7 +226,7 @@ def run_submit(
         client.close()
 
     _record_submission_state(
-        submission_id=submission_id,
+        submission_id=submission_id or job["Job"]["ID"],
         experiment=exp_name,
         namespace=eff.namespace,
         artifact_url=artifact_url,
@@ -192,6 +239,21 @@ def run_submit(
 
 
 def run_submit_status(*, submission_id: str) -> int:
+    submit_client = _submit_service_client()
+    if submit_client:
+        try:
+            record = submit_client.get_submission(submission_id)
+        except SubmitServiceError as exc:
+            console.print(f"[red]✗ Submit service error:[/red] {exc}")
+            return 1
+        console.print(
+            f"[bold]Job:[/bold] {record.get('submission_id', submission_id)} ({record.get('status', '-')})"
+        )
+        alloc_id = record.get("nomad_job_id")
+        if alloc_id:
+            console.print(f"[bold]Nomad Job:[/bold] {alloc_id}")
+        return 0
+
     cfg = load_config()
     try:
         eff = get_effective_config(cfg)
@@ -245,6 +307,19 @@ def run_submit_logs(
     stderr: bool,
     follow: bool,
 ) -> int:
+    submit_client = _submit_service_client()
+    if submit_client:
+        try:
+            logs = submit_client.get_logs(
+                submission_id, task=task, stderr=stderr, follow=follow
+            )
+        except SubmitServiceError as exc:
+            console.print(f"[red]✗ Submit service error:[/red] {exc}")
+            return 1
+        rendered = Text.from_ansi(logs)
+        console.print(rendered, end="" if logs.endswith("\n") else "\n")
+        return 0
+
     cfg = load_config()
     try:
         eff = get_effective_config(cfg)
@@ -292,6 +367,26 @@ def run_submit_logs(
 
 
 def run_submit_ls(*, limit: int) -> int:
+    submit_client = _submit_service_client()
+    if submit_client:
+        try:
+            entries = submit_client.list_submissions(limit=limit)
+        except SubmitServiceError as exc:
+            console.print(f"[red]✗ Submit service error:[/red] {exc}")
+            return 1
+        if not entries:
+            console.print("[yellow]No submissions recorded.[/yellow]")
+            return 0
+        rows = []
+        for entry in entries:
+            submission_id = entry.get("submission_id", "-")
+            experiment = entry.get("experiment", "-")
+            created_at = entry.get("created_at", "-")
+            namespace = entry.get("namespace") or "-"
+            rows.append([submission_id, experiment, namespace, created_at])
+        print_table("Submissions", ["ID", "Experiment", "Namespace", "Created"], rows)
+        return 0
+
     try:
         entries = load_submissions()
     except StateError as exc:
@@ -460,6 +555,15 @@ def _load_repo_cfg(*, repo_config: str | None) -> dict[str, object]:
     except Exception:
         return {}
     return {}
+
+
+def _submit_service_client() -> SubmitServiceClient | None:
+    endpoint = os.environ.get("FEDCTL_SUBMIT_ENDPOINT")
+    if not endpoint:
+        return None
+    token = os.environ.get("FEDCTL_SUBMIT_TOKEN")
+    user = os.environ.get("FEDCTL_SUBMIT_USER")
+    return SubmitServiceClient(endpoint=endpoint, token=token, user=user)
 
 
 def _timestamp_compact() -> str:
