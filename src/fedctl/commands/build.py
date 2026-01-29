@@ -10,9 +10,15 @@ from fedctl.build.dockerfile import render_dockerfile
 from fedctl.build.errors import BuildError
 from fedctl.build.inspect import inspect_project
 from fedctl.build.push import push_image
-from fedctl.build.state import BuildMetadata, new_timestamp, write_latest_build
+from fedctl.build.state import (
+    BuildMetadata,
+    new_timestamp,
+    write_latest_build,
+    write_project_build,
+)
 from fedctl.build.tagging import default_image_tag
 from fedctl.project.errors import ProjectError
+from fedctl.config.repo import get_image_registry, load_repo_config
 
 console = Console()
 
@@ -33,7 +39,11 @@ def build_and_record(
     except (ProjectError, ValueError) as exc:
         raise BuildError(str(exc)) from exc
 
-    image_tag = image or default_image_tag(info.project_name, repo_root=info.root)
+    repo_cfg = load_repo_config(base=info.root)
+    registry = get_image_registry(repo_cfg)
+    image_tag = image or default_image_tag(
+        info.project_name, repo_root=info.root, registry=registry
+    )
     dockerfile = render_dockerfile(flwr_version)
     context_dir = Path(context) if context else info.root
 
@@ -58,8 +68,10 @@ def build_and_record(
         project=info.project_name,
         flwr_version=flwr_version,
         timestamp=new_timestamp(),
+        project_root=str(info.root),
     )
     write_latest_build(metadata)
+    write_project_build(metadata, info.root)
     return image_tag
 
 

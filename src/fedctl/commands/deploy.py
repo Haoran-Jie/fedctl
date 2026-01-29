@@ -6,9 +6,13 @@ from pathlib import Path
 from rich.console import Console
 
 from fedctl.config.io import load_config
-from fedctl.config.repo import load_repo_config
+from fedctl.config.repo import load_repo_config, get_image_registry
 from fedctl.config.merge import get_effective_config
 from fedctl.build.errors import BuildError
+from fedctl.build.build import build_image, image_exists
+from fedctl.build.dockerfile import render_supernode_dockerfile
+from fedctl.build.tagging import supernode_netem_image_tag
+import tempfile
 from fedctl.build.state import load_latest_build
 from fedctl.deploy import naming
 from fedctl.deploy.errors import DeployError
@@ -237,10 +241,6 @@ def run_deploy(
         except ValueError as exc:
             console.print(f"[red]✗ Invalid --net:[/red] {exc}")
             return 1
-        if network_plan is not None and not repo_network_image:
-            console.print("[red]✗ Netem image is required when using --net.[/red]")
-            console.print("[yellow]Hint:[/yellow] Set deploy.network.image in repo config.")
-            return 1
         spec = default_deploy_spec(
             num_supernodes=num_supernodes,
             image=image,
@@ -372,6 +372,41 @@ def run_deploy(
         if placements is None:
             placements = network_placements
 
+        supernode_image = None
+        registry = get_image_registry(repo_cfg)
+        if network_plan is not None:
+            has_profiles = any(
+                isinstance(values, dict) and values
+                for values in network_plan.profiles.values()
+            )
+            if has_profiles:
+                flwr_version = "1.23.0"
+                supernode_image = supernode_netem_image_tag(flwr_version, registry=registry)
+                if not image_exists(supernode_image):
+                    console.print(
+                        f"[blue]Building supernode netem image:[/blue] {supernode_image}"
+                    )
+                    dockerfile = render_supernode_dockerfile(flwr_version)
+                    with tempfile.TemporaryDirectory() as tmp_dir:
+                        dockerfile_path = Path(tmp_dir) / "Dockerfile"
+                        dockerfile_path.write_text(dockerfile, encoding="utf-8")
+                        build_image(
+                            image=supernode_image,
+                            dockerfile_path=dockerfile_path,
+                            context_dir=Path(tmp_dir),
+                            no_cache=False,
+                            platform=None,
+                            quiet=True,
+                        )
+                else:
+                    console.print(
+                        f"[green]✓ Using cached supernode netem image:[/green] {supernode_image}"
+                    )
+        if network_plan is not None and not has_profiles:
+            console.print(
+                "[yellow]Note:[/yellow] Network profiles are empty; netem will be disabled."
+            )
+
         spec = default_deploy_spec(
             num_supernodes=num_supernodes,
             image=image,
@@ -382,6 +417,7 @@ def run_deploy(
             placements=placements,
             network_plan=network_plan,
             netem_image=repo_network_image if isinstance(repo_network_image, str) else None,
+            supernode_image=supernode_image,
             resources_by_type=resources_by_type,
             default_resources=default_resources,
         )

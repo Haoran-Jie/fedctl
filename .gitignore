@@ -9,3 +9,4 @@ dist/
 rendered/
 *.token
 .fedctl/
+results/

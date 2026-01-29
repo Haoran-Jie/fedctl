@@ -21,6 +21,7 @@ class SuperNodesSpec:
     placements: list["SupernodePlacement"] | None = None
     network: NetworkPlan | None = None
     netem_image: str | None = None
+    image: str | None = None
     resources_by_type: dict[str, dict[str, int]] | None = None
     default_resources: dict[str, int] | None = None
     node_class: str = "node"
@@ -62,6 +63,7 @@ def default_deploy_spec(
     placements: list["SupernodePlacement"] | None = None,
     network_plan: NetworkPlan | None = None,
     netem_image: str | None = None,
+    supernode_image: str | None = None,
     resources_by_type: dict[str, dict[str, int]] | None = None,
     default_resources: dict[str, int] | None = None,
 ) -> DeploySpec:
@@ -79,6 +81,7 @@ def default_deploy_spec(
             placements=placements,
             network=network_plan,
             netem_image=netem_image,
+            image=supernode_image,
             resources_by_type=resources_by_type,
             default_resources=default_resources,
         ),

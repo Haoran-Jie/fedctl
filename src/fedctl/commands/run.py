@@ -1,19 +1,23 @@
 from __future__ import annotations
 
+import os
 import subprocess
 from pathlib import Path
 
 from rich.console import Console
 
-from fedctl.build.errors import BuildError
 from fedctl.commands.build import build_and_record
 from fedctl.commands.configure import run_configure
 from fedctl.commands.deploy import run_deploy
+from fedctl.commands.destroy import run_destroy
 from fedctl.project.errors import ProjectError
 from datetime import datetime, timezone
 
 from fedctl.deploy.spec import normalize_experiment_name
 from fedctl.project.flwr_inspect import inspect_flwr_project
+from fedctl.build.state import load_project_build
+from fedctl.build.build import image_exists, pull_image
+from fedctl.build.errors import BuildError
 
 console = Console()
 
@@ -65,21 +69,65 @@ def run_run(
     console.print(f"[green]✓ Experiment:[/green] {exp_name}")
 
     console.print("[bold]Step 2/5:[/bold] Build SuperExec image")
-    try:
-        image_tag = build_and_record(
-            path=str(info.root),
-            flwr_version=flwr_version,
-            image=image,
-            no_cache=no_cache,
-            platform=platform,
-            context=context,
-            push=push,
-            verbose=verbose,
-        )
-        console.print(f"[green]✓ Built image:[/green] {image_tag}")
-    except BuildError as exc:
-        console.print(f"[red]✗ Build error:[/red] {exc}")
-        return 1
+    image_tag = None
+    reuse_allowed = not no_cache and image is None and context is None
+    pull_cached = os.environ.get("FEDCTL_PULL_CACHED_IMAGE", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    if reuse_allowed:
+        try:
+            cached = load_project_build(info.root)
+            if cached.flwr_version != flwr_version:
+                console.print(
+                    f"[yellow]Note:[/yellow] Cached image flwr_version "
+                    f"{cached.flwr_version} does not match {flwr_version}."
+                )
+            else:
+                if image_exists(cached.image):
+                    image_tag = cached.image
+                    console.print(
+                        f"[green]✓ Reusing cached image:[/green] {image_tag}"
+                    )
+                elif pull_cached:
+                    console.print(
+                        f"[yellow]Note:[/yellow] Cached image not local, attempting pull: {cached.image}"
+                    )
+                    if pull_image(cached.image) and image_exists(cached.image):
+                        image_tag = cached.image
+                        console.print(
+                            f"[green]✓ Pulled cached image:[/green] {image_tag}"
+                        )
+                    else:
+                        console.print(
+                            f"[yellow]Note:[/yellow] Failed to pull cached image {cached.image}."
+                        )
+                else:
+                    console.print(
+                        f"[yellow]Note:[/yellow] Cached image not found locally. "
+                        f"Set FEDCTL_PULL_CACHED_IMAGE=1 to pull {cached.image}."
+                    )
+        except BuildError:
+            pass
+
+    if not image_tag:
+        try:
+            image_tag = build_and_record(
+                path=str(info.root),
+                flwr_version=flwr_version,
+                image=image,
+                no_cache=no_cache,
+                platform=platform,
+                context=context,
+                push=push,
+                verbose=verbose,
+            )
+            console.print(f"[green]✓ Built image:[/green] {image_tag}")
+        except BuildError as exc:
+            console.print(f"[red]✗ Build error:[/red] {exc}")
+            return 1
 
     console.print("[bold]Step 3/5:[/bold] Deploy to Nomad")
     deploy_status = run_deploy(
@@ -128,11 +176,30 @@ def run_run(
 
     try:
         result = subprocess.run(cmd, check=False)
-    except FileNotFoundError as exc:
+        return_code = result.returncode
+    except KeyboardInterrupt:
+        console.print("[yellow]Interrupted.[/yellow] Attempting cleanup...")
+        return_code = 130
+    except FileNotFoundError:
         console.print("[red]✗ flwr CLI not found.[/red] Ensure Flower is installed.")
         return 1
+    finally:
+        console.print("[bold]Cleanup:[/bold] Destroy Nomad jobs")
+        destroy_status = run_destroy(
+            experiment=exp_name,
+            destroy_all=False,
+            namespace=namespace,
+            purge=True,
+            profile=profile,
+            endpoint=endpoint,
+            token=token,
+            tls_ca=tls_ca,
+            tls_skip_verify=tls_skip_verify,
+        )
+        if destroy_status != 0:
+            console.print("[yellow]Warning:[/yellow] Cleanup failed.")
 
-    return result.returncode
+    return return_code
 
 
 def _timestamp_compact() -> str:

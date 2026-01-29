@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shlex
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
@@ -172,18 +173,34 @@ def _supernodes_context(spec: DeploySpec) -> dict[str, Any]:
 
         cpu, mem = _supernode_resources(spec, device_type)
         tasks = []
-        netem_task = _netem_task(spec, placement)
-        if netem_task is not None:
-            tasks.append(netem_task)
+        netem_env: dict[str, str] | None = None
+        entrypoint = None
+        task_args = args
+        network_plan = spec.supernodes.network
+        cap_add = None
+        user = None
+        if network_plan is not None:
+            profile_name = _network_profile_for(network_plan, placement)
+            profile_data = network_plan.profiles.get(profile_name, {})
+            if profile_name != "none" and profile_data:
+                netem_env = _netem_env(profile_name, profile_data)
+                entrypoint = ["/bin/sh", "-lc"]
+                task_args = [_netem_wrapper_script(["flower-supernode", *args])]
+                cap_add = ["NET_ADMIN"]
+                user = "root"
         tasks.append(
             {
                 "Name": task_name,
                 "Driver": "docker",
+                **({"User": user} if user else {}),
                 "Config": {
-                    "image": f"flwr/supernode:{spec.flwr_version}",
+                    "image": spec.supernodes.image or f"flwr/supernode:{spec.flwr_version}",
                     "ports": ["clientappio"],
-                    "args": args,
+                    "args": task_args,
+                    **({"entrypoint": entrypoint} if entrypoint else {}),
+                    **({"cap_add": cap_add} if cap_add else {}),
                 },
+                **({"Env": netem_env} if netem_env else {}),
                 "Templates": [
                     {
                         "EmbeddedTmpl": template_data,
@@ -230,6 +247,14 @@ def _netem_task(spec: DeploySpec, placement: SupernodePlacement) -> dict[str, An
         return None
     profile_name = _network_profile_for(network_plan, placement)
     profile_data = network_plan.profiles.get(profile_name, {})
+    return _netem_task_for_profile(profile_name, profile_data, netem_image)
+
+
+def _netem_task_for_profile(
+    profile_name: str, profile_data: dict[str, float | int], netem_image: str
+) -> dict[str, Any] | None:
+    if profile_name == "none" or not profile_data:
+        return None
     env = _netem_env(profile_name, profile_data)
     return {
         "Name": "netem",
@@ -262,6 +287,8 @@ def _netem_env(
         ("jitter_ms", "NET_JITTER_MS"),
         ("loss_pct", "NET_LOSS_PCT"),
         ("rate_mbit", "NET_RATE_MBIT"),
+        ("rate_latency_ms", "NET_RATE_LATENCY_MS"),
+        ("rate_burst_kbit", "NET_RATE_BURST_KBIT"),
     ):
         value = profile_data.get(key)
         if isinstance(value, (int, float)):
@@ -282,8 +309,10 @@ def _netem_script() -> str:
         '  JITTER=\"$${NET_JITTER_MS:-0}\"',
         '  LOSS=\"$${NET_LOSS_PCT:-0}\"',
         '  RATE=\"$${NET_RATE_MBIT:-}\"',
+        '  RATE_LATENCY=\"$${NET_RATE_LATENCY_MS:-400}\"',
+        '  RATE_BURST=\"$${NET_RATE_BURST_KBIT:-32}\"',
         "  if [ -n \"$RATE\" ]; then",
-        "    tc qdisc add dev \"$IFACE\" root handle 1: tbf rate \"$${RATE}mbit\" burst 32kbit latency 400ms",
+        "    tc qdisc add dev \"$IFACE\" root handle 1: tbf rate \"$${RATE}mbit\" burst \"$${RATE_BURST}kbit\" latency \"$${RATE_LATENCY}ms\"",
         "    tc qdisc add dev \"$IFACE\" parent 1:1 handle 10: netem delay \"$${DELAY}ms\" \"$${JITTER}ms\" loss \"$${LOSS}%\"",
         "  else",
         "    tc qdisc add dev \"$IFACE\" root netem delay \"$${DELAY}ms\" \"$${JITTER}ms\" loss \"$${LOSS}%\"",
@@ -292,6 +321,36 @@ def _netem_script() -> str:
         "tc qdisc show dev \"$IFACE\" || true",
         "trap 'tc qdisc del dev \"$IFACE\" root 2>/dev/null || true' TERM INT",
         "sleep 3600",
+    ]
+    return "\n".join(lines)
+
+
+def _netem_wrapper_script(command: list[str]) -> str:
+    cmd = " ".join(shlex.quote(arg) for arg in command)
+    lines = [
+        "set -eu",
+        'PATH="/python/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"',
+        'IFACE="$${NET_IFACE:-eth0}"',
+        'PROFILE="$${NET_PROFILE:-none}"',
+        "tc qdisc del dev \"$IFACE\" root 2>/dev/null || true",
+        "if [ \"$PROFILE\" = \"none\" ]; then",
+        "  echo \"netem disabled\"",
+        "else",
+        '  DELAY="$${NET_DELAY_MS:-0}"',
+        '  JITTER="$${NET_JITTER_MS:-0}"',
+        '  LOSS="$${NET_LOSS_PCT:-0}"',
+        '  RATE="$${NET_RATE_MBIT:-}"',
+        '  RATE_LATENCY="$${NET_RATE_LATENCY_MS:-400}"',
+        '  RATE_BURST="$${NET_RATE_BURST_KBIT:-32}"',
+        "  if [ -n \"$RATE\" ]; then",
+        "    tc qdisc add dev \"$IFACE\" root handle 1: tbf rate \"$${RATE}mbit\" burst \"$${RATE_BURST}kbit\" latency \"$${RATE_LATENCY}ms\"",
+        "    tc qdisc add dev \"$IFACE\" parent 1:1 handle 10: netem delay \"$${DELAY}ms\" \"$${JITTER}ms\" loss \"$${LOSS}%\"",
+        "  else",
+        "    tc qdisc add dev \"$IFACE\" root netem delay \"$${DELAY}ms\" \"$${JITTER}ms\" loss \"$${LOSS}%\"",
+        "  fi",
+        "fi",
+        "tc qdisc show dev \"$IFACE\" || true",
+        f"exec {cmd}",
     ]
     return "\n".join(lines)
 
@@ -322,20 +381,40 @@ def _superexec_serverapp_context(spec: DeploySpec) -> dict[str, Any]:
     if not spec.insecure:
         args = [arg for arg in args if arg != "--insecure"]
 
+    entrypoint = ["flower-superexec"]
+    env: dict[str, str] = {}
+    user = spec.superexec.user
+    network_plan = spec.supernodes.network
+    if network_plan is not None:
+        profile_name = network_plan.default_profile
+        profile_data = network_plan.profiles.get(profile_name, {})
+        if profile_name != "none" and profile_data:
+            entrypoint = ["/bin/sh", "-lc"]
+            args = [_netem_wrapper_script(["flower-superexec", *args])]
+            env.update(_netem_env(profile_name, profile_data))
+            user = "root"
+            cap_add = ["NET_ADMIN"]
+        else:
+            cap_add = None
+    else:
+        cap_add = None
+
     return {
         "job_name": naming.job_superexec_serverapp(spec.experiment),
         "datacenters": [spec.datacenter],
         "namespace": spec.namespace,
         "node_class": spec.superexec.node_class_link,
         "image": spec.superexec.image,
-        "entrypoint": ["flower-superexec"],
+        "entrypoint": entrypoint,
         "args": args,
         "template_data": _nomad_service_env(
             naming.service_superlink_serverappio(spec.experiment), "SERVERAPP_IO"
         ),
         "cpu": spec.superexec.cpu,
         "memory_mb": spec.superexec.memory_mb,
-        "user": spec.superexec.user,
+        "user": user,
+        "env": env,
+        "cap_add": cap_add,
     }
 
 
@@ -354,6 +433,24 @@ def _superexec_clientapp_context(
     if not spec.insecure:
         args = [arg for arg in args if arg != "--insecure"]
 
+    entrypoint = ["flower-superexec"]
+    env: dict[str, str] = {}
+    user = spec.superexec.user
+    network_plan = spec.supernodes.network
+    if network_plan is not None:
+        profile_name = _network_profile_for(network_plan, placement)
+        profile_data = network_plan.profiles.get(profile_name, {})
+        if profile_name != "none" and profile_data:
+            entrypoint = ["/bin/sh", "-lc"]
+            args = [_netem_wrapper_script(["flower-superexec", *args])]
+            env.update(_netem_env(profile_name, profile_data))
+            user = "root"
+            cap_add = ["NET_ADMIN"]
+        else:
+            cap_add = None
+    else:
+        cap_add = None
+
     return {
         "job_name": naming.job_superexec_clientapp(
             spec.experiment,
@@ -364,7 +461,7 @@ def _superexec_clientapp_context(
         "namespace": spec.namespace,
         "node_class": spec.superexec.node_class_node,
         "image": spec.superexec.image,
-        "entrypoint": ["flower-superexec"],
+        "entrypoint": entrypoint,
         "args": args,
         "template_data": _nomad_service_env(
             naming.service_supernode_clientappio(
@@ -376,7 +473,9 @@ def _superexec_clientapp_context(
         ),
         "cpu": spec.superexec.cpu,
         "memory_mb": spec.superexec.memory_mb,
-        "user": spec.superexec.user,
+        "user": user,
+        "env": env,
+        "cap_add": cap_add,
     }
 
 

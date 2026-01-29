@@ -31,3 +31,21 @@ def build_image(
 
     if result.returncode != 0:
         raise BuildError(f"Docker build failed with exit code {result.returncode}.")
+
+
+def image_exists(image: str) -> bool:
+    cmd = ["docker", "image", "inspect", image]
+    try:
+        result = subprocess.run(cmd, check=False, capture_output=True)
+    except FileNotFoundError:
+        return False
+    return result.returncode == 0
+
+
+def pull_image(image: str) -> bool:
+    cmd = ["docker", "pull", image]
+    try:
+        result = subprocess.run(cmd, check=False)
+    except FileNotFoundError:
+        return False
+    return result.returncode == 0

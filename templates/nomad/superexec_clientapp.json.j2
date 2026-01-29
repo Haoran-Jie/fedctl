@@ -24,8 +24,12 @@
             "Config": {
               "image": "{{ image }}",
               "entrypoint": {{ entrypoint | tojson }},
-              "args": {{ args | tojson }}
+              "args": {{ args | tojson }}{% if cap_add %},
+              "cap_add": {{ cap_add | tojson }}{% endif %}
             },
+            {% if env %}
+            "Env": {{ env | tojson }},
+            {% endif %}
             "Resources": {
               "CPU": {{ cpu }},
               "MemoryMB": {{ memory_mb }}

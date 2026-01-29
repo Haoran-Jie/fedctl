@@ -41,6 +41,18 @@ def parse_submit_repo_config(repo_cfg: dict[str, Any]) -> SubmitRepoConfig:
     )
 
 
+def get_image_registry(repo_cfg: dict[str, Any]) -> str | None:
+    value = repo_cfg.get("image_registry")
+    if isinstance(value, str) and value.strip():
+        return value.strip().rstrip("/")
+    build_cfg = repo_cfg.get("build", {})
+    if isinstance(build_cfg, dict):
+        value = build_cfg.get("image_registry")
+        if isinstance(value, str) and value.strip():
+            return value.strip().rstrip("/")
+    return None
+
+
 def _find_repo_config(base: Path) -> Path | None:
     base = base.resolve()
     if base.is_file():

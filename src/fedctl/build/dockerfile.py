@@ -9,11 +9,31 @@ def render_dockerfile(flwr_version: str) -> str:
         "\n"
         "COPY pyproject.toml .\n"
         "USER root\n"
-        "RUN mkdir -p /app/.flwr \\\n"
+        "RUN apt-get update \\\n"
+        "  && apt-get install -y --no-install-recommends iproute2 \\\n"
+        "  && rm -rf /var/lib/apt/lists/* \\\n"
+        "  && mkdir -p /app/.flwr \\\n"
         "  && chown -R app:app /app/.flwr \\\n"
         "  && sed -i 's/.*flwr\\[simulation\\].*//' pyproject.toml \\\n"
         "  && python -m pip install -U --no-cache-dir .\n"
         "USER app\n"
         "\n"
         'ENTRYPOINT ["flower-superexec"]\n'
+    )
+
+
+def render_supernode_dockerfile(flwr_version: str) -> str:
+    return (
+        f"FROM flwr/supernode:{flwr_version}\n"
+        "\n"
+        "USER root\n"
+        "RUN if command -v apt-get >/dev/null 2>&1; then \\\n"
+        "      apt-get update \\\n"
+        "      && apt-get install -y --no-install-recommends iproute2 \\\n"
+        "      && rm -rf /var/lib/apt/lists/*; \\\n"
+        "    elif command -v apk >/dev/null 2>&1; then \\\n"
+        "      apk add --no-cache iproute2; \\\n"
+        "    else \\\n"
+        "      echo \"No supported package manager found (apt-get/apk)\"; exit 1; \\\n"
+        "    fi\n"
     )
