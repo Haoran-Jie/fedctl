@@ -25,6 +25,9 @@ class SubmitRepoConfig:
     node_class: str | None = None
     image: str | None = None
     artifact_store: str | None = None
+    endpoint: str | None = None
+    token: str | None = None
+    user: str | None = None
 
 
 def parse_submit_repo_config(repo_cfg: dict[str, Any]) -> SubmitRepoConfig:
@@ -32,12 +35,18 @@ def parse_submit_repo_config(repo_cfg: dict[str, Any]) -> SubmitRepoConfig:
     node_class = submit.get("node_class")
     image = submit.get("image")
     artifact_store = submit.get("artifact_store")
+    endpoint = submit.get("endpoint")
+    token = submit.get("token")
+    user = submit.get("user")
     return SubmitRepoConfig(
         node_class=str(node_class) if isinstance(node_class, str) and node_class else None,
         image=str(image) if isinstance(image, str) and image else None,
         artifact_store=(
             str(artifact_store) if isinstance(artifact_store, str) and artifact_store else None
         ),
+        endpoint=str(endpoint) if isinstance(endpoint, str) and endpoint else None,
+        token=str(token) if isinstance(token, str) and token else None,
+        user=str(user) if isinstance(user, str) and user else None,
     )
 
 

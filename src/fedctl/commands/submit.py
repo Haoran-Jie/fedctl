@@ -83,7 +83,7 @@ def run_submit(
     exp_name = normalize_experiment_name(
         experiment or f"{project_name}-{_timestamp_compact()}"
     )
-    submit_client = _submit_service_client()
+    submit_client = _submit_service_client(repo_config=repo_config)
     submission_id = None
     if not submit_client:
         submission_id = f"submit-{exp_name}-{_timestamp_compact()}"
@@ -246,12 +246,13 @@ def run_submit_status(*, submission_id: str) -> int:
         except SubmitServiceError as exc:
             console.print(f"[red]✗ Submit service error:[/red] {exc}")
             return 1
-        console.print(
-            f"[bold]Job:[/bold] {record.get('submission_id', submission_id)} ({record.get('status', '-')})"
-        )
-        alloc_id = record.get("nomad_job_id")
-        if alloc_id:
-            console.print(f"[bold]Nomad Job:[/bold] {alloc_id}")
+        resolved_id = record.get("submission_id", submission_id)
+        status = record.get("status", "-")
+        console.print(f"[bold]Job:[/bold] {resolved_id}")
+        console.print(f"[bold]Status:[/bold] {status}")
+        nomad_job_id = record.get("nomad_job_id")
+        if nomad_job_id and nomad_job_id != resolved_id:
+            console.print(f"[bold]Nomad Job:[/bold] {nomad_job_id}")
         return 0
 
     cfg = load_config()
@@ -303,15 +304,22 @@ def run_submit_status(*, submission_id: str) -> int:
 def run_submit_logs(
     *,
     submission_id: str,
-    task: str,
+    job: str,
+    task: str | None,
     stderr: bool,
     follow: bool,
+    index: int,
 ) -> int:
     submit_client = _submit_service_client()
     if submit_client:
         try:
             logs = submit_client.get_logs(
-                submission_id, task=task, stderr=stderr, follow=follow
+                submission_id,
+                job=job,
+                task=task,
+                stderr=stderr,
+                follow=follow,
+                index=index,
             )
         except SubmitServiceError as exc:
             console.print(f"[red]✗ Submit service error:[/red] {exc}")
@@ -338,7 +346,8 @@ def run_submit_logs(
         if not isinstance(alloc_id, str):
             console.print("[red]✗ Allocation ID missing.[/red]")
             return 1
-        logs = client.alloc_logs(alloc_id, task, stderr=stderr, follow=follow)
+        resolved_task = task or "submit"
+        logs = client.alloc_logs(alloc_id, resolved_task, stderr=stderr, follow=follow)
         rendered = Text.from_ansi(logs)
         console.print(rendered, end="" if logs.endswith("\n") else "\n")
         return 0
@@ -557,12 +566,22 @@ def _load_repo_cfg(*, repo_config: str | None) -> dict[str, object]:
     return {}
 
 
-def _submit_service_client() -> SubmitServiceClient | None:
+def _submit_service_client(*, repo_config: str | None = None) -> SubmitServiceClient | None:
     endpoint = os.environ.get("FEDCTL_SUBMIT_ENDPOINT")
-    if not endpoint:
-        return None
     token = os.environ.get("FEDCTL_SUBMIT_TOKEN")
     user = os.environ.get("FEDCTL_SUBMIT_USER")
+    
+    repo_cfg = _load_repo_cfg(repo_config=repo_config)
+    submit_cfg = parse_submit_repo_config(repo_cfg)
+    if not endpoint:
+        endpoint = submit_cfg.endpoint
+    if not token:
+        token = submit_cfg.token
+    if not user:
+        user = submit_cfg.user
+
+    if not endpoint:
+        return None
     return SubmitServiceClient(endpoint=endpoint, token=token, user=user)
 
 

@@ -18,6 +18,10 @@ class SubmissionCreateRequest(BaseModel):
     namespace: str | None = None
 
 
+class SubmissionJobsUpdate(BaseModel):
+    jobs: dict[str, Any]
+
+
 class SubmissionRecord(BaseModel):
     submission_id: str
     user: str
@@ -38,6 +42,7 @@ class SubmissionRecord(BaseModel):
     result_location: str | None = None
     error_message: str | None = None
     namespace: str | None = None
+    jobs: dict[str, Any] | None = None
 
     @classmethod
     def from_row(cls, row: dict[str, Any]) -> "SubmissionRecord":
@@ -61,6 +66,7 @@ class SubmissionRecord(BaseModel):
             result_location=row.get("result_location"),
             error_message=row.get("error_message"),
             namespace=row.get("namespace"),
+            jobs=row.get("jobs"),
         )
 
 

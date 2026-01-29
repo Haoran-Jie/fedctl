@@ -38,15 +38,20 @@ class SubmitServiceClient:
         self,
         submission_id: str,
         *,
-        task: str = "submit",
+        job: str = "submit",
+        task: str | None = None,
         stderr: bool = True,
         follow: bool = False,
+        index: int = 1,
     ) -> str:
         params = {
-            "task": task,
+            "job": job,
+            "index": str(index),
             "stderr": "true" if stderr else "false",
             "follow": "true" if follow else "false",
         }
+        if task:
+            params["task"] = task
         return self._request(
             "GET",
             f"/v1/submissions/{submission_id}/logs",

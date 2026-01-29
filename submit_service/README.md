@@ -74,6 +74,15 @@ export FEDCTL_SUBMIT_TOKEN=token1
 export FEDCTL_SUBMIT_USER=alice
 ```
 
+Or configure these in `.fedctl/fedctl.yaml` (env vars still take precedence):
+
+```yaml
+submit:
+  endpoint: http://127.0.0.1:8080
+  token: token1
+  user: alice
+```
+
 Then submit as usual:
 
 ```bash

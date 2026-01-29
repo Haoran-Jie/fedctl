@@ -8,10 +8,15 @@ import shutil
 from pathlib import Path
 
 from rich.console import Console
+import httpx
+import logging
 
 from fedctl.commands.run import run_run
+from fedctl.deploy import naming
+from fedctl.deploy.plan import parse_supernodes
 
 console = Console()
+logger = logging.getLogger(__name__)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -52,10 +57,21 @@ def main(argv: list[str] | None = None) -> int:
     token = os.environ.get("NOMAD_TOKEN")
     tls_ca = os.environ.get("FEDCTL_TLS_CA")
     tls_skip_verify = _parse_bool_env("FEDCTL_TLS_SKIP_VERIFY")
+    submission_id = os.environ.get("SUBMIT_SUBMISSION_ID")
+    submit_service_endpoint = os.environ.get("SUBMIT_SERVICE_ENDPOINT")
+    submit_service_token = os.environ.get("SUBMIT_SERVICE_TOKEN")
 
     # _print_docker_info()
     project_path = _resolve_project_path(Path(args.path), args.project_dir)
-    return run_run(
+    _report_jobs(
+        submission_id=submission_id,
+        submit_service_endpoint=submit_service_endpoint,
+        submit_service_token=submit_service_token,
+        experiment=args.experiment,
+        num_supernodes=args.num_supernodes,
+        supernodes=args.supernodes,
+    )
+    exit_code = run_run(
         path=str(project_path),
         flwr_version=args.flwr_version,
         image=args.image,
@@ -80,6 +96,7 @@ def main(argv: list[str] | None = None) -> int:
         tls_ca=tls_ca,
         tls_skip_verify=tls_skip_verify,
     )
+    return exit_code
 
 
 def _parse_bool_env(key: str) -> bool | None:
@@ -189,6 +206,102 @@ def _print_tree(base: Path, label: str, max_entries: int = 200) -> None:
             lines.append("  ...")
             break
     console.print(f"[yellow]Debug:[/yellow] {label} {base}:\n" + "\n".join(lines))
+
+
+def _report_jobs(
+    *,
+    submission_id: str | None,
+    submit_service_endpoint: str | None,
+    submit_service_token: str | None,
+    experiment: str | None,
+    num_supernodes: int,
+    supernodes: list[str] | None,
+) -> None:
+    if not submission_id or not submit_service_endpoint or not experiment:
+        return
+    jobs = _build_jobs_report(
+        experiment=experiment,
+        num_supernodes=num_supernodes,
+        supernodes=supernodes,
+    )
+    if not jobs:
+        return
+    url = submit_service_endpoint.rstrip("/") + f"/v1/submissions/{submission_id}/jobs"
+    headers = {}
+    if submit_service_token:
+        headers["Authorization"] = f"Bearer {submit_service_token}"
+    try:
+        response = httpx.post(url, json={"jobs": jobs}, headers=headers, timeout=10.0)
+    except httpx.HTTPError as exc:
+        logger.warning("submit-service job report failed: %s", exc)
+        console.print(f"[yellow]Warning:[/yellow] Job mapping report failed: {exc}")
+        return
+    if response.status_code >= 400:
+        logger.warning(
+            "submit-service job report failed: status=%s body=%s",
+            response.status_code,
+            response.text[:200],
+        )
+        console.print(
+            f"[yellow]Warning:[/yellow] Job mapping report failed: {response.status_code}"
+        )
+        return
+    logger.info("submit-service job report ok: submission_id=%s", submission_id)
+    console.print("[green]✓ Reported job mapping to submit service[/green]")
+
+
+def _build_jobs_report(
+    *, experiment: str, num_supernodes: int, supernodes: list[str] | None
+) -> dict[str, object]:
+    placements = _supernode_placements_for_report(
+        num_supernodes=num_supernodes, supernodes=supernodes
+    )
+    tasks = [_supernode_task_name(p["device_type"], p["instance_idx"]) for p in placements]
+    clientapps = [
+        naming.job_superexec_clientapp(
+            experiment, p["instance_idx"], p["device_type"]
+        )
+        for p in placements
+    ]
+    return {
+        "superlink": {
+            "job_id": naming.job_superlink(experiment),
+            "task": naming.job_superlink(experiment),
+        },
+        "supernodes": {
+            "job_id": naming.job_supernodes(experiment),
+            "tasks": tasks,
+        },
+        "superexec_serverapp": {
+            "job_id": naming.job_superexec_serverapp(experiment),
+            "task": naming.job_superexec_serverapp(experiment),
+        },
+        "superexec_clientapps": {
+            "job_ids": clientapps,
+        },
+    }
+
+
+def _supernode_placements_for_report(
+    *, num_supernodes: int, supernodes: list[str] | None
+) -> list[dict[str, object]]:
+    placements: list[dict[str, object]] = []
+    if supernodes:
+        counts = parse_supernodes(supernodes)
+        for device_type, count in counts.items():
+            for idx in range(1, count + 1):
+                placements.append(
+                    {"device_type": device_type, "instance_idx": idx}
+                )
+        return placements
+    for idx in range(1, max(num_supernodes, 0) + 1):
+        placements.append({"device_type": None, "instance_idx": idx})
+    return placements
+
+
+def _supernode_task_name(device_type: str | None, instance_idx: int) -> str:
+    group_suffix = f"{device_type}-{instance_idx}" if device_type else str(instance_idx)
+    return f"supernode-{group_suffix}"
 
 
 if __name__ == "__main__":

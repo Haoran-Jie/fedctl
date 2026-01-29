@@ -1,17 +1,27 @@
 from __future__ import annotations
 
 from fastapi import FastAPI
+import logging
 
 from .config import load_config
 from .routes.submissions import router as submissions_router
 from .storage import Storage, StorageConfig
 from .workers.dispatcher import Dispatcher
 
+logger = logging.getLogger(__name__)
+
 
 def create_app() -> FastAPI:
     app = FastAPI(title="fedctl submit service")
 
     cfg = load_config()
+    logger.info(
+        "submit-service config: endpoint=%s tokens=%s allow_unauth=%s dispatch_mode=%s",
+        cfg.service_endpoint or "-",
+        "set" if cfg.tokens else "empty",
+        cfg.allow_unauth,
+        cfg.dispatch_mode,
+    )
     storage = Storage(StorageConfig(db_url=cfg.db_url))
     storage.init_db()
 

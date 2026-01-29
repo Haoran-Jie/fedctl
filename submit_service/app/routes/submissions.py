@@ -5,15 +5,17 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse
+import logging
 
 from ..artifacts import validate_artifact_url
 from ..config import SubmitConfig
-from ..models import SubmissionCreateRequest, SubmissionRecord
+from ..models import SubmissionCreateRequest, SubmissionJobsUpdate, SubmissionRecord
 from ..nomad_client import NomadClient, NomadError
 from ..storage import Storage, new_submission_id, utcnow
 from ..workers.dispatcher import dispatch_submission
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 def get_config(request: Request) -> SubmitConfig:
@@ -110,7 +112,9 @@ def get_submission(
 def get_submission_logs(
     submission_id: str,
     request: Request,
-    task: str = Query("submit"),
+    job: str = Query("submit"),
+    task: str | None = Query(None),
+    index: int = Query(1, ge=1),
     stderr: bool = Query(True),
     follow: bool = Query(False),
     cfg: SubmitConfig = Depends(get_config),
@@ -122,7 +126,7 @@ def get_submission_logs(
     except KeyError:
         raise HTTPException(status_code=404, detail="Submission not found")
 
-    nomad_job_id = record.get("nomad_job_id")
+    nomad_job_id, resolved_task = _resolve_nomad_job(record, job, task, index)
     if not nomad_job_id:
         raise HTTPException(status_code=409, detail="Submission not running in Nomad")
     if not cfg.nomad_endpoint:
@@ -143,7 +147,7 @@ def get_submission_logs(
         alloc_id = alloc.get("ID")
         if not isinstance(alloc_id, str):
             raise HTTPException(status_code=404, detail="Allocation ID missing")
-        return client.alloc_logs(alloc_id, task, stderr=stderr, follow=follow)
+        return client.alloc_logs(alloc_id, resolved_task, stderr=stderr, follow=follow)
     except NomadError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
     finally:
@@ -187,6 +191,28 @@ def cancel_submission(
     return SubmissionRecord.from_row(updated)
 
 
+@router.post("/v1/submissions/{submission_id}/jobs", response_model=SubmissionRecord)
+def update_submission_jobs(
+    submission_id: str,
+    payload: SubmissionJobsUpdate,
+    request: Request,
+    cfg: SubmitConfig = Depends(get_config),
+    storage: Storage = Depends(get_storage),
+) -> SubmissionRecord:
+    authenticate(request, cfg)
+    try:
+        storage.get_submission(submission_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    updated = storage.update_submission(submission_id, {"jobs": payload.jobs})
+    logger.info(
+        "submission jobs updated: id=%s keys=%s",
+        submission_id,
+        sorted([k for k in payload.jobs.keys() if isinstance(k, str)]),
+    )
+    return SubmissionRecord.from_row(updated)
+
+
 def _latest_alloc(allocs: object) -> dict[str, Any] | None:
     if not isinstance(allocs, list) or not allocs:
         return None
@@ -203,3 +229,51 @@ def _alloc_sort_key(alloc: dict[str, Any]) -> int:
         if isinstance(value, int):
             return value
     return 0
+
+
+def _resolve_nomad_job(
+    record: dict[str, Any], job: str, task: str | None, index: int
+) -> tuple[str | None, str]:
+    if job == "submit":
+        nomad_job_id = record.get("nomad_job_id") or record.get("id")
+        return nomad_job_id, task or "submit"
+
+    jobs = record.get("jobs") or {}
+    info = jobs.get(job)
+    if not isinstance(info, dict):
+        raise HTTPException(status_code=404, detail=f"Job mapping not found: {job}")
+
+    job_id: str | None = None
+    if isinstance(info.get("job_id"), str):
+        job_id = info.get("job_id")
+    elif isinstance(info.get("job_ids"), list):
+        job_ids = [j for j in info.get("job_ids") if isinstance(j, str)]
+        if not job_ids:
+            raise HTTPException(status_code=404, detail=f"No job IDs for: {job}")
+        if index > len(job_ids):
+            raise HTTPException(
+                status_code=404,
+                detail=f"Job index out of range for {job}: {index}",
+            )
+        job_id = job_ids[index - 1]
+
+    if not job_id:
+        raise HTTPException(status_code=404, detail=f"Job ID missing for: {job}")
+
+    if task:
+        return job_id, task
+
+    if isinstance(info.get("task"), str):
+        return job_id, info.get("task")  # type: ignore[return-value]
+
+    tasks = info.get("tasks") if isinstance(info.get("tasks"), list) else None
+    if tasks:
+        clean = [t for t in tasks if isinstance(t, str)]
+        if len(clean) == 1:
+            return job_id, clean[0]
+        raise HTTPException(
+            status_code=400,
+            detail=f"Multiple tasks for {job}; specify task. Options: {clean}",
+        )
+
+    return job_id, job_id

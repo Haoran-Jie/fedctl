@@ -272,15 +272,49 @@ def submit_status(
 @submit_app.command("logs")
 def submit_logs(
     submission_id: str = typer.Argument(..., help="Submission ID."),
-    task: str = typer.Option("submit", "--task"),
-    stderr: bool = typer.Option(False, "--stderr/--stdout"),
-    follow: bool = typer.Option(False, "--follow"),
+    job: str = typer.Option(
+        "submit",
+        "--job",
+        help=(
+            "Which job to read logs from. Common values: submit, superlink, "
+            "supernodes, superexec_serverapp, superexec_clientapps."
+        ),
+    ),
+    task: str | None = typer.Option(
+        None,
+        "--task",
+        help=(
+            "Nomad task name within the job. Examples: submit, superlink, "
+            "superexec-serverapp, supernode-1, supernode-rpi-1. "
+            "Required for job=supernodes."
+        ),
+    ),
+    index: int = typer.Option(
+        1,
+        "--index",
+        min=1,
+        help=(
+            "Job index for multi-job groups (e.g., superexec_clientapps). "
+            "Example: --job superexec_clientapps --index 2"
+        ),
+    ),
+    stderr: bool = typer.Option(False, "--stderr/--stdout", help="Show stderr or stdout."),
+    follow: bool = typer.Option(False, "--follow", help="Stream logs."),
 ) -> None:
-    """Fetch logs for a submitted job."""
+    """Fetch logs for a submitted job.
+
+    Examples:
+      fedctl submit logs <id>
+      fedctl submit logs <id> --job superlink
+      fedctl submit logs <id> --job supernodes --task supernode-1
+      fedctl submit logs <id> --job superexec_clientapps --index 2
+    """
     raise SystemExit(
         run_submit_logs(
             submission_id=submission_id,
+            job=job,
             task=task,
+            index=index,
             stderr=stderr,
             follow=follow,
         )

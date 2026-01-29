@@ -97,5 +97,8 @@ class NomadClient:
         if resp.status_code >= 400:
             raise NomadError(f"Nomad error {resp.status_code}: {resp.text[:200]}")
         if "application/json" in resp.headers.get("content-type", ""):
-            return resp.json()
+            try:
+                return resp.json()
+            except ValueError:
+                return resp.text
         return resp.text

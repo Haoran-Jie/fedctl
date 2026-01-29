@@ -45,15 +45,26 @@ class Storage:
                     logs_location TEXT,
                     result_location TEXT,
                     error_message TEXT,
-                    namespace TEXT
+                    namespace TEXT,
+                    jobs_json TEXT
                 )
                 """
             )
+            try:
+                conn.execute("ALTER TABLE submissions ADD COLUMN jobs_json TEXT")
+            except sqlite3.OperationalError:
+                pass
 
     def create_submission(self, payload: dict[str, Any]) -> dict[str, Any]:
         args = payload.pop("args", []) or []
         env = payload.pop("env", {}) or {}
-        payload = {**payload, "args_json": json.dumps(args), "env_json": json.dumps(env)}
+        jobs = payload.pop("jobs", None)
+        payload = {
+            **payload,
+            "args_json": json.dumps(args),
+            "env_json": json.dumps(env),
+            "jobs_json": json.dumps(jobs) if jobs is not None else None,
+        }
         with self._connect() as conn:
             conn.execute(
                 """
@@ -61,12 +72,12 @@ class Storage:
                     id, user, project_name, experiment, status, created_at,
                     started_at, finished_at, nomad_job_id, artifact_url,
                     submit_image, node_class, args_json, env_json, priority,
-                    logs_location, result_location, error_message, namespace
+                    logs_location, result_location, error_message, namespace, jobs_json
                 ) VALUES (
                     :id, :user, :project_name, :experiment, :status, :created_at,
                     :started_at, :finished_at, :nomad_job_id, :artifact_url,
                     :submit_image, :node_class, :args_json, :env_json, :priority,
-                    :logs_location, :result_location, :error_message, :namespace
+                    :logs_location, :result_location, :error_message, :namespace, :jobs_json
                 )
                 """,
                 payload,
@@ -98,7 +109,7 @@ class Storage:
         params: dict[str, Any] = {}
         for key, value in updates.items():
             column = key
-            if key in {"args", "env"}:
+            if key in {"args", "env", "jobs"}:
                 column = f"{key}_json"
                 value = json.dumps(value)
             columns.append(f"{column} = :{column}")
@@ -138,6 +149,7 @@ class Storage:
         record = dict(row)
         record["args"] = _safe_json_loads(record.pop("args_json") or "[]")
         record["env"] = _safe_json_loads(record.pop("env_json") or "{}")
+        record["jobs"] = _safe_json_loads(record.pop("jobs_json") or "{}")
         return record
 
 
