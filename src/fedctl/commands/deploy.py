@@ -86,6 +86,7 @@ def run_deploy(
     repo_network_default = None
     repo_network_scope = None
     repo_network_image = None
+    repo_network_apply = {}
     repo_allow_oversubscribe = None
     if repo_config:
         repo_cfg = load_repo_config(config_path=Path(repo_config))
@@ -123,6 +124,11 @@ def run_deploy(
         repo_network_default = repo_network.get("default_profile")
         repo_network_scope = repo_network.get("scope")
         repo_network_image = repo_network.get("image")
+        repo_network_apply = (
+            repo_network.get("apply", {})
+            if isinstance(repo_network.get("apply"), dict)
+            else {}
+        )
         repo_allow_oversubscribe = repo_placement.get("allow_oversubscribe")
     else:
         try:
@@ -169,6 +175,11 @@ def run_deploy(
                 repo_network_default = repo_network.get("default_profile")
                 repo_network_scope = repo_network.get("scope")
                 repo_network_image = repo_network.get("image")
+                repo_network_apply = (
+                    repo_network.get("apply", {})
+                    if isinstance(repo_network.get("apply"), dict)
+                    else {}
+                )
                 repo_allow_oversubscribe = repo_placement.get("allow_oversubscribe")
         except Exception:
             pass
@@ -195,6 +206,14 @@ def run_deploy(
 
     if allow_oversubscribe is None:
         allow_oversubscribe = bool(repo_allow_oversubscribe)
+
+    netem_serverapp = True
+    netem_clientapp = True
+    if isinstance(repo_network_apply, dict):
+        if "superexec_serverapp" in repo_network_apply:
+            netem_serverapp = bool(repo_network_apply.get("superexec_serverapp"))
+        if "superexec_clientapp" in repo_network_apply:
+            netem_clientapp = bool(repo_network_apply.get("superexec_clientapp"))
 
     if dry_run and supernodes_by_type and not allow_oversubscribe:
         console.print(
@@ -253,6 +272,8 @@ def run_deploy(
             netem_image=repo_network_image if isinstance(repo_network_image, str) else None,
             resources_by_type=resources_by_type,
             default_resources=default_resources,
+            netem_serverapp=netem_serverapp,
+            netem_clientapp=netem_clientapp,
         )
         try:
             rendered = render_deploy(spec)
@@ -331,6 +352,11 @@ def run_deploy(
             repo_network_default = repo_network.get("default_profile")
             repo_network_scope = repo_network.get("scope")
             repo_network_image = repo_network.get("image")
+            repo_network_apply = (
+                repo_network.get("apply", {})
+                if isinstance(repo_network.get("apply"), dict)
+                else {}
+            )
             repo_allow_oversubscribe = repo_placement.get("allow_oversubscribe")
     client = NomadClient(eff)
     try:
@@ -420,6 +446,8 @@ def run_deploy(
             supernode_image=supernode_image,
             resources_by_type=resources_by_type,
             default_resources=default_resources,
+            netem_serverapp=netem_serverapp,
+            netem_clientapp=netem_clientapp,
         )
         try:
             rendered = render_deploy(spec)

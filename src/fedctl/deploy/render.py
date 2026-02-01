@@ -385,7 +385,7 @@ def _superexec_serverapp_context(spec: DeploySpec) -> dict[str, Any]:
     env: dict[str, str] = {}
     user = spec.superexec.user
     network_plan = spec.supernodes.network
-    if network_plan is not None:
+    if network_plan is not None and spec.superexec.netem_serverapp:
         profile_name = network_plan.default_profile
         profile_data = network_plan.profiles.get(profile_name, {})
         if profile_name != "none" and profile_data:
@@ -437,7 +437,7 @@ def _superexec_clientapp_context(
     env: dict[str, str] = {}
     user = spec.superexec.user
     network_plan = spec.supernodes.network
-    if network_plan is not None:
+    if network_plan is not None and spec.superexec.netem_clientapp:
         profile_name = _network_profile_for(network_plan, placement)
         profile_data = network_plan.profiles.get(profile_name, {})
         if profile_name != "none" and profile_data:

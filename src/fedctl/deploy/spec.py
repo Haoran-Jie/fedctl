@@ -38,6 +38,8 @@ class SuperExecSpec:
     flwr_dir: str = "/tmp/.flwr"
     node_class_link: str = "link"
     node_class_node: str = "node"
+    netem_serverapp: bool = True
+    netem_clientapp: bool = True
 
 
 @dataclass(frozen=True)
@@ -66,6 +68,8 @@ def default_deploy_spec(
     supernode_image: str | None = None,
     resources_by_type: dict[str, dict[str, int]] | None = None,
     default_resources: dict[str, int] | None = None,
+    netem_serverapp: bool = True,
+    netem_clientapp: bool = True,
 ) -> DeploySpec:
     return DeploySpec(
         datacenter="dc1",
@@ -85,7 +89,11 @@ def default_deploy_spec(
             resources_by_type=resources_by_type,
             default_resources=default_resources,
         ),
-        superexec=SuperExecSpec(image=image),
+        superexec=SuperExecSpec(
+            image=image,
+            netem_serverapp=netem_serverapp,
+            netem_clientapp=netem_clientapp,
+        ),
     )
 
 
