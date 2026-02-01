@@ -62,6 +62,28 @@ class SubmitServiceClient:
     def cancel_submission(self, submission_id: str) -> dict[str, Any]:
         return self._request("POST", f"/v1/submissions/{submission_id}/cancel")
 
+    def purge_submissions(self) -> dict[str, Any]:
+        return self._request("POST", "/v1/submissions/purge")
+
+    def list_nodes(
+        self,
+        *,
+        include_allocs: bool = False,
+        status: str | None = None,
+        node_class: str | None = None,
+        device_type: str | None = None,
+    ) -> list[dict[str, Any]]:
+        params: dict[str, str] = {
+            "include_allocs": "true" if include_allocs else "false",
+        }
+        if status:
+            params["status"] = status
+        if node_class:
+            params["node_class"] = node_class
+        if device_type:
+            params["device_type"] = device_type
+        return self._request("GET", "/v1/nodes", params=params)
+
     def _request(
         self,
         method: str,

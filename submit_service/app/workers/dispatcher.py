@@ -8,7 +8,9 @@ from typing import Any
 import logging
 
 from ..config import SubmitConfig
+from ..config import load_repo_config_data
 from ..nomad_client import NomadClient, NomadError
+from ..nomad_inventory import NomadInventory
 from ..storage import Storage, utcnow
 
 logger = logging.getLogger(__name__)
@@ -79,6 +81,7 @@ class Dispatcher:
     def __init__(self, storage: Storage, cfg: SubmitConfig) -> None:
         self._storage = storage
         self._cfg = cfg
+        self._inventory = NomadInventory(cfg)
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
 
@@ -100,9 +103,29 @@ class Dispatcher:
 
     def run_once(self) -> None:
         queued = self._storage.list_submissions(limit=50)
+        inventory_nodes, inventory_error = _inventory_snapshot(self._inventory)
+        free_nodes = _node_free_resources(inventory_nodes) if inventory_nodes else []
         for submission in queued:
-            if submission.get("status") != "queued":
+            status = submission.get("status")
+            if status not in {"queued", "blocked"}:
                 continue
+            ok, reason = _capacity_allows(submission, free_nodes, inventory_error)
+            if not ok:
+                if status != "blocked" or submission.get("blocked_reason") != reason:
+                    self._storage.update_submission(
+                        submission["id"],
+                        {
+                            "status": "blocked",
+                            "blocked_reason": reason,
+                            "error_message": None,
+                        },
+                    )
+                continue
+            if status == "blocked":
+                self._storage.update_submission(
+                    submission["id"],
+                    {"status": "queued", "blocked_reason": None, "error_message": None},
+                )
             dispatch_submission(self._storage, submission, self._cfg)
         self._reconcile_running()
 
@@ -207,3 +230,408 @@ def _select_report_token(tokens: set[str]) -> str | None:
     if not tokens:
         return None
     return sorted(tokens)[0]
+
+
+def _inventory_snapshot(
+    inventory: NomadInventory,
+) -> tuple[list[dict[str, Any]] | None, str | None]:
+    try:
+        nodes = inventory.list_nodes(include_allocs=True)
+        return nodes, None
+    except Exception as exc:
+        logger.warning("inventory fetch failed: %s", exc)
+        return None, f"inventory unavailable: {exc}"
+
+
+def _capacity_allows(
+    submission: dict[str, Any],
+    free_nodes: list[dict[str, Any]],
+    inventory_error: str | None,
+) -> tuple[bool, str | None]:
+    if inventory_error:
+        return False, inventory_error
+    args = submission.get("args") or []
+    if not isinstance(args, list):
+        args = []
+    parsed = _parse_runner_args(args)
+    allow_oversubscribe = parsed.get("allow_oversubscribe")
+    if allow_oversubscribe is None:
+        allow_oversubscribe = _repo_allow_oversubscribe_default()
+
+    supernodes = parsed.get("supernodes")
+    num_supernodes = parsed.get("num_supernodes") or 0
+    total_supernodes = (
+        sum(supernodes.values()) if isinstance(supernodes, dict) else int(num_supernodes)
+    )
+    if total_supernodes <= 0:
+        total_supernodes = 0
+
+    resources = _repo_supernode_resources()
+    default_res = resources.get("default", {"cpu": 500, "mem": 512})
+
+    requirements: list[dict[str, Any]] = []
+    if isinstance(supernodes, dict) and supernodes:
+        for device_type, count in supernodes.items():
+            res = resources.get(device_type, default_res)
+            requirements.append(
+                {
+                    "name": f"supernode:{device_type}",
+                    "node_class": "node",
+                    "device_type": device_type,
+                    "cpu": res.get("cpu", 500),
+                    "mem": res.get("mem", 512),
+                    "count": count,
+                    "strict": not allow_oversubscribe,
+                }
+            )
+    elif total_supernodes > 0:
+        res = default_res
+        requirements.append(
+            {
+                "name": "supernode",
+                "node_class": "node",
+                "device_type": None,
+                "cpu": res.get("cpu", 500),
+                "mem": res.get("mem", 512),
+                "count": total_supernodes,
+                "strict": not allow_oversubscribe,
+            }
+        )
+
+    if total_supernodes > 0:
+        requirements.append(
+            {
+                "name": "superexec-clientapp",
+                "node_class": "node",
+                "device_type": None,
+                "cpu": 1000,
+                "mem": 1024,
+                "count": total_supernodes,
+                "strict": False,
+            }
+        )
+
+    requirements.append(
+        {
+            "name": "superlink",
+            "node_class": "link",
+            "device_type": None,
+            "cpu": 500,
+            "mem": 256,
+            "count": 1,
+            "strict": False,
+        }
+    )
+    requirements.append(
+        {
+            "name": "superexec-serverapp",
+            "node_class": "link",
+            "device_type": None,
+            "cpu": 1000,
+            "mem": 1024,
+            "count": 1,
+            "strict": False,
+        }
+    )
+    requirements.append(
+        {
+            "name": "submit-runner",
+            "node_class": "submit",
+            "device_type": None,
+            "cpu": 1000,
+            "mem": 1024,
+            "count": 1,
+            "strict": False,
+        }
+    )
+
+    for req in requirements:
+        ok, reason = _check_requirement(free_nodes, req)
+        if not ok:
+            return False, reason
+
+    return True, None
+
+
+def _check_requirement(
+    nodes: list[dict[str, Any]],
+    req: dict[str, Any],
+) -> tuple[bool, str | None]:
+    candidates = _filter_nodes(
+        nodes,
+        node_class=req["node_class"],
+        device_type=req.get("device_type"),
+    )
+    count = int(req.get("count") or 0)
+    if count <= 0:
+        return True, None
+    if not candidates:
+        return False, f"{req['name']}: no matching nodes"
+
+    cpu = int(req.get("cpu") or 0)
+    mem = int(req.get("mem") or 0)
+    strict = bool(req.get("strict"))
+
+    if strict:
+        ok = _reserve_strict(candidates, cpu=cpu, mem=mem, count=count)
+        if not ok:
+            return (
+                False,
+                f"{req['name']}: need {count}, have {len(_eligible_nodes(candidates, cpu, mem))}",
+            )
+        return True, None
+
+    aggregate_cpu, aggregate_mem, has_totals = _aggregate_free(candidates)
+    if not has_totals:
+        return True, None
+    if aggregate_cpu < cpu * count:
+        return (
+            False,
+            f"{req['name']}: need cpu {cpu*count}, available {aggregate_cpu}",
+        )
+    if aggregate_mem < mem * count:
+        return (
+            False,
+            f"{req['name']}: need mem {mem*count}, available {aggregate_mem}",
+        )
+    ok = _reserve_soft(candidates, cpu=cpu, mem=mem, count=count)
+    if not ok:
+        return (
+            False,
+            f"{req['name']}: insufficient per-node capacity",
+        )
+    return True, None
+
+
+def _filter_nodes(
+    nodes: list[dict[str, Any]],
+    *,
+    node_class: str,
+    device_type: str | None,
+) -> list[dict[str, Any]]:
+    result = []
+    for node in nodes:
+        if node.get("status") != "ready":
+            continue
+        if node.get("node_class") != node_class:
+            continue
+        if device_type is not None and node.get("device_type") != device_type:
+            continue
+        result.append(node)
+    return result
+
+
+def _node_free_resources(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    result = []
+    for node in nodes:
+        resources = node.get("resources") if isinstance(node.get("resources"), dict) else {}
+        total_cpu = resources.get("total_cpu")
+        total_mem = resources.get("total_mem")
+        used_cpu = resources.get("used_cpu") or 0
+        used_mem = resources.get("used_mem") or 0
+        free_cpu = None if total_cpu is None else max(int(total_cpu) - int(used_cpu), 0)
+        free_mem = None if total_mem is None else max(int(total_mem) - int(used_mem), 0)
+        result.append({**node, "free_cpu": free_cpu, "free_mem": free_mem})
+    return result
+
+
+def _eligible_nodes(
+    nodes: list[dict[str, Any]],
+    cpu: int,
+    mem: int,
+) -> list[dict[str, Any]]:
+    return [
+        n
+        for n in nodes
+        if _has_capacity(n.get("free_cpu"), n.get("free_mem"), cpu, mem)
+    ]
+
+
+def _reserve_strict(
+    nodes: list[dict[str, Any]],
+    *,
+    cpu: int,
+    mem: int,
+    count: int,
+) -> bool:
+    candidates = sorted(
+        _eligible_nodes(nodes, cpu, mem),
+        key=_free_sort_key,
+        reverse=True,
+    )
+    if len(candidates) < count:
+        return False
+    for idx in range(count):
+        node = candidates[idx]
+        _decrement_node(node, cpu, mem)
+    return True
+
+
+def _reserve_soft(
+    nodes: list[dict[str, Any]],
+    *,
+    cpu: int,
+    mem: int,
+    count: int,
+) -> bool:
+    if count <= 0:
+        return True
+    for _ in range(count):
+        candidates = [
+            n for n in nodes if _has_capacity(n.get("free_cpu"), n.get("free_mem"), cpu, mem)
+        ]
+        if not candidates:
+            return False
+        candidates.sort(key=_free_sort_key, reverse=True)
+        node = candidates[0]
+        _decrement_node(node, cpu, mem)
+    return True
+
+
+def _decrement_node(node: dict[str, Any], cpu: int, mem: int) -> None:
+    free_cpu = node.get("free_cpu")
+    free_mem = node.get("free_mem")
+    if free_cpu is not None:
+        node["free_cpu"] = max(int(free_cpu) - cpu, 0)
+    if free_mem is not None:
+        node["free_mem"] = max(int(free_mem) - mem, 0)
+
+
+def _free_sort_key(node: dict[str, Any]) -> tuple[int, int]:
+    free_cpu = node.get("free_cpu")
+    free_mem = node.get("free_mem")
+    return (int(free_cpu) if free_cpu is not None else -1, int(free_mem) if free_mem is not None else -1)
+
+
+def _has_capacity(
+    free_cpu: int | None,
+    free_mem: int | None,
+    cpu: int,
+    mem: int,
+) -> bool:
+    if free_cpu is not None and free_cpu < cpu:
+        return False
+    if free_mem is not None and free_mem < mem:
+        return False
+    return True
+
+
+def _aggregate_free(
+    nodes: list[dict[str, Any]],
+) -> tuple[int, int, bool]:
+    total_cpu = 0
+    total_mem = 0
+    has_totals = False
+    for node in nodes:
+        free_cpu = node.get("free_cpu")
+        free_mem = node.get("free_mem")
+        if free_cpu is not None:
+            total_cpu += int(free_cpu)
+            has_totals = True
+        if free_mem is not None:
+            total_mem += int(free_mem)
+            has_totals = True
+    return total_cpu, total_mem, has_totals
+
+
+def _parse_runner_args(args: list[str]) -> dict[str, Any]:
+    parsed: dict[str, Any] = {
+        "num_supernodes": None,
+        "supernodes": None,
+        "allow_oversubscribe": None,
+    }
+    idx = 0
+    supernodes_values: list[str] = []
+    while idx < len(args):
+        arg = args[idx]
+        if arg == "--num-supernodes" and idx + 1 < len(args):
+            parsed["num_supernodes"] = _parse_int(args[idx + 1])
+            idx += 2
+            continue
+        if arg == "--supernodes" and idx + 1 < len(args):
+            supernodes_values.append(args[idx + 1])
+            idx += 2
+            continue
+        if arg == "--allow-oversubscribe":
+            parsed["allow_oversubscribe"] = True
+            idx += 1
+            continue
+        if arg == "--no-allow-oversubscribe":
+            parsed["allow_oversubscribe"] = False
+            idx += 1
+            continue
+        idx += 1
+
+    if supernodes_values:
+        parsed["supernodes"] = _parse_supernodes(supernodes_values)
+    return parsed
+
+
+def _parse_supernodes(values: list[str]) -> dict[str, int]:
+    result: dict[str, int] = {}
+    for raw in values:
+        parts = [p for p in raw.split(",") if p]
+        for part in parts:
+            if "=" not in part:
+                continue
+            key, val = part.split("=", 1)
+            key = key.strip()
+            if not key:
+                continue
+            count = _parse_int(val)
+            if count is None or count < 0:
+                continue
+            result[key] = result.get(key, 0) + count
+    return result
+
+
+def _parse_int(value: str) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _repo_supernode_resources() -> dict[str, dict[str, int]]:
+    data = load_repo_config_data()
+    deploy = data.get("deploy", {}) if isinstance(data.get("deploy"), dict) else {}
+    resources = (
+        deploy.get("resources", {})
+        if isinstance(deploy.get("resources"), dict)
+        else {}
+    )
+    supernode = (
+        resources.get("supernode", {})
+        if isinstance(resources.get("supernode"), dict)
+        else {}
+    )
+    cleaned: dict[str, dict[str, int]] = {}
+    for key, val in supernode.items():
+        if not isinstance(val, dict):
+            continue
+        cpu = _parse_int(val.get("cpu"))
+        mem = _parse_int(val.get("mem"))
+        entry: dict[str, int] = {}
+        if cpu is not None:
+            entry["cpu"] = cpu
+        if mem is not None:
+            entry["mem"] = mem
+        if entry:
+            cleaned[str(key)] = entry
+    return cleaned
+
+
+def _repo_allow_oversubscribe_default() -> bool:
+    data = load_repo_config_data()
+    deploy = data.get("deploy", {}) if isinstance(data.get("deploy"), dict) else {}
+    placement = (
+        deploy.get("placement", {})
+        if isinstance(deploy.get("placement"), dict)
+        else {}
+    )
+    value = placement.get("allow_oversubscribe")
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+    return False

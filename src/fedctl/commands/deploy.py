@@ -380,7 +380,7 @@ def run_deploy(
                 for values in network_plan.profiles.values()
             )
             if has_profiles:
-                flwr_version = "1.23.0"
+                flwr_version = "1.25.0"
                 supernode_image = supernode_netem_image_tag(flwr_version, registry=registry)
                 if not image_exists(supernode_image):
                     console.print(

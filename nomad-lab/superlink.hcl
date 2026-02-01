@@ -36,7 +36,7 @@ job "superlink" {
       driver = "docker"
 
       config {
-        image = "flwr/superlink:1.23.0"
+        image = "flwr/superlink:1.25.0"
         ports = ["serverappio", "fleet", "control"]
         args = [
           "--insecure",

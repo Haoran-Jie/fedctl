@@ -24,7 +24,9 @@ from fedctl.commands.submit import (
     run_submit,
     run_submit_logs,
     run_submit_ls,
+    run_submit_purge,
     run_submit_status,
+    run_submit_inventory,
 )
 from fedctl.config.io import load_config, load_raw_toml, save_raw_toml
 from fedctl.config.merge import get_effective_config
@@ -206,7 +208,7 @@ def submit(
 @submit_app.command("run")
 def submit_run(
     path: str = typer.Argument(".", help="Path to a Flower project (dir or pyproject.toml)."),
-    flwr_version: str = typer.Option("1.23.0", "--flwr-version"),
+    flwr_version: str = typer.Option("1.25.0", "--flwr-version"),
     image: str | None = typer.Option(None, "--image"),
     no_cache: bool = typer.Option(False, "--no-cache"),
     platform: str | None = typer.Option(None, "--platform"),
@@ -324,10 +326,38 @@ def submit_logs(
 @submit_app.command("ls")
 def submit_ls(
     limit: int = typer.Option(20, "--limit"),
+    active: bool = typer.Option(False, "--active"),
 ) -> None:
     """List recent submissions."""
-    raise SystemExit(run_submit_ls(limit=limit))
+    raise SystemExit(run_submit_ls(limit=limit, active=active))
 
+
+@submit_app.command("inventory")
+def submit_inventory(
+    include_allocs: bool = typer.Option(True, "--include-allocs"),
+    detail: bool = typer.Option(False, "--detail"),
+    json_output: bool = typer.Option(False, "--json"),
+    status: str | None = typer.Option(None, "--status"),
+    node_class: str | None = typer.Option(None, "--class"),
+    device_type: str | None = typer.Option(None, "--device-type"),
+) -> None:
+    """Show Nomad node inventory via the submit service."""
+    raise SystemExit(
+        run_submit_inventory(
+            include_allocs=include_allocs,
+            detail=detail,
+            json_output=json_output,
+            status=status,
+            node_class=node_class,
+            device_type=device_type,
+        )
+    )
+
+
+@submit_app.command("purge")
+def submit_purge() -> None:
+    """Clear submit-service and local submission history."""
+    raise SystemExit(run_submit_purge())
 
 def _format_repo_config(value: str | None) -> str:
     if not value:
@@ -477,7 +507,7 @@ def deploy(
 @app.command()
 def build(
     path: str = typer.Argument(".", help="Path to a Flower project (dir or pyproject.toml)."),
-    flwr_version: str = typer.Option("1.23.0", "--flwr-version"),
+    flwr_version: str = typer.Option("1.25.0", "--flwr-version"),
     image: str | None = typer.Option(None, "--image"),
     no_cache: bool = typer.Option(False, "--no-cache"),
     platform: str | None = typer.Option(None, "--platform"),
@@ -533,7 +563,7 @@ def configure(
 @app.command()
 def run(
     path: str = typer.Argument(".", help="Path to a Flower project (dir or pyproject.toml)."),
-    flwr_version: str = typer.Option("1.23.0", "--flwr-version"),
+    flwr_version: str = typer.Option("1.25.0", "--flwr-version"),
     image: str | None = typer.Option(None, "--image"),
     no_cache: bool = typer.Option(False, "--no-cache"),
     platform: str | None = typer.Option(None, "--platform"),

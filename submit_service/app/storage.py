@@ -45,6 +45,7 @@ class Storage:
                     logs_location TEXT,
                     result_location TEXT,
                     error_message TEXT,
+                    blocked_reason TEXT,
                     namespace TEXT,
                     jobs_json TEXT
                 )
@@ -54,11 +55,17 @@ class Storage:
                 conn.execute("ALTER TABLE submissions ADD COLUMN jobs_json TEXT")
             except sqlite3.OperationalError:
                 pass
+            try:
+                conn.execute("ALTER TABLE submissions ADD COLUMN blocked_reason TEXT")
+            except sqlite3.OperationalError:
+                pass
 
     def create_submission(self, payload: dict[str, Any]) -> dict[str, Any]:
         args = payload.pop("args", []) or []
         env = payload.pop("env", {}) or {}
         jobs = payload.pop("jobs", None)
+        if "blocked_reason" not in payload:
+            payload["blocked_reason"] = None
         payload = {
             **payload,
             "args_json": json.dumps(args),
@@ -72,12 +79,12 @@ class Storage:
                     id, user, project_name, experiment, status, created_at,
                     started_at, finished_at, nomad_job_id, artifact_url,
                     submit_image, node_class, args_json, env_json, priority,
-                    logs_location, result_location, error_message, namespace, jobs_json
+                    logs_location, result_location, error_message, blocked_reason, namespace, jobs_json
                 ) VALUES (
                     :id, :user, :project_name, :experiment, :status, :created_at,
                     :started_at, :finished_at, :nomad_job_id, :artifact_url,
                     :submit_image, :node_class, :args_json, :env_json, :priority,
-                    :logs_location, :result_location, :error_message, :namespace, :jobs_json
+                    :logs_location, :result_location, :error_message, :blocked_reason, :namespace, :jobs_json
                 )
                 """,
                 payload,
@@ -91,6 +98,10 @@ class Storage:
                 (limit,),
             ).fetchall()
         return [self._row_to_record(row) for row in rows]
+
+    def clear_submissions(self) -> None:
+        with self._connect() as conn:
+            conn.execute("DELETE FROM submissions")
 
     def get_submission(self, submission_id: str) -> dict[str, Any]:
         with self._connect() as conn:
@@ -128,6 +139,7 @@ class Storage:
         started_at: datetime | None = None,
         finished_at: datetime | None = None,
         error_message: str | None = None,
+        blocked_reason: str | None = None,
     ) -> dict[str, Any]:
         updates: dict[str, Any] = {"status": status}
         if started_at:
@@ -136,6 +148,8 @@ class Storage:
             updates["finished_at"] = finished_at.isoformat()
         if error_message is not None:
             updates["error_message"] = error_message
+        if blocked_reason is not None:
+            updates["blocked_reason"] = blocked_reason
         return self.update_submission(submission_id, updates)
 
     def _connect(self) -> sqlite3.Connection:

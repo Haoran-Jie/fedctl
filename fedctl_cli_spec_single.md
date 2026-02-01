@@ -219,7 +219,7 @@ fedctl inspect .
 Build a SuperExec image for a Flower project.
 
 Flags:
-- `--flwr-version <ver>`: Flower version embedded into the generated Dockerfile. Default `1.23.0`.
+- `--flwr-version <ver>`: Flower version embedded into the generated Dockerfile. Default `1.25.0`.
 - `--image <name>`: Output image tag; defaults to a repo-derived tag.
 - `--no-cache`: Disable Docker layer cache.
 - `--platform <platform>`: Target platform for Docker build (e.g., `linux/amd64`).
@@ -319,7 +319,7 @@ fedctl configure . --exp exp1 --namespace alice
 End-to-end: inspect → build → deploy → configure → `flwr run`.
 
 Flags:
-- `--flwr-version <ver>`: Flower version embedded into the generated Dockerfile. Default `1.23.0`.
+- `--flwr-version <ver>`: Flower version embedded into the generated Dockerfile. Default `1.25.0`.
 - `--image <name>`: Output image tag; defaults to a repo-derived tag.
 - `--no-cache`: Disable Docker layer cache.
 - `--platform <platform>`: Target platform for Docker build (e.g., `linux/amd64`).

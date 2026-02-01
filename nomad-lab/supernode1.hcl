@@ -21,7 +21,7 @@ job "supernode1" {
       driver = "docker"
 
       config {
-        image = "flwr/supernode:1.23.0"
+        image = "flwr/supernode:1.25.0"
         ports = ["clientappio"]
 
         # Important: Arguments reference env vars inserted below

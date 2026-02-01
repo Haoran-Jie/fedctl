@@ -49,6 +49,15 @@ class NomadClient:
     def job_allocations(self, job_id: str) -> Any:
         return self._get(f"/v1/job/{job_id}/allocations")
 
+    def nodes(self) -> Any:
+        return self._get("/v1/nodes")
+
+    def node(self, node_id: str) -> Any:
+        return self._get(f"/v1/node/{node_id}")
+
+    def node_allocations(self, node_id: str) -> Any:
+        return self._get(f"/v1/node/{node_id}/allocations")
+
     def alloc_logs(
         self,
         alloc_id: str,

@@ -59,3 +59,13 @@ def record_submission(record: SubmissionRecord, *, max_entries: int = 200) -> Pa
     tmp_path.write_text(payload, encoding="utf-8")
     os.replace(tmp_path, path)
     return path
+
+
+def clear_submissions() -> Path:
+    path = submissions_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = json.dumps([], indent=2, sort_keys=True)
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    tmp_path.write_text(payload, encoding="utf-8")
+    os.replace(tmp_path, path)
+    return path

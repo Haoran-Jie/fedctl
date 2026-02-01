@@ -71,7 +71,7 @@ def default_deploy_spec(
         datacenter="dc1",
         namespace=namespace,
         experiment=experiment,
-        flwr_version="1.23.0",
+        flwr_version="1.25.0",
         insecure=True,
         superlink=SuperLinkSpec(),
         supernodes=SuperNodesSpec(

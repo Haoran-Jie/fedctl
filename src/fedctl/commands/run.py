@@ -25,7 +25,7 @@ console = Console()
 def run_run(
     *,
     path: str = ".",
-    flwr_version: str = "1.23.0",
+    flwr_version: str = "1.25.0",
     image: str | None = None,
     no_cache: bool = False,
     platform: str | None = None,

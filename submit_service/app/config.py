@@ -23,6 +23,7 @@ class SubmitConfig:
     datacenter: str
     default_priority: int
     docker_socket: str | None
+    nomad_inventory_ttl: int
 
 
 def load_config() -> SubmitConfig:
@@ -76,6 +77,11 @@ def load_config() -> SubmitConfig:
         default=_parse_int(str(repo_submit.get("default_priority") or ""), default=50),
     )
 
+    nomad_inventory_ttl = _parse_int(
+        os.environ.get("SUBMIT_NOMAD_INV_TTL", ""),
+        default=_parse_int(str(repo_submit.get("nomad_inventory_ttl") or ""), default=5),
+    )
+
     docker_socket = os.environ.get(
         "SUBMIT_DOCKER_SOCKET", str(repo_submit.get("docker_socket") or "/var/run/docker.sock")
     )
@@ -97,6 +103,7 @@ def load_config() -> SubmitConfig:
         datacenter=datacenter,
         default_priority=default_priority,
         docker_socket=docker_socket,
+        nomad_inventory_ttl=nomad_inventory_ttl,
     )
 
 
@@ -151,6 +158,11 @@ def _repo_config_data() -> dict[str, object] | None:
     except Exception:
         return None
     return data if isinstance(data, dict) else None
+
+
+def load_repo_config_data() -> dict[str, object]:
+    data = _repo_config_data()
+    return data if data else {}
 
 
 def _parse_int(value: str, *, default: int) -> int:

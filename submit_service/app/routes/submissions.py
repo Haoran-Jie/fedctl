@@ -70,6 +70,7 @@ def create_submission(
             "logs_location": None,
             "result_location": None,
             "error_message": None,
+            "blocked_reason": None,
             "namespace": payload.namespace,
         }
     )
@@ -211,6 +212,17 @@ def update_submission_jobs(
         sorted([k for k in payload.jobs.keys() if isinstance(k, str)]),
     )
     return SubmissionRecord.from_row(updated)
+
+
+@router.post("/v1/submissions/purge")
+def purge_submissions(
+    request: Request,
+    cfg: SubmitConfig = Depends(get_config),
+    storage: Storage = Depends(get_storage),
+) -> dict[str, str]:
+    authenticate(request, cfg)
+    storage.clear_submissions()
+    return {"status": "ok"}
 
 
 def _latest_alloc(allocs: object) -> dict[str, Any] | None:

@@ -41,6 +41,7 @@ class SubmissionRecord(BaseModel):
     logs_location: str | None = None
     result_location: str | None = None
     error_message: str | None = None
+    blocked_reason: str | None = None
     namespace: str | None = None
     jobs: dict[str, Any] | None = None
 
@@ -65,6 +66,7 @@ class SubmissionRecord(BaseModel):
             logs_location=row.get("logs_location"),
             result_location=row.get("result_location"),
             error_message=row.get("error_message"),
+            blocked_reason=row.get("blocked_reason"),
             namespace=row.get("namespace"),
             jobs=row.get("jobs"),
         )

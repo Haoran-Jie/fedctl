@@ -28,7 +28,7 @@ def main(argv: list[str] | None = None) -> int:
         help="Expected project directory name inside the workspace",
     )
     parser.add_argument("--exp", dest="experiment")
-    parser.add_argument("--flwr-version", default="1.23.0")
+    parser.add_argument("--flwr-version", default="1.25.0")
     parser.add_argument("--image")
     parser.add_argument("--no-cache", action="store_true")
     parser.add_argument("--platform")

@@ -34,6 +34,7 @@ def test_storage_create_and_list(tmp_path) -> None:
             "logs_location": None,
             "result_location": None,
             "error_message": None,
+            "blocked_reason": None,
             "namespace": "default",
         }
     )

@@ -46,6 +46,12 @@ def run_destroy(
                 namespace=eff.namespace or "default",
                 purge=purge,
             )
+            submit_jobs = _destroy_submit_jobs(
+                client,
+                namespace=eff.namespace or "default",
+                purge=purge,
+            )
+            job_names.extend([name for name in submit_jobs if name not in job_names])
         else:
             if not experiment:
                 console.print("[red]✗ Missing experiment name.[/red] Use --all to destroy all.")
@@ -82,3 +88,32 @@ def run_destroy(
 
     finally:
         client.close()
+
+
+def _destroy_submit_jobs(
+    client: NomadClient,
+    *,
+    namespace: str,
+    purge: bool,
+) -> list[str]:
+    try:
+        jobs = client.jobs()
+    except Exception:
+        return []
+    if not isinstance(jobs, list):
+        return []
+    stopped: list[str] = []
+    for job in jobs:
+        if not isinstance(job, dict):
+            continue
+        name = job.get("ID") or job.get("Name")
+        if not isinstance(name, str):
+            continue
+        if not name.startswith("sub-"):
+            continue
+        try:
+            client.stop_job(name, purge=purge)
+        except Exception:
+            continue
+        stopped.append(name)
+    return stopped

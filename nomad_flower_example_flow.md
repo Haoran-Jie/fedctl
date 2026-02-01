@@ -106,7 +106,7 @@ Example:
 In your “ideal usecase”, the Flower app image is based on `flwr/superexec` and installs the local project into the container:
 
 ```Dockerfile
-FROM flwr/superexec:1.23.0
+FROM flwr/superexec:1.25.0
 
 # This is where the Flower app will live inside the container
 WORKDIR /tmp
@@ -364,7 +364,7 @@ job "superlink" {
       driver = "docker"
 
       config {
-        image = "flwr/superlink:1.23.0"
+        image = "flwr/superlink:1.25.0"
         ports = ["serverappio", "fleet", "control"]
         args = [
           "--insecure",
@@ -410,7 +410,7 @@ job "supernode1" {
       driver = "docker"
 
       config {
-        image = "flwr/supernode:1.23.0"
+        image = "flwr/supernode:1.25.0"
         ports = ["clientappio"]
 
         # Important: Arguments reference env vars inserted below
@@ -475,7 +475,7 @@ job "supernode2" {
       driver = "docker"
 
       config {
-        image = "flwr/supernode:1.23.0"
+        image = "flwr/supernode:1.25.0"
         ports = ["clientappio"]
 
         # Important: Arguments reference env vars inserted below

@@ -104,6 +104,15 @@ The CLI still performs the upload and passes the URL to the service.
 - GET `/v1/submissions/{id}`
 - GET `/v1/submissions/{id}/logs`
 - POST `/v1/submissions/{id}/cancel`
+- POST `/v1/submissions/purge`
+- GET `/v1/nodes` (inventory; includes allocations by default; set `include_allocs=false` to skip)
+
+Inventory cache TTL can be set with `SUBMIT_NOMAD_INV_TTL` (seconds).
+
+### Queue gating
+
+The dispatcher may set submissions to `blocked` when capacity is insufficient. The reason
+is stored in `blocked_reason` and returned by `GET /v1/submissions/{id}`.
 
 ### Example request
 

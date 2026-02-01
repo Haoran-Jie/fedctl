@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import json
 import tarfile
 import tempfile
 from datetime import datetime, timezone
@@ -21,7 +22,12 @@ from fedctl.submit.client import SubmitServiceClient, SubmitServiceError
 from fedctl.submit.render import SubmitJobSpec, render_submit_job
 from fedctl.deploy.spec import normalize_experiment_name
 from fedctl.state.errors import StateError
-from fedctl.state.submissions import SubmissionRecord, load_submissions, record_submission
+from fedctl.state.submissions import (
+    SubmissionRecord,
+    clear_submissions,
+    load_submissions,
+    record_submission,
+)
 from fedctl.util.console import print_table
 
 console = Console()
@@ -248,8 +254,11 @@ def run_submit_status(*, submission_id: str) -> int:
             return 1
         resolved_id = record.get("submission_id", submission_id)
         status = record.get("status", "-")
+        blocked_reason = record.get("blocked_reason")
         console.print(f"[bold]Job:[/bold] {resolved_id}")
         console.print(f"[bold]Status:[/bold] {status}")
+        if status == "blocked" and blocked_reason:
+            console.print(f"[bold]Blocked reason:[/bold] {blocked_reason}")
         nomad_job_id = record.get("nomad_job_id")
         if nomad_job_id and nomad_job_id != resolved_id:
             console.print(f"[bold]Nomad Job:[/bold] {nomad_job_id}")
@@ -375,7 +384,7 @@ def run_submit_logs(
         client.close()
 
 
-def run_submit_ls(*, limit: int) -> int:
+def run_submit_ls(*, limit: int, active: bool = False) -> int:
     submit_client = _submit_service_client()
     if submit_client:
         try:
@@ -388,11 +397,16 @@ def run_submit_ls(*, limit: int) -> int:
             return 0
         rows = []
         for entry in entries:
+            if active and entry.get("status") not in {"queued", "running", "blocked"}:
+                continue
             submission_id = entry.get("submission_id", "-")
             experiment = entry.get("experiment", "-")
             created_at = entry.get("created_at", "-")
             namespace = entry.get("namespace") or "-"
             rows.append([submission_id, experiment, namespace, created_at])
+        if not rows:
+            console.print("[yellow]No matching submissions.[/yellow]")
+            return 0
         print_table("Submissions", ["ID", "Experiment", "Namespace", "Created"], rows)
         return 0
 
@@ -409,12 +423,107 @@ def run_submit_ls(*, limit: int) -> int:
     rows = []
     display_limit = max(limit, 0) or len(entries)
     for entry in entries[:display_limit]:
+        if active and entry.get("status") not in {"queued", "running", "blocked"}:
+            continue
         submission_id = entry.get("submission_id", "-")
         experiment = entry.get("experiment", "-")
         created_at = entry.get("created_at", "-")
         namespace = entry.get("namespace") or "-"
         rows.append([submission_id, experiment, namespace, created_at])
+    if not rows:
+        console.print("[yellow]No matching submissions.[/yellow]")
+        return 0
     print_table("Submissions", ["ID", "Experiment", "Namespace", "Created"], rows)
+    return 0
+
+
+def run_submit_purge() -> int:
+    submit_client = _submit_service_client()
+    if submit_client:
+        try:
+            submit_client.purge_submissions()
+            console.print("[green]✓ Cleared submit-service history.[/green]")
+        except SubmitServiceError as exc:
+            console.print(f"[red]✗ Submit service error:[/red] {exc}")
+            return 1
+    else:
+        console.print("[yellow]![/yellow] Submit service not configured; skipping remote purge.")
+
+    try:
+        path = clear_submissions()
+    except Exception as exc:
+        console.print(f"[red]✗ Failed to clear local history:[/red] {exc}")
+        return 1
+    console.print(f"[green]✓ Cleared local history:[/green] {path}")
+    return 0
+
+
+def run_submit_inventory(
+    *,
+    include_allocs: bool = False,
+    json_output: bool = False,
+    status: str | None = None,
+    node_class: str | None = None,
+    device_type: str | None = None,
+    detail: bool = False,
+) -> int:
+    submit_client = _submit_service_client()
+    if not submit_client:
+        console.print("[red]✗ Submit service not configured.[/red]")
+        console.print("[yellow]Hint:[/yellow] Set FEDCTL_SUBMIT_ENDPOINT or repo submit.endpoint.")
+        return 1
+    try:
+        nodes = submit_client.list_nodes(
+            include_allocs=include_allocs or detail,
+            status=status,
+            node_class=node_class,
+            device_type=device_type,
+        )
+    except SubmitServiceError as exc:
+        console.print(f"[red]✗ Submit service error:[/red] {exc}")
+        return 1
+
+    if json_output:
+        print(json.dumps(nodes, indent=2, sort_keys=True))
+        return 0
+
+    rows = []
+    for node in nodes:
+        resources = node.get("resources") if isinstance(node.get("resources"), dict) else {}
+        total_cpu = resources.get("total_cpu")
+        total_mem = resources.get("total_mem")
+        used_cpu = resources.get("used_cpu")
+        used_mem = resources.get("used_mem")
+        allocs = node.get("allocations") if isinstance(node.get("allocations"), dict) else None
+        if allocs:
+            alloc_count = allocs.get("count", "-")
+            running_jobs = allocs.get("running_jobs", [])
+            running_jobs_count = (
+                len(running_jobs) if isinstance(running_jobs, list) else "-"
+            )
+        else:
+            alloc_count = "-"
+            running_jobs_count = "-"
+        rows.append(
+            [
+                node.get("name") or node.get("id") or "-",
+                node.get("status") or "-",
+                node.get("node_class") or "-",
+                node.get("device_type") or "-",
+                _format_pair(used_cpu, total_cpu),
+                _format_pair(used_mem, total_mem),
+                alloc_count,
+                running_jobs_count,
+            ]
+        )
+    print_table(
+        "Nomad Inventory",
+        ["Node", "Status", "Class", "DeviceType", "CPU", "Mem", "Allocs", "RunningJobs"],
+        rows,
+    )
+
+    if detail:
+        _print_inventory_detail(nodes)
     return 0
 
 
@@ -646,3 +755,50 @@ def _alloc_status(alloc: object) -> str | None:
         if isinstance(status, str):
             return status
     return None
+
+
+def _format_pair(used: object, total: object) -> str:
+    if used is None and total is None:
+        return "-"
+    used_val = str(used) if used is not None else "?"
+    total_val = str(total) if total is not None else "?"
+    return f"{used_val}/{total_val}"
+
+
+def _print_inventory_detail(nodes: list[dict[str, object]]) -> None:
+    for node in nodes:
+        allocs = node.get("allocations")
+        if not isinstance(allocs, dict):
+            continue
+        items = allocs.get("items")
+        if not isinstance(items, list) or not items:
+            continue
+        rows = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            resources = item.get("resources") if isinstance(item.get("resources"), dict) else {}
+            cpu = resources.get("cpu")
+            mem = resources.get("mem")
+            tasks = item.get("tasks")
+            task_names = []
+            if isinstance(tasks, list):
+                for task in tasks:
+                    if isinstance(task, dict) and isinstance(task.get("name"), str):
+                        task_names.append(task["name"])
+            rows.append(
+                [
+                    item.get("id") or "-",
+                    item.get("job_id") or "-",
+                    item.get("status") or "-",
+                    _format_pair(cpu, None),
+                    _format_pair(mem, None),
+                    ", ".join(task_names) if task_names else "-",
+                ]
+            )
+        node_label = node.get("name") or node.get("id") or "node"
+        print_table(
+            f"Allocations for {node_label}",
+            ["Alloc", "Job", "Status", "CPU", "Mem", "Tasks"],
+            rows,
+        )

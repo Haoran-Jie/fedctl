@@ -21,6 +21,6 @@ COPY templates /opt/fedctl/templates
 
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir . \
-    && pip install --no-cache-dir flwr \
+    && pip install --no-cache-dir flwr==1.25.0 \
     && mkdir -p /usr/local/lib/python3.11/templates/nomad \
     && cp -r /opt/fedctl/templates/nomad/* /usr/local/lib/python3.11/templates/nomad/

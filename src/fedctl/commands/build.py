@@ -26,7 +26,7 @@ console = Console()
 def build_and_record(
     *,
     path: str = ".",
-    flwr_version: str = "1.23.0",
+    flwr_version: str = "1.25.0",
     image: str | None = None,
     no_cache: bool = False,
     platform: str | None = None,
@@ -78,7 +78,7 @@ def build_and_record(
 def run_build(
     *,
     path: str = ".",
-    flwr_version: str = "1.23.0",
+    flwr_version: str = "1.25.0",
     image: str | None = None,
     no_cache: bool = False,
     platform: str | None = None,
