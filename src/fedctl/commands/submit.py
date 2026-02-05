@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import json
+from urllib.parse import urlparse
 import tarfile
 import tempfile
 from datetime import datetime, timezone
@@ -9,10 +10,11 @@ from pathlib import Path
 
 from rich.console import Console
 from rich.text import Text
+import httpx
 
 from fedctl.config.io import load_config
 from fedctl.config.merge import get_effective_config
-from fedctl.config.repo import load_repo_config, parse_submit_repo_config
+from fedctl.config.repo import load_repo_config, parse_submit_repo_config, get_image_registry
 from fedctl.nomad.client import NomadClient
 from fedctl.nomad.errors import NomadConnectionError, NomadHTTPError, NomadTLSError
 from fedctl.project.errors import ProjectError
@@ -21,6 +23,7 @@ from fedctl.submit.artifact import ArtifactUploadError, upload_artifact
 from fedctl.submit.client import SubmitServiceClient, SubmitServiceError
 from fedctl.submit.render import SubmitJobSpec, render_submit_job
 from fedctl.deploy.spec import normalize_experiment_name
+from fedctl.build.tagging import default_image_tag
 from fedctl.state.errors import StateError
 from fedctl.state.submissions import (
     SubmissionRecord,
@@ -68,6 +71,7 @@ def run_submit(
     federation: str,
     stream: bool,
     verbose: bool,
+    destroy: bool,
     submit_node_class: str | None,
     submit_image: str | None,
     artifact_store: str | None,
@@ -109,6 +113,16 @@ def run_submit(
         )
         return 1
 
+    resolved_superexec_image = image
+    if not resolved_superexec_image:
+        registry = get_image_registry(repo_cfg)
+        project_name_for_tag = project_name or "project"
+        resolved_superexec_image = default_image_tag(
+            project_name_for_tag,
+            repo_root=info.root,
+            registry=registry,
+        )
+
     console.print("[bold]Step 2/4:[/bold] Package project")
     try:
         archive_path = _build_project_archive(info.root, project_name)
@@ -148,7 +162,7 @@ def run_submit(
                         project_dir_name=project_path.name,
                         exp_name=exp_name,
                         flwr_version=flwr_version,
-                        image=image,
+                        image=resolved_superexec_image,
                         no_cache=no_cache,
                         platform=platform,
                         context=context,
@@ -162,8 +176,9 @@ def run_submit(
                         stream=stream,
                         timeout_seconds=timeout_seconds,
                         verbose=verbose,
+                        destroy=destroy,
                     ),
-                    "env": _runner_env(eff),
+                    "env": _runner_env(eff, result_store=resolved_artifact_store),
                     "priority": priority or 50,
                     "namespace": eff.namespace,
                 }
@@ -189,7 +204,7 @@ def run_submit(
                 project_dir_name=project_path.name,
                 exp_name=exp_name,
                 flwr_version=flwr_version,
-                image=image,
+                image=resolved_superexec_image,
                 no_cache=no_cache,
                 platform=platform,
                 context=context,
@@ -203,8 +218,9 @@ def run_submit(
                 stream=stream,
                 timeout_seconds=timeout_seconds,
                 verbose=verbose,
+                destroy=destroy,
             ),
-            env=_runner_env(eff),
+            env=_runner_env(eff, result_store=resolved_artifact_store),
             priority=priority or 50,
             artifact_dest="/local/project",
             work_dir="/local/project",
@@ -458,6 +474,68 @@ def run_submit_purge() -> int:
     return 0
 
 
+def run_submit_results(
+    *,
+    submission_id: str,
+    download: bool = False,
+    out: str | None = None,
+) -> int:
+    submit_client = _submit_service_client()
+    if not submit_client:
+        console.print("[red]✗ Submit service not configured.[/red]")
+        console.print("[yellow]Hint:[/yellow] Set FEDCTL_SUBMIT_ENDPOINT or repo submit.endpoint.")
+        return 1
+    try:
+        record = submit_client.get_submission(submission_id)
+    except SubmitServiceError as exc:
+        console.print(f"[red]✗ Submit service error:[/red] {exc}")
+        return 1
+
+    artifacts = record.get("result_artifacts")
+    urls: list[str] = []
+    if isinstance(artifacts, list):
+        urls = [u for u in artifacts if isinstance(u, str)]
+    if not urls:
+        result_location = record.get("result_location")
+        if isinstance(result_location, str) and result_location:
+            urls = [result_location]
+
+    if not urls:
+        console.print("[yellow]No result artifacts recorded.[/yellow]")
+        return 0
+
+    if not download:
+        for url in urls:
+            print(url)
+        return 0
+
+    out_path = Path(out).expanduser() if out else Path.cwd()
+    if len(urls) > 1:
+        if out and out_path.exists() and out_path.is_file():
+            console.print("[red]✗ --out must be a directory when multiple artifacts exist.[/red]")
+            return 1
+        out_path.mkdir(parents=True, exist_ok=True)
+    else:
+        if out:
+            out_path = Path(out).expanduser()
+            if out_path.exists() and out_path.is_dir():
+                out_path = out_path / _url_basename(urls[0])
+        else:
+            out_path = Path.cwd() / _url_basename(urls[0])
+
+    for url in urls:
+        dest = out_path
+        if len(urls) > 1:
+            dest = out_path / _url_basename(url)
+        try:
+            _download_url(url, dest)
+        except OSError as exc:
+            console.print(f"[red]✗ Download failed:[/red] {exc}")
+            return 1
+        console.print(f"[green]✓ Downloaded:[/green] {dest}")
+    return 0
+
+
 def run_submit_inventory(
     *,
     include_allocs: bool = False,
@@ -565,6 +643,7 @@ def _runner_args(
     stream: bool,
     timeout_seconds: int,
     verbose: bool,
+    destroy: bool,
 ) -> list[str]:
     project_dir = project_dir_name or "."
     args = [
@@ -611,10 +690,12 @@ def _runner_args(
         args.append("--no-stream")
     if verbose:
         args.append("--verbose")
+    if not destroy:
+        args.append("--no-destroy")
     return args
 
 
-def _runner_env(eff: object) -> dict[str, str]:
+def _runner_env(eff: object, *, result_store: str | None = None) -> dict[str, str]:
     env: dict[str, str] = {}
     endpoint = getattr(eff, "endpoint", None)
     namespace = getattr(eff, "namespace", None)
@@ -634,6 +715,8 @@ def _runner_env(eff: object) -> dict[str, str]:
         env["FEDCTL_TLS_CA"] = str(tls_ca)
     if tls_skip_verify is not None:
         env["FEDCTL_TLS_SKIP_VERIFY"] = "true" if tls_skip_verify else "false"
+    if result_store:
+        env["FEDCTL_RESULT_STORE"] = str(result_store)
     for key in (
         "AWS_ACCESS_KEY_ID",
         "AWS_SECRET_ACCESS_KEY",
@@ -763,6 +846,21 @@ def _format_pair(used: object, total: object) -> str:
     used_val = str(used) if used is not None else "?"
     total_val = str(total) if total is not None else "?"
     return f"{used_val}/{total_val}"
+
+
+def _url_basename(url: str) -> str:
+    path = urlparse(url).path
+    base = os.path.basename(path)
+    return base or "artifact"
+
+
+def _download_url(url: str, dest: Path) -> None:
+    with httpx.stream("GET", url, follow_redirects=True, timeout=60.0) as r:
+        r.raise_for_status()
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        with dest.open("wb") as handle:
+            for chunk in r.iter_bytes():
+                handle.write(chunk)
 
 
 def _print_inventory_detail(nodes: list[dict[str, object]]) -> None:

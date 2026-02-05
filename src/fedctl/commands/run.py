@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 
 from rich.console import Console
+from typing import Callable
 
 from fedctl.commands.build import build_and_record
 from fedctl.commands.configure import run_configure
@@ -49,6 +50,8 @@ def run_run(
     federation: str = "remote-deployment",
     stream: bool = True,
     verbose: bool = False,
+    pre_cleanup: Callable[[], None] | None = None,
+    destroy: bool = True,
 ) -> int:
     project_path = Path(path)
     console.print("[bold]Step 1/5:[/bold] Inspect project")
@@ -184,20 +187,28 @@ def run_run(
         console.print("[red]✗ flwr CLI not found.[/red] Ensure Flower is installed.")
         return 1
     finally:
-        console.print("[bold]Cleanup:[/bold] Destroy Nomad jobs")
-        destroy_status = run_destroy(
-            experiment=exp_name,
-            destroy_all=False,
-            namespace=namespace,
-            purge=True,
-            profile=profile,
-            endpoint=endpoint,
-            token=token,
-            tls_ca=tls_ca,
-            tls_skip_verify=tls_skip_verify,
-        )
-        if destroy_status != 0:
-            console.print("[yellow]Warning:[/yellow] Cleanup failed.")
+        if pre_cleanup:
+            try:
+                pre_cleanup()
+            except Exception as exc:
+                console.print(f"[yellow]Warning:[/yellow] Pre-cleanup hook failed: {exc}")
+        if destroy:
+            console.print("[bold]Cleanup:[/bold] Destroy Nomad jobs")
+            destroy_status = run_destroy(
+                experiment=exp_name,
+                destroy_all=False,
+                namespace=namespace,
+                purge=True,
+                profile=profile,
+                endpoint=endpoint,
+                token=token,
+                tls_ca=tls_ca,
+                tls_skip_verify=tls_skip_verify,
+            )
+            if destroy_status != 0:
+                console.print("[yellow]Warning:[/yellow] Cleanup failed.")
+        else:
+            console.print("[yellow]Note:[/yellow] Skipping cleanup (--no-destroy).")
 
     return return_code
 

@@ -12,7 +12,8 @@ class NetAssignment:
     device_type: str | None
     index: int | None
     wildcard: bool
-    profile: str
+    ingress_profile: str
+    egress_profile: str
 
 
 @dataclass(frozen=True)
@@ -20,7 +21,11 @@ class NetworkPlan:
     scope: str
     default_profile: str
     profiles: dict[str, dict[str, float | int]]
+    ingress_profiles: dict[str, dict[str, float | int]]
+    egress_profiles: dict[str, dict[str, float | int]]
     assignments: dict[str, list[str]]
+    ingress_assignments: dict[str, list[str]]
+    egress_assignments: dict[str, list[str]]
 
 
 def parse_net_assignments(values: Iterable[str]) -> list[NetAssignment]:
@@ -37,6 +42,7 @@ def parse_net_assignments(values: Iterable[str]) -> list[NetAssignment]:
                 raise ValueError(f"Invalid net assignment: {part}")
             if not profile:
                 raise ValueError("Net assignment profile cannot be empty.")
+            ingress_profile, egress_profile = _parse_profile_pair(profile)
             device_type, idx = _parse_selector(selector)
             if idx == "*":
                 result.append(
@@ -44,7 +50,8 @@ def parse_net_assignments(values: Iterable[str]) -> list[NetAssignment]:
                         device_type=device_type,
                         index=None,
                         wildcard=True,
-                        profile=profile,
+                        ingress_profile=ingress_profile,
+                        egress_profile=egress_profile,
                     )
                 )
                 continue
@@ -59,7 +66,8 @@ def parse_net_assignments(values: Iterable[str]) -> list[NetAssignment]:
                     device_type=device_type,
                     index=index,
                     wildcard=False,
-                    profile=profile,
+                    ingress_profile=ingress_profile,
+                    egress_profile=egress_profile,
                 )
             )
     return result
@@ -71,6 +79,8 @@ def plan_network(
     placements: list[object],
     default_profile: str | None,
     profiles: dict[str, dict[str, float | int]] | None,
+    ingress_profiles: dict[str, dict[str, float | int]] | None = None,
+    egress_profiles: dict[str, dict[str, float | int]] | None = None,
     scope: str | None = None,
 ) -> NetworkPlan:
     scope_value = (scope or "allocation").strip() or "allocation"
@@ -79,14 +89,22 @@ def plan_network(
 
     default_name = (default_profile or "none").strip() or "none"
     profile_defs = _normalize_profiles(profiles)
+    ingress_defs = _merge_profiles(profile_defs, _normalize_profiles(ingress_profiles))
+    egress_defs = _merge_profiles(profile_defs, _normalize_profiles(egress_profiles))
 
     assignment_map = _init_assignment_lists(placements, default_name)
+    ingress_map = _init_assignment_lists(placements, default_name)
+    egress_map = _init_assignment_lists(placements, default_name)
     if not assignment_map:
         return NetworkPlan(
             scope=scope_value,
             default_profile=default_name,
             profiles=profile_defs,
+            ingress_profiles=ingress_defs,
+            egress_profiles=egress_defs,
             assignments={},
+            ingress_assignments={},
+            egress_assignments={},
         )
 
     has_untyped = UNTYPED_KEY in assignment_map
@@ -108,16 +126,25 @@ def plan_network(
         if assignment.device_type is None and has_typed:
             raise ValueError("Net assignments must use typed selectors with typed supernodes.")
 
-        if assignment.profile != default_name and assignment.profile not in profile_defs:
-            available_profiles = ", ".join(sorted(profile_defs))
+        if assignment.ingress_profile != default_name and assignment.ingress_profile not in ingress_defs:
+            available_profiles = ", ".join(sorted(ingress_defs))
             raise ValueError(
-                f"Unknown net profile '{assignment.profile}'. Available: {available_profiles}"
+                f"Unknown net ingress profile '{assignment.ingress_profile}'. Available: {available_profiles}"
+            )
+        if assignment.egress_profile != default_name and assignment.egress_profile not in egress_defs:
+            available_profiles = ", ".join(sorted(egress_defs))
+            raise ValueError(
+                f"Unknown net egress profile '{assignment.egress_profile}'. Available: {available_profiles}"
             )
 
         targets = assignment_map[key]
+        ingress_targets = ingress_map[key]
+        egress_targets = egress_map[key]
         if assignment.wildcard:
             for idx in range(len(targets)):
-                targets[idx] = assignment.profile
+                targets[idx] = assignment.egress_profile
+                ingress_targets[idx] = assignment.ingress_profile
+                egress_targets[idx] = assignment.egress_profile
             continue
         if assignment.index is None:
             raise ValueError("Net assignment index is required.")
@@ -125,13 +152,19 @@ def plan_network(
             raise ValueError(
                 f"Net index {assignment.index} out of range for '{key}' ({len(targets)})."
             )
-        targets[assignment.index - 1] = assignment.profile
+        targets[assignment.index - 1] = assignment.egress_profile
+        ingress_targets[assignment.index - 1] = assignment.ingress_profile
+        egress_targets[assignment.index - 1] = assignment.egress_profile
 
     return NetworkPlan(
         scope=scope_value,
         default_profile=default_name,
         profiles=profile_defs,
+        ingress_profiles=ingress_defs,
+        egress_profiles=egress_defs,
         assignments=assignment_map,
+        ingress_assignments=ingress_map,
+        egress_assignments=egress_map,
     )
 
 
@@ -146,6 +179,17 @@ def _parse_selector(selector: str) -> tuple[str | None, str]:
     if not device_type:
         raise ValueError(f"Invalid net assignment selector: {selector}")
     return device_type, idx[:-1].strip()
+
+
+def _parse_profile_pair(profile: str) -> tuple[str, str]:
+    value = profile.strip()
+    if value.startswith("(") and value.endswith(")"):
+        inner = value[1:-1].strip()
+        parts = [p.strip() for p in inner.split(",")]
+        if len(parts) != 2 or not parts[0] or not parts[1]:
+            raise ValueError(f"Invalid net profile tuple: {profile}")
+        return parts[0], parts[1]
+    return value, value
 
 
 def _normalize_profiles(
@@ -165,6 +209,18 @@ def _normalize_profiles(
                 cleaned[str(k)] = v
         result[key] = cleaned
     return result
+
+
+def _merge_profiles(
+    base: dict[str, dict[str, float | int]],
+    overrides: dict[str, dict[str, float | int]],
+) -> dict[str, dict[str, float | int]]:
+    if not overrides:
+        return dict(base)
+    merged = dict(base)
+    for name, values in overrides.items():
+        merged[name] = values
+    return merged
 
 
 def _init_assignment_lists(

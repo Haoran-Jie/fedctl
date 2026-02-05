@@ -6,6 +6,7 @@ import logging
 from .config import load_config
 from .routes.submissions import router as submissions_router
 from .routes.nodes import router as nodes_router
+from .routes.presign import router as presign_router
 from .storage import Storage, StorageConfig
 from .workers.dispatcher import Dispatcher
 from .nomad_inventory import NomadInventory
@@ -34,6 +35,7 @@ def create_app() -> FastAPI:
 
     app.include_router(submissions_router)
     app.include_router(nodes_router)
+    app.include_router(presign_router)
 
     @app.on_event("startup")
     def _start_dispatcher() -> None:

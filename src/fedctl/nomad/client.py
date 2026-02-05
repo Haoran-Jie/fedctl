@@ -74,6 +74,24 @@ class NomadClient:
     def _post(self, path: str, payload: Any) -> Any:
         return self._request("POST", path, json_payload=payload)
 
+    def _request_raw(self, path: str, params: Dict[str, str] | None = None) -> bytes:
+        try:
+            r = self._client.request("GET", path, params=params)
+        except httpx.ConnectError as e:
+            raise NomadConnectionError(str(e)) from e
+        except httpx.ReadTimeout as e:
+            raise NomadConnectionError(f"Timeout: {e}") from e
+        except httpx.TransportError as e:
+            msg = str(e)
+            if "CERTIFICATE_VERIFY_FAILED" in msg or "certificate" in msg.lower():
+                raise NomadTLSError(msg) from e
+            raise NomadConnectionError(msg) from e
+
+        if r.status_code >= 400:
+            text = r.text.strip()
+            raise NomadHTTPError(r.status_code, text[:500])
+        return r.content
+
     def status_leader(self) -> str:
         data = self._get("/v1/status/leader")
         if isinstance(data, str):
@@ -121,6 +139,12 @@ class NomadClient:
                     return raw
             return str(data)
         return data if isinstance(data, str) else str(data)
+
+    def alloc_fs_ls(self, alloc_id: str, path: str) -> Any:
+        return self._get(f"/v1/client/fs/ls/{alloc_id}", params={"path": path})
+
+    def alloc_fs_cat(self, alloc_id: str, path: str) -> bytes:
+        return self._request_raw(f"/v1/client/fs/cat/{alloc_id}", params={"path": path})
 
     def allocation(self, alloc_id: str) -> Any:
         return self._get(f"/v1/allocation/{alloc_id}")

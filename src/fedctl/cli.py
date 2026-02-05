@@ -25,6 +25,7 @@ from fedctl.commands.submit import (
     run_submit_logs,
     run_submit_ls,
     run_submit_purge,
+    run_submit_results,
     run_submit_status,
     run_submit_inventory,
 )
@@ -228,6 +229,7 @@ def submit_run(
     federation: str = typer.Option("remote-deployment", "--federation"),
     stream: bool = typer.Option(True, "--stream/--no-stream"),
     verbose: bool = typer.Option(False, "--verbose"),
+    destroy: bool = typer.Option(True, "--destroy/--no-destroy"),
     submit_node_class: str | None = typer.Option(None, "--submit-node-class"),
     submit_image: str | None = typer.Option(None, "--submit-image"),
     artifact_store: str | None = typer.Option(None, "--artifact-store"),
@@ -255,6 +257,7 @@ def submit_run(
             federation=federation,
             stream=stream,
             verbose=verbose,
+            destroy=destroy,
             submit_node_class=submit_node_class,
             submit_image=submit_image,
             artifact_store=artifact_store,
@@ -358,6 +361,22 @@ def submit_inventory(
 def submit_purge() -> None:
     """Clear submit-service and local submission history."""
     raise SystemExit(run_submit_purge())
+
+
+@submit_app.command("results")
+def submit_results(
+    submission_id: str = typer.Argument(..., help="Submission ID."),
+    download: bool = typer.Option(False, "--download/--no-download"),
+    out: str | None = typer.Option(None, "--out"),
+) -> None:
+    """Show or download result artifacts for a submission."""
+    raise SystemExit(
+        run_submit_results(
+            submission_id=submission_id,
+            download=download,
+            out=out,
+        )
+    )
 
 def _format_repo_config(value: str | None) -> str:
     if not value:
@@ -583,6 +602,7 @@ def run(
     federation: str = typer.Option("remote-deployment", "--federation"),
     stream: bool = typer.Option(True, "--stream/--no-stream"),
     verbose: bool = typer.Option(False, "--verbose"),
+    destroy: bool = typer.Option(True, "--destroy/--no-destroy"),
 ) -> None:
     """Build, deploy, configure, and run a Flower project."""
     raise SystemExit(
@@ -606,6 +626,7 @@ def run(
             federation=federation,
             stream=stream,
             verbose=verbose,
+            destroy=destroy,
         )
     )
 

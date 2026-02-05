@@ -33,6 +33,7 @@ def test_storage_create_and_list(tmp_path) -> None:
             "priority": 50,
             "logs_location": None,
             "result_location": None,
+            "result_artifacts": [],
             "error_message": None,
             "blocked_reason": None,
             "namespace": "default",

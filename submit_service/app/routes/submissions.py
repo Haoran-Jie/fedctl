@@ -69,6 +69,7 @@ def create_submission(
             "priority": payload.priority,
             "logs_location": None,
             "result_location": None,
+            "result_artifacts": [],
             "error_message": None,
             "blocked_reason": None,
             "namespace": payload.namespace,
@@ -211,6 +212,38 @@ def update_submission_jobs(
         submission_id,
         sorted([k for k in payload.jobs.keys() if isinstance(k, str)]),
     )
+    return SubmissionRecord.from_row(updated)
+
+
+@router.post("/v1/submissions/{submission_id}/results", response_model=SubmissionRecord)
+def update_submission_results(
+    submission_id: str,
+    payload: dict[str, Any],
+    request: Request,
+    cfg: SubmitConfig = Depends(get_config),
+    storage: Storage = Depends(get_storage),
+) -> SubmissionRecord:
+    authenticate(request, cfg)
+    try:
+        record = storage.get_submission(submission_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Submission not found")
+
+    artifacts = payload.get("artifacts")
+    if not isinstance(artifacts, list):
+        artifacts = []
+    clean = [a for a in artifacts if isinstance(a, str)]
+    existing = record.get("result_artifacts") or []
+    if not isinstance(existing, list):
+        existing = []
+    merged = existing + [a for a in clean if a not in existing]
+
+    result_location = payload.get("result_location")
+    updates: dict[str, Any] = {"result_artifacts": merged}
+    if isinstance(result_location, str) and result_location:
+        updates["result_location"] = result_location
+
+    updated = storage.update_submission(submission_id, updates)
     return SubmissionRecord.from_row(updated)
 
 

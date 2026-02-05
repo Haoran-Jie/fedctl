@@ -1,6 +1,6 @@
 # fedctl CLI Spec (current codebase)
 
-*Updated: 2026-01-22*
+*Updated: 2026-02-02*
 
 This spec reflects the **implemented** CLI and behavior as of today.
 
@@ -203,6 +203,132 @@ fedctl discover --json
 
 ---
 
+## Submit service commands
+
+### `fedctl submit run [PATH]`
+Submit a project for queued execution via the submit service.
+
+Flags:
+- `--flwr-version <ver>`: Flower version for the SuperExec image. Default `1.25.0`.
+- `--image <name>`: SuperExec image tag override.
+- `--no-cache`: Disable Docker build cache.
+- `--platform <platform>`: Docker build platform.
+- `--context <path>`: Override Docker build context.
+- `--push`: Push SuperExec image after build.
+- `--num-supernodes <n>`: Number of SuperNode instances. Default `2`.
+- `--auto-supernodes / --no-auto-supernodes`: Use project metadata to set supernode count. Default enabled.
+- `--supernodes <spec>`: Typed counts, e.g., `rpi=2`. Repeatable.
+- `--net <spec>`: Network profile assignments, e.g., `rpi[1]=med,jetson[*]=high`. Repeatable.
+  - Tuple syntax is supported: `rpi[1]=(low,high)` sets ingress=low, egress=high.
+- `--allow-oversubscribe / --no-allow-oversubscribe`: Allow placement without matching node inventory.
+- `--repo-config <path>`: Override repo config path.
+- `--exp <name>`: Experiment name prefix.
+- `--timeout <seconds>`: Wait timeout. Default `120`.
+- `--no-wait`: Do not wait for completion.
+- `--federation <name>`: Federation name for `flwr run`. Default `remote-deployment`.
+- `--stream / --no-stream`: Stream `flwr run` logs. Default enabled.
+- `--verbose`: Show full build output.
+- `--destroy / --no-destroy`: Destroy Nomad jobs after run. Default `--destroy`.
+- `--submit-node-class <name>`: Override submit node class.
+- `--submit-image <image>`: Override submit runner image.
+- `--artifact-store <url>`: Override artifact store (e.g., `s3+presign://...`).
+- `--priority <n>`: Queue priority (submit service).
+
+Example:
+```bash
+fedctl submit run . --exp exp1 --no-destroy
+```
+
+---
+
+### `fedctl submit status <ID>`
+Show status for a submitted job.
+
+Example:
+```bash
+fedctl submit status sub-20260201-1234
+```
+
+---
+
+### `fedctl submit logs <ID>`
+Fetch logs for a submitted job.
+
+Flags:
+- `--job <name>`: One of `submit`, `superlink`, `supernodes`, `superexec_serverapp`, `superexec_clientapps`.
+- `--task <name>`: Task name inside job (required for `supernodes`).
+- `--index <n>`: Job index (for clientapp multi-job).
+- `--stderr / --stdout`: Select stream.
+- `--follow`: Stream logs.
+
+Examples:
+```bash
+fedctl submit logs <id>
+fedctl submit logs <id> --job supernodes --task supernode-1
+fedctl submit logs <id> --job superexec_clientapps --index 2
+```
+
+---
+
+### `fedctl submit ls`
+List recent submissions.
+
+Flags:
+- `--limit <n>`: Max rows. Default `20`.
+- `--active`: Show only active submissions.
+
+Example:
+```bash
+fedctl submit ls --active
+```
+
+---
+
+### `fedctl submit inventory`
+Show Nomad node inventory via the submit service.
+
+Flags:
+- `--include-allocs`: Include allocation details (default).
+- `--detail`: Show per-alloc resource details.
+- `--json`: Raw JSON output.
+- `--status <status>`: Filter by node status.
+- `--class <node_class>`: Filter by node class.
+- `--device-type <type>`: Filter by device type.
+
+Example:
+```bash
+fedctl submit inventory --detail
+```
+
+---
+
+### `fedctl submit results <ID>`
+Show or download result artifacts for a submission.
+
+Flags:
+- `--download`: Download artifacts instead of printing.
+- `--out <path>`: Output file/dir for downloads.
+- `--show-url`: Print full URLs (default is a short display).
+
+Examples:
+```bash
+fedctl submit results <id>
+fedctl submit results <id> --show-url
+fedctl submit results <id> --download --out ./results
+```
+
+---
+
+### `fedctl submit purge`
+Clear submit-service and local submission history.
+
+Example:
+```bash
+fedctl submit purge
+```
+
+---
+
 ### `fedctl inspect [PATH]`
 Inspect a Flower project for fedctl metadata.
 
@@ -246,6 +372,7 @@ Flags:
 - `--num-supernodes <n>`: Number of SuperNode instances to deploy. Default `2` when no typed `deploy.supernodes` is set in repo config.
 - `--supernodes <spec>`: Typed counts, e.g., `rpi=2` or `rpi=2,jetson=1`. Repeatable.
 - `--net <spec>`: Network profile assignments, e.g., `rpi[1]=med,jetson[*]=high`. Repeatable.
+  - Tuple syntax is supported: `rpi[1]=(low,high)` sets ingress=low, egress=high.
 - `--allow-oversubscribe / --no-allow-oversubscribe`: If set, place multiple supernodes on one device type without inventory checks.
 - `--repo-config <path>`: Load `.fedctl/fedctl.yaml` from a repo or override path.
 - `--image <name>`: SuperExec Docker image to deploy. Required.
@@ -329,6 +456,7 @@ Flags:
 - `--auto-supernodes / --no-auto-supernodes`: If enabled, read `local_sim_num_supernodes` from the project and use it. Default enabled.
 - `--supernodes <spec>`: Typed counts, e.g., `rpi=2` or `rpi=2,jetson=1`. Repeatable.
 - `--net <spec>`: Network profile assignments, e.g., `rpi[1]=med,jetson[*]=high`. Repeatable.
+  - Tuple syntax is supported: `rpi[1]=(low,high)` sets ingress=low, egress=high.
 - `--allow-oversubscribe / --no-allow-oversubscribe`: Allow placement without matching node inventory.
 - `--repo-config <path>`: Load `.fedctl/fedctl.yaml` from a repo or override path.
 - `--exp <name>`: Experiment name prefix. Default `<project>-<timestamp>`.
@@ -343,6 +471,7 @@ Flags:
 - `--federation <name>`: Federation name passed to `flwr run`. Default `remote-deployment`.
 - `--stream / --no-stream`: Toggle streaming logs in `flwr run`. Default enabled.
 - `--verbose`: Show full Docker output during build.
+- `--destroy / --no-destroy`: Destroy Nomad jobs after the run. Default `--destroy`.
 
 Examples:
 ```bash

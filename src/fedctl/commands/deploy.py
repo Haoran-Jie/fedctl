@@ -83,6 +83,8 @@ def run_deploy(
     repo_supernode_resources = {}
     repo_network = {}
     repo_network_profiles = {}
+    repo_network_ingress_profiles = {}
+    repo_network_egress_profiles = {}
     repo_network_default = None
     repo_network_scope = None
     repo_network_image = None
@@ -119,6 +121,16 @@ def run_deploy(
         repo_network_profiles = (
             repo_network.get("profiles", {})
             if isinstance(repo_network.get("profiles"), dict)
+            else {}
+        )
+        repo_network_ingress_profiles = (
+            repo_network.get("ingress_profiles", {})
+            if isinstance(repo_network.get("ingress_profiles"), dict)
+            else {}
+        )
+        repo_network_egress_profiles = (
+            repo_network.get("egress_profiles", {})
+            if isinstance(repo_network.get("egress_profiles"), dict)
             else {}
         )
         repo_network_default = repo_network.get("default_profile")
@@ -170,6 +182,16 @@ def run_deploy(
                 repo_network_profiles = (
                     repo_network.get("profiles", {})
                     if isinstance(repo_network.get("profiles"), dict)
+                    else {}
+                )
+                repo_network_ingress_profiles = (
+                    repo_network.get("ingress_profiles", {})
+                    if isinstance(repo_network.get("ingress_profiles"), dict)
+                    else {}
+                )
+                repo_network_egress_profiles = (
+                    repo_network.get("egress_profiles", {})
+                    if isinstance(repo_network.get("egress_profiles"), dict)
                     else {}
                 )
                 repo_network_default = repo_network.get("default_profile")
@@ -254,6 +276,8 @@ def run_deploy(
                 supernodes_by_type=supernodes_by_type,
                 num_supernodes=num_supernodes,
                 repo_network_profiles=repo_network_profiles,
+                repo_network_ingress_profiles=repo_network_ingress_profiles,
+                repo_network_egress_profiles=repo_network_egress_profiles,
                 repo_network_default=repo_network_default,
                 repo_network_scope=repo_network_scope,
             )
@@ -385,6 +409,8 @@ def run_deploy(
                 supernodes_by_type=supernodes_by_type,
                 num_supernodes=num_supernodes,
                 repo_network_profiles=repo_network_profiles,
+                repo_network_ingress_profiles=repo_network_ingress_profiles,
+                repo_network_egress_profiles=repo_network_egress_profiles,
                 repo_network_default=repo_network_default,
                 repo_network_scope=repo_network_scope,
             )
@@ -403,7 +429,11 @@ def run_deploy(
         if network_plan is not None:
             has_profiles = any(
                 isinstance(values, dict) and values
-                for values in network_plan.profiles.values()
+                for values in (
+                    *network_plan.profiles.values(),
+                    *network_plan.ingress_profiles.values(),
+                    *network_plan.egress_profiles.values(),
+                )
             )
             if has_profiles:
                 flwr_version = "1.25.0"
@@ -517,6 +547,8 @@ def _resolve_network_plan(
     supernodes_by_type: dict[str, int] | None,
     num_supernodes: int,
     repo_network_profiles: dict[str, dict[str, float | int]],
+    repo_network_ingress_profiles: dict[str, dict[str, float | int]],
+    repo_network_egress_profiles: dict[str, dict[str, float | int]],
     repo_network_default: str | None,
     repo_network_scope: str | None,
 ) -> tuple[NetworkPlan | None, list[SupernodePlacement] | None]:
@@ -547,6 +579,8 @@ def _resolve_network_plan(
         placements=placements_for_network,
         default_profile=repo_network_default,
         profiles=repo_network_profiles,
+        ingress_profiles=repo_network_ingress_profiles,
+        egress_profiles=repo_network_egress_profiles,
         scope=repo_network_scope,
     )
     return plan, placements_for_network
@@ -639,6 +673,10 @@ def _build_manifest(
                 default_profile=network_plan.default_profile,
                 profiles=network_plan.profiles,
                 assignments=network_plan.assignments,
+                ingress_profiles=network_plan.ingress_profiles,
+                egress_profiles=network_plan.egress_profiles,
+                ingress_assignments=network_plan.ingress_assignments,
+                egress_assignments=network_plan.egress_assignments,
             )
         supernodes_manifest = SupernodesManifest(
             requested_by_type=supernodes_by_type,

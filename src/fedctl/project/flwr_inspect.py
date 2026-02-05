@@ -76,7 +76,7 @@ def extract_flwr_sections(
         if isinstance(val, dict):
             federations[key] = val
 
-    local_sim = _as_dict(feds.get("local-simulation"))
+    local_sim = _as_dict(feds.get("local-simulation")) or _as_dict(feds.get("local_sim")) or _as_dict(feds.get(federations_default))
     local_sim_options = _as_dict(local_sim.get("options"))
     local_sim_num_supernodes = local_sim_options.get("num-supernodes")
     if not isinstance(local_sim_num_supernodes, int):

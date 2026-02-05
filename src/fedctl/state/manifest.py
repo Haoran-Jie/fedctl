@@ -63,14 +63,27 @@ class SupernodesNetworkManifest:
     default_profile: str
     profiles: dict[str, dict[str, float | int]]
     assignments: dict[str, list[str]]
+    ingress_profiles: dict[str, dict[str, float | int]] | None = None
+    egress_profiles: dict[str, dict[str, float | int]] | None = None
+    ingress_assignments: dict[str, list[str]] | None = None
+    egress_assignments: dict[str, list[str]] | None = None
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        data: dict[str, object] = {
             "scope": self.scope,
             "default_profile": self.default_profile,
             "profiles": self.profiles,
             "assignments": self.assignments,
         }
+        if self.ingress_profiles:
+            data["ingress_profiles"] = self.ingress_profiles
+        if self.egress_profiles:
+            data["egress_profiles"] = self.egress_profiles
+        if self.ingress_assignments:
+            data["ingress_assignments"] = self.ingress_assignments
+        if self.egress_assignments:
+            data["egress_assignments"] = self.egress_assignments
+        return data
 
 
 @dataclass(frozen=True)

@@ -105,6 +105,8 @@ The CLI still performs the upload and passes the URL to the service.
 - GET `/v1/submissions/{id}/logs`
 - POST `/v1/submissions/{id}/cancel`
 - POST `/v1/submissions/purge`
+- POST `/v1/submissions/{id}/results`
+- POST `/v1/presign` (S3 presigned URL)
 - GET `/v1/nodes` (inventory; includes allocations by default; set `include_allocs=false` to skip)
 
 Inventory cache TTL can be set with `SUBMIT_NOMAD_INV_TTL` (seconds).
@@ -130,5 +132,19 @@ curl -X POST http://127.0.0.1:8080/v1/submissions \\
     "env": {"FEDCTL_ENDPOINT": "http://10.0.0.5:4646"},
     "priority": 50,
     "namespace": "default"
+  }'
+```
+
+### Presign request
+
+```bash
+curl -X POST http://127.0.0.1:8080/v1/presign \\
+  -H 'Content-Type: application/json' \\
+  -H 'Authorization: Bearer token1' \\
+  -d '{
+    "bucket": "fedctl-submits",
+    "key": "fedctl-submits/results/sub-123/model.pth",
+    "method": "PUT",
+    "expires": 1800
   }'
 ```

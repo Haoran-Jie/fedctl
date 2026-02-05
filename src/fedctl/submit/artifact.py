@@ -64,17 +64,25 @@ def _upload_s3(archive_path: Path, s3_url: str) -> str:
 
 
 def _upload_s3_presign(archive_path: Path, s3_url: str) -> str:
-    try:
-        import boto3
-    except ImportError as exc:
-        raise ArtifactUploadError("boto3 is required for S3 uploads.") from exc
-
     parsed = urlparse(s3_url)
     bucket = parsed.netloc
     if not bucket:
         raise ArtifactUploadError("S3 URL must include a bucket (s3://bucket/prefix).")
     prefix = parsed.path.lstrip("/")
     key = f"{prefix}/{archive_path.name}" if prefix else archive_path.name
+    presign_endpoint = os.environ.get("FEDCTL_PRESIGN_ENDPOINT")
+    if not presign_endpoint:
+        submit_service = os.environ.get("SUBMIT_SERVICE_ENDPOINT", "").strip()
+        if submit_service:
+            presign_endpoint = submit_service.rstrip("/") + "/v1/presign"
+    if presign_endpoint:
+        return _upload_via_presign_service(
+            archive_path, presign_endpoint, bucket=bucket, key=key
+        )
+    try:
+        import boto3
+    except ImportError as exc:
+        raise ArtifactUploadError("boto3 is required for S3 uploads.") from exc
 
     endpoint = os.environ.get("AWS_S3_ENDPOINT")
     region = os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION")
@@ -95,6 +103,81 @@ def _upload_s3_presign(archive_path: Path, s3_url: str) -> str:
     except Exception as exc:
         raise ArtifactUploadError(f"Failed to presign URL: {exc}") from exc
     return _maybe_tgz_url(url, archive_path)
+
+
+def _upload_via_presign_service(
+    archive_path: Path,
+    presign_endpoint: str,
+    *,
+    bucket: str,
+    key: str,
+) -> str:
+    headers: dict[str, str] = {}
+    token = os.environ.get("SUBMIT_SERVICE_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    expires = int(os.environ.get("FEDCTL_PRESIGN_TTL", "1800"))
+    put_url = _fetch_presign_url(
+        presign_endpoint,
+        headers=headers,
+        bucket=bucket,
+        key=key,
+        method="PUT",
+        expires=expires,
+    )
+    try:
+        with archive_path.open("rb") as handle:
+            response = httpx.put(put_url, content=handle, timeout=60.0)
+    except OSError as exc:
+        raise ArtifactUploadError(f"Failed to read archive: {exc}") from exc
+    except httpx.HTTPError as exc:
+        raise ArtifactUploadError(f"HTTP upload failed: {exc}") from exc
+    if response.status_code >= 400:
+        raise ArtifactUploadError(
+            f"Upload failed with status {response.status_code}: {response.text[:200]}"
+        )
+    get_url = _fetch_presign_url(
+        presign_endpoint,
+        headers=headers,
+        bucket=bucket,
+        key=key,
+        method="GET",
+        expires=expires,
+    )
+    return _maybe_tgz_url(get_url, archive_path)
+
+
+def _fetch_presign_url(
+    presign_endpoint: str,
+    *,
+    headers: dict[str, str],
+    bucket: str,
+    key: str,
+    method: str,
+    expires: int,
+) -> str:
+    payload = {
+        "bucket": bucket,
+        "key": key,
+        "method": method,
+        "expires": expires,
+    }
+    try:
+        response = httpx.post(presign_endpoint, json=payload, headers=headers, timeout=10.0)
+    except httpx.HTTPError as exc:
+        raise ArtifactUploadError(f"Presign request failed: {exc}") from exc
+    if response.status_code >= 400:
+        raise ArtifactUploadError(
+            f"Presign request failed with status {response.status_code}: {response.text[:200]}"
+        )
+    try:
+        data = response.json()
+    except ValueError as exc:
+        raise ArtifactUploadError(f"Presign response was not JSON: {exc}") from exc
+    url = data.get("url") if isinstance(data, dict) else None
+    if not isinstance(url, str) or not url:
+        raise ArtifactUploadError("Presign response missing url.")
+    return url
 
 
 def _s3_getter_url(bucket: str, key: str, endpoint: str | None) -> str:

@@ -40,6 +40,7 @@ class SubmissionRecord(BaseModel):
     priority: int | None = None
     logs_location: str | None = None
     result_location: str | None = None
+    result_artifacts: list[str] | None = None
     error_message: str | None = None
     blocked_reason: str | None = None
     namespace: str | None = None
@@ -65,6 +66,7 @@ class SubmissionRecord(BaseModel):
             priority=row.get("priority"),
             logs_location=row.get("logs_location"),
             result_location=row.get("result_location"),
+            result_artifacts=row.get("result_artifacts"),
             error_message=row.get("error_message"),
             blocked_reason=row.get("blocked_reason"),
             namespace=row.get("namespace"),

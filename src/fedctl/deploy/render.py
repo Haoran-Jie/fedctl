@@ -180,10 +180,13 @@ def _supernodes_context(spec: DeploySpec) -> dict[str, Any]:
         cap_add = None
         user = None
         if network_plan is not None:
-            profile_name = _network_profile_for(network_plan, placement)
-            profile_data = network_plan.profiles.get(profile_name, {})
-            if profile_name != "none" and profile_data:
-                netem_env = _netem_env(profile_name, profile_data)
+            egress_profile = _network_profile_for(network_plan, placement, direction="egress")
+            ingress_profile = _network_profile_for(network_plan, placement, direction="ingress")
+            egress_data = _profile_data(network_plan, egress_profile, direction="egress")
+            ingress_data = _profile_data(network_plan, ingress_profile, direction="ingress")
+            if egress_profile != "none" or ingress_profile != "none":
+                netem_env = _netem_env(egress_profile, egress_data)
+                netem_env.update(_netem_ingress_env(ingress_profile, ingress_data))
                 entrypoint = ["/bin/sh", "-lc"]
                 task_args = [_netem_wrapper_script(["flower-supernode", *args])]
                 cap_add = ["NET_ADMIN"]
@@ -245,17 +248,32 @@ def _netem_task(spec: DeploySpec, placement: SupernodePlacement) -> dict[str, An
     netem_image = spec.supernodes.netem_image
     if network_plan is None or not netem_image:
         return None
-    profile_name = _network_profile_for(network_plan, placement)
-    profile_data = network_plan.profiles.get(profile_name, {})
-    return _netem_task_for_profile(profile_name, profile_data, netem_image)
+    egress_profile = _network_profile_for(network_plan, placement, direction="egress")
+    ingress_profile = _network_profile_for(network_plan, placement, direction="ingress")
+    egress_data = _profile_data(network_plan, egress_profile, direction="egress")
+    ingress_data = _profile_data(network_plan, ingress_profile, direction="ingress")
+    return _netem_task_for_profile(
+        egress_profile,
+        egress_data,
+        netem_image,
+        ingress_profile=ingress_profile,
+        ingress_data=ingress_data,
+    )
 
 
 def _netem_task_for_profile(
-    profile_name: str, profile_data: dict[str, float | int], netem_image: str
+    profile_name: str,
+    profile_data: dict[str, float | int],
+    netem_image: str,
+    *,
+    ingress_profile: str | None = None,
+    ingress_data: dict[str, float | int] | None = None,
 ) -> dict[str, Any] | None:
-    if profile_name == "none" or not profile_data:
+    if profile_name == "none" and (not ingress_profile or ingress_profile == "none"):
         return None
     env = _netem_env(profile_name, profile_data)
+    if ingress_profile:
+        env.update(_netem_ingress_env(ingress_profile, ingress_data or {}))
     return {
         "Name": "netem",
         "Driver": "docker",
@@ -278,6 +296,8 @@ def _netem_task_for_profile(
 def _netem_env(
     profile_name: str, profile_data: dict[str, float | int]
 ) -> dict[str, str]:
+    if not profile_data:
+        return {"NET_PROFILE": "none", "NET_IFACE": "eth0"}
     env = {
         "NET_PROFILE": profile_name,
         "NET_IFACE": "eth0",
@@ -296,12 +316,43 @@ def _netem_env(
     return env
 
 
+def _netem_ingress_env(
+    profile_name: str, profile_data: dict[str, float | int]
+) -> dict[str, str]:
+    if not profile_data or profile_name == "none":
+        return {}
+    env = {
+        "NET_INGRESS_PROFILE": profile_name,
+        "NET_INGRESS_ENABLED": "1",
+        "NET_INGRESS_IFACE": "eth0",
+        "NET_INGRESS_IFB": "ifb0",
+    }
+    for key, env_key in (
+        ("delay_ms", "NET_INGRESS_DELAY_MS"),
+        ("jitter_ms", "NET_INGRESS_JITTER_MS"),
+        ("loss_pct", "NET_INGRESS_LOSS_PCT"),
+        ("rate_mbit", "NET_INGRESS_RATE_MBIT"),
+        ("rate_latency_ms", "NET_INGRESS_RATE_LATENCY_MS"),
+        ("rate_burst_kbit", "NET_INGRESS_RATE_BURST_KBIT"),
+    ):
+        value = profile_data.get(key)
+        if isinstance(value, (int, float)):
+            env[env_key] = str(value)
+    return env
+
+
 def _netem_script() -> str:
     lines = [
         "set -eu",
         'IFACE=\"$${NET_IFACE:-eth0}\"',
         'PROFILE=\"$${NET_PROFILE:-none}\"',
+        'IN_PROFILE=\"$${NET_INGRESS_PROFILE:-none}\"',
+        'IN_ENABLED=\"$${NET_INGRESS_ENABLED:-0}\"',
+        'IN_IFACE=\"$${NET_INGRESS_IFACE:-$${IFACE}}\"',
+        'IN_IFB=\"$${NET_INGRESS_IFB:-ifb0}\"',
         "tc qdisc del dev \"$IFACE\" root 2>/dev/null || true",
+        "tc qdisc del dev \"$IN_IFB\" root 2>/dev/null || true",
+        "tc qdisc del dev \"$IN_IFACE\" ingress 2>/dev/null || true",
         "if [ \"$PROFILE\" = \"none\" ]; then",
         "  echo \"netem disabled\"",
         "else",
@@ -318,7 +369,27 @@ def _netem_script() -> str:
         "    tc qdisc add dev \"$IFACE\" root netem delay \"$${DELAY}ms\" \"$${JITTER}ms\" loss \"$${LOSS}%\"",
         "  fi",
         "fi",
+        "if [ \"$IN_ENABLED\" = \"1\" ] && [ \"$IN_PROFILE\" != \"none\" ]; then",
+        "  modprobe ifb 2>/dev/null || true",
+        "  ip link add \"$IN_IFB\" type ifb 2>/dev/null || true",
+        "  ip link set \"$IN_IFB\" up 2>/dev/null || true",
+        "  tc qdisc add dev \"$IN_IFACE\" ingress 2>/dev/null || true",
+        "  tc filter add dev \"$IN_IFACE\" parent ffff: protocol ip u32 match u32 0 0 action mirred egress redirect dev \"$IN_IFB\" 2>/dev/null || true",
+        '  IN_DELAY=\"$${NET_INGRESS_DELAY_MS:-0}\"',
+        '  IN_JITTER=\"$${NET_INGRESS_JITTER_MS:-0}\"',
+        '  IN_LOSS=\"$${NET_INGRESS_LOSS_PCT:-0}\"',
+        '  IN_RATE=\"$${NET_INGRESS_RATE_MBIT:-}\"',
+        '  IN_RATE_LATENCY=\"$${NET_INGRESS_RATE_LATENCY_MS:-400}\"',
+        '  IN_RATE_BURST=\"$${NET_INGRESS_RATE_BURST_KBIT:-32}\"',
+        "  if [ -n \"$IN_RATE\" ]; then",
+        "    tc qdisc add dev \"$IN_IFB\" root handle 1: tbf rate \"$${IN_RATE}mbit\" burst \"$${IN_RATE_BURST}kbit\" latency \"$${IN_RATE_LATENCY}ms\"",
+        "    tc qdisc add dev \"$IN_IFB\" parent 1:1 handle 10: netem delay \"$${IN_DELAY}ms\" \"$${IN_JITTER}ms\" loss \"$${IN_LOSS}%\"",
+        "  else",
+        "    tc qdisc add dev \"$IN_IFB\" root netem delay \"$${IN_DELAY}ms\" \"$${IN_JITTER}ms\" loss \"$${IN_LOSS}%\"",
+        "  fi",
+        "fi",
         "tc qdisc show dev \"$IFACE\" || true",
+        "tc qdisc show dev \"$IN_IFB\" || true",
         "trap 'tc qdisc del dev \"$IFACE\" root 2>/dev/null || true' TERM INT",
         "sleep 3600",
     ]
@@ -332,7 +403,13 @@ def _netem_wrapper_script(command: list[str]) -> str:
         'PATH="/python/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"',
         'IFACE="$${NET_IFACE:-eth0}"',
         'PROFILE="$${NET_PROFILE:-none}"',
+        'IN_PROFILE="$${NET_INGRESS_PROFILE:-none}"',
+        'IN_ENABLED="$${NET_INGRESS_ENABLED:-0}"',
+        'IN_IFACE="$${NET_INGRESS_IFACE:-$${IFACE}}"',
+        'IN_IFB="$${NET_INGRESS_IFB:-ifb0}"',
         "tc qdisc del dev \"$IFACE\" root 2>/dev/null || true",
+        "tc qdisc del dev \"$IN_IFB\" root 2>/dev/null || true",
+        "tc qdisc del dev \"$IN_IFACE\" ingress 2>/dev/null || true",
         "if [ \"$PROFILE\" = \"none\" ]; then",
         "  echo \"netem disabled\"",
         "else",
@@ -349,16 +426,41 @@ def _netem_wrapper_script(command: list[str]) -> str:
         "    tc qdisc add dev \"$IFACE\" root netem delay \"$${DELAY}ms\" \"$${JITTER}ms\" loss \"$${LOSS}%\"",
         "  fi",
         "fi",
+        "if [ \"$IN_ENABLED\" = \"1\" ] && [ \"$IN_PROFILE\" != \"none\" ]; then",
+        "  modprobe ifb 2>/dev/null || true",
+        "  ip link add \"$IN_IFB\" type ifb 2>/dev/null || true",
+        "  ip link set \"$IN_IFB\" up 2>/dev/null || true",
+        "  tc qdisc add dev \"$IN_IFACE\" ingress 2>/dev/null || true",
+        "  tc filter add dev \"$IN_IFACE\" parent ffff: protocol ip u32 match u32 0 0 action mirred egress redirect dev \"$IN_IFB\" 2>/dev/null || true",
+        '  IN_DELAY="$${NET_INGRESS_DELAY_MS:-0}"',
+        '  IN_JITTER="$${NET_INGRESS_JITTER_MS:-0}"',
+        '  IN_LOSS="$${NET_INGRESS_LOSS_PCT:-0}"',
+        '  IN_RATE="$${NET_INGRESS_RATE_MBIT:-}"',
+        '  IN_RATE_LATENCY="$${NET_INGRESS_RATE_LATENCY_MS:-400}"',
+        '  IN_RATE_BURST="$${NET_INGRESS_RATE_BURST_KBIT:-32}"',
+        "  if [ -n \"$IN_RATE\" ]; then",
+        "    tc qdisc add dev \"$IN_IFB\" root handle 1: tbf rate \"$${IN_RATE}mbit\" burst \"$${IN_RATE_BURST}kbit\" latency \"$${IN_RATE_LATENCY}ms\"",
+        "    tc qdisc add dev \"$IN_IFB\" parent 1:1 handle 10: netem delay \"$${IN_DELAY}ms\" \"$${IN_JITTER}ms\" loss \"$${IN_LOSS}%\"",
+        "  else",
+        "    tc qdisc add dev \"$IN_IFB\" root netem delay \"$${IN_DELAY}ms\" \"$${IN_JITTER}ms\" loss \"$${IN_LOSS}%\"",
+        "  fi",
+        "fi",
         "tc qdisc show dev \"$IFACE\" || true",
+        "tc qdisc show dev \"$IN_IFB\" || true",
         f"exec {cmd}",
     ]
     return "\n".join(lines)
 
 
-def _network_profile_for(network_plan: NetworkPlan, placement: SupernodePlacement) -> str:
+def _network_profile_for(
+    network_plan: NetworkPlan, placement: SupernodePlacement, *, direction: str
+) -> str:
     device_type = placement.device_type if isinstance(placement.device_type, str) else None
     key = assignment_key(device_type)
-    assignments = network_plan.assignments.get(key)
+    if direction == "ingress":
+        assignments = network_plan.ingress_assignments.get(key)
+    else:
+        assignments = network_plan.egress_assignments.get(key)
     if not assignments:
         return network_plan.default_profile
     if not isinstance(placement.instance_idx, int):
@@ -366,6 +468,19 @@ def _network_profile_for(network_plan: NetworkPlan, placement: SupernodePlacemen
     if placement.instance_idx < 1 or placement.instance_idx > len(assignments):
         return network_plan.default_profile
     return assignments[placement.instance_idx - 1]
+
+
+def _profile_data(
+    network_plan: NetworkPlan, profile_name: str, *, direction: str
+) -> dict[str, float | int]:
+    if direction == "ingress":
+        data = network_plan.ingress_profiles.get(profile_name)
+    else:
+        data = network_plan.egress_profiles.get(profile_name)
+    if isinstance(data, dict):
+        return data
+    data = network_plan.profiles.get(profile_name)
+    return data if isinstance(data, dict) else {}
 
 
 def _superexec_serverapp_context(spec: DeploySpec) -> dict[str, Any]:
@@ -386,12 +501,15 @@ def _superexec_serverapp_context(spec: DeploySpec) -> dict[str, Any]:
     user = spec.superexec.user
     network_plan = spec.supernodes.network
     if network_plan is not None and spec.superexec.netem_serverapp:
-        profile_name = network_plan.default_profile
-        profile_data = network_plan.profiles.get(profile_name, {})
-        if profile_name != "none" and profile_data:
+        egress_profile = network_plan.default_profile
+        ingress_profile = network_plan.default_profile
+        egress_data = _profile_data(network_plan, egress_profile, direction="egress")
+        ingress_data = _profile_data(network_plan, ingress_profile, direction="ingress")
+        if egress_profile != "none" or ingress_profile != "none":
             entrypoint = ["/bin/sh", "-lc"]
             args = [_netem_wrapper_script(["flower-superexec", *args])]
-            env.update(_netem_env(profile_name, profile_data))
+            env.update(_netem_env(egress_profile, egress_data))
+            env.update(_netem_ingress_env(ingress_profile, ingress_data))
             user = "root"
             cap_add = ["NET_ADMIN"]
         else:
@@ -407,6 +525,7 @@ def _superexec_serverapp_context(spec: DeploySpec) -> dict[str, Any]:
         "image": spec.superexec.image,
         "entrypoint": entrypoint,
         "args": args,
+        "work_dir": "/alloc",
         "template_data": _nomad_service_env(
             naming.service_superlink_serverappio(spec.experiment), "SERVERAPP_IO"
         ),
@@ -438,12 +557,15 @@ def _superexec_clientapp_context(
     user = spec.superexec.user
     network_plan = spec.supernodes.network
     if network_plan is not None and spec.superexec.netem_clientapp:
-        profile_name = _network_profile_for(network_plan, placement)
-        profile_data = network_plan.profiles.get(profile_name, {})
-        if profile_name != "none" and profile_data:
+        egress_profile = _network_profile_for(network_plan, placement, direction="egress")
+        ingress_profile = _network_profile_for(network_plan, placement, direction="ingress")
+        egress_data = _profile_data(network_plan, egress_profile, direction="egress")
+        ingress_data = _profile_data(network_plan, ingress_profile, direction="ingress")
+        if egress_profile != "none" or ingress_profile != "none":
             entrypoint = ["/bin/sh", "-lc"]
             args = [_netem_wrapper_script(["flower-superexec", *args])]
-            env.update(_netem_env(profile_name, profile_data))
+            env.update(_netem_env(egress_profile, egress_data))
+            env.update(_netem_ingress_env(ingress_profile, ingress_data))
             user = "root"
             cap_add = ["NET_ADMIN"]
         else:

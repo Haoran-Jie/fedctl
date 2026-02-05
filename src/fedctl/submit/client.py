@@ -65,6 +65,20 @@ class SubmitServiceClient:
     def purge_submissions(self) -> dict[str, Any]:
         return self._request("POST", "/v1/submissions/purge")
 
+    def update_results(
+        self,
+        submission_id: str,
+        *,
+        result_location: str | None = None,
+        artifacts: list[str] | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {}
+        if result_location:
+            payload["result_location"] = result_location
+        if artifacts is not None:
+            payload["artifacts"] = artifacts
+        return self._request("POST", f"/v1/submissions/{submission_id}/results", json_payload=payload)
+
     def list_nodes(
         self,
         *,
