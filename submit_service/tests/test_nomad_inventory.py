@@ -107,6 +107,50 @@ def test_inventory_enriches_resources_and_allocs() -> None:
     assert node["allocations"]["items"][1]["tasks"][0]["name"] == "t1"
 
 
+def test_inventory_handles_nested_allocated_resources() -> None:
+    nodes = [
+        {
+            "ID": "n1",
+            "Name": "node1",
+            "Status": "ready",
+            "Drain": False,
+            "NodeClass": "node",
+            "Datacenter": "dc1",
+            "Address": "10.0.0.1",
+            "Meta": {"device_type": "jetson"},
+        }
+    ]
+    details = {"n1": {"Node": {"Resources": {"CPU": 1000, "MemoryMB": 1024}}}}
+    allocs = {
+        "n1": [
+            {
+                "ID": "a1",
+                "AllocatedResources": {
+                    "Tasks": {
+                        "t1": {
+                            "Cpu": {"CpuShares": 200},
+                            "Memory": {"MemoryMB": 64},
+                        }
+                    }
+                },
+                "ClientStatus": "running",
+                "JobID": "job1",
+                "TaskGroup": "group1",
+            }
+        ]
+    }
+
+    inventory = NomadInventory(
+        _cfg(),
+        client_factory=lambda: FakeClient(nodes, details, allocs),
+    )
+    data = inventory.list_nodes(include_allocs=True)
+    node = data[0]
+    assert node["resources"]["used_cpu"] == 200
+    assert node["resources"]["used_mem"] == 64
+    assert node["allocations"]["items"][0]["tasks"][0]["name"] == "t1"
+
+
 def test_inventory_cache_hits() -> None:
     calls = {"count": 0}
     nodes = [{"ID": "n1", "Name": "node1"}]

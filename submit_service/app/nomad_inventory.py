@@ -198,7 +198,7 @@ def _alloc_task_breakdown(alloc: dict[str, Any]) -> list[dict[str, Any]]:
                 if not isinstance(task, dict):
                     continue
                 cpu, mem = _resource_pair(task)
-                devices = _normalize_devices(task.get("Devices"))
+                devices = _normalize_devices(task.get("Devices") or task.get("devices"))
                 tasks.append(
                     {
                         "name": name,
@@ -207,6 +207,23 @@ def _alloc_task_breakdown(alloc: dict[str, Any]) -> list[dict[str, Any]]:
                         **({"devices": devices} if devices else {}),
                     }
                 )
+    if tasks:
+        return tasks
+    task_resources = alloc.get("TaskResources")
+    if isinstance(task_resources, dict):
+        for name, task in task_resources.items():
+            if not isinstance(task, dict):
+                continue
+            cpu, mem = _resource_pair(task)
+            devices = _normalize_devices(task.get("Devices") or task.get("devices"))
+            tasks.append(
+                {
+                    "name": name,
+                    "cpu": cpu,
+                    "mem": mem,
+                    **({"devices": devices} if devices else {}),
+                }
+            )
     if tasks:
         return tasks
     resources = alloc.get("Resources")
@@ -229,9 +246,23 @@ def _alloc_totals(tasks: list[dict[str, Any]], alloc: dict[str, Any]) -> tuple[i
 
 
 def _resource_pair(obj: dict[str, Any]) -> tuple[int, int]:
-    cpu = _int_or_zero(obj.get("CPU"))
-    mem = _int_or_zero(obj.get("MemoryMB"))
-    return cpu, mem
+    if not isinstance(obj, dict):
+        return 0, 0
+    cpu = _int_from_keys(obj, ("CPU", "CpuShares", "cpu", "cpu_shares"))
+    mem = _int_from_keys(obj, ("MemoryMB", "MemMB", "memoryMB", "mem", "memory"))
+    if cpu is None:
+        cpu_info = _dict_or_none(obj.get("Cpu")) or _dict_or_none(obj.get("CPU"))
+        cpu = _int_from_keys(cpu_info, ("CpuShares", "CPU", "Shares", "cpu"))
+    if mem is None:
+        mem_info = _dict_or_none(obj.get("Memory"))
+        mem = _int_from_keys(mem_info, ("MemoryMB", "MB", "MemMB", "memory"))
+    if (cpu is None or mem is None) and isinstance(obj.get("Resources"), dict):
+        res_cpu, res_mem = _resource_pair(obj.get("Resources"))
+        if cpu is None:
+            cpu = res_cpu
+        if mem is None:
+            mem = res_mem
+    return (cpu if cpu is not None else 0, mem if mem is not None else 0)
 
 
 def _normalize_devices(value: Any) -> list[dict[str, Any]]:
@@ -284,3 +315,18 @@ def _int_or_none(value: Any) -> int | None:
     if isinstance(value, (int, float)):
         return int(value)
     return None
+
+
+def _int_from_keys(obj: dict[str, Any] | None, keys: tuple[str, ...]) -> int | None:
+    if not isinstance(obj, dict):
+        return None
+    for key in keys:
+        if key in obj:
+            value = _int_or_none(obj.get(key))
+            if value is not None:
+                return value
+    return None
+
+
+def _dict_or_none(value: Any) -> dict[str, Any] | None:
+    return value if isinstance(value, dict) else None

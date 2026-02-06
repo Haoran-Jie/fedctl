@@ -66,12 +66,14 @@ This plan describes how to migrate your current local setup to real hardware (RP
 - Multiple Nomad clients on RPis and Jetsons.
 - All nodes are on the same LAN (Ethernet + switch).
 
-**Submit service**
+**Submit service** run on the same rpi 
+
 - Runs on a server or a stable device (could be the Nomad server node, or a separate VM/device).
 - Must reach the Nomad server API.
 - Does not need to be part of the Nomad cluster.
 
 **Laptop user**
+
 - Runs `fedctl` and submits jobs remotely to submit service endpoint.
 - Does not need direct access to Nomad if submit service is used.
 
@@ -111,7 +113,7 @@ sudo apt-get update
 sudo apt-get install -y curl unzip ca-certificates
 
 # Choose one version and use it on every node.
-export NOMAD_VERSION="1.7.5"
+export NOMAD_VERSION="1.11.1"
 
 ARCH="$(uname -m)"
 case "$ARCH" in
@@ -142,6 +144,7 @@ grep "nomad_${NOMAD_VERSION}_linux_${NOMAD_ARCH}.zip" nomad_${NOMAD_VERSION}_SHA
 Run the same steps on all RPis and Jetsons so all servers and clients run the identical Nomad version.
 
 **Step 3.2: Choose server nodes**
+
 - Use 1 server for simple dev setups.
 - Use 3 servers for high availability (odd quorum).
 
@@ -593,3 +596,317 @@ If you skip presign and use `s3://` directly, then AWS credentials must be avail
 - Submit service systemd unit: `/etc/systemd/system/fedctl-submit.service`
 - Repo config: `<project>/.fedctl/fedctl.yaml`
 - User config: `~/.config/fedctl/config.toml`
+
+---
+
+## 13) Concrete Implementation Phases (Detailed)
+
+This is a step‑by‑step, follow‑later sequence that matches the current plan and our chat decisions:
+- GL.iNet stays in **router/NAT mode** for isolation.
+- Only the submit service is exposed to the upstream “flower network” via **port forwarding**.
+- 4 RPis with roles: server+submit-service, submit client, link client, node client.
+
+### Phase 0 — Inventory + Network Decisions (1–2 hours)
+**Goal:** lock topology and network access model.
+
+1. Decide final roles + IP mapping (example):
+   - RPi‑A: Nomad server + submit service (LAN: `192.168.8.10`)
+   - RPi‑B: Nomad client `node_class=submit` (LAN: `192.168.8.11`)
+   - RPi‑C: Nomad client `node_class=link` (LAN: `192.168.8.12`)
+   - RPi‑D: Nomad client `node_class=node` + `device_type=rpi` (LAN: `192.168.8.13`)
+2. Confirm GL.iNet mode is **router/NAT**.
+3. Set static DHCP leases on GL.iNet for all RPis.
+4. Decide how upstream users will reach submit:
+   - Port forward TCP `8080` on GL.iNet WAN -> RPi‑A `192.168.8.10:8080`.
+5. Confirm each RPi has internet access (`sudo apt update` on each).
+
+**Deliverables:**
+- Final IP table and device roles.
+- GL.iNet DHCP reservations.
+- Port forwarding plan.
+
+**Phase 0 Log (what we actually did)**
+- Set GL.iNet DHCP range to `192.168.8.100`–`192.168.8.249` and created DHCP reservations.
+- Final RPi IP + role mapping:
+- rpi1 `192.168.8.101` → Nomad server + submit service
+- rpi2 `192.168.8.102` → submit client
+- rpi3 `192.168.8.103` → link client
+- rpi4 `192.168.8.104` → node client (`device_type=rpi`)
+- Confirmed GL.iNet is in router/NAT mode.
+- WAN IP observed: `10.100.2.142`.
+- Enabled GL.iNet DDNS (host: `vw8d5a0.glddns.com`).
+- Planned submit endpoint for flower network users: `http://vw8d5a0.glddns.com:8080`.
+- Planned port forward: TCP `8080` WAN → `192.168.8.101:8080` (not yet executed at time of log).
+- Rebooted RPis to apply DHCP reservations.
+
+---
+
+### Phase 1 — Base OS + Nomad Install (2–3 hours)
+**Goal:** all RPis run the same Nomad version.
+
+1. SSH into each RPi and install Nomad (Step 3.1 above).
+2. Verify `nomad version` matches across all nodes.
+3. Ensure time sync is correct (NTP).
+
+**Deliverables:**
+- Nomad installed on all 4 RPis.
+- Same version everywhere.
+
+**Phase 1 Log (what we actually did)**
+- Installed Nomad on all RPis using:
+```bash
+sudo apt-get update
+sudo apt-get install -y curl unzip ca-certificates
+
+export NOMAD_VERSION="1.11.1"
+
+ARCH="$(uname -m)"
+case "$ARCH" in
+  aarch64|arm64) NOMAD_ARCH="arm64" ;;
+  armv7l|armv7)  NOMAD_ARCH="arm" ;;
+  x86_64|amd64)  NOMAD_ARCH="amd64" ;;
+  *) echo "Unsupported arch: $ARCH" && exit 1 ;;
+esac
+
+TMP_DIR="$(mktemp -d)"
+cd "$TMP_DIR"
+curl -fsSLO "https://releases.hashicorp.com/nomad/${NOMAD_VERSION}/nomad_${NOMAD_VERSION}_linux_${NOMAD_ARCH}.zip"
+unzip -o "nomad_${NOMAD_VERSION}_linux_${NOMAD_ARCH}.zip"
+sudo install -m 0755 nomad /usr/local/bin/nomad
+nomad version
+```
+- Verified Nomad version: `1.11.1` on at least one node.
+- rpi1 server config created at `/etc/nomad.d/server.hcl`:
+```hcl
+datacenter = "dc1"
+data_dir   = "/opt/nomad/data"
+
+bind_addr = "0.0.0.0"
+
+advertise {
+  http = "192.168.8.101:4646"
+  rpc  = "192.168.8.101:4647"
+  serf = "192.168.8.101:4648"
+}
+
+server {
+  enabled          = true
+  bootstrap_expect = 1
+}
+
+ui {
+  enabled = true
+}
+```
+- rpi1 systemd unit created at `/etc/systemd/system/nomad.service`:
+```ini
+[Unit]
+Description=Nomad
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/nomad agent -config=/etc/nomad.d/server.hcl
+Restart=on-failure
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+```
+- Started rpi1 server:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now nomad
+nomad server members
+```
+- Client configs created on rpi2/rpi3/rpi4 at `/etc/nomad.d/client.hcl` (with Docker allow_caps):
+```hcl
+datacenter = "dc1"
+data_dir   = "/opt/nomad/data"
+bind_addr  = "0.0.0.0"
+
+client {
+  enabled    = true
+  servers    = ["192.168.8.101:4647"]
+  node_class = "<submit|link|node>"
+
+  meta {
+    device_type = "<submit|link|rpi>"
+  }
+
+  # Only on submit node (rpi2)
+  host_volume "docker-socket" {
+    path      = "/var/run/docker.sock"
+    read_only = false
+  }
+}
+
+plugin "docker" {
+  config {
+    allow_caps = [
+      "audit_write",
+      "chown",
+      "dac_override",
+      "fowner",
+      "fsetid",
+      "kill",
+      "mknod",
+      "net_admin",
+      "net_bind_service",
+      "net_raw",
+      "setfcap",
+      "setgid",
+      "setpcap",
+      "setuid",
+      "sys_chroot"
+    ]
+  }
+}
+```
+- Client systemd unit created on rpi2/rpi3/rpi4 at `/etc/systemd/system/nomad.service`:
+```ini
+[Unit]
+Description=Nomad
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/nomad agent -config=/etc/nomad.d
+Restart=on-failure
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+```
+- rpi2 needed Docker because of the docker socket volume. Installed Docker on rpi2:
+```bash
+curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker $USER
+sudo systemctl enable --now docker
+sudo systemctl restart nomad
+```
+- Verified all three clients registered:
+```bash
+nomad node status
+```
+Result included:
+- rpi2 `submit` ready
+- rpi3 `link` ready
+- rpi4 `node` ready
+
+- Noted Nomad UI reported unhealthy `exec` and `java` drivers (ignored for now unless needed).
+- Determined Docker is required on rpi3 and rpi4 for Docker-based jobs (SuperLink/SuperNode/SuperExec).
+
+---
+
+### Phase 2 — Nomad Server Bring‑Up (1 hour)
+**Goal:** stable server with UI/API.
+
+1. On RPi‑A, create `/etc/nomad.d/server.hcl` based on the template.
+2. Set `advertise` to RPi‑A LAN IP (`192.168.8.10`).
+3. Start server via systemd and verify status.
+4. From RPi‑A, run `nomad server members`.
+
+**Deliverables:**
+- Nomad server running on RPi‑A.
+- `nomad server members` shows 1 server.
+
+**Status:** Completed (rpi1 server running, `nomad server members` shows leader).
+
+---
+
+### Phase 3 — Nomad Clients (Submit/Link/Node) (2–3 hours)
+**Goal:** all clients registered with correct `node_class` and `meta.device_type`.
+
+1. Create `/etc/nomad.d/client.hcl` on each client RPi.
+2. Use `servers = ["192.168.8.10:4647"]`.
+3. Set per‑node classes:
+   - RPi‑B: `node_class = "submit"` and `meta.device_type = "submit"`.
+   - RPi‑C: `node_class = "link"` and `meta.device_type = "link"`.
+   - RPi‑D: `node_class = "node"` and `meta.device_type = "rpi"`.
+4. For the submit node, add host volume for Docker socket:
+   - `host_volume "docker-socket" { path = "/var/run/docker.sock" read_only = false }`
+5. Start clients and confirm `nomad node status`.
+
+**Deliverables:**
+- All clients show `ready`.
+- Node classes and device types correct in `nomad node status -verbose`.
+
+**Status:** Completed (rpi2 submit, rpi3 link, rpi4 node all `ready`).
+
+---
+
+### Phase 4 — Submit Service Deployment (1–2 hours)
+**Goal:** submit service online on RPi‑A.
+
+1. Prepare env file from `submit_service/deployments/env.example`.
+2. Set:
+   - `SUBMIT_NOMAD_ENDPOINT=http://192.168.8.10:4646`
+   - `FEDCTL_SUBMIT_TOKENS=<token>` (or allow unauth for dev)
+   - DB URL and dispatch mode as needed.
+3. Start submit service (systemd or uvicorn).
+4. Verify locally on RPi‑A: `curl http://127.0.0.1:8080/v1/health` (or list endpoint).
+
+**Deliverables:**
+- Submit service running on RPi‑A.
+- Local health check succeeds.
+
+---
+
+### Phase 5 — Router Exposure (30–60 min)
+**Goal:** expose only submit service to upstream flower network.
+
+1. In GL.iNet, configure port forwarding:
+   - TCP `8080` WAN -> `192.168.8.10:8080`.
+2. From a device on the upstream flower network, test:
+   - `curl http://<GLI_NET_WAN_IP>:8080/v1/health`
+3. Confirm other internal RPi ports are not reachable upstream.
+
+**Deliverables:**
+- Submit service reachable from upstream.
+- Other devices remain isolated.
+
+---
+
+### Phase 6 — Repo + Client Config (1 hour)
+**Goal:** `fedctl` on laptop points to submit service.
+
+1. Update `.fedctl/fedctl.yaml`:
+   - `submit.endpoint = http://<GLI_NET_WAN_IP>:8080`
+   - `submit.token = <token>`
+2. Ensure submit service uses env as source of truth.
+3. If using multi‑arch images, set `image_registry` to a shared registry.
+
+**Deliverables:**
+- `fedctl submit ls` works from laptop.
+
+---
+
+### Phase 7 — End‑to‑End Validation (1–2 hours)
+**Goal:** prove scheduling works across all roles.
+
+1. From laptop, run:
+   - `fedctl submit inventory`
+   - `fedctl submit run <project>`
+2. Check:
+   - Submit runner lands on `node_class=submit`.
+   - SuperLink lands on `node_class=link`.
+   - SuperNodes land on `node_class=node`.
+3. Confirm logs and artifacts flow correctly.
+
+**Deliverables:**
+- Full job pipeline works.
+- Inventory shows correct device types and usage.
+
+---
+
+### Phase 8 — Hardening + Quality of Life (optional)
+**Goal:** stability and security.
+
+1. Enable TLS for submit service.
+2. Add firewall rules on GL.iNet to allow only `8080` inbound.
+3. Set Nomad ACLs if needed.
+4. Configure a private registry for images.
+
+**Deliverables:**
+- Stable, secure, repeatable environment.
