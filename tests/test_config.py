@@ -11,6 +11,7 @@ from fedctl.config.io import (
     load_raw_toml,
     save_raw_toml,
 )
+from fedctl.config.paths import repo_default_config_path
 from fedctl.config.merge import get_effective_config
 
 
@@ -45,6 +46,7 @@ def test_load_config_creates_default_profile(tmp_path: Path, monkeypatch) -> Non
     assert p.endpoint == "http://127.0.0.1:4646"
     assert p.access_mode == "lan-only"
     assert p.tls_skip_verify is False
+    assert p.repo_config == str(repo_default_config_path())
 
     # Optional fields should load as None if omitted in TOML
     assert p.namespace is None
@@ -156,11 +158,12 @@ def test_nomad_token_is_env_or_flag_only_not_persisted(tmp_path: Path, monkeypat
 
     # Ensure token is not written into config file
     cfg_path = ensure_config_exists()
-    text = cfg_path.read_text()
-    assert "NOMAD_TOKEN" not in text
-    assert "nomad_token" not in text
-    assert "env-token-123" not in text
-    assert "flag-token-456" not in text
+    doc = tomlkit.parse(cfg_path.read_text())
+    assert "NOMAD_TOKEN" not in cfg_path.read_text()
+    default_tbl = doc["profiles"]["default"]
+    assert "nomad_token" not in default_tbl
+    assert "env-token-123" not in cfg_path.read_text()
+    assert "flag-token-456" not in cfg_path.read_text()
 
 
 def test_unknown_profile_raises(tmp_path: Path, monkeypatch) -> None:
@@ -169,3 +172,31 @@ def test_unknown_profile_raises(tmp_path: Path, monkeypatch) -> None:
 
     with pytest.raises(ValueError):
         _ = get_effective_config(cfg, profile_name="does-not-exist")
+
+
+def test_ensure_config_creates_default_repo_config_file(tmp_path: Path, monkeypatch) -> None:
+    _use_tmp_xdg(monkeypatch, tmp_path)
+
+    _ = ensure_config_exists()
+    repo_cfg = repo_default_config_path()
+    assert repo_cfg.exists()
+    text = repo_cfg.read_text(encoding="utf-8")
+    assert "deploy:" in text
+    assert "submit:" in text
+    assert "submit-service:" in text
+
+
+def test_ensure_config_backfills_default_repo_config_when_unset(
+    tmp_path: Path, monkeypatch
+) -> None:
+    _use_tmp_xdg(monkeypatch, tmp_path)
+    cfg_path = ensure_config_exists()
+
+    doc = tomlkit.parse(cfg_path.read_text())
+    default_tbl = doc["profiles"]["default"]
+    default_tbl.pop("repo_config", None)
+    cfg_path.write_text(tomlkit.dumps(doc))
+
+    _ = ensure_config_exists()
+    cfg = load_config()
+    assert cfg.profiles["default"].repo_config == str(repo_default_config_path())

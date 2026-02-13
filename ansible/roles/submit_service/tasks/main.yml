@@ -1,0 +1,68 @@
+---
+- name: Ensure submit service dependencies
+  ansible.builtin.apt:
+    name:
+      - git
+      - python3
+      - python3-pip
+      - python3-venv
+    state: present
+    update_cache: true
+
+- name: Ensure submit service base directory exists
+  ansible.builtin.file:
+    path: "{{ submit_repo_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Check out fedctl repository
+  ansible.builtin.git:
+    repo: "{{ submit_repo_url }}"
+    dest: "{{ submit_repo_dir }}"
+    version: "{{ submit_repo_version }}"
+    update: true
+  notify: Restart fedctl-submit
+
+- name: Ensure submit service state directory exists
+  ansible.builtin.file:
+    path: "{{ submit_repo_dir }}/submit_service/state"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Install submit service Python requirements
+  ansible.builtin.pip:
+    requirements: "{{ submit_repo_dir }}/submit_service/requirements.txt"
+    virtualenv: "{{ submit_venv_path }}"
+    virtualenv_command: python3 -m venv
+  notify: Restart fedctl-submit
+
+- name: Write submit service env file
+  ansible.builtin.template:
+    src: fedctl-submit.env.j2
+    dest: /etc/fedctl-submit.env
+    owner: root
+    group: root
+    mode: "0600"
+  notify: Restart fedctl-submit
+
+- name: Write submit service systemd unit
+  ansible.builtin.template:
+    src: fedctl-submit.service.j2
+    dest: /etc/systemd/system/fedctl-submit.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart fedctl-submit
+
+- name: Ensure fedctl-submit service enabled and started
+  ansible.builtin.systemd:
+    name: fedctl-submit
+    enabled: true
+    state: started
+    daemon_reload: true

@@ -1,0 +1,14 @@
+---
+submit_repo_url: "git@github.com:Haoran-Jie/fedctl.git"
+submit_repo_version: "main"
+submit_repo_dir: "/opt/fedctl"
+submit_venv_path: "/opt/fedctl/.venv"
+submit_db_url: "sqlite:////opt/fedctl/submit_service/state/submit.db"
+submit_dispatch_mode: "queue"
+submit_allow_unauth: false
+submit_bind_host: "0.0.0.0"
+submit_bind_port: 8080
+submit_tokens: []
+
+submit_nomad_endpoint: >-
+  http://{{ hostvars[groups['nomad_servers'][0]].ansible_host }}:4646

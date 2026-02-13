@@ -1,0 +1,15 @@
+---
+# Global defaults
+nomad_version: "1.11.1"
+nomad_datacenter: "dc1"
+nomad_data_dir: "/opt/nomad/data"
+nomad_bind_addr: "0.0.0.0"
+nomad_advertise_ip: "{{ ansible_host }}"
+
+# Keep list in sync with your server quorum.
+nomad_server_rpc_endpoints:
+  - "192.168.8.101:4647"
+
+# Docker registry config used by all Nomad clients.
+docker_insecure_registries:
+  - "192.168.8.101:5000"

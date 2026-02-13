@@ -1,0 +1,3 @@
+---
+nomad_server_bootstrap_expect: 1
+nomad_server_enable_ui: true

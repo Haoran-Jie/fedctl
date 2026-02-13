@@ -1,0 +1,20 @@
+---
+nomad_client_enable_docker: true
+nomad_client_enable_docker_socket: false
+
+nomad_docker_allow_caps:
+  - "audit_write"
+  - "chown"
+  - "dac_override"
+  - "fowner"
+  - "fsetid"
+  - "kill"
+  - "mknod"
+  - "net_admin"
+  - "net_bind_service"
+  - "net_raw"
+  - "setfcap"
+  - "setgid"
+  - "setpcap"
+  - "setuid"
+  - "sys_chroot"

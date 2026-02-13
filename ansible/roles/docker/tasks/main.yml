@@ -1,0 +1,71 @@
+---
+- name: Check Docker binary
+  ansible.builtin.stat:
+    path: /usr/bin/docker
+  register: docker_bin
+
+- name: Install Docker with upstream convenience script
+  ansible.builtin.shell: |
+    set -euo pipefail
+    curl -fsSL https://get.docker.com | sh
+  args:
+    executable: /bin/bash
+  when: not docker_bin.stat.exists
+
+- name: Ensure Docker service is enabled and running
+  ansible.builtin.systemd:
+    name: docker
+    enabled: true
+    state: started
+
+- name: Check existing daemon.json
+  ansible.builtin.stat:
+    path: /etc/docker/daemon.json
+  register: daemon_json_stat
+
+- name: Read existing daemon.json
+  ansible.builtin.slurp:
+    path: /etc/docker/daemon.json
+  register: daemon_json_raw
+  when: daemon_json_stat.stat.exists
+
+- name: Parse existing daemon.json
+  ansible.builtin.set_fact:
+    docker_daemon_existing: >-
+      {{
+        (
+          daemon_json_raw.content | b64decode | trim | length > 0
+        )
+        | ternary((daemon_json_raw.content | b64decode | from_json), {})
+      }}
+  when: daemon_json_stat.stat.exists
+
+- name: Default daemon config when file does not exist
+  ansible.builtin.set_fact:
+    docker_daemon_existing: {}
+  when: not daemon_json_stat.stat.exists
+
+- name: Merge insecure registries into daemon config
+  ansible.builtin.set_fact:
+    docker_daemon_merged: >-
+      {{
+        docker_daemon_existing
+        | combine(
+            {
+              'insecure-registries': (
+                (docker_daemon_existing['insecure-registries'] | default([]))
+                + docker_insecure_registries
+              ) | unique
+            },
+            recursive=True
+          )
+      }}
+
+- name: Write merged daemon.json
+  ansible.builtin.copy:
+    dest: /etc/docker/daemon.json
+    content: "{{ docker_daemon_merged | to_nice_json }}\n"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart docker

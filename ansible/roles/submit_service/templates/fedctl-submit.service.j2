@@ -1,0 +1,15 @@
+[Unit]
+Description=fedctl submit service
+After=network-online.target nomad.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/fedctl-submit.env
+WorkingDirectory={{ submit_repo_dir }}
+ExecStart={{ submit_venv_path }}/bin/uvicorn submit_service.app.main:app --host {{ submit_bind_host }} --port {{ submit_bind_port }}
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

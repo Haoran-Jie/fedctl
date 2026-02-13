@@ -5,14 +5,60 @@ from typing import Dict
 
 import tomlkit
 
-from .paths import config_path
+from .paths import config_path, repo_default_config_path
 from .schema import FedctlConfig, ProfileConfig, TailscaleConfig
+
+_DEFAULT_REPO_CONFIG_TEXT = """# Default fedctl repo config.
+# Project-local .fedctl/fedctl.yaml takes precedence over this file.
+# Fill placeholders before production use.
+
+deploy:
+  supernodes:
+    rpi: 2
+    jetson: 2
+  placement:
+    allow_oversubscribe: true
+    spread_across_hosts: true
+  resources:
+    supernode:
+      default: { cpu: 500, mem: 512 }
+      rpi: { cpu: 500, mem: 512 }
+      jetson: { cpu: 1000, mem: 1024 }
+  network:
+    image: "jiahborcn/netem:latest"
+    default_profile: none
+    apply:
+      superexec_serverapp: false
+      superexec_clientapp: false
+    profiles:
+      none: {}
+      low: { delay_ms: 0, jitter_ms: 0, loss_pct: 0 }
+      med: { delay_ms: 60, jitter_ms: 10, loss_pct: 1.0, rate_mbit: 50, rate_latency_ms: 50, rate_burst_kbit: 256 }
+      high: { delay_ms: 120, jitter_ms: 25, loss_pct: 2.5, rate_mbit: 20, rate_latency_ms: 50, rate_burst_kbit: 256 }
+
+submit:
+  node_class: submit
+  image: "192.168.8.101:5000/fedctl-submit:latest"
+  artifact_store: "s3+presign://fedctl-submits/fedctl-submits"
+  endpoint: "http://10.100.2.142:8080"
+  token: "flwruser1"
+  user: "DEFAULT_USER"
+
+submit-service:
+  endpoint: "http://127.0.0.1:8080"
+  nomad_endpoint: "http://192.168.8.101:4646"
+  dispatch_mode: "queue"
+  image_registry: "192.168.8.101:5000"
+
+image_registry: "192.168.8.101:5000"
+"""
 
 
 def ensure_config_exists() -> Path:
     cfg_path = config_path()
     cfg_dir = cfg_path.parent
     cfg_dir.mkdir(parents=True, exist_ok=True)
+    default_repo_cfg = _ensure_default_repo_config_exists()
 
     if not cfg_path.exists():
         doc = tomlkit.document()
@@ -25,6 +71,7 @@ def ensure_config_exists() -> Path:
         default_tbl["endpoint"] = "http://127.0.0.1:4646"
         default_tbl["tls_skip_verify"] = False
         default_tbl["access_mode"] = "lan-only"
+        default_tbl["repo_config"] = str(default_repo_cfg)
 
         # Optional nested section can exist but should not contain None
         ts = tomlkit.table()
@@ -32,8 +79,26 @@ def ensure_config_exists() -> Path:
 
         profiles["default"] = default_tbl
         cfg_path.write_text(tomlkit.dumps(doc))
+    else:
+        doc = tomlkit.parse(cfg_path.read_text())
+        profiles = doc.get("profiles")
+        if isinstance(profiles, dict):
+            default_tbl = profiles.get("default")
+            if isinstance(default_tbl, dict):
+                repo_cfg = default_tbl.get("repo_config")
+                if not isinstance(repo_cfg, str) or not repo_cfg.strip():
+                    default_tbl["repo_config"] = str(default_repo_cfg)
+                    cfg_path.write_text(tomlkit.dumps(doc))
 
     return cfg_path
+
+
+def _ensure_default_repo_config_exists() -> Path:
+    path = repo_default_config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if not path.exists():
+        path.write_text(_DEFAULT_REPO_CONFIG_TEXT, encoding="utf-8")
+    return path
 
 
 

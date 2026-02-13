@@ -347,7 +347,8 @@ All nodes must be able to **pull** these images. You have three realistic option
 
 - **Private registry (recommended for stability)**  
   - Run a registry on your LAN (e.g., `registry.local:5000`) or use a private org registry.
-  - Requires `docker login` on each Nomad client host.
+  - If registry is authenticated/TLS, clients need `docker login`.
+  - If using trusted LAN HTTP registry, configure Docker `insecure-registries` on each node.
 
 - **Build locally on each node**  
   - Not recommended. Slower and inconsistent across nodes.
@@ -364,8 +365,9 @@ All nodes must be able to **pull** these images. You have three realistic option
      ```
    - `fedctl build` will tag/push using this registry.
 
-3. **Authenticate on every Nomad client**  
-   - Run `docker login` on each RPi/Jetson if the registry is private.
+3. **Configure every Nomad client for the chosen registry**  
+   - Authenticated registry: run `docker login` on each RPi/Jetson.
+   - Trusted LAN HTTP registry: add `insecure-registries` and restart Docker/Nomad.
 
 ### Cluster default registry (even if repo config is missing)
 If a user’s repo does **not** set `image_registry`, set a cluster‑wide default via env:
@@ -799,7 +801,7 @@ Result included:
 
 ---
 
-### Phase 2 — Nomad Server Bring‑Up (1 hour)
+### Phase 2 — Nomad Server Bring‑Up (Merged into Phase 4 Execution)
 **Goal:** stable server with UI/API.
 
 1. On RPi‑A, create `/etc/nomad.d/server.hcl` based on the template.
@@ -811,11 +813,11 @@ Result included:
 - Nomad server running on RPi‑A.
 - `nomad server members` shows 1 server.
 
-**Status:** Completed (rpi1 server running, `nomad server members` shows leader).
+**Status:** Completed as part of Phase 4 combined execution.
 
 ---
 
-### Phase 3 — Nomad Clients (Submit/Link/Node) (2–3 hours)
+### Phase 3 — Nomad Clients (Submit/Link/Node) (Merged into Phase 4 Execution)
 **Goal:** all clients registered with correct `node_class` and `meta.device_type`.
 
 1. Create `/etc/nomad.d/client.hcl` on each client RPi.
@@ -832,12 +834,12 @@ Result included:
 - All clients show `ready`.
 - Node classes and device types correct in `nomad node status -verbose`.
 
-**Status:** Completed (rpi2 submit, rpi3 link, rpi4 node all `ready`).
+**Status:** Completed as part of Phase 4 combined execution.
 
 ---
 
-### Phase 4 — Submit Service Deployment (1–2 hours)
-**Goal:** submit service online on RPi‑A.
+### Phase 4 — Combined Bring‑Up Execution (Covers Phases 2, 3, and 4)
+**Goal:** complete Nomad server/client bring-up and submit service deployment on hardware.
 
 1. Prepare env file from `submit_service/deployments/env.example`.
 2. Set:
@@ -848,8 +850,49 @@ Result included:
 4. Verify locally on RPi‑A: `curl http://127.0.0.1:8080/v1/health` (or list endpoint).
 
 **Deliverables:**
+- Nomad server running on RPi‑A.
+- Nomad clients (`submit`, `link`, `node`) registered and ready.
 - Submit service running on RPi‑A.
-- Local health check succeeds.
+- Local submit-service API checks succeeding.
+
+**Phase 4 Log (what we actually did; includes original Phases 2 and 3 work)**
+- Cloned private repo to rpi1:
+```bash
+sudo apt-get update
+sudo apt-get install -y git
+sudo mkdir -p /opt/fedctl
+sudo chown $USER:$USER /opt/fedctl
+git clone git@github.com:Haoran-Jie/fedctl.git /opt/fedctl
+```
+- Created Python venv and installed submit service deps:
+```bash
+python -m venv /opt/fedctl/.venv
+source /opt/fedctl/.venv/bin/activate
+pip install -r /opt/fedctl/submit_service/requirements.txt
+```
+- Created submit env at `/etc/fedctl-submit.env` with:
+```bash
+SUBMIT_DB_URL=sqlite:////opt/fedctl/submit_service/state/submit.db
+SUBMIT_NOMAD_ENDPOINT=http://192.168.8.101:4646
+FEDCTL_SUBMIT_TOKENS=flwruser1,flwruser2,flwruser3,flwruser4,flwruser5,flwruser6,flwruser7,flwruser8,flwruser9,flwruser10
+FEDCTL_SUBMIT_ALLOW_UNAUTH=false
+SUBMIT_DISPATCH_MODE=queue
+```
+- Updated systemd unit to use the env file:
+```bash
+sudo sed -i 's|EnvironmentFile=.*|EnvironmentFile=/etc/fedctl-submit.env|' /opt/fedctl/submit_service/deployments/systemd.service
+```
+- Installed and started submit service:
+```bash
+sudo cp /opt/fedctl/submit_service/deployments/systemd.service /etc/systemd/system/fedctl-submit.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now fedctl-submit.service
+sudo systemctl status fedctl-submit.service
+```
+- Verified API locally on rpi1:
+```bash
+curl -H "Authorization: Bearer flwruser1" http://127.0.0.1:8080/v1/submissions
+```
 
 ---
 
@@ -866,6 +909,25 @@ Result included:
 - Submit service reachable from upstream.
 - Other devices remain isolated.
 
+**Phase 5 Log (what we actually did)**
+- Configured and validated GL.iNet port forward:
+- WAN TCP `8080` -> `192.168.8.101:8080`
+- Verified from flower network:
+```bash
+nc -vz 10.100.2.142 8080
+curl -v -H 'Authorization: Bearer flwruser1' 'http://10.100.2.142:8080/v1/submissions'
+```
+- Observed `HTTP/1.1 200 OK` and valid JSON response (`[]` when empty).
+- Verified that ICMP ping to WAN IP is not a reliable signal (may be blocked even when TCP forwarding works).
+- Tested DDNS resolution:
+```bash
+dig +short vw8d5a0.glddns.com
+```
+- Result resolved to `128.232.98.200` (upstream public NAT), not GL.iNet WAN `10.100.2.142`.
+- Conclusion: in this double-NAT environment, use `http://10.100.2.142:8080` on flower network; `vw8d5a0.glddns.com` is not suitable without upstream forwarding/DNS changes.
+
+**Status:** Completed.
+
 ---
 
 ### Phase 6 — Repo + Client Config (1 hour)
@@ -879,6 +941,20 @@ Result included:
 
 **Deliverables:**
 - `fedctl submit ls` works from laptop.
+
+**Phase 6 Log (what we actually did)**
+- Updated laptop repo config in `.fedctl/fedctl.yaml`:
+- `submit.endpoint: http://10.100.2.142:8080`
+- `submit.token: flwruser1`
+- Verified repo-config path (no env override):
+```bash
+unset FEDCTL_SUBMIT_ENDPOINT FEDCTL_SUBMIT_TOKEN
+fedctl submit ls
+fedctl submit inventory
+```
+- Both commands succeeded.
+
+**Status:** Completed.
 
 ---
 
@@ -898,6 +974,90 @@ Result included:
 - Full job pipeline works.
 - Inventory shows correct device types and usage.
 
+**Phase 7 Log (what we actually did)**
+- Ran validation submissions and inspected states via:
+```bash
+fedctl submit run . --exp <exp-name>
+fedctl submit status <submission_id>
+fedctl submit logs <submission_id>
+```
+- Observed capacity gating case:
+- `Status: blocked`
+- `Blocked reason: supernode: need 3, have 1`
+- Investigated oversubscribe handling in submit-service dispatcher and confirmed fallback is server-side repo config when args do not explicitly set oversubscribe.
+- Set submit-service to use canonical config source:
+- `/etc/fedctl/cluster-fedctl.yaml`
+- `SUBMIT_REPO_CONFIG=/etc/fedctl/cluster-fedctl.yaml`
+- Observed failed submission with missing module:
+- `Job render failed: No module named 'fedctl'`
+- Fixed submit-service runtime import path by installing project package on rpi1 venv:
+```bash
+source /opt/fedctl/.venv/bin/activate
+pip install -e /opt/fedctl
+sudo systemctl restart fedctl-submit.service
+```
+- Observed callback warning in runner:
+- `Warning: Job mapping report failed: [Errno 113] No route to host`
+- Fixed internal callback route by setting:
+- `SUBMIT_SERVICE_ENDPOINT=http://192.168.8.101:8080`
+- in `/etc/fedctl-submit.env` and aligning `submit-service.endpoint` in cluster config.
+- Observed superexec pull failure on link node:
+- `Failed to pull ...: not found`
+- Root cause: image built on submit node but not published to shared registry for other nodes to pull.
+- Updated CLI default to push for submit path:
+- `src/fedctl/cli.py` `submit run` now defaults to `--push` (`--push/--no-push` flag pair).
+- Improved failure observability:
+- `fedctl submit status` now prints `error_message` when status is `failed` (`src/fedctl/commands/submit.py`).
+- Improved push diagnostics:
+- `src/fedctl/build/push.py` now includes stderr/stdout tail on push failure.
+- Switched from Docker Hub to LAN registry strategy:
+- Registry endpoint: `192.168.8.101:5000` (hosted on `rpi1`).
+- Ran local registry on `rpi1`:
+```bash
+sudo mkdir -p /opt/registry/data
+sudo docker run -d --restart=always --name registry \
+  -p 5000:5000 \
+  -v /opt/registry/data:/var/lib/registry \
+  registry:2
+curl http://127.0.0.1:5000/v2/_catalog
+```
+- Configured Docker on Nomad clients (`rpi2`, `rpi3`, `rpi4`) for insecure LAN registry:
+- merged `/etc/docker/daemon.json` with:
+```json
+{
+  "insecure-registries": ["192.168.8.101:5000"]
+}
+```
+- restarted services on each node:
+```bash
+sudo systemctl restart docker
+docker info | grep -A5 "Insecure Registries"
+sudo systemctl restart nomad
+```
+- Set registry in both configs:
+- laptop `.fedctl/fedctl.yaml`: `image_registry: 192.168.8.101:5000`
+- submit-service config `/etc/fedctl/cluster-fedctl.yaml`: `image_registry: 192.168.8.101:5000`
+- restarted submit service:
+```bash
+sudo systemctl restart fedctl-submit.service
+```
+- Mirrored submit runner image into LAN registry:
+```bash
+docker pull docker.io/jiahborcn/fedctl-submit:latest
+docker tag docker.io/jiahborcn/fedctl-submit:latest 192.168.8.101:5000/fedctl-submit:latest
+docker push 192.168.8.101:5000/fedctl-submit:latest
+```
+- Set submit runner image:
+- `submit.image: 192.168.8.101:5000/fedctl-submit:latest`
+- Removed Docker Hub credentials from user flow:
+- users now unset `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `DOCKER_USERNAME`, `DOCKER_PASSWORD`, `DOCKER_REGISTRY`
+- code no longer forwards Docker creds into submit-runner jobs (`src/fedctl/commands/submit.py`)
+- code no longer performs runner-side `docker login` (`src/fedctl/submit/runner.py`)
+- Validation target:
+- `fedctl submit run` should push/pull `192.168.8.101:5000/...` images, not `docker.io/...`
+
+**Status:** Completed (LAN registry cutover + credential-free user flow).
+
 ---
 
 ### Phase 8 — Hardening + Quality of Life (optional)
@@ -910,3 +1070,67 @@ Result included:
 
 **Deliverables:**
 - Stable, secure, repeatable environment.
+
+**Phase 8 Log (stability hardening notes)**
+- Added operational note for boot-time auto-recovery hardening on RPis:
+- ensure a `wait-online` service is enabled so Nomad starts after network is ready.
+- Use `grep` (not `rg`) on minimal systems:
+```bash
+systemctl list-unit-files | grep wait-online
+```
+- Enable the one that exists on the node:
+```bash
+sudo systemctl enable NetworkManager-wait-online.service
+# or
+sudo systemctl enable systemd-networkd-wait-online.service
+```
+
+---
+
+### Phase 9 — Ansible Scale-Out (4 -> 24 RPis)
+**Goal:** remove per-node SSH operations and scale cluster changes from one control machine command.
+
+An Ansible scaffold now exists in this repo at:
+- `ansible/`
+- inventory: `ansible/inventories/prod/hosts.ini`
+- playbook: `ansible/site.yml`
+
+**Topology encoded in inventory**
+- `nomad_servers`: `rpi1`
+- `submit_service`: `rpi1`
+- `nomad_submit_clients`: `rpi2`, `rpi5`, `rpi6` (3 total)
+- `nomad_superlink_clients`: `rpi3`, `rpi7`, `rpi8`, `rpi9` (4 total)
+- `nomad_supernode_clients`: `rpi4`, `rpi10`–`rpi24` (16 total)
+
+This matches your requested expansion:
+- +2 submit nodes
+- +3 superlink nodes
+- +15 supernode nodes
+
+**What Ansible now automates**
+1. Baseline packages on all RPis.
+2. Nomad install/config/service for server and clients.
+3. Docker install + safe `daemon.json` merge for insecure registry:
+   - `192.168.8.101:5000`
+4. Submit service deployment on `rpi1`:
+   - repo checkout
+   - venv dependency install
+   - `/etc/fedctl-submit.env`
+   - `/etc/systemd/system/fedctl-submit.service`
+
+**Run commands**
+```bash
+cd ansible
+ansible -i inventories/prod/hosts.ini all -m ping
+ansible-playbook -i inventories/prod/hosts.ini site.yml --ask-become-pass
+```
+
+**Recommended first rollout**
+```bash
+ansible-playbook -i inventories/prod/hosts.ini site.yml --limit rpi1 --ask-become-pass
+ansible-playbook -i inventories/prod/hosts.ini site.yml --limit nomad_submit_clients --ask-become-pass
+ansible-playbook -i inventories/prod/hosts.ini site.yml --limit nomad_superlink_clients --ask-become-pass
+ansible-playbook -i inventories/prod/hosts.ini site.yml --limit nomad_supernode_clients --ask-become-pass
+```
+
+**Status:** Added to repo for immediate use; update host IPs/users/tokens as needed before first run.

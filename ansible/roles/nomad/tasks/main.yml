@@ -1,0 +1,108 @@
+---
+- name: Validate Nomad role input
+  ansible.builtin.assert:
+    that:
+      - nomad_role in ["server", "client"]
+    fail_msg: "nomad_role must be 'server' or 'client'"
+
+- name: Map CPU architecture to Nomad artifact arch
+  ansible.builtin.set_fact:
+    nomad_arch: "{{ nomad_arch_map[ansible_architecture] | default('') }}"
+  vars:
+    nomad_arch_map:
+      aarch64: arm64
+      arm64: arm64
+      armv7l: arm
+      armv7: arm
+      x86_64: amd64
+      amd64: amd64
+
+- name: Fail on unsupported architecture
+  ansible.builtin.assert:
+    that:
+      - nomad_arch | length > 0
+    fail_msg: "Unsupported architecture for Nomad install: {{ ansible_architecture }}"
+
+- name: Download Nomad zip
+  ansible.builtin.get_url:
+    url: "https://releases.hashicorp.com/nomad/{{ nomad_version }}/nomad_{{ nomad_version }}_linux_{{ nomad_arch }}.zip"
+    dest: "/tmp/nomad_{{ nomad_version }}_linux_{{ nomad_arch }}.zip"
+    mode: "0644"
+
+- name: Extract Nomad archive
+  ansible.builtin.unarchive:
+    src: "/tmp/nomad_{{ nomad_version }}_linux_{{ nomad_arch }}.zip"
+    dest: /tmp
+    remote_src: true
+
+- name: Install Nomad binary
+  ansible.builtin.copy:
+    src: /tmp/nomad
+    dest: /usr/local/bin/nomad
+    owner: root
+    group: root
+    mode: "0755"
+    remote_src: true
+
+- name: Ensure Nomad config and data directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - /etc/nomad.d
+    - "{{ nomad_data_dir }}"
+
+- name: Render Nomad server config
+  ansible.builtin.template:
+    src: server.hcl.j2
+    dest: /etc/nomad.d/server.hcl
+    owner: root
+    group: root
+    mode: "0644"
+  when: nomad_role == "server"
+  notify: Restart nomad
+
+- name: Remove client config from server nodes
+  ansible.builtin.file:
+    path: /etc/nomad.d/client.hcl
+    state: absent
+  when: nomad_role == "server"
+  notify: Restart nomad
+
+- name: Render Nomad client config
+  ansible.builtin.template:
+    src: client.hcl.j2
+    dest: /etc/nomad.d/client.hcl
+    owner: root
+    group: root
+    mode: "0644"
+  when: nomad_role == "client"
+  notify: Restart nomad
+
+- name: Remove server config from client nodes
+  ansible.builtin.file:
+    path: /etc/nomad.d/server.hcl
+    state: absent
+  when: nomad_role == "client"
+  notify: Restart nomad
+
+- name: Render Nomad systemd unit
+  ansible.builtin.template:
+    src: nomad.service.j2
+    dest: /etc/systemd/system/nomad.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - Reload systemd
+    - Restart nomad
+
+- name: Ensure Nomad service enabled and started
+  ansible.builtin.systemd:
+    name: nomad
+    enabled: true
+    state: started
+    daemon_reload: true

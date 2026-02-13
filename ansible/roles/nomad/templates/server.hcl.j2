@@ -1,0 +1,19 @@
+datacenter = "{{ nomad_datacenter }}"
+data_dir   = "{{ nomad_data_dir }}"
+
+bind_addr = "{{ nomad_bind_addr }}"
+
+advertise {
+  http = "{{ nomad_advertise_ip }}:4646"
+  rpc  = "{{ nomad_advertise_ip }}:4647"
+  serf = "{{ nomad_advertise_ip }}:4648"
+}
+
+server {
+  enabled          = true
+  bootstrap_expect = {{ nomad_server_bootstrap_expect }}
+}
+
+ui {
+  enabled = {{ nomad_server_enable_ui | lower }}
+}

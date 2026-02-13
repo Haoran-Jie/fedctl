@@ -1,0 +1,32 @@
+---
+- name: Baseline packages on all RPis
+  hosts: all
+  become: true
+  roles:
+    - role: common
+
+- name: Configure Nomad server nodes
+  hosts: nomad_servers
+  become: true
+  roles:
+    - role: nomad
+      nomad_role: server
+
+- name: Configure Docker on Nomad clients
+  hosts: nomad_clients
+  become: true
+  roles:
+    - role: docker
+
+- name: Configure Nomad client nodes
+  hosts: nomad_clients
+  become: true
+  roles:
+    - role: nomad
+      nomad_role: client
+
+- name: Deploy submit service
+  hosts: submit_service
+  become: true
+  roles:
+    - role: submit_service

@@ -1,0 +1,18 @@
+---
+nomad_version: "1.11.1"
+nomad_datacenter: "dc1"
+nomad_data_dir: "/opt/nomad/data"
+nomad_bind_addr: "0.0.0.0"
+nomad_advertise_ip: "{{ ansible_host }}"
+
+nomad_server_bootstrap_expect: 1
+nomad_server_enable_ui: true
+
+nomad_server_rpc_endpoints:
+  - "127.0.0.1:4647"
+
+nomad_node_class: "node"
+nomad_device_type: "rpi"
+nomad_client_enable_docker: true
+nomad_client_enable_docker_socket: false
+nomad_docker_allow_caps: []

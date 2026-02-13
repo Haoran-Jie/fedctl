@@ -1,0 +1,9 @@
+---
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Restart fedctl-submit
+  ansible.builtin.systemd:
+    name: fedctl-submit
+    state: restarted

@@ -1,0 +1,30 @@
+datacenter = "{{ nomad_datacenter }}"
+data_dir   = "{{ nomad_data_dir }}"
+bind_addr  = "{{ nomad_bind_addr }}"
+
+client {
+  enabled    = true
+  servers    = {{ nomad_server_rpc_endpoints | to_json }}
+  node_class = "{{ nomad_node_class }}"
+
+  meta {
+    device_type = "{{ nomad_device_type }}"
+  }
+
+{% if nomad_client_enable_docker_socket | bool %}
+  host_volume "docker-socket" {
+    path      = "/var/run/docker.sock"
+    read_only = false
+  }
+{% endif %}
+}
+
+{% if nomad_client_enable_docker | bool %}
+plugin "docker" {
+  config {
+{% if nomad_docker_allow_caps | length > 0 %}
+    allow_caps = {{ nomad_docker_allow_caps | to_json }}
+{% endif %}
+  }
+}
+{% endif %}

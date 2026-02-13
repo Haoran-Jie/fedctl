@@ -1,0 +1,24 @@
+---
+submit_repo_url: "git@github.com:Haoran-Jie/fedctl.git"
+submit_repo_version: "main"
+submit_repo_dir: "/opt/fedctl"
+submit_venv_path: "/opt/fedctl/.venv"
+submit_db_url: "sqlite:////opt/fedctl/submit_service/state/submit.db"
+submit_dispatch_mode: "queue"
+submit_allow_unauth: false
+
+# Replace with your real tokens or use ansible-vault.
+submit_tokens:
+  - "flwruser1"
+  - "flwruser2"
+  - "flwruser3"
+  - "flwruser4"
+  - "flwruser5"
+  - "flwruser6"
+  - "flwruser7"
+  - "flwruser8"
+  - "flwruser9"
+  - "flwruser10"
+
+# If omitted, defaults to the first nomad server host in inventory.
+# submit_nomad_endpoint: "http://192.168.8.101:4646"
