@@ -17,13 +17,10 @@ job "superexec-clientapp2" {
       config {
         image = "jiahborcn/flwr_superexec:0.0.1"
 
-        entrypoint = ["flower-superexec"]
+        entrypoint = ["/bin/sh", "-lc"]
 
         args = [
-          "--insecure",
-          "--plugin-type", "clientapp",
-          "--appio-api-address", "${CLIENT_IO}",
-          "--flwr-dir", "/tmp/.flwr"
+          "PATH=\"/python/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"; exec flower-superexec --insecure --plugin-type clientapp --appio-api-address \"$${CLIENT_IO}\" --flwr-dir /tmp/.flwr"
         ]
       }
 

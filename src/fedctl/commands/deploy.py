@@ -3,13 +3,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from rich.console import Console
-
 from fedctl.config.io import load_config
 from fedctl.config.repo import load_repo_config, get_image_registry
 from fedctl.config.merge import get_effective_config
 from fedctl.build.errors import BuildError
 from fedctl.build.build import build_image, image_exists
+from fedctl.build.push import push_image
 from fedctl.build.dockerfile import render_supernode_dockerfile
 from fedctl.build.tagging import supernode_netem_image_tag
 import tempfile
@@ -29,10 +28,8 @@ from fedctl.state.manifest import DeploymentManifest, SuperlinkManifest, new_dep
 from fedctl.state.store import write_manifest
 from fedctl.project.errors import ProjectError
 from fedctl.project.flwr_inspect import inspect_flwr_project
+from fedctl.util.console import console
 from datetime import datetime, timezone
-
-console = Console()
-
 
 def run_deploy(
     *,
@@ -458,6 +455,14 @@ def run_deploy(
                     console.print(
                         f"[green]✓ Using cached supernode netem image:[/green] {supernode_image}"
                     )
+                if registry:
+                    console.print(
+                        f"Pushing supernode netem image: {supernode_image}"
+                    )
+                    push_image(supernode_image)
+                    console.print(
+                        f"[green]✓ Pushed supernode netem image:[/green] {supernode_image}"
+                    )
         if network_plan is not None and not has_profiles:
             console.print(
                 "[yellow]Note:[/yellow] Network profiles are empty; netem will be disabled."
@@ -508,11 +513,16 @@ def run_deploy(
             namespace=eff.namespace,
             experiment=exp_name,
         )
-        console.print(f"[green]✓ Deployment ready.[/green] Manifest: {path}")
+        console.print("[green]✓ Deployment ready.[/green]")
+        console.print(f"[cyan]Manifest:[/cyan] {path}")
         return 0
 
     except DeployError as exc:
         console.print(f"[red]✗ Deploy error:[/red] {exc}")
+        return 1
+
+    except BuildError as exc:
+        console.print(f"[red]✗ Build error:[/red] {exc}")
         return 1
 
     except StateError as exc:

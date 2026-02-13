@@ -60,9 +60,12 @@ def test_render_deploy_supernodes_groups() -> None:
         naming.service_supernode_clientappio("exp-test", 2),
     ]
 
-    args = groups[0]["Tasks"][0]["Config"]["args"]
-    assert "--node-config" in args
-    assert "partition-id=0 num-partitions=2" in args
+    task_cfg = groups[0]["Tasks"][0]["Config"]
+    assert task_cfg["entrypoint"] == ["/bin/sh", "-lc"]
+    cmd = task_cfg["args"][0]
+    assert "$${SUP_LINK_ADDR}" in cmd
+    assert "--node-config" in cmd
+    assert "partition-id=0 num-partitions=2" in cmd
 
 
 def test_render_deploy_superexec_jobs() -> None:
@@ -82,12 +85,18 @@ def test_render_deploy_superexec_jobs() -> None:
 
     template = group["Tasks"][0]["Templates"][0]["EmbeddedTmpl"]
     assert naming.service_superlink_serverappio("exp-test") in template
+    server_cfg = group["Tasks"][0]["Config"]
+    assert server_cfg["entrypoint"] == ["/bin/sh", "-lc"]
+    assert "$${SERVERAPP_IO}" in server_cfg["args"][0]
 
     client_job = rendered.superexec_clientapps[0]["Job"]
     assert client_job["Namespace"] == "default"
     client_group = client_job["TaskGroups"][0]
     template = client_group["Tasks"][0]["Templates"][0]["EmbeddedTmpl"]
     assert naming.service_supernode_clientappio("exp-test", 1) in template
+    client_cfg = client_group["Tasks"][0]["Config"]
+    assert client_cfg["entrypoint"] == ["/bin/sh", "-lc"]
+    assert "$${CLIENT_IO}" in client_cfg["args"][0]
 
 
 def test_render_deploy_supernodes_netem_task() -> None:
@@ -114,8 +123,10 @@ def test_render_deploy_supernodes_netem_task() -> None:
     )
     rendered = render_deploy(spec)
     groups = rendered.supernodes["Job"]["TaskGroups"]
-    assert groups[0]["Tasks"][0]["Name"] == "netem"
-    assert groups[0]["Tasks"][0]["Lifecycle"]["Hook"] == "prestart"
-    assert groups[0]["Tasks"][0]["Lifecycle"]["Sidecar"] is True
-    assert groups[0]["Tasks"][0]["Env"]["NET_PROFILE"] == "med"
-    assert groups[1]["Tasks"][0]["Env"]["NET_PROFILE"] == "none"
+    first_task = groups[0]["Tasks"][0]
+    assert first_task["Name"] == "supernode-rpi-1"
+    assert first_task["Config"]["entrypoint"] == ["/bin/sh", "-lc"]
+    assert first_task["Config"]["cap_add"] == ["NET_ADMIN"]
+    assert first_task["Env"]["NET_PROFILE"] == "med"
+    assert groups[1]["Tasks"][0]["Name"] == "supernode-rpi-2"
+    assert "Env" not in groups[1]["Tasks"][0]

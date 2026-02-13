@@ -8,6 +8,7 @@ from fedctl.deploy import naming
 from fedctl.deploy.errors import DeployError
 from fedctl.nomad.client import NomadClient
 from fedctl.state.store import load_manifest
+from fedctl.util.console import console
 
 
 @dataclass(frozen=True)
@@ -27,7 +28,7 @@ def wait_for_superlink(
 ) -> SuperlinkAllocation:
     deadline = time.monotonic() + timeout_seconds
     last_status: str | None = None
-    print(job_name)
+    console.print(f"[bold]SuperLink job:[/bold] {job_name}")
     while True:
         if time.monotonic() >= deadline:
             break
@@ -46,9 +47,12 @@ def wait_for_superlink(
         task_state = _task_state(alloc, job_name)
         if task_state == "dead":
             raise DeployError(f"SuperLink task exited for allocation {alloc_id}.")
-        print(f"Alloc status: {status}, task state: {task_state}")
+        console.print(
+            f"[cyan]Alloc status:[/cyan] {_style_state(status)}, "
+            f"[cyan]task state:[/cyan] {_style_state(task_state)}"
+        )
         if status == "running" and task_state == "running":
-            print("Superlink is running")
+            console.print("[green]✓ SuperLink is running[/green]")
             ports = _extract_ports(alloc)
             _ensure_ports(
                 ports,
@@ -72,6 +76,19 @@ def wait_for_superlink(
     if last_status:
         msg = f"{msg} Last status: {last_status}."
     raise DeployError(msg)
+
+
+def _style_state(state: str | None) -> str:
+    if not state:
+        return "[white]unknown[/white]"
+    lowered = state.lower()
+    if lowered in {"running"}:
+        return f"[green]{lowered}[/green]"
+    if lowered in {"pending"}:
+        return f"[yellow]{lowered}[/yellow]"
+    if lowered in {"failed", "lost", "dead"}:
+        return f"[red]{lowered}[/red]"
+    return f"[white]{lowered}[/white]"
 
 
 def resolve_superlink_address(

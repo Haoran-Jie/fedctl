@@ -136,7 +136,7 @@ def _supernodes_context(spec: DeploySpec) -> dict[str, Any]:
         args = [
             "--insecure",
             "--superlink",
-            "${SUP_LINK_ADDR}",
+            "$${SUP_LINK_ADDR}",
             "--clientappio-api-address",
             "0.0.0.0:${NOMAD_PORT_clientappio}",
             "--isolation",
@@ -174,8 +174,8 @@ def _supernodes_context(spec: DeploySpec) -> dict[str, Any]:
         cpu, mem = _supernode_resources(spec, device_type)
         tasks = []
         netem_env: dict[str, str] | None = None
-        entrypoint = None
-        task_args = args
+        entrypoint = ["/bin/sh", "-lc"]
+        task_args = [_shell_exec_command(["flower-supernode", *args], include_path=True)]
         network_plan = spec.supernodes.network
         cap_add = None
         user = None
@@ -187,8 +187,9 @@ def _supernodes_context(spec: DeploySpec) -> dict[str, Any]:
             if egress_profile != "none" or ingress_profile != "none":
                 netem_env = _netem_env(egress_profile, egress_data)
                 netem_env.update(_netem_ingress_env(ingress_profile, ingress_data))
-                entrypoint = ["/bin/sh", "-lc"]
-                task_args = [_netem_wrapper_script(["flower-supernode", *args])]
+                task_args = [
+                    _netem_wrapper_script(_shell_exec_command(["flower-supernode", *args]))
+                ]
                 cap_add = ["NET_ADMIN"]
                 user = "root"
         tasks.append(
@@ -396,8 +397,7 @@ def _netem_script() -> str:
     return "\n".join(lines)
 
 
-def _netem_wrapper_script(command: list[str]) -> str:
-    cmd = " ".join(shlex.quote(arg) for arg in command)
+def _netem_wrapper_script(command: str) -> str:
     lines = [
         "set -eu",
         'PATH="/python/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"',
@@ -447,9 +447,27 @@ def _netem_wrapper_script(command: list[str]) -> str:
         "fi",
         "tc qdisc show dev \"$IFACE\" || true",
         "tc qdisc show dev \"$IN_IFB\" || true",
-        f"exec {cmd}",
+        f"exec {command}",
     ]
     return "\n".join(lines)
+
+
+def _shell_exec_command(parts: list[str], *, include_path: bool = False) -> str:
+    command = " ".join(_shell_token(part) for part in parts)
+    if include_path:
+        return (
+            'PATH="/python/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"; '
+            f"exec {command}"
+        )
+    return command
+
+
+def _shell_token(value: str) -> str:
+    # Keep `$...` expressions expandable by the runtime shell.
+    if "$" in value:
+        escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+        return f'"{escaped}"'
+    return shlex.quote(value)
 
 
 def _network_profile_for(
@@ -489,14 +507,15 @@ def _superexec_serverapp_context(spec: DeploySpec) -> dict[str, Any]:
         "--plugin-type",
         "serverapp",
         "--appio-api-address",
-        "${SERVERAPP_IO}",
+        "$${SERVERAPP_IO}",
         "--flwr-dir",
         spec.superexec.flwr_dir,
     ]
     if not spec.insecure:
         args = [arg for arg in args if arg != "--insecure"]
 
-    entrypoint = ["flower-superexec"]
+    entrypoint = ["/bin/sh", "-lc"]
+    task_args = [_shell_exec_command(["flower-superexec", *args], include_path=True)]
     env: dict[str, str] = {}
     user = spec.superexec.user
     network_plan = spec.supernodes.network
@@ -506,8 +525,9 @@ def _superexec_serverapp_context(spec: DeploySpec) -> dict[str, Any]:
         egress_data = _profile_data(network_plan, egress_profile, direction="egress")
         ingress_data = _profile_data(network_plan, ingress_profile, direction="ingress")
         if egress_profile != "none" or ingress_profile != "none":
-            entrypoint = ["/bin/sh", "-lc"]
-            args = [_netem_wrapper_script(["flower-superexec", *args])]
+            task_args = [
+                _netem_wrapper_script(_shell_exec_command(["flower-superexec", *args]))
+            ]
             env.update(_netem_env(egress_profile, egress_data))
             env.update(_netem_ingress_env(ingress_profile, ingress_data))
             user = "root"
@@ -524,7 +544,7 @@ def _superexec_serverapp_context(spec: DeploySpec) -> dict[str, Any]:
         "node_class": spec.superexec.node_class_link,
         "image": spec.superexec.image,
         "entrypoint": entrypoint,
-        "args": args,
+        "args": task_args,
         "work_dir": "/alloc",
         "template_data": _nomad_service_env(
             naming.service_superlink_serverappio(spec.experiment), "SERVERAPP_IO"
@@ -545,14 +565,15 @@ def _superexec_clientapp_context(
         "--plugin-type",
         "clientapp",
         "--appio-api-address",
-        "${CLIENT_IO}",
+        "$${CLIENT_IO}",
         "--flwr-dir",
         spec.superexec.flwr_dir,
     ]
     if not spec.insecure:
         args = [arg for arg in args if arg != "--insecure"]
 
-    entrypoint = ["flower-superexec"]
+    entrypoint = ["/bin/sh", "-lc"]
+    task_args = [_shell_exec_command(["flower-superexec", *args], include_path=True)]
     env: dict[str, str] = {}
     user = spec.superexec.user
     network_plan = spec.supernodes.network
@@ -562,8 +583,9 @@ def _superexec_clientapp_context(
         egress_data = _profile_data(network_plan, egress_profile, direction="egress")
         ingress_data = _profile_data(network_plan, ingress_profile, direction="ingress")
         if egress_profile != "none" or ingress_profile != "none":
-            entrypoint = ["/bin/sh", "-lc"]
-            args = [_netem_wrapper_script(["flower-superexec", *args])]
+            task_args = [
+                _netem_wrapper_script(_shell_exec_command(["flower-superexec", *args]))
+            ]
             env.update(_netem_env(egress_profile, egress_data))
             env.update(_netem_ingress_env(ingress_profile, ingress_data))
             user = "root"
@@ -584,7 +606,7 @@ def _superexec_clientapp_context(
         "node_class": spec.superexec.node_class_node,
         "image": spec.superexec.image,
         "entrypoint": entrypoint,
-        "args": args,
+        "args": task_args,
         "template_data": _nomad_service_env(
             naming.service_supernode_clientappio(
                 spec.experiment,

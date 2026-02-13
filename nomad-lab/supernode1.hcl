@@ -24,13 +24,10 @@ job "supernode1" {
         image = "flwr/supernode:1.25.0"
         ports = ["clientappio"]
 
-        # Important: Arguments reference env vars inserted below
+        entrypoint = ["/bin/sh", "-lc"]
+        # Important: env vars inserted below are expanded by the shell.
         args = [
-          "--insecure",
-          "--superlink", "${SUP_LINK_ADDR}",
-          "--clientappio-api-address", "0.0.0.0:${NOMAD_PORT_clientappio}",
-          "--isolation", "process",
-          "--node-config", "partition-id=0 num-partitions=2"
+          "PATH=\"/python/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\"; exec flower-supernode --insecure --superlink \"$${SUP_LINK_ADDR}\" --clientappio-api-address \"0.0.0.0:${NOMAD_PORT_clientappio}\" --isolation process --node-config \"partition-id=0 num-partitions=2\""
         ]
       }
 

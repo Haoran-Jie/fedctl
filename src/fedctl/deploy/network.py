@@ -31,7 +31,7 @@ class NetworkPlan:
 def parse_net_assignments(values: Iterable[str]) -> list[NetAssignment]:
     result: list[NetAssignment] = []
     for raw in values:
-        parts = [p for p in raw.split(",") if p]
+        parts = _split_assignments(raw)
         for part in parts:
             if "=" not in part:
                 raise ValueError(f"Invalid net assignment: {part}")
@@ -71,6 +71,32 @@ def parse_net_assignments(values: Iterable[str]) -> list[NetAssignment]:
                 )
             )
     return result
+
+
+def _split_assignments(raw: str) -> list[str]:
+    parts: list[str] = []
+    current: list[str] = []
+    paren_depth = 0
+    for char in raw:
+        if char == "(":
+            paren_depth += 1
+            current.append(char)
+            continue
+        if char == ")":
+            paren_depth = max(paren_depth - 1, 0)
+            current.append(char)
+            continue
+        if char == "," and paren_depth == 0:
+            part = "".join(current).strip()
+            if part:
+                parts.append(part)
+            current = []
+            continue
+        current.append(char)
+    tail = "".join(current).strip()
+    if tail:
+        parts.append(tail)
+    return parts
 
 
 def plan_network(

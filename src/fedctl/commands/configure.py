@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from rich.console import Console
-
 from fedctl.config.io import load_config
 from fedctl.config.merge import get_effective_config
 from fedctl.deploy.errors import DeployError
@@ -11,9 +9,7 @@ from fedctl.deploy.resolve import resolve_superlink_address
 from fedctl.nomad.client import NomadClient
 from fedctl.nomad.errors import NomadConnectionError, NomadHTTPError, NomadTLSError
 from fedctl.project.pyproject_patch import patch_remote_deployment
-
-console = Console()
-
+from fedctl.util.console import console
 
 def run_configure(
     *,
