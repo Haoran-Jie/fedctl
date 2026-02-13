@@ -214,7 +214,7 @@ def submit_run(
     no_cache: bool = typer.Option(False, "--no-cache"),
     platform: str | None = typer.Option(None, "--platform"),
     context: str | None = typer.Option(None, "--context"),
-    push: bool = typer.Option(False, "--push"),
+    push: bool = typer.Option(True, "--push/--no-push"),
     num_supernodes: int = typer.Option(2, "--num-supernodes"),
     auto_supernodes: bool = typer.Option(True, "--auto-supernodes/--no-auto-supernodes"),
     supernodes: list[str] = typer.Option(None, "--supernodes"),
@@ -636,6 +636,12 @@ def destroy(
     exp: str | None = typer.Argument(None, help="Experiment name."),
     purge: bool = typer.Option(False, "--purge"),
     all: bool = typer.Option(False, "--all"),
+    profile: str | None = typer.Option(None, "--profile"),
+    endpoint: str | None = typer.Option(None, "--endpoint"),
+    namespace: str | None = typer.Option(None, "--namespace"),
+    token: str | None = typer.Option(None, "--token"),
+    tls_ca: str | None = typer.Option(None, "--tls-ca"),
+    tls_skip_verify: bool | None = typer.Option(None, "--tls-skip-verify"),
 ) -> None:
     """Stop jobs for an experiment, optionally purging them."""
     raise SystemExit(
@@ -643,6 +649,12 @@ def destroy(
             experiment=exp,
             destroy_all=all,
             purge=purge,
+            profile=profile,
+            endpoint=endpoint,
+            namespace=namespace,
+            token=token,
+            tls_ca=tls_ca,
+            tls_skip_verify=tls_skip_verify,
         )
     )
 

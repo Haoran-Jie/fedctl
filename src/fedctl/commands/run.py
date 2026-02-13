@@ -4,7 +4,6 @@ import os
 import subprocess
 from pathlib import Path
 
-from rich.console import Console
 from typing import Callable
 
 from fedctl.commands.build import build_and_record
@@ -19,8 +18,17 @@ from fedctl.project.flwr_inspect import inspect_flwr_project
 from fedctl.build.state import load_project_build
 from fedctl.build.build import image_exists, pull_image
 from fedctl.build.errors import BuildError
+from fedctl.util.console import console
 
-console = Console()
+
+def _print_step(idx: int, total: int, title: str) -> None:
+    if idx > 1:
+        console.print()
+    console.print(f"[bold cyan]Step {idx}/{total}[/bold cyan] [bold]-[/bold] {title}")
+
+
+def _print_ok(message: str) -> None:
+    console.print(f"[green]✓[/green] {message}")
 
 
 def run_run(
@@ -54,7 +62,7 @@ def run_run(
     destroy: bool = True,
 ) -> int:
     project_path = Path(path)
-    console.print("[bold]Step 1/5:[/bold] Inspect project")
+    _print_step(1, 5, "Inspect project")
     try:
         info = inspect_flwr_project(project_path)
     except ProjectError as exc:
@@ -64,14 +72,14 @@ def run_run(
     project_name = info.project_name or "project"
     if not supernodes and auto_supernodes and info.local_sim_num_supernodes:
         num_supernodes = info.local_sim_num_supernodes
-        console.print(f"[green]✓ Using num-supernodes={num_supernodes}[/green]")
+        _print_ok(f"Using num-supernodes={num_supernodes}")
 
     exp_name = normalize_experiment_name(
         experiment or f"{project_name}-{_timestamp_compact()}"
     )
-    console.print(f"[green]✓ Experiment:[/green] {exp_name}")
+    _print_ok(f"Experiment: {exp_name}")
 
-    console.print("[bold]Step 2/5:[/bold] Build SuperExec image")
+    _print_step(2, 5, "Build SuperExec image")
     image_tag = None
     reuse_allowed = not no_cache and image is None and context is None
     pull_cached = os.environ.get("FEDCTL_PULL_CACHED_IMAGE", "").strip().lower() in {
@@ -91,18 +99,14 @@ def run_run(
             else:
                 if image_exists(cached.image):
                     image_tag = cached.image
-                    console.print(
-                        f"[green]✓ Reusing cached image:[/green] {image_tag}"
-                    )
+                    _print_ok(f"Reusing cached image: {image_tag}")
                 elif pull_cached:
                     console.print(
                         f"[yellow]Note:[/yellow] Cached image not local, attempting pull: {cached.image}"
                     )
                     if pull_image(cached.image) and image_exists(cached.image):
                         image_tag = cached.image
-                        console.print(
-                            f"[green]✓ Pulled cached image:[/green] {image_tag}"
-                        )
+                        _print_ok(f"Pulled cached image: {image_tag}")
                     else:
                         console.print(
                             f"[yellow]Note:[/yellow] Failed to pull cached image {cached.image}."
@@ -127,12 +131,16 @@ def run_run(
                 push=push,
                 verbose=verbose,
             )
-            console.print(f"[green]✓ Built image:[/green] {image_tag}")
+            _print_ok(f"Built image: {image_tag}")
         except BuildError as exc:
             console.print(f"[red]✗ Build error:[/red] {exc}")
             return 1
 
-    console.print("[bold]Step 3/5:[/bold] Deploy to Nomad")
+    _print_step(3, 5, "Deploy to Nomad")
+    resolved_repo_config = _resolve_run_repo_config(
+        repo_config=repo_config,
+        project_root=info.root,
+    )
     deploy_status = run_deploy(
         dry_run=False,
         out=None,
@@ -141,7 +149,7 @@ def run_run(
         supernodes=supernodes,
         net=net,
         allow_oversubscribe=allow_oversubscribe,
-        repo_config=repo_config,
+        repo_config=resolved_repo_config,
         image=image_tag,
         experiment=exp_name,
         timeout_seconds=timeout_seconds,
@@ -156,7 +164,7 @@ def run_run(
     if deploy_status != 0:
         return deploy_status
 
-    console.print("[bold]Step 4/5:[/bold] Configure project federation")
+    _print_step(4, 5, "Configure project federation")
     configure_status = run_configure(
         path=str(info.root),
         namespace=namespace,
@@ -172,7 +180,7 @@ def run_run(
     if configure_status != 0:
         return configure_status
 
-    console.print("[bold]Step 5/5:[/bold] Run Flower")
+    _print_step(5, 5, "Run Flower")
     cmd = ["flwr", "run", str(info.root), federation]
     if stream:
         cmd.append("--stream")
@@ -193,7 +201,8 @@ def run_run(
             except Exception as exc:
                 console.print(f"[yellow]Warning:[/yellow] Pre-cleanup hook failed: {exc}")
         if destroy:
-            console.print("[bold]Cleanup:[/bold] Destroy Nomad jobs")
+            console.print()
+            console.print("[bold cyan]Cleanup[/bold cyan] [bold]-[/bold] Destroy Nomad jobs")
             destroy_status = run_destroy(
                 experiment=exp_name,
                 destroy_all=False,
@@ -215,3 +224,12 @@ def run_run(
 
 def _timestamp_compact() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+
+
+def _resolve_run_repo_config(*, repo_config: str | None, project_root: Path) -> str | None:
+    if repo_config:
+        return repo_config
+    candidate = project_root / ".fedctl" / "fedctl.yaml"
+    if candidate.exists():
+        return str(candidate)
+    return None

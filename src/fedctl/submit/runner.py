@@ -9,7 +9,6 @@ import threading
 import time
 from pathlib import Path
 
-from rich.console import Console
 import httpx
 import logging
 
@@ -18,8 +17,8 @@ from fedctl.deploy import naming
 from fedctl.deploy.plan import parse_supernodes
 from fedctl.nomad.client import NomadClient
 from fedctl.submit.artifact import upload_artifact, ArtifactUploadError
+from fedctl.util.console import console
 
-console = Console()
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
 
@@ -275,7 +274,7 @@ def _report_jobs(
         )
         return
     logger.info("submit-service job report ok: submission_id=%s", submission_id)
-    console.print("[green]✓ Reported job mapping to submit service[/green]")
+    console.print("[green]✓ Reported submission job mapping to submit service[/green]")
 
 
 def _build_jobs_report(

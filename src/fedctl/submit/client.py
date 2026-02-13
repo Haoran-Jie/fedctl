@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Iterator
 
 import httpx
 
@@ -58,6 +58,44 @@ class SubmitServiceClient:
             params=params,
             text_response=True,
         )
+
+    def stream_logs(
+        self,
+        submission_id: str,
+        *,
+        job: str = "submit",
+        task: str | None = None,
+        stderr: bool = True,
+        index: int = 1,
+    ) -> Iterator[str]:
+        params = {
+            "job": job,
+            "index": str(index),
+            "stderr": "true" if stderr else "false",
+            "follow": "true",
+        }
+        if task:
+            params["task"] = task
+
+        url = self.endpoint.rstrip("/") + f"/v1/submissions/{submission_id}/logs"
+        timeout = httpx.Timeout(connect=self.timeout, read=None, write=self.timeout, pool=self.timeout)
+        try:
+            with httpx.stream(
+                "GET",
+                url,
+                params=params,
+                headers=self._headers(),
+                timeout=timeout,
+            ) as response:
+                if response.status_code >= 400:
+                    body = response.read().decode("utf-8", errors="replace")
+                    raise SubmitServiceError(
+                        f"Submit service error {response.status_code}: {body[:200]}"
+                    )
+                for line in response.iter_lines():
+                    yield line
+        except httpx.HTTPError as exc:
+            raise SubmitServiceError(str(exc)) from exc
 
     def cancel_submission(self, submission_id: str) -> dict[str, Any]:
         return self._request("POST", f"/v1/submissions/{submission_id}/cancel")

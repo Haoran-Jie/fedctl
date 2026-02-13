@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import os
 import json
+import re
 from urllib.parse import urlparse
 import tarfile
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Iterable
 
-from rich.console import Console
 from rich.text import Text
 import httpx
 
@@ -31,9 +32,7 @@ from fedctl.state.submissions import (
     load_submissions,
     record_submission,
 )
-from fedctl.util.console import print_table
-
-console = Console()
+from fedctl.util.console import console, print_table
 
 _ARCHIVE_SKIP_DIRS = {
     ".git",
@@ -48,6 +47,16 @@ _ARCHIVE_SKIP_DIRS = {
     ".tox",
     ".ruff_cache",
 }
+
+
+def _print_step(idx: int, total: int, title: str) -> None:
+    if idx > 1:
+        console.print()
+    console.print(f"[bold cyan]Step {idx}/{total}[/bold cyan] [bold]-[/bold] {title}")
+
+
+def _print_ok(message: str) -> None:
+    console.print(f"[green]✓[/green] {message}")
 
 
 def run_submit(
@@ -78,7 +87,7 @@ def run_submit(
     priority: int | None,
 ) -> int:
     project_path = Path(path)
-    console.print("[bold]Step 1/4:[/bold] Inspect project")
+    _print_step(1, 4, "Inspect project")
     try:
         info = inspect_flwr_project(project_path)
     except ProjectError as exc:
@@ -88,7 +97,7 @@ def run_submit(
     project_name = info.project_name or "project"
     if not supernodes and auto_supernodes and info.local_sim_num_supernodes:
         num_supernodes = info.local_sim_num_supernodes
-        console.print(f"[green]✓ Using num-supernodes={num_supernodes}[/green]")
+        _print_ok(f"Using num-supernodes={num_supernodes}")
 
     exp_name = normalize_experiment_name(
         experiment or f"{project_name}-{_timestamp_compact()}"
@@ -97,7 +106,7 @@ def run_submit(
     submission_id = None
     if not submit_client:
         submission_id = f"submit-{exp_name}-{_timestamp_compact()}"
-        console.print(f"[green]✓ Submission ID:[/green] {submission_id}")
+        _print_ok(f"Submission ID: {submission_id}")
 
     repo_cfg = _load_repo_cfg(repo_config=repo_config)
     submit_cfg = parse_submit_repo_config(repo_cfg)
@@ -123,23 +132,30 @@ def run_submit(
             registry=registry,
         )
 
-    console.print("[bold]Step 2/4:[/bold] Package project")
+    repo_cfg_path = _resolve_repo_cfg_path(repo_config=repo_config)
+
+    _print_step(2, 4, "Package project")
     try:
-        archive_path = _build_project_archive(info.root, project_name)
+        archive_path = _build_project_archive(
+            info.root,
+            project_name,
+            repo_config_path=repo_cfg_path,
+        )
     except OSError as exc:
         console.print(f"[red]✗ Archive error:[/red] {exc}")
         return 1
-    console.print(f"[green]✓ Created archive:[/green] {archive_path}")
+    _print_ok(f"Created archive: {archive_path}")
 
-    console.print("[bold]Step 3/4:[/bold] Upload artifact")
+    _print_step(3, 4, "Upload artifact")
     try:
         artifact_url = upload_artifact(archive_path, resolved_artifact_store)
     except ArtifactUploadError as exc:
         console.print(f"[red]✗ Artifact upload error:[/red] {exc}")
         return 1
-    console.print(f"[green]✓ Uploaded to:[/green] {artifact_url}")
+    _print_ok("Uploaded artifact")
+    console.print(f"[cyan]URL:[/cyan] {artifact_url}")
 
-    console.print("[bold]Step 4/4:[/bold] Submit Nomad job")
+    _print_step(4, 4, "Submit Nomad job")
     cfg = load_config()
     try:
         eff = get_effective_config(cfg)
@@ -187,8 +203,8 @@ def run_submit(
             console.print(f"[red]✗ Submit service error:[/red] {exc}")
             return 1
         submission_id = response.get("submission_id", "<unknown>")
-        console.print(f"[green]✓ Submitted job:[/green] {submission_id}")
-        console.print(f"[blue]Next:[/blue] fedctl submit status {submission_id}")
+        _print_ok(f"Submitted job: {submission_id}")
+        console.print(f"[cyan]Next:[/cyan] fedctl submit status {submission_id}")
         return 0
 
     job = render_submit_job(
@@ -255,8 +271,8 @@ def run_submit(
         submit_image=resolved_image,
         node_class=resolved_node_class,
     )
-    console.print(f"[green]✓ Submitted job:[/green] {submission_id}")
-    console.print(f"[blue]Next:[/blue] fedctl submit status {submission_id}")
+    _print_ok(f"Submitted job: {submission_id}")
+    console.print(f"[cyan]Next:[/cyan] fedctl submit status {submission_id}")
     return 0
 
 
@@ -271,10 +287,13 @@ def run_submit_status(*, submission_id: str) -> int:
         resolved_id = record.get("submission_id", submission_id)
         status = record.get("status", "-")
         blocked_reason = record.get("blocked_reason")
+        error_message = record.get("error_message")
         console.print(f"[bold]Job:[/bold] {resolved_id}")
         console.print(f"[bold]Status:[/bold] {status}")
         if status == "blocked" and blocked_reason:
             console.print(f"[bold]Blocked reason:[/bold] {blocked_reason}")
+        if status == "failed" and isinstance(error_message, str) and error_message:
+            console.print(f"[bold]Error:[/bold] {error_message}")
         nomad_job_id = record.get("nomad_job_id")
         if nomad_job_id and nomad_job_id != resolved_id:
             console.print(f"[bold]Nomad Job:[/bold] {nomad_job_id}")
@@ -338,6 +357,17 @@ def run_submit_logs(
     submit_client = _submit_service_client()
     if submit_client:
         try:
+            if follow:
+                _print_streamed_logs(
+                    submit_client.stream_logs(
+                        submission_id,
+                        job=job,
+                        task=task,
+                        stderr=stderr,
+                        index=index,
+                    )
+                )
+                return 0
             logs = submit_client.get_logs(
                 submission_id,
                 job=job,
@@ -346,11 +376,12 @@ def run_submit_logs(
                 follow=follow,
                 index=index,
             )
+        except KeyboardInterrupt:
+            return 130
         except SubmitServiceError as exc:
             console.print(f"[red]✗ Submit service error:[/red] {exc}")
             return 1
-        rendered = Text.from_ansi(logs)
-        console.print(rendered, end="" if logs.endswith("\n") else "\n")
+        _print_structured_logs(logs)
         return 0
 
     cfg = load_config()
@@ -373,8 +404,7 @@ def run_submit_logs(
             return 1
         resolved_task = task or "submit"
         logs = client.alloc_logs(alloc_id, resolved_task, stderr=stderr, follow=follow)
-        rendered = Text.from_ansi(logs)
-        console.print(rendered, end="" if logs.endswith("\n") else "\n")
+        _print_structured_logs(logs)
         return 0
 
     except NomadTLSError as exc:
@@ -398,6 +428,87 @@ def run_submit_logs(
 
     finally:
         client.close()
+
+
+_STEP_LINE_RE = re.compile(r"^step\s+\d+/\d+:", re.IGNORECASE)
+
+
+def _print_streamed_logs(lines: Iterable[str]) -> None:
+    printed = False
+    previous_blank = True
+    for line in lines:
+        stripped = _plain(line).strip()
+        is_step = bool(_STEP_LINE_RE.match(stripped))
+        if is_step and printed and not previous_blank:
+            console.print()
+
+        rendered = Text.from_ansi(line)
+        _style_log_line(rendered, stripped)
+        console.print(rendered)
+        printed = True
+        previous_blank = stripped == ""
+
+
+def _print_structured_logs(logs: str) -> None:
+    if not logs:
+        return
+
+    printed = False
+    previous_blank = True
+    for raw_line in logs.splitlines(keepends=True):
+        has_newline = raw_line.endswith("\n")
+        line = raw_line[:-1] if has_newline else raw_line
+        stripped = _plain(line).strip()
+        is_step = bool(_STEP_LINE_RE.match(stripped))
+        if is_step and printed and not previous_blank:
+            console.print()
+
+        rendered = Text.from_ansi(line)
+        _style_log_line(rendered, stripped)
+        console.print(rendered, end="\n" if has_newline else "")
+        printed = True
+        previous_blank = stripped == ""
+
+    if printed and not logs.endswith("\n"):
+        console.print()
+
+    if not printed:
+        rendered = Text.from_ansi(logs)
+        _style_log_line(rendered, _plain(logs).strip())
+        console.print(rendered, end="" if logs.endswith("\n") else "\n")
+
+
+def _plain(value: str) -> str:
+    return Text.from_ansi(value).plain
+
+
+def _style_log_line(text: Text, stripped: str) -> None:
+    lowered = stripped.lower()
+    if _STEP_LINE_RE.match(stripped):
+        text.stylize("bold cyan")
+        return
+    if stripped.startswith("✓") or lowered == "success":
+        text.stylize("green")
+        return
+    if stripped.startswith("✗"):
+        text.stylize("bold red")
+        return
+    if lowered.startswith("warning"):
+        text.stylize("yellow")
+        return
+    if lowered.startswith("hint:") or lowered.startswith("note:"):
+        text.stylize("bright_yellow")
+        return
+    if lowered.startswith("loading project configuration"):
+        text.stylize("cyan")
+        return
+    if lowered.startswith("alloc status:"):
+        text.highlight_regex(r"\brunning\b", "green")
+        text.highlight_regex(r"\b(pending|starting)\b", "yellow")
+        text.highlight_regex(r"\b(failed|lost|dead)\b", "red")
+        return
+    if lowered.startswith("manifest:") or lowered.startswith("/"):
+        text.stylize("bright_black")
 
 
 def run_submit_ls(*, limit: int, active: bool = False) -> int:
@@ -605,7 +716,12 @@ def run_submit_inventory(
     return 0
 
 
-def _build_project_archive(project_root: Path, project_name: str) -> Path:
+def _build_project_archive(
+    project_root: Path,
+    project_name: str,
+    *,
+    repo_config_path: Path | None = None,
+) -> Path:
     temp_dir = Path(tempfile.mkdtemp(prefix="fedctl-submit-"))
     archive_path = temp_dir / f"{project_name}.tar.gz"
     with tarfile.open(archive_path, "w:gz") as tar:
@@ -619,6 +735,14 @@ def _build_project_archive(project_root: Path, project_name: str) -> Path:
                 rel_path = rel_root / name if rel_root != Path(".") else Path(name)
                 arcname = Path(project_root.name) / rel_path
                 tar.add(full_path, arcname=arcname)
+        local_repo_cfg = project_root / ".fedctl" / "fedctl.yaml"
+        if (
+            repo_config_path is not None
+            and repo_config_path.exists()
+            and not local_repo_cfg.exists()
+        ):
+            arcname = Path(project_root.name) / ".fedctl" / "fedctl.yaml"
+            tar.add(repo_config_path, arcname=arcname)
     return archive_path
 
 
@@ -746,16 +870,32 @@ def _rewrite_local_endpoint(endpoint: str) -> str:
 
 
 def _load_repo_cfg(*, repo_config: str | None) -> dict[str, object]:
+    path = _resolve_repo_cfg_path(repo_config=repo_config)
+    if path:
+        return load_repo_config(config_path=path)
+    return {}
+
+
+def _resolve_repo_cfg_path(*, repo_config: str | None) -> Path | None:
     if repo_config:
-        return load_repo_config(config_path=Path(repo_config))
+        path = Path(repo_config).expanduser()
+        if not path.is_absolute():
+            path = (Path.cwd() / path).resolve()
+        if path.exists():
+            return path
+        return None
     try:
         cfg = load_config()
         profile_cfg = cfg.profiles.get(cfg.active_profile)
         if profile_cfg and profile_cfg.repo_config:
-            return load_repo_config(config_path=Path(profile_cfg.repo_config))
+            path = Path(profile_cfg.repo_config).expanduser()
+            if not path.is_absolute():
+                path = (Path.cwd() / path).resolve()
+            if path.exists():
+                return path
     except Exception:
-        return {}
-    return {}
+        return None
+    return None
 
 
 def _submit_service_client(*, repo_config: str | None = None) -> SubmitServiceClient | None:
