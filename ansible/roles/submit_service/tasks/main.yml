@@ -40,6 +40,14 @@
     virtualenv_command: python3 -m venv
   notify: Restart fedctl-submit
 
+- name: Install fedctl package in submit service venv (editable)
+  ansible.builtin.pip:
+    name: "{{ submit_repo_dir }}"
+    editable: true
+    virtualenv: "{{ submit_venv_path }}"
+    virtualenv_command: python3 -m venv
+  notify: Restart fedctl-submit
+
 - name: Write submit service env file
   ansible.builtin.template:
     src: fedctl-submit.env.j2
