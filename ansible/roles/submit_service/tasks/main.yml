@@ -13,9 +13,17 @@
   ansible.builtin.file:
     path: "{{ submit_repo_dir }}"
     state: directory
-    owner: root
-    group: root
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
     mode: "0755"
+
+- name: Ensure submit repository ownership is writable by ssh user
+  ansible.builtin.file:
+    path: "{{ submit_repo_dir }}"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    recurse: true
 
 - name: Check out fedctl repository
   ansible.builtin.git:
@@ -23,6 +31,7 @@
     dest: "{{ submit_repo_dir }}"
     version: "{{ submit_repo_version }}"
     update: true
+  become: false
   notify: Restart fedctl-submit
 
 - name: Ensure submit service state directory exists
