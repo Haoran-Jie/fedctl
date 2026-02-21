@@ -16,8 +16,6 @@ def run_doctor(
     endpoint: str | None = None,
     namespace: str | None = None,
     token: str | None = None,
-    tls_ca: str | None = None,
-    tls_skip_verify: bool | None = None,
 ) -> int:
     cfg = load_config()
     eff = get_effective_config(
@@ -26,8 +24,6 @@ def run_doctor(
         endpoint=endpoint,
         namespace=namespace,
         token=token,
-        tls_ca=tls_ca,
-        tls_skip_verify=tls_skip_verify,
     )
 
     table = Table(title="fedctl doctor")
@@ -38,8 +34,6 @@ def run_doctor(
     table.add_row("namespace", str(eff.namespace))
     table.add_row("access_mode", eff.access_mode)
     table.add_row("tailscale.subnet_cidr", str(eff.tailscale_subnet_cidr))
-    table.add_row("tls_ca", str(eff.tls_ca))
-    table.add_row("tls_skip_verify", str(eff.tls_skip_verify))
     table.add_row("nomad_token", "set" if eff.nomad_token else "missing")
     console.print(table)
 
@@ -80,10 +74,6 @@ def run_doctor(
 
     except NomadTLSError as e:
         console.print(f"[red]✗ TLS error:[/red] {e}")
-        console.print(
-            "[yellow]Hint:[/yellow] If this is a lab/private CA, set `tls_ca` in your "
-            "profile or use `--tls-skip-verify` for dev only."
-        )
         return 2
 
     except NomadHTTPError as e:

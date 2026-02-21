@@ -20,8 +20,6 @@ def run_address(
     profile: str | None = None,
     endpoint: str | None = None,
     token: str | None = None,
-    tls_ca: str | None = None,
-    tls_skip_verify: bool | None = None,
 ) -> int:
     if fmt not in {"plain", "toml"}:
         console.print(f"[red]✗ Unsupported format:[/red] {fmt}")
@@ -35,8 +33,6 @@ def run_address(
             endpoint=endpoint,
             namespace=namespace,
             token=token,
-            tls_ca=tls_ca,
-            tls_skip_verify=tls_skip_verify,
         )
     except ValueError as exc:
         console.print(f"[red]✗ Config error:[/red] {exc}")

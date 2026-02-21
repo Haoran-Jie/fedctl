@@ -11,8 +11,6 @@ def _effective_config() -> SimpleNamespace:
         namespace="default",
         profile_name="default",
         nomad_token="nomad-token",
-        tls_ca=None,
-        tls_skip_verify=False,
     )
 
 

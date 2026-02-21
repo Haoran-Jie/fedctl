@@ -45,12 +45,10 @@ def test_load_config_creates_default_profile(tmp_path: Path, monkeypatch) -> Non
     p = cfg.profiles["default"]
     assert p.endpoint == "http://127.0.0.1:4646"
     assert p.access_mode == "lan-only"
-    assert p.tls_skip_verify is False
     assert p.repo_config == str(repo_default_config_path())
 
     # Optional fields should load as None if omitted in TOML
     assert p.namespace is None
-    assert p.tls_ca is None
     assert p.tailscale.subnet_cidr is None
 
 
@@ -63,7 +61,6 @@ def test_default_config_does_not_write_none_values(tmp_path: Path, monkeypatch) 
     # The keys should be omitted (rather than "namespace = None" which TOML can't represent)
     default_tbl = doc["profiles"]["default"]
     assert "namespace" not in default_tbl
-    assert "tls_ca" not in default_tbl
 
     # tailscale table may exist, but should not contain subnet_cidr if unset
     if "tailscale" in default_tbl:
@@ -81,8 +78,6 @@ def test_profile_roundtrip_add_and_use(tmp_path: Path, monkeypatch) -> None:
     doc["profiles"]["lab-ts"] = {
         "endpoint": "https://nomad.lab.domain:4646",
         "namespace": "samuel",
-        "tls_ca": "/tmp/lab-ca.pem",
-        "tls_skip_verify": False,
         "access_mode": "tailscale-subnet",
         "tailscale": {"subnet_cidr": "10.3.192.0/24"},
     }
@@ -113,7 +108,6 @@ def test_effective_config_precedence_flags_over_env_over_profile(tmp_path: Path,
     doc["profiles"]["p1"] = {
         "endpoint": "http://profile-endpoint:4646",
         "namespace": "ns_profile",
-        "tls_skip_verify": False,
         "access_mode": "lan-only",
         "tailscale": {},
     }

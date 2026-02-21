@@ -76,7 +76,6 @@ def run_submit(
     repo_config: str | None,
     experiment: str | None,
     timeout_seconds: int,
-    no_wait: bool,
     federation: str,
     stream: bool,
     verbose: bool,
@@ -173,8 +172,6 @@ def run_submit(
                     "submit_image": resolved_image,
                     "node_class": resolved_node_class,
                     "args": _runner_args(
-                        project_root=info.root,
-                        artifact_dest="/local/project",
                         project_dir_name=project_path.name,
                         exp_name=exp_name,
                         flwr_version=flwr_version,
@@ -215,8 +212,6 @@ def run_submit(
             artifact_url=artifact_url,
             namespace=eff.namespace or "default",
             args=_runner_args(
-                project_root=info.root,
-                artifact_dest="/local/project",
                 project_dir_name=project_path.name,
                 exp_name=exp_name,
                 flwr_version=flwr_version,
@@ -749,8 +744,6 @@ def _build_project_archive(
 
 def _runner_args(
     *,
-    project_root: Path,
-    artifact_dest: str,
     project_dir_name: str,
     exp_name: str,
     flwr_version: str,
@@ -826,8 +819,6 @@ def _runner_env(eff: object, *, result_store: str | None = None) -> dict[str, st
     namespace = getattr(eff, "namespace", None)
     token = getattr(eff, "nomad_token", None)
     profile = getattr(eff, "profile_name", None)
-    tls_ca = getattr(eff, "tls_ca", None)
-    tls_skip_verify = getattr(eff, "tls_skip_verify", None)
     if endpoint:
         env["FEDCTL_ENDPOINT"] = _rewrite_local_endpoint(str(endpoint))
     if namespace:
@@ -836,10 +827,6 @@ def _runner_env(eff: object, *, result_store: str | None = None) -> dict[str, st
         env["FEDCTL_PROFILE"] = str(profile)
     if token:
         env["NOMAD_TOKEN"] = str(token)
-    if tls_ca:
-        env["FEDCTL_TLS_CA"] = str(tls_ca)
-    if tls_skip_verify is not None:
-        env["FEDCTL_TLS_SKIP_VERIFY"] = "true" if tls_skip_verify else "false"
     if result_store:
         env["FEDCTL_RESULT_STORE"] = str(result_store)
     for key in (

@@ -23,8 +23,6 @@ def run_register(
     profile: str | None = None,
     ttl: str | None = None,
     force: bool = False,
-    tls_ca: str | None = None,
-    tls_skip_verify: bool = False,
 ) -> int:
     if not _valid_username(username):
         console.print("[red]✗ Invalid username.[/red] Use letters, numbers, '-' or '_'.")
@@ -37,8 +35,6 @@ def run_register(
         profile_name="register",
         endpoint=endpoint,
         namespace=None,
-        tls_ca=tls_ca,
-        tls_skip_verify=tls_skip_verify,
         access_mode="lan-only",
         tailscale_subnet_cidr=None,
         nomad_token=bootstrap_token,
@@ -218,7 +214,6 @@ def _write_profile(name: str, endpoint: str, namespace: str, *, force: bool) -> 
     p = tomlkit.table()
     p["endpoint"] = endpoint
     p["namespace"] = namespace
-    p["tls_skip_verify"] = False
     p["access_mode"] = "lan-only"
     p["tailscale"] = tomlkit.table()
     profiles[name] = p

@@ -53,8 +53,6 @@ def run_run(
     profile: str | None = None,
     endpoint: str | None = None,
     token: str | None = None,
-    tls_ca: str | None = None,
-    tls_skip_verify: bool | None = None,
     federation: str = "remote-deployment",
     stream: bool = True,
     verbose: bool = False,
@@ -158,8 +156,6 @@ def run_run(
         endpoint=endpoint,
         namespace=namespace,
         token=token,
-        tls_ca=tls_ca,
-        tls_skip_verify=tls_skip_verify,
     )
     if deploy_status != 0:
         return deploy_status
@@ -174,8 +170,6 @@ def run_run(
         profile=profile,
         endpoint=endpoint,
         token=token,
-        tls_ca=tls_ca,
-        tls_skip_verify=tls_skip_verify,
     )
     if configure_status != 0:
         return configure_status
@@ -211,8 +205,6 @@ def run_run(
                 profile=profile,
                 endpoint=endpoint,
                 token=token,
-                tls_ca=tls_ca,
-                tls_skip_verify=tls_skip_verify,
             )
             if destroy_status != 0:
                 console.print("[yellow]Warning:[/yellow] Cleanup failed.")

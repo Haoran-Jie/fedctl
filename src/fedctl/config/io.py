@@ -69,7 +69,6 @@ def ensure_config_exists() -> Path:
 
         default_tbl = tomlkit.table()
         default_tbl["endpoint"] = "http://127.0.0.1:4646"
-        default_tbl["tls_skip_verify"] = False
         default_tbl["access_mode"] = "lan-only"
         default_tbl["repo_config"] = str(default_repo_cfg)
 
@@ -125,8 +124,6 @@ def load_config() -> FedctlConfig:
             endpoint=str(p["endpoint"]),
             namespace=p.get("namespace"),
             repo_config=p.get("repo_config"),
-            tls_ca=p.get("tls_ca"),
-            tls_skip_verify=bool(p.get("tls_skip_verify", False)),
             access_mode=p.get("access_mode", "lan-only"),
             tailscale=tailscale,
         )

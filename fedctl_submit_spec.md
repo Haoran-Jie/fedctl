@@ -1,8 +1,15 @@
 # fedctl Submit CLI Spec
 
-Updated: 2026-02-13
+Updated: 2026-02-21
 
 This document covers only `fedctl submit` commands and current implemented behavior.
+
+## CLI Visibility
+
+- Default `fedctl --help` is submit-first and shows `submit` as the visible user surface.
+- Admin commands remain executable but are hidden from default help.
+- To display admin commands in help, set:
+  - `FEDCTL_SHOW_ADMIN_HELP=1 fedctl --help`
 
 ## Scope
 
@@ -39,7 +46,6 @@ Core flags:
 - `--repo-config <path>`
 - `--exp <name>`
 - `--timeout <seconds>` (default: `120`)
-- `--no-wait`
 - `--federation <name>` (default: `remote-deployment`)
 - `--stream/--no-stream` (default: enabled)
 - `--verbose`
@@ -225,4 +231,3 @@ Current submit flow is credential-free for users:
 Recommended in this environment:
 - `image_registry: 192.168.8.101:5000`
 - `submit.image: 192.168.8.101:5000/fedctl-submit:latest`
-

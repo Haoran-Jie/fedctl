@@ -11,7 +11,6 @@ This doc lists the endpoints used by fedctl today.
 - `X-Nomad-Namespace: <namespace>` (required by fedctl)
 
 TLS options:
-- `--tls-ca` or `--tls-skip-verify`
 
 ---
 

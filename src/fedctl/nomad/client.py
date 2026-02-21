@@ -19,21 +19,10 @@ class NomadClient:
         if cfg.namespace:
             headers["X-Nomad-Namespace"] = cfg.namespace
 
-        verify: Any = True
-        if cfg.endpoint.startswith("https://"):
-            if cfg.tls_skip_verify:
-                verify = False
-            elif cfg.tls_ca:
-                verify = cfg.tls_ca
-            else:
-                verify = True
-        else:
-            verify = True
-
         self._client = httpx.Client(
             base_url=cfg.endpoint.rstrip("/"),
             headers=headers,
-            verify=verify,
+            verify=True,
             timeout=10.0,
         )
 

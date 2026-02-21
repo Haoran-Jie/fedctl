@@ -1,5 +1,6 @@
 """CLI entrypoint for fedctl."""
 
+import os
 import typer
 from pathlib import Path
 import tomlkit
@@ -34,13 +35,25 @@ from fedctl.config.merge import get_effective_config
 
 app = typer.Typer(add_completion=False, help="fedctl CLI")
 
+_SHOW_ADMIN_HELP = os.getenv("FEDCTL_SHOW_ADMIN_HELP", "").lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+
+
+def _admin_hidden() -> bool:
+    return not _SHOW_ADMIN_HELP
+
+
 config_app = typer.Typer(help="Manage fedctl configuration")
 profile_app = typer.Typer(help="Manage profiles")
 local_app = typer.Typer(help="Local Nomad harness")
 submit_app = typer.Typer(help="Submit jobs to Nomad")
-app.add_typer(config_app, name="config")
-app.add_typer(profile_app, name="profile")
-app.add_typer(local_app, name="local")
+app.add_typer(config_app, name="config", hidden=_admin_hidden())
+app.add_typer(profile_app, name="profile", hidden=_admin_hidden())
+app.add_typer(local_app, name="local", hidden=_admin_hidden())
 app.add_typer(submit_app, name="submit")
 
 
@@ -64,8 +77,6 @@ def config_show() -> None:
     table.add_row("namespace", str(eff.namespace))
     table.add_row("access_mode", eff.access_mode)
     table.add_row("tailscale.subnet_cidr", str(eff.tailscale_subnet_cidr))
-    table.add_row("tls_ca", str(eff.tls_ca))
-    table.add_row("tls_skip_verify", str(eff.tls_skip_verify))
     table.add_row("nomad_token", "set" if eff.nomad_token else "missing")
     print(table)
 
@@ -110,8 +121,6 @@ def profile_add(
     namespace: str = typer.Option(None, "--namespace"),
     repo_config: str = typer.Option(None, "--repo-config"),
     access_mode: str = typer.Option("lan-only", "--access-mode"),
-    tls_ca: str = typer.Option(None, "--tls-ca"),
-    tls_skip_verify: bool = typer.Option(False, "--tls-skip-verify"),
     tailscale_subnet_cidr: str = typer.Option(None, "--tailscale-subnet-cidr"),
 ) -> None:
     doc = load_raw_toml()
@@ -122,7 +131,6 @@ def profile_add(
 
     p = {
         "endpoint": endpoint,
-        "tls_skip_verify": tls_skip_verify,
         "access_mode": access_mode,
         "tailscale": {},
     }
@@ -131,8 +139,6 @@ def profile_add(
         p["namespace"] = namespace
     if repo_config is not None:
         p["repo_config"] = str(Path(repo_config).expanduser().resolve())
-    if tls_ca is not None:
-        p["tls_ca"] = tls_ca
     if tailscale_subnet_cidr is not None:
         p["tailscale"]["subnet_cidr"] = tailscale_subnet_cidr
 
@@ -148,12 +154,9 @@ def profile_set(
     namespace: str | None = typer.Option(None, "--namespace"),
     repo_config: str | None = typer.Option(None, "--repo-config"),
     access_mode: str | None = typer.Option(None, "--access-mode"),
-    tls_ca: str | None = typer.Option(None, "--tls-ca"),
-    tls_skip_verify: bool | None = typer.Option(None, "--tls-skip-verify"),
     tailscale_subnet_cidr: str | None = typer.Option(None, "--tailscale-subnet-cidr"),
     clear_namespace: bool = typer.Option(False, "--clear-namespace"),
     clear_repo_config: bool = typer.Option(False, "--clear-repo-config"),
-    clear_tls_ca: bool = typer.Option(False, "--clear-tls-ca"),
     clear_tailscale_subnet: bool = typer.Option(False, "--clear-tailscale-subnet"),
 ) -> None:
     doc = load_raw_toml()
@@ -166,8 +169,6 @@ def profile_set(
         p["endpoint"] = endpoint
     if access_mode is not None:
         p["access_mode"] = access_mode
-    if tls_skip_verify is not None:
-        p["tls_skip_verify"] = tls_skip_verify
 
     if clear_namespace:
         p.pop("namespace", None)
@@ -178,11 +179,6 @@ def profile_set(
         p.pop("repo_config", None)
     elif repo_config is not None:
         p["repo_config"] = str(Path(repo_config).expanduser().resolve())
-
-    if clear_tls_ca:
-        p.pop("tls_ca", None)
-    elif tls_ca is not None:
-        p["tls_ca"] = tls_ca
 
     if "tailscale" not in p:
         p["tailscale"] = tomlkit.table()
@@ -225,7 +221,6 @@ def submit_run(
     repo_config: str | None = typer.Option(None, "--repo-config"),
     exp: str | None = typer.Option(None, "--exp"),
     timeout: int = typer.Option(120, "--timeout"),
-    no_wait: bool = typer.Option(False, "--no-wait"),
     federation: str = typer.Option("remote-deployment", "--federation"),
     stream: bool = typer.Option(True, "--stream/--no-stream"),
     verbose: bool = typer.Option(False, "--verbose"),
@@ -253,7 +248,6 @@ def submit_run(
             repo_config=repo_config,
             experiment=exp,
             timeout_seconds=timeout,
-            no_wait=no_wait,
             federation=federation,
             stream=stream,
             verbose=verbose,
@@ -423,14 +417,12 @@ def profile_rm(name: str) -> None:
     print(f"Removed profile: [bold]{name}[/bold]")
 
 
-@app.command()
+@app.command(hidden=_admin_hidden())
 def doctor(
     profile: str = typer.Option(None, "--profile"),
     endpoint: str = typer.Option(None, "--endpoint"),
     namespace: str = typer.Option(None, "--namespace"),
     token: str = typer.Option(None, "--token"),
-    tls_ca: str = typer.Option(None, "--tls-ca"),
-    tls_skip_verify: bool = typer.Option(None, "--tls-skip-verify"),
 ) -> None:
     """Check connectivity/auth/TLS to Nomad."""
     raise SystemExit(
@@ -439,20 +431,16 @@ def doctor(
             endpoint=endpoint,
             namespace=namespace,
             token=token,
-            tls_ca=tls_ca,
-            tls_skip_verify=tls_skip_verify,
         )
     )
 
 
-@app.command()
+@app.command(hidden=_admin_hidden())
 def ping(
     profile: str = typer.Option(None, "--profile"),
     endpoint: str = typer.Option(None, "--endpoint"),
     namespace: str = typer.Option(None, "--namespace"),
     token: str = typer.Option(None, "--token"),
-    tls_ca: str = typer.Option(None, "--tls-ca"),
-    tls_skip_verify: bool = typer.Option(None, "--tls-skip-verify"),
 ) -> None:
     """Quick connectivity check to Nomad (/v1/status/leader)."""
     raise SystemExit(
@@ -461,13 +449,11 @@ def ping(
             endpoint=endpoint,
             namespace=namespace,
             token=token,
-            tls_ca=tls_ca,
-            tls_skip_verify=tls_skip_verify,
         )
     )
 
 
-@app.command()
+@app.command(hidden=_admin_hidden())
 def discover(
     wide: bool = typer.Option(False, "--wide"),
     json_output: bool = typer.Option(False, "--json"),
@@ -487,7 +473,7 @@ def discover(
     )
 
 
-@app.command()
+@app.command(hidden=_admin_hidden())
 def deploy(
     dry_run: bool = typer.Option(False, "--dry-run"),
     out: str | None = typer.Option(None, "--out"),
@@ -523,7 +509,7 @@ def deploy(
     )
 
 
-@app.command()
+@app.command(hidden=_admin_hidden())
 def build(
     path: str = typer.Argument(".", help="Path to a Flower project (dir or pyproject.toml)."),
     flwr_version: str = typer.Option("1.25.0", "--flwr-version"),
@@ -549,7 +535,7 @@ def build(
     )
 
 
-@app.command()
+@app.command(hidden=_admin_hidden())
 def address(
     exp: str | None = typer.Option(None, "--exp"),
     format: str = typer.Option("plain", "--format"),
@@ -563,7 +549,7 @@ def address(
     )
 
 
-@app.command()
+@app.command(hidden=_admin_hidden())
 def configure(
     path: str = typer.Argument(".", help="Path to a Flower project (dir or pyproject.toml)."),
     exp: str | None = typer.Option(None, "--exp"),
@@ -579,7 +565,7 @@ def configure(
     )
 
 
-@app.command()
+@app.command(hidden=_admin_hidden())
 def run(
     path: str = typer.Argument(".", help="Path to a Flower project (dir or pyproject.toml)."),
     flwr_version: str = typer.Option("1.25.0", "--flwr-version"),
@@ -631,7 +617,7 @@ def run(
     )
 
 
-@app.command()
+@app.command(hidden=_admin_hidden())
 def destroy(
     exp: str | None = typer.Argument(None, help="Experiment name."),
     purge: bool = typer.Option(False, "--purge"),
@@ -640,8 +626,6 @@ def destroy(
     endpoint: str | None = typer.Option(None, "--endpoint"),
     namespace: str | None = typer.Option(None, "--namespace"),
     token: str | None = typer.Option(None, "--token"),
-    tls_ca: str | None = typer.Option(None, "--tls-ca"),
-    tls_skip_verify: bool | None = typer.Option(None, "--tls-skip-verify"),
 ) -> None:
     """Stop jobs for an experiment, optionally purging them."""
     raise SystemExit(
@@ -653,13 +637,11 @@ def destroy(
             endpoint=endpoint,
             namespace=namespace,
             token=token,
-            tls_ca=tls_ca,
-            tls_skip_verify=tls_skip_verify,
         )
     )
 
 
-@app.command()
+@app.command(hidden=_admin_hidden())
 def status(
     exp: str | None = typer.Argument(None, help="Experiment name."),
     all: bool = typer.Option(False, "--all"),
@@ -673,7 +655,7 @@ def status(
     )
 
 
-@app.command()
+@app.command(hidden=_admin_hidden())
 def logs(
     exp: str | None = typer.Argument(None, help="Experiment name."),
     component: str = typer.Option("all", "--component"),
@@ -689,7 +671,7 @@ def logs(
     )
 
 
-@app.command()
+@app.command(hidden=_admin_hidden())
 def register(
     username: str = typer.Argument(..., help="Username (also namespace by default)."),
     endpoint: str = typer.Option(..., "--endpoint"),
@@ -698,8 +680,6 @@ def register(
     profile: str | None = typer.Option(None, "--profile"),
     ttl: str | None = typer.Option(None, "--ttl"),
     force: bool = typer.Option(False, "--force"),
-    tls_ca: str | None = typer.Option(None, "--tls-ca"),
-    tls_skip_verify: bool = typer.Option(False, "--tls-skip-verify"),
 ) -> None:
     """Register a user namespace and scoped ACL token using a bootstrap token."""
     raise SystemExit(
@@ -711,13 +691,11 @@ def register(
             profile=profile,
             ttl=ttl,
             force=force,
-            tls_ca=tls_ca,
-            tls_skip_verify=tls_skip_verify,
         )
     )
 
 
-@app.command()
+@app.command(hidden=_admin_hidden())
 def inspect(
     path: str = typer.Argument(".", help="Path to a Flower project (dir or pyproject.toml).")
 ) -> None:
@@ -732,7 +710,6 @@ def local_up(
     wipe: bool = typer.Option(False, "--wipe"),
     wait_seconds: int = typer.Option(30, "--wait-seconds"),
     expected_nodes: int | None = typer.Option(None, "--expected-nodes"),
-    endpoint: str = typer.Option("http://127.0.0.1:4646", "--endpoint"),
 ) -> None:
     """Start a local Nomad harness from HCL configs."""
     if not client:
@@ -744,7 +721,6 @@ def local_up(
             wipe=wipe,
             wait_seconds=wait_seconds,
             expected_nodes=expected_nodes,
-            endpoint=endpoint,
         )
     )
 

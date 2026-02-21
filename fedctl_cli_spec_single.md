@@ -1,8 +1,21 @@
 # fedctl CLI Spec (current codebase)
 
-*Updated: 2026-02-02*
+*Updated: 2026-02-21*
 
 This spec reflects the **implemented** CLI and behavior as of today.
+
+---
+
+## Help Visibility
+
+- Default help is submit-first:
+  - `fedctl --help`
+- Admin commands are hidden from default help but still runnable.
+- To include admin commands in help when needed:
+
+```bash
+FEDCTL_SHOW_ADMIN_HELP=1 fedctl --help
+```
 
 ---
 
@@ -34,7 +47,7 @@ fedctl run . --exp exp1 --namespace alice
 - User config file: `~/.config/fedctl/config.toml`
 - Repo config (optional): `.fedctl/fedctl.yaml` (or override via `--repo-config`)
 - Env overrides: `FEDCTL_PROFILE`, `FEDCTL_ENDPOINT`, `FEDCTL_NAMESPACE`, `NOMAD_TOKEN`
-- Most Nomad commands accept: `--profile`, `--endpoint`, `--namespace`, `--token`, `--tls-ca`, `--tls-skip-verify`
+- Most Nomad commands accept: `--profile`, `--endpoint`, `--namespace`, `--token`
 - ACLs: a token is required only if Nomad ACLs are enabled.
 
 Access modes (profile `access_mode`):
@@ -91,8 +104,6 @@ Flags:
 - `--namespace <name>`: Default namespace for this profile.
 - `--repo-config <path>`: Default repo config path stored in the profile.
 - `--access-mode <lan-only|tailscale-mesh|tailscale-subnet|ssh-tunnel>`: Connectivity mode hints (affects warnings/help text). Default `lan-only`.
-- `--tls-ca <path>`: CA bundle to trust for TLS connections.
-- `--tls-skip-verify`: Disable TLS certificate verification.
 - `--tailscale-subnet-cidr <cidr>`: Subnet route to use when `access_mode=tailscale-subnet`.
 
 Examples:
@@ -112,8 +123,6 @@ Flags:
 - `--namespace <name>`: Update the default namespace.
 - `--repo-config <path>`: Update the stored repo config path.
 - `--access-mode <lan-only|tailscale-mesh|tailscale-subnet|ssh-tunnel>`: Update connectivity mode hints.
-- `--tls-ca <path>`: Update the trusted CA bundle path.
-- `--tls-skip-verify`: Enable/disable TLS verification for this profile.
 - `--tailscale-subnet-cidr <cidr>`: Update tailscale subnet route.
 - `--clear-namespace`: Remove the namespace from the profile.
 - `--clear-repo-config`: Remove the repo config path.
@@ -149,8 +158,6 @@ Flags:
 - `--endpoint <url>`: Override Nomad endpoint for this call.
 - `--namespace <name>`: Override namespace for this call.
 - `--token <token>`: Override NOMAD token for this call.
-- `--tls-ca <path>`: Override TLS CA bundle.
-- `--tls-skip-verify`: Skip TLS verification (dev only).
 
 Example:
 ```bash
@@ -167,8 +174,6 @@ Flags:
 - `--endpoint <url>`: Override Nomad endpoint for this call.
 - `--namespace <name>`: Override namespace for this call.
 - `--token <token>`: Override NOMAD token for this call.
-- `--tls-ca <path>`: Override TLS CA bundle.
-- `--tls-skip-verify`: Skip TLS verification (dev only).
 
 Example:
 ```bash
@@ -185,8 +190,6 @@ Flags:
 - `--endpoint <url>`: Override Nomad endpoint for this call.
 - `--namespace <name>`: Override namespace for this call.
 - `--token <token>`: Override NOMAD token for this call.
-- `--tls-ca <path>`: Override TLS CA bundle.
-- `--tls-skip-verify`: Skip TLS verification (dev only).
 - `--wide`: Add extra columns (arch, OS, node ID).
 - `--json`: Print raw Nomad node JSON instead of a table.
 - `--device <device>`: Filter by node device label (from metadata).
@@ -224,7 +227,6 @@ Flags:
 - `--repo-config <path>`: Override repo config path.
 - `--exp <name>`: Experiment name prefix.
 - `--timeout <seconds>`: Wait timeout. Default `120`.
-- `--no-wait`: Do not wait for completion.
 - `--federation <name>`: Federation name for `flwr run`. Default `remote-deployment`.
 - `--stream / --no-stream`: Stream `flwr run` logs. Default enabled.
 - `--verbose`: Show full build output.
@@ -383,8 +385,6 @@ Flags:
 - `--endpoint <url>`: Override Nomad endpoint for this call.
 - `--namespace <name>`: Override namespace for this call.
 - `--token <token>`: Override NOMAD token for this call.
-- `--tls-ca <path>`: Override TLS CA bundle.
-- `--tls-skip-verify`: Skip TLS verification (dev only).
 
 Notes:
 - `--num-supernodes` and `--supernodes` are mutually exclusive.
@@ -411,8 +411,6 @@ Flags:
 - `--profile <name>`: Use a specific profile instead of the active one.
 - `--endpoint <url>`: Override Nomad endpoint for this call.
 - `--token <token>`: Override NOMAD token for this call.
-- `--tls-ca <path>`: Override TLS CA bundle.
-- `--tls-skip-verify`: Skip TLS verification (dev only).
 
 Examples:
 ```bash
@@ -432,8 +430,6 @@ Flags:
 - `--profile <name>`: Use a specific profile instead of the active one.
 - `--endpoint <url>`: Override Nomad endpoint for this call.
 - `--token <token>`: Override NOMAD token for this call.
-- `--tls-ca <path>`: Override TLS CA bundle.
-- `--tls-skip-verify`: Skip TLS verification (dev only).
 
 Example:
 ```bash
@@ -466,8 +462,6 @@ Flags:
 - `--profile <name>`: Use a specific profile instead of the active one.
 - `--endpoint <url>`: Override Nomad endpoint for this run.
 - `--token <token>`: Override NOMAD token for this run.
-- `--tls-ca <path>`: Override TLS CA bundle.
-- `--tls-skip-verify`: Skip TLS verification (dev only).
 - `--federation <name>`: Federation name passed to `flwr run`. Default `remote-deployment`.
 - `--stream / --no-stream`: Toggle streaming logs in `flwr run`. Default enabled.
 - `--verbose`: Show full Docker output during build.
@@ -494,8 +488,6 @@ Flags:
 - `--profile <name>`: Use a specific profile instead of the active one.
 - `--endpoint <url>`: Override Nomad endpoint for this call.
 - `--token <token>`: Override NOMAD token for this call.
-- `--tls-ca <path>`: Override TLS CA bundle.
-- `--tls-skip-verify`: Skip TLS verification (dev only).
 
 Examples:
 ```bash
@@ -518,8 +510,6 @@ Flags:
 - `--profile <name>`: Use a specific profile instead of the active one.
 - `--endpoint <url>`: Override Nomad endpoint for this call.
 - `--token <token>`: Override NOMAD token for this call.
-- `--tls-ca <path>`: Override TLS CA bundle.
-- `--tls-skip-verify`: Skip TLS verification (dev only).
 
 Examples:
 ```bash
@@ -539,8 +529,6 @@ Flags:
 - `--profile <name>`: Profile name to create/use; defaults to USERNAME.
 - `--ttl <duration>`: Token TTL (e.g., `24h`), passed to Nomad.
 - `--force`: Overwrite existing namespace/profile if present.
-- `--tls-ca <path>`: CA bundle to trust for TLS connections.
-- `--tls-skip-verify`: Skip TLS verification (dev only).
 
 Example:
 ```bash
@@ -560,7 +548,6 @@ Flags:
 - `--wipe`: Clear local data/logs before starting.
 - `--wait-seconds <n>`: Time to wait for readiness before failing. Default `30`.
 - `--expected-nodes <n>`: Expected node count before marking ready.
-- `--endpoint <url>`: Reserved; currently unused.
 
 Example:
 ```bash

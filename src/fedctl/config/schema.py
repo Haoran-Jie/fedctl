@@ -16,8 +16,6 @@ class ProfileConfig:
     endpoint: str
     namespace: Optional[str] = None
     repo_config: Optional[str] = None
-    tls_ca: Optional[str] = None
-    tls_skip_verify: bool = False
     access_mode: AccessMode = "lan-only"
     tailscale: TailscaleConfig = field(default_factory=TailscaleConfig)
 
@@ -33,8 +31,6 @@ class EffectiveConfig:
     profile_name: str
     endpoint: str
     namespace: Optional[str]
-    tls_ca: Optional[str]
-    tls_skip_verify: bool
     access_mode: AccessMode
     tailscale_subnet_cidr: Optional[str]
     nomad_token: Optional[str]

@@ -20,8 +20,6 @@ def run_destroy(
     profile: str | None = None,
     endpoint: str | None = None,
     token: str | None = None,
-    tls_ca: str | None = None,
-    tls_skip_verify: bool | None = None,
 ) -> int:
     cfg = load_config()
     try:
@@ -31,8 +29,6 @@ def run_destroy(
             endpoint=endpoint,
             namespace=namespace,
             token=token,
-            tls_ca=tls_ca,
-            tls_skip_verify=tls_skip_verify,
         )
     except ValueError as exc:
         console.print(f"[red]✗ Config error:[/red] {exc}")

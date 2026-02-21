@@ -28,9 +28,6 @@ def test_destroy_passes_remote_connection_options(monkeypatch) -> None:
             "samuel",
             "--token",
             "abc123",
-            "--tls-ca",
-            "/tmp/nomad-ca.pem",
-            "--tls-skip-verify",
         ],
     )
 
@@ -42,5 +39,3 @@ def test_destroy_passes_remote_connection_options(monkeypatch) -> None:
     assert captured["endpoint"] == "http://192.168.8.101:4646"
     assert captured["namespace"] == "samuel"
     assert captured["token"] == "abc123"
-    assert captured["tls_ca"] == "/tmp/nomad-ca.pem"
-    assert captured["tls_skip_verify"] is True

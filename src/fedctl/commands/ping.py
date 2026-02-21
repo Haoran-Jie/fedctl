@@ -15,8 +15,6 @@ def run_ping(
     endpoint: str | None = None,
     namespace: str | None = None,
     token: str | None = None,
-    tls_ca: str | None = None,
-    tls_skip_verify: bool | None = None,
 ) -> int:
     cfg = load_config()
     eff = get_effective_config(
@@ -25,8 +23,6 @@ def run_ping(
         endpoint=endpoint,
         namespace=namespace,
         token=token,
-        tls_ca=tls_ca,
-        tls_skip_verify=tls_skip_verify,
     )
 
     client = NomadClient(eff)
@@ -37,9 +33,6 @@ def run_ping(
 
     except NomadTLSError as e:
         console.print(f"[red]✗ TLS error:[/red] {e}")
-        console.print(
-            "[yellow]Hint:[/yellow] Set `tls_ca` or use `--tls-skip-verify` for dev."
-        )
         return 2
 
     except NomadHTTPError as e:

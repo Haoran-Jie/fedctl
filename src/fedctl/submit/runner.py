@@ -61,8 +61,6 @@ def main(argv: list[str] | None = None) -> int:
     namespace = os.environ.get("FEDCTL_NAMESPACE")
     profile = os.environ.get("FEDCTL_PROFILE")
     token = os.environ.get("NOMAD_TOKEN")
-    tls_ca = os.environ.get("FEDCTL_TLS_CA")
-    tls_skip_verify = _parse_bool_env("FEDCTL_TLS_SKIP_VERIFY")
     submission_id = os.environ.get("SUBMIT_SUBMISSION_ID")
     submit_service_endpoint = os.environ.get("SUBMIT_SERVICE_ENDPOINT")
     submit_service_token = os.environ.get("SUBMIT_SERVICE_TOKEN")
@@ -87,8 +85,6 @@ def main(argv: list[str] | None = None) -> int:
         endpoint=endpoint,
         namespace=namespace,
         token=token,
-        tls_ca=tls_ca,
-        tls_skip_verify=tls_skip_verify,
     )
     if uploader.enabled:
         uploader.start()
@@ -116,26 +112,12 @@ def main(argv: list[str] | None = None) -> int:
         endpoint=endpoint,
         namespace=namespace,
         token=token,
-        tls_ca=tls_ca,
-        tls_skip_verify=tls_skip_verify,
         pre_cleanup=uploader.final_sweep if uploader.enabled else None,
         destroy=args.destroy,
     )
     if uploader.enabled:
         uploader.stop()
     return exit_code
-
-
-def _parse_bool_env(key: str) -> bool | None:
-    value = os.environ.get(key)
-    if value is None:
-        return None
-    lowered = value.strip().lower()
-    if lowered in {"1", "true", "yes", "on"}:
-        return True
-    if lowered in {"0", "false", "no", "off"}:
-        return False
-    return None
 
 
 def _resolve_project_path(path: Path, project_dir: str | None) -> Path:
@@ -343,8 +325,6 @@ class _ResultUploader:
         endpoint: str | None,
         namespace: str | None,
         token: str | None,
-        tls_ca: str | None,
-        tls_skip_verify: bool | None,
     ) -> None:
         self._submission_id = submission_id
         self._submit_service_endpoint = submit_service_endpoint
@@ -354,8 +334,6 @@ class _ResultUploader:
         self._endpoint = endpoint
         self._namespace = namespace
         self._token = token
-        self._tls_ca = tls_ca
-        self._tls_skip_verify = tls_skip_verify
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
         self._uploaded: set[str] = set()
@@ -401,12 +379,12 @@ class _ResultUploader:
 
     def _check_and_upload(self, *, force: bool = False) -> None:
         job_name = naming.job_superexec_serverapp(self._experiment or "experiment")
-        alloc_id = _find_running_alloc(job_name, self._endpoint, self._namespace, self._token, self._tls_ca, self._tls_skip_verify)
+        alloc_id = _find_running_alloc(job_name, self._endpoint, self._namespace, self._token)
         if not alloc_id:
             logger.info("result uploader: no running alloc for %s", job_name)
             return
         logger.info("result uploader: scanning alloc %s", alloc_id)
-        client = _nomad_client(self._endpoint, self._namespace, self._token, self._tls_ca, self._tls_skip_verify)
+        client = _nomad_client(self._endpoint, self._namespace, self._token)
         scanned = 0
         matched = 0
         try:
@@ -517,8 +495,6 @@ def _nomad_client(
     endpoint: str | None,
     namespace: str | None,
     token: str | None,
-    tls_ca: str | None,
-    tls_skip_verify: bool | None,
 ) -> NomadClient:
     from fedctl.config.schema import EffectiveConfig
 
@@ -528,8 +504,6 @@ def _nomad_client(
         profile_name="submit-runner",
         endpoint=endpoint,
         namespace=namespace,
-        tls_ca=tls_ca,
-        tls_skip_verify=bool(tls_skip_verify),
         access_mode="lan-only",
         tailscale_subnet_cidr=None,
         nomad_token=token,
@@ -542,10 +516,8 @@ def _find_running_alloc(
     endpoint: str | None,
     namespace: str | None,
     token: str | None,
-    tls_ca: str | None,
-    tls_skip_verify: bool | None,
 ) -> str | None:
-    client = _nomad_client(endpoint, namespace, token, tls_ca, tls_skip_verify)
+    client = _nomad_client(endpoint, namespace, token)
     try:
         allocs = client.job_allocations(job_name)
     except Exception:

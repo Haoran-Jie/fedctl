@@ -114,7 +114,6 @@ def run_local_up(
     wipe: bool = False,
     wait_seconds: int = 30,
     expected_nodes: Optional[int] = None,
-    endpoint: str = "http://127.0.0.1:4646",
 ) -> int:
     client_list = list(client_configs)
     if _state_path().exists():

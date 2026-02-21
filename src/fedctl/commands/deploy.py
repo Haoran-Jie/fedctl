@@ -49,8 +49,6 @@ def run_deploy(
     endpoint: str | None = None,
     namespace: str | None = None,
     token: str | None = None,
-    tls_ca: str | None = None,
-    tls_skip_verify: bool | None = None,
 ) -> int:
     if not image:
         try:
@@ -319,8 +317,6 @@ def run_deploy(
             endpoint=endpoint,
             namespace=namespace,
             token=token,
-            tls_ca=tls_ca,
-            tls_skip_verify=tls_skip_verify,
         )
     except ValueError as exc:
         console.print(f"[red]✗ Config error:[/red] {exc}")
