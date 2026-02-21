@@ -57,6 +57,33 @@
     virtualenv_command: python3 -m venv
   notify: Restart fedctl-submit
 
+- name: Ensure submit repo config directory exists
+  ansible.builtin.file:
+    path: "{{ submit_repo_config_path | dirname }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Write submit repo config file
+  ansible.builtin.template:
+    src: fedctl-submit-repo.yaml.j2
+    dest: "{{ submit_repo_config_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart fedctl-submit
+
+- name: Remove legacy submit repo config file path
+  ansible.builtin.file:
+    path: "{{ submit_legacy_repo_config_path }}"
+    state: absent
+  when:
+    - submit_legacy_repo_config_path is defined
+    - submit_legacy_repo_config_path | length > 0
+    - submit_legacy_repo_config_path != submit_repo_config_path
+  notify: Restart fedctl-submit
+
 - name: Write submit service env file
   ansible.builtin.template:
     src: fedctl-submit.env.j2

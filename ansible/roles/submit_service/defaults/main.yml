@@ -9,6 +9,12 @@ submit_allow_unauth: false
 submit_bind_host: "0.0.0.0"
 submit_bind_port: 8080
 submit_tokens: []
+submit_repo_config_path: "/etc/fedctl/cluster-fedctl.yaml"
+submit_legacy_repo_config_path: "{{ submit_repo_dir }}/.fedctl/fedctl.yaml"
+submit_cluster_repo_config:
+  deploy:
+    placement:
+      allow_oversubscribe: true
 
 submit_nomad_endpoint: >-
   http://{{ hostvars[groups['nomad_servers'][0]].ansible_host }}:4646

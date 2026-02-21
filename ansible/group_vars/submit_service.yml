@@ -6,6 +6,73 @@ submit_venv_path: "/opt/fedctl/.venv"
 submit_db_url: "sqlite:////opt/fedctl/submit_service/state/submit.db"
 submit_dispatch_mode: "queue"
 submit_allow_unauth: false
+submit_repo_config_path: "/etc/fedctl/cluster-fedctl.yaml"
+submit_legacy_repo_config_path: "/opt/fedctl/.fedctl/fedctl.yaml"
+submit_cluster_repo_config:
+  deploy:
+    supernodes:
+      rpi: 2
+      jetson: 2
+    placement:
+      allow_oversubscribe: true
+      spread_across_hosts: true
+    resources:
+      supernode:
+        default:
+          cpu: 500
+          mem: 512
+        rpi:
+          cpu: 500
+          mem: 512
+        jetson:
+          cpu: 1000
+          mem: 1024
+    network:
+      image: jiahborcn/netem:latest
+      default_profile: none
+      apply:
+        superexec_serverapp: false
+        superexec_clientapp: true
+      profiles:
+        none: {}
+        low:
+          delay_ms: 0
+          jitter_ms: 0
+          loss_pct: 0
+        med:
+          delay_ms: 60
+          jitter_ms: 10
+          loss_pct: 1.0
+          rate_mbit: 50
+          rate_latency_ms: 50
+          rate_burst_kbit: 256
+        high:
+          delay_ms: 120
+          jitter_ms: 25
+          loss_pct: 2.5
+          rate_mbit: 20
+          rate_latency_ms: 50
+          rate_burst_kbit: 256
+  submit:
+    node_class: submit
+    image: jiahborcn/fedctl-submit:latest
+    artifact_store: s3+presign://fedctl-submits/fedctl-submits
+    endpoint: http://10.100.2.142:8080
+    token: flwruser1
+    user: samuel
+  submit-service:
+    endpoint: http://192.168.8.101:8080
+    tokens: token1,token2
+    allow_unauth: true
+    nomad_endpoint: http://127.0.0.1:4646
+    nomad_token: 87391ae3-e54b-05f6-869d-69587f58c56c
+    nomad_namespace: default
+    dispatch_mode: queue
+    dispatch_interval: 10
+    datacenter: dc1
+    default_priority: 50
+    docker_socket: /var/run/docker.sock
+  image_registry: 192.168.8.101:5000
 
 # Replace with your real tokens or use ansible-vault.
 submit_tokens:
