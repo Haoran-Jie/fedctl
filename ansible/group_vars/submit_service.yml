@@ -20,5 +20,37 @@ submit_tokens:
   - "flwruser9"
   - "flwruser10"
 
+submit_token_map:
+  flwruser1:
+    name: flwruser1
+    role: admin
+  flwruser2:
+    name: flwruser2
+    role: user
+  flwruser3:
+    name: flwruser3
+    role: user
+  flwruser4:
+    name: flwruser4
+    role: user
+  flwruser5:
+    name: flwruser5
+    role: user
+  flwruser6:
+    name: flwruser6
+    role: user
+  flwruser7:
+    name: flwruser7
+    role: user
+  flwruser8:
+    name: flwruser8
+    role: user
+  flwruser9:
+    name: flwruser9
+    role: user
+  flwruser10:
+    name: flwruser10
+    role: user
+
 # If omitted, defaults to the first nomad server host in inventory.
 # submit_nomad_endpoint: "http://192.168.8.101:4646"
