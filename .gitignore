@@ -11,3 +11,4 @@ rendered/
 *.token
 .fedctl/
 results/
+submit_service/state/*.db
