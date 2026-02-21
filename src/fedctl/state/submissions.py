@@ -15,6 +15,7 @@ class SubmissionRecord:
     submission_id: str
     experiment: str
     created_at: str
+    status: str = "queued"
     namespace: str | None = None
     artifact_url: str | None = None
     submit_image: str | None = None
@@ -25,6 +26,7 @@ class SubmissionRecord:
             "submission_id": self.submission_id,
             "experiment": self.experiment,
             "created_at": self.created_at,
+            "status": self.status,
             "namespace": self.namespace,
             "artifact_url": self.artifact_url,
             "submit_image": self.submit_image,
@@ -44,7 +46,17 @@ def load_submissions() -> list[dict[str, Any]]:
         data = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         raise StateError(f"Submissions state at {path} is invalid JSON.") from exc
-    return data if isinstance(data, list) else []
+    if not isinstance(data, list):
+        return []
+    return [_normalize_entry(entry) for entry in data if isinstance(entry, dict)]
+
+
+def _normalize_entry(entry: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(entry)
+    status = normalized.get("status")
+    if not isinstance(status, str) or not status:
+        normalized["status"] = "queued"
+    return normalized
 
 
 def record_submission(record: SubmissionRecord, *, max_entries: int = 200) -> Path:

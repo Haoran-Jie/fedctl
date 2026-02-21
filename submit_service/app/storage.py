@@ -99,11 +99,41 @@ class Storage:
             )
         return self.get_submission(payload["id"])
 
-    def list_submissions(self, limit: int = 20) -> list[dict[str, Any]]:
+    def list_submissions(
+        self,
+        limit: int = 20,
+        *,
+        statuses: list[str] | None = None,
+    ) -> list[dict[str, Any]]:
+        with self._connect() as conn:
+            if statuses:
+                placeholders = ", ".join("?" for _ in statuses)
+                rows = conn.execute(
+                    f"SELECT * FROM submissions WHERE status IN ({placeholders}) "
+                    "ORDER BY created_at DESC LIMIT ?",
+                    (*statuses, limit),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT * FROM submissions ORDER BY created_at DESC LIMIT ?",
+                    (limit,),
+                ).fetchall()
+        return [self._row_to_record(row) for row in rows]
+
+    def list_dispatch_candidates(
+        self,
+        *,
+        limit: int = 50,
+        statuses: list[str] | None = None,
+        default_priority: int = 50,
+    ) -> list[dict[str, Any]]:
+        candidate_statuses = statuses or ["queued", "blocked"]
+        placeholders = ", ".join("?" for _ in candidate_statuses)
         with self._connect() as conn:
             rows = conn.execute(
-                "SELECT * FROM submissions ORDER BY created_at DESC LIMIT ?",
-                (limit,),
+                f"SELECT * FROM submissions WHERE status IN ({placeholders}) "
+                "ORDER BY COALESCE(priority, ?) DESC, created_at ASC, id ASC LIMIT ?",
+                (*candidate_statuses, default_priority, limit),
             ).fetchall()
         return [self._row_to_record(row) for row in rows]
 

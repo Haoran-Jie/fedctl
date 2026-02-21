@@ -329,7 +329,7 @@ def submit_logs(
 @submit_app.command("ls")
 def submit_ls(
     limit: int = typer.Option(20, "--limit"),
-    active: bool = typer.Option(False, "--active"),
+    active: bool = typer.Option(True, "--active/--all"),
 ) -> None:
     """List recent submissions."""
     raise SystemExit(run_submit_ls(limit=limit, active=active))

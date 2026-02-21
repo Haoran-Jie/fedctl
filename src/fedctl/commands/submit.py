@@ -266,6 +266,7 @@ def run_submit(
     _record_submission_state(
         submission_id=submission_id or job["Job"]["ID"],
         experiment=exp_name,
+        status="queued",
         namespace=eff.namespace,
         artifact_url=artifact_url,
         submit_image=resolved_image,
@@ -511,11 +512,11 @@ def _style_log_line(text: Text, stripped: str) -> None:
         text.stylize("bright_black")
 
 
-def run_submit_ls(*, limit: int, active: bool = False) -> int:
+def run_submit_ls(*, limit: int, active: bool = True) -> int:
     submit_client = _submit_service_client()
     if submit_client:
         try:
-            entries = submit_client.list_submissions(limit=limit)
+            entries = submit_client.list_submissions(limit=limit, active_only=active)
         except SubmitServiceError as exc:
             console.print(f"[red]✗ Submit service error:[/red] {exc}")
             return 1
@@ -925,6 +926,7 @@ def _record_submission_state(
     *,
     submission_id: str,
     experiment: str,
+    status: str,
     namespace: str | None,
     artifact_url: str,
     submit_image: str,
@@ -935,6 +937,7 @@ def _record_submission_state(
         submission_id=submission_id,
         experiment=experiment,
         created_at=created_at,
+        status=status,
         namespace=namespace,
         artifact_url=artifact_url,
         submit_image=submit_image,

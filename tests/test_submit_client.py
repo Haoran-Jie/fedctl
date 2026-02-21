@@ -69,6 +69,20 @@ def test_submit_client_raises_on_http_error(monkeypatch) -> None:
         raise AssertionError("Expected SubmitServiceError")
 
 
+def test_submit_client_list_submissions_active_only(monkeypatch) -> None:
+    captured = {}
+
+    def fake_request(method, url, json=None, params=None, headers=None, timeout=None):
+        captured["params"] = params
+        return DummyResp(200, "[]", json_obj=[])
+
+    monkeypatch.setattr(httpx, "request", fake_request)
+    client = SubmitServiceClient(endpoint="http://submit.example")
+    client.list_submissions(limit=7, active_only=True)
+    assert captured["params"]["limit"] == "7"
+    assert captured["params"]["active_only"] == "true"
+
+
 def test_submit_client_stream_logs(monkeypatch) -> None:
     captured = {}
 

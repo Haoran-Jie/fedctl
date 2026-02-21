@@ -102,13 +102,15 @@ class Dispatcher:
             self._stop.wait(self._cfg.dispatch_interval)
 
     def run_once(self) -> None:
-        queued = self._storage.list_submissions(limit=50)
+        queued = self._storage.list_dispatch_candidates(
+            limit=50,
+            statuses=["queued", "blocked"],
+            default_priority=self._cfg.default_priority,
+        )
         inventory_nodes, inventory_error = _inventory_snapshot(self._inventory)
         free_nodes = _node_free_resources(inventory_nodes) if inventory_nodes else []
         for submission in queued:
             status = submission.get("status")
-            if status not in {"queued", "blocked"}:
-                continue
             ok, reason = _capacity_allows(submission, free_nodes, inventory_error)
             if not ok:
                 if status != "blocked" or submission.get("blocked_reason") != reason:

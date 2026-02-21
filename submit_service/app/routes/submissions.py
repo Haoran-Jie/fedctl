@@ -87,11 +87,13 @@ def create_submission(
 def list_submissions(
     request: Request,
     limit: int = Query(20, ge=1, le=200),
+    active_only: bool = Query(False),
     cfg: SubmitConfig = Depends(get_config),
     storage: Storage = Depends(get_storage),
 ) -> list[SubmissionRecord]:
     authenticate(request, cfg)
-    rows = storage.list_submissions(limit=limit)
+    statuses = ["queued", "running", "blocked"] if active_only else None
+    rows = storage.list_submissions(limit=limit, statuses=statuses)
     return [SubmissionRecord.from_row(row) for row in rows]
 
 

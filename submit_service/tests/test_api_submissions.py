@@ -22,9 +22,8 @@ def _make_client(tmp_path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     return TestClient(app)
 
 
-def test_create_and_get_submission(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
-    client = _make_client(tmp_path, monkeypatch)
-    payload = {
+def _payload() -> dict[str, object]:
+    return {
         "project_name": "mnist",
         "experiment": "mnist-20250125",
         "artifact_url": "s3://bucket/mnist.tar.gz",
@@ -35,6 +34,11 @@ def test_create_and_get_submission(tmp_path, monkeypatch: pytest.MonkeyPatch) ->
         "priority": 50,
         "namespace": "default",
     }
+
+
+def test_create_and_get_submission(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    client = _make_client(tmp_path, monkeypatch)
+    payload = _payload()
     response = client.post("/v1/submissions", json=payload)
     assert response.status_code == 200
     data = response.json()
@@ -48,6 +52,24 @@ def test_create_and_get_submission(tmp_path, monkeypatch: pytest.MonkeyPatch) ->
     response = client.get("/v1/submissions", params={"limit": 5})
     assert response.status_code == 200
     assert response.json()[0]["submission_id"] == submission_id
+
+
+def test_list_submissions_active_only_filter(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = _make_client(tmp_path, monkeypatch)
+    storage = client.app.state.storage
+
+    first = client.post("/v1/submissions", json=_payload()).json()["submission_id"]
+    second = client.post("/v1/submissions", json=_payload()).json()["submission_id"]
+    storage.update_submission(first, {"status": "completed"})
+    storage.update_submission(second, {"status": "running"})
+
+    response = client.get("/v1/submissions", params={"limit": 10, "active_only": "true"})
+    assert response.status_code == 200
+    ids = [entry["submission_id"] for entry in response.json()]
+    assert second in ids
+    assert first not in ids
 
 
 def test_auth_requires_token(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:

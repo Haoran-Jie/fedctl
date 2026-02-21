@@ -28,8 +28,16 @@ class SubmitServiceClient:
     def create_submission(self, payload: dict[str, Any]) -> dict[str, Any]:
         return self._request("POST", "/v1/submissions", json_payload=payload)
 
-    def list_submissions(self, limit: int = 20) -> list[dict[str, Any]]:
-        return self._request("GET", "/v1/submissions", params={"limit": str(limit)})
+    def list_submissions(
+        self,
+        limit: int = 20,
+        *,
+        active_only: bool = False,
+    ) -> list[dict[str, Any]]:
+        params = {"limit": str(limit)}
+        if active_only:
+            params["active_only"] = "true"
+        return self._request("GET", "/v1/submissions", params=params)
 
     def get_submission(self, submission_id: str) -> dict[str, Any]:
         return self._request("GET", f"/v1/submissions/{submission_id}")

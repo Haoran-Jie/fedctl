@@ -47,3 +47,76 @@ def test_storage_create_and_list(tmp_path) -> None:
 
     rows = storage.list_submissions(limit=5)
     assert rows[0]["id"] == sub_id
+
+    storage.update_submission(sub_id, {"status": "completed"})
+    filtered = storage.list_submissions(limit=5, statuses=["queued", "running", "blocked"])
+    assert filtered == []
+
+
+def test_storage_list_dispatch_candidates_orders_by_priority_then_age(tmp_path) -> None:
+    db_path = tmp_path / "submit.db"
+    storage = Storage(StorageConfig(db_url=f"sqlite:///{db_path}"))
+    storage.init_db()
+
+    rows = [
+        {
+            "id": "sub-low",
+            "status": "queued",
+            "created_at": "2026-01-01T00:00:03+00:00",
+            "priority": 10,
+        },
+        {
+            "id": "sub-high",
+            "status": "queued",
+            "created_at": "2026-01-01T00:00:02+00:00",
+            "priority": 100,
+        },
+        {
+            "id": "sub-default-old",
+            "status": "blocked",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "priority": None,
+        },
+        {
+            "id": "sub-default-new",
+            "status": "queued",
+            "created_at": "2026-01-01T00:00:01+00:00",
+            "priority": None,
+        },
+        {
+            "id": "sub-completed",
+            "status": "completed",
+            "created_at": "2026-01-01T00:00:04+00:00",
+            "priority": 999,
+        },
+    ]
+    for row in rows:
+        storage.create_submission(
+            {
+                "id": row["id"],
+                "user": "tester",
+                "project_name": "proj",
+                "experiment": "exp",
+                "status": row["status"],
+                "created_at": row["created_at"],
+                "started_at": None,
+                "finished_at": None,
+                "nomad_job_id": None,
+                "artifact_url": "s3://bucket/proj.tar.gz",
+                "submit_image": "example/submit:latest",
+                "node_class": "submit",
+                "args": ["-m", "fedctl.submit.runner"],
+                "env": {},
+                "priority": row["priority"],
+                "logs_location": None,
+                "result_location": None,
+                "result_artifacts": [],
+                "error_message": None,
+                "blocked_reason": None,
+                "namespace": "default",
+            }
+        )
+
+    candidates = storage.list_dispatch_candidates(limit=10, default_priority=50)
+    ids = [row["id"] for row in candidates]
+    assert ids == ["sub-high", "sub-default-old", "sub-default-new", "sub-low"]
