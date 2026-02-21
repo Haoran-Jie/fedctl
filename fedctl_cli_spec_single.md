@@ -253,6 +253,16 @@ fedctl submit status sub-20260201-1234
 
 ---
 
+### `fedctl submit cancel <ID>`
+Cancel a submitted job.
+
+Example:
+```bash
+fedctl submit cancel sub-20260201-1234
+```
+
+---
+
 ### `fedctl submit logs <ID>`
 Fetch logs for a submitted job.
 

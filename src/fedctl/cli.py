@@ -23,6 +23,7 @@ from fedctl.commands.logs import run_logs
 from fedctl.commands.ping import run_ping
 from fedctl.commands.submit import (
     run_submit,
+    run_submit_cancel,
     run_submit_logs,
     run_submit_ls,
     run_submit_purge,
@@ -266,6 +267,14 @@ def submit_status(
 ) -> None:
     """Show status for a submitted job."""
     raise SystemExit(run_submit_status(submission_id=submission_id))
+
+
+@submit_app.command("cancel")
+def submit_cancel(
+    submission_id: str = typer.Argument(..., help="Submission ID."),
+) -> None:
+    """Cancel a submitted job."""
+    raise SystemExit(run_submit_cancel(submission_id=submission_id))
 
 
 @submit_app.command("logs")

@@ -179,7 +179,7 @@ def _build_nomad_job(submission: dict[str, Any], cfg: SubmitConfig) -> dict[str,
     env["SUBMIT_SUBMISSION_ID"] = submission["id"]
     if cfg.service_endpoint:
         env["SUBMIT_SERVICE_ENDPOINT"] = cfg.service_endpoint
-    report_token = _select_report_token(cfg.tokens)
+    report_token = _select_report_token(cfg)
     if cfg.service_endpoint:
         logger.info(
             "submit-service runner reporting configured: endpoint=%s token=%s",
@@ -228,10 +228,17 @@ def _alloc_status(alloc: dict[str, Any] | None) -> str | None:
     return status if isinstance(status, str) else None
 
 
-def _select_report_token(tokens: set[str]) -> str | None:
-    if not tokens:
-        return None
-    return sorted(tokens)[0]
+def _select_report_token(cfg: SubmitConfig) -> str | None:
+    admin_tokens = [
+        token
+        for token, identity in cfg.token_identities.items()
+        if identity.role == "admin"
+    ]
+    if admin_tokens:
+        return sorted(admin_tokens)[0]
+    if cfg.tokens:
+        return sorted(cfg.tokens)[0]
+    return None
 
 
 def _inventory_snapshot(

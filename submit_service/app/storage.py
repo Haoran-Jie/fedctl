@@ -104,20 +104,25 @@ class Storage:
         limit: int = 20,
         *,
         statuses: list[str] | None = None,
+        user: str | None = None,
     ) -> list[dict[str, Any]]:
+        clauses: list[str] = []
+        params: list[Any] = []
+        if statuses:
+            placeholders = ", ".join("?" for _ in statuses)
+            clauses.append(f"status IN ({placeholders})")
+            params.extend(statuses)
+        if user:
+            clauses.append("user = ?")
+            params.append(user)
+        where = ""
+        if clauses:
+            where = " WHERE " + " AND ".join(clauses)
         with self._connect() as conn:
-            if statuses:
-                placeholders = ", ".join("?" for _ in statuses)
-                rows = conn.execute(
-                    f"SELECT * FROM submissions WHERE status IN ({placeholders}) "
-                    "ORDER BY created_at DESC LIMIT ?",
-                    (*statuses, limit),
-                ).fetchall()
-            else:
-                rows = conn.execute(
-                    "SELECT * FROM submissions ORDER BY created_at DESC LIMIT ?",
-                    (limit,),
-                ).fetchall()
+            rows = conn.execute(
+                f"SELECT * FROM submissions{where} ORDER BY created_at DESC LIMIT ?",
+                (*params, limit),
+            ).fetchall()
         return [self._row_to_record(row) for row in rows]
 
     def list_dispatch_candidates(

@@ -341,6 +341,24 @@ def run_submit_status(*, submission_id: str) -> int:
         client.close()
 
 
+def run_submit_cancel(*, submission_id: str) -> int:
+    submit_client = _submit_service_client()
+    if not submit_client:
+        console.print("[red]✗ Submit service not configured.[/red]")
+        console.print("[yellow]Hint:[/yellow] Set FEDCTL_SUBMIT_ENDPOINT or repo submit.endpoint.")
+        return 1
+    try:
+        record = submit_client.cancel_submission(submission_id)
+    except SubmitServiceError as exc:
+        console.print(f"[red]✗ Submit service error:[/red] {exc}")
+        return 1
+    resolved_id = record.get("submission_id", submission_id)
+    status = record.get("status", "-")
+    _print_ok(f"Cancelled submission: {resolved_id}")
+    console.print(f"[bold]Status:[/bold] {status}")
+    return 0
+
+
 def run_submit_logs(
     *,
     submission_id: str,

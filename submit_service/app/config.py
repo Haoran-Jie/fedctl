@@ -3,14 +3,22 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 import os
+import json
 
 import yaml
+
+
+@dataclass(frozen=True)
+class TokenIdentity:
+    name: str
+    role: str
 
 
 @dataclass(frozen=True)
 class SubmitConfig:
     db_url: str
     tokens: set[str]
+    token_identities: dict[str, TokenIdentity]
     allow_unauth: bool
     service_endpoint: str | None
     nomad_endpoint: str | None
@@ -31,6 +39,7 @@ def load_config() -> SubmitConfig:
     db_url = os.environ.get(
         "SUBMIT_DB_URL", "sqlite:///submit_service/state/submit.db"
     )
+    token_identities = _resolve_token_identities(repo_submit)
     token_raw = os.environ.get("FEDCTL_SUBMIT_TOKENS", "").strip()
     if not token_raw:
         token_raw = str(repo_submit.get("tokens") or "").strip()
@@ -41,7 +50,9 @@ def load_config() -> SubmitConfig:
     allow_unauth_default = _repo_allow_unauth_default()
     allow_unauth = _parse_bool(
         allow_unauth_env,
-        default=allow_unauth_default if allow_unauth_default is not None else not tokens,
+        default=allow_unauth_default
+        if allow_unauth_default is not None
+        else not (tokens or token_identities),
     )
 
     service_endpoint = os.environ.get("SUBMIT_SERVICE_ENDPOINT") or repo_submit.get(
@@ -91,6 +102,7 @@ def load_config() -> SubmitConfig:
     return SubmitConfig(
         db_url=db_url,
         tokens=tokens,
+        token_identities=token_identities,
         allow_unauth=allow_unauth,
         service_endpoint=service_endpoint,
         nomad_endpoint=nomad_endpoint,
@@ -146,6 +158,85 @@ def _repo_submit_config() -> dict[str, object]:
         return {}
     submit = data.get("submit-service", {})
     return submit if isinstance(submit, dict) else {}
+
+
+def _resolve_token_identities(repo_submit: dict[str, object]) -> dict[str, TokenIdentity]:
+    env_raw = os.environ.get("FEDCTL_SUBMIT_TOKEN_MAP", "").strip()
+    if env_raw:
+        return _parse_token_map(env_raw)
+    repo_map = repo_submit.get("token_map")
+    return _parse_token_map_obj(repo_map)
+
+
+def _parse_token_map(raw: str) -> dict[str, TokenIdentity]:
+    raw = raw.strip()
+    if not raw:
+        return {}
+    try:
+        loaded = json.loads(raw)
+    except json.JSONDecodeError:
+        return _parse_token_map_csv(raw)
+    return _parse_token_map_obj(loaded)
+
+
+def _parse_token_map_obj(value: object) -> dict[str, TokenIdentity]:
+    if not isinstance(value, dict):
+        return {}
+    identities: dict[str, TokenIdentity] = {}
+    for token, info in value.items():
+        if not isinstance(token, str) or not token.strip():
+            continue
+        name, role = _token_identity_parts(info)
+        if not name:
+            continue
+        identities[token.strip()] = TokenIdentity(name=name, role=role)
+    return identities
+
+
+def _parse_token_map_csv(raw: str) -> dict[str, TokenIdentity]:
+    identities: dict[str, TokenIdentity] = {}
+    parts = [part.strip() for part in raw.split(",") if part.strip()]
+    for part in parts:
+        if "=" not in part:
+            continue
+        token, info = part.split("=", 1)
+        token = token.strip()
+        if not token:
+            continue
+        name, role = _token_identity_parts(info.strip())
+        if not name:
+            continue
+        identities[token] = TokenIdentity(name=name, role=role)
+    return identities
+
+
+def _token_identity_parts(value: object) -> tuple[str | None, str]:
+    if isinstance(value, dict):
+        name = value.get("name")
+        role = value.get("role")
+        return _clean_name(name), _normalize_role(role)
+    if isinstance(value, str):
+        raw = value.strip()
+        if not raw:
+            return None, "user"
+        if ":" in raw:
+            name, role = raw.rsplit(":", 1)
+            return _clean_name(name), _normalize_role(role)
+        return _clean_name(raw), "user"
+    return None, "user"
+
+
+def _clean_name(value: object) -> str | None:
+    if not isinstance(value, str):
+        return None
+    cleaned = value.strip()
+    return cleaned if cleaned else None
+
+
+def _normalize_role(value: object) -> str:
+    if isinstance(value, str) and value.strip().lower() == "admin":
+        return "admin"
+    return "user"
 
 
 def _repo_config_data() -> dict[str, object] | None:

@@ -14,6 +14,7 @@ def _cfg(db_path: Path) -> SubmitConfig:
     return SubmitConfig(
         db_url=f"sqlite:///{db_path}",
         tokens=set(),
+        token_identities={},
         allow_unauth=True,
         service_endpoint=None,
         nomad_endpoint=None,

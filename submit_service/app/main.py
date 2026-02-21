@@ -21,7 +21,7 @@ def create_app() -> FastAPI:
     logger.info(
         "submit-service config: endpoint=%s tokens=%s allow_unauth=%s dispatch_mode=%s",
         cfg.service_endpoint or "-",
-        "set" if cfg.tokens else "empty",
+        "set" if (cfg.tokens or cfg.token_identities) else "empty",
         cfg.allow_unauth,
         cfg.dispatch_mode,
     )

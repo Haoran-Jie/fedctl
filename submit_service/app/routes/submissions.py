@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime
+from dataclasses import dataclass
 from typing import Any
+import hashlib
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import PlainTextResponse
@@ -18,6 +19,13 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
+@dataclass(frozen=True)
+class AuthPrincipal:
+    name: str
+    role: str
+    token: str | None = None
+
+
 def get_config(request: Request) -> SubmitConfig:
     return request.app.state.cfg
 
@@ -26,17 +34,19 @@ def get_storage(request: Request) -> Storage:
     return request.app.state.storage
 
 
-def authenticate(request: Request, cfg: SubmitConfig) -> str:
+def authenticate(request: Request, cfg: SubmitConfig) -> AuthPrincipal:
     auth_header = request.headers.get("Authorization", "")
-    if cfg.tokens:
+    if cfg.tokens or cfg.token_identities:
         if not auth_header.startswith("Bearer "):
             raise HTTPException(status_code=401, detail="Missing bearer token")
         token = auth_header.replace("Bearer ", "", 1).strip()
-        if token not in cfg.tokens:
+        principal = _principal_for_token(token, cfg)
+        if principal is None:
             raise HTTPException(status_code=403, detail="Invalid token")
-    elif not cfg.allow_unauth:
+        return principal
+    if not cfg.allow_unauth:
         raise HTTPException(status_code=401, detail="Unauthorized")
-    return request.headers.get("X-Submit-User") or "anonymous"
+    return AuthPrincipal(name="anonymous", role="admin", token=None)
 
 
 @router.post("/v1/submissions", response_model=SubmissionRecord)
@@ -46,14 +56,14 @@ def create_submission(
     cfg: SubmitConfig = Depends(get_config),
     storage: Storage = Depends(get_storage),
 ) -> SubmissionRecord:
-    user = authenticate(request, cfg)
+    principal = authenticate(request, cfg)
     artifact_url = validate_artifact_url(payload.artifact_url)
     submission_id = new_submission_id("sub")
     created_at = utcnow().isoformat()
     record = storage.create_submission(
         {
             "id": submission_id,
-            "user": user,
+            "user": principal.name,
             "project_name": payload.project_name,
             "experiment": payload.experiment,
             "status": "queued",
@@ -91,9 +101,13 @@ def list_submissions(
     cfg: SubmitConfig = Depends(get_config),
     storage: Storage = Depends(get_storage),
 ) -> list[SubmissionRecord]:
-    authenticate(request, cfg)
+    principal = authenticate(request, cfg)
     statuses = ["queued", "running", "blocked"] if active_only else None
-    rows = storage.list_submissions(limit=limit, statuses=statuses)
+    rows = storage.list_submissions(
+        limit=limit,
+        statuses=statuses,
+        user=None if principal.role == "admin" else principal.name,
+    )
     return [SubmissionRecord.from_row(row) for row in rows]
 
 
@@ -104,11 +118,12 @@ def get_submission(
     cfg: SubmitConfig = Depends(get_config),
     storage: Storage = Depends(get_storage),
 ) -> SubmissionRecord:
-    authenticate(request, cfg)
+    principal = authenticate(request, cfg)
     try:
         record = storage.get_submission(submission_id)
     except KeyError:
         raise HTTPException(status_code=404, detail="Submission not found")
+    _ensure_submission_access(record, principal)
     return SubmissionRecord.from_row(record)
 
 
@@ -124,11 +139,12 @@ def get_submission_logs(
     cfg: SubmitConfig = Depends(get_config),
     storage: Storage = Depends(get_storage),
 ) -> str:
-    authenticate(request, cfg)
+    principal = authenticate(request, cfg)
     try:
         record = storage.get_submission(submission_id)
     except KeyError:
         raise HTTPException(status_code=404, detail="Submission not found")
+    _ensure_submission_access(record, principal)
 
     nomad_job_id, resolved_task = _resolve_nomad_job(record, job, task, index)
     if not nomad_job_id:
@@ -165,11 +181,12 @@ def cancel_submission(
     cfg: SubmitConfig = Depends(get_config),
     storage: Storage = Depends(get_storage),
 ) -> SubmissionRecord:
-    authenticate(request, cfg)
+    principal = authenticate(request, cfg)
     try:
         record = storage.get_submission(submission_id)
     except KeyError:
         raise HTTPException(status_code=404, detail="Submission not found")
+    _ensure_submission_access(record, principal)
 
     nomad_job_id = record.get("nomad_job_id")
     if nomad_job_id and cfg.nomad_endpoint:
@@ -203,11 +220,12 @@ def update_submission_jobs(
     cfg: SubmitConfig = Depends(get_config),
     storage: Storage = Depends(get_storage),
 ) -> SubmissionRecord:
-    authenticate(request, cfg)
+    principal = authenticate(request, cfg)
     try:
-        storage.get_submission(submission_id)
+        record = storage.get_submission(submission_id)
     except KeyError:
         raise HTTPException(status_code=404, detail="Submission not found")
+    _ensure_submission_access(record, principal)
     updated = storage.update_submission(submission_id, {"jobs": payload.jobs})
     logger.info(
         "submission jobs updated: id=%s keys=%s",
@@ -225,11 +243,12 @@ def update_submission_results(
     cfg: SubmitConfig = Depends(get_config),
     storage: Storage = Depends(get_storage),
 ) -> SubmissionRecord:
-    authenticate(request, cfg)
+    principal = authenticate(request, cfg)
     try:
         record = storage.get_submission(submission_id)
     except KeyError:
         raise HTTPException(status_code=404, detail="Submission not found")
+    _ensure_submission_access(record, principal)
 
     artifacts = payload.get("artifacts")
     if not isinstance(artifacts, list):
@@ -255,7 +274,9 @@ def purge_submissions(
     cfg: SubmitConfig = Depends(get_config),
     storage: Storage = Depends(get_storage),
 ) -> dict[str, str]:
-    authenticate(request, cfg)
+    principal = authenticate(request, cfg)
+    if principal.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
     storage.clear_submissions()
     return {"status": "ok"}
 
@@ -324,3 +345,29 @@ def _resolve_nomad_job(
         )
 
     return job_id, job_id
+
+
+def _principal_for_token(token: str, cfg: SubmitConfig) -> AuthPrincipal | None:
+    token = token.strip()
+    if not token:
+        return None
+    identity = cfg.token_identities.get(token)
+    if identity is not None:
+        return AuthPrincipal(name=identity.name, role=identity.role, token=token)
+    if token in cfg.tokens:
+        return AuthPrincipal(name=_legacy_token_name(token), role="admin", token=token)
+    return None
+
+
+def _legacy_token_name(token: str) -> str:
+    digest = hashlib.sha256(token.encode("utf-8")).hexdigest()
+    return f"legacy-{digest[:12]}"
+
+
+def _ensure_submission_access(record: dict[str, Any], principal: AuthPrincipal) -> None:
+    if principal.role == "admin":
+        return
+    owner = record.get("user")
+    if isinstance(owner, str) and owner == principal.name:
+        return
+    raise HTTPException(status_code=404, detail="Submission not found")

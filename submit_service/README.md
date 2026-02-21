@@ -74,6 +74,19 @@ export FEDCTL_SUBMIT_TOKEN=token1
 export FEDCTL_SUBMIT_USER=alice
 ```
 
+Token identity/role mapping (recommended):
+
+```bash
+export FEDCTL_SUBMIT_TOKEN_MAP='{"token-alice":{"name":"alice","role":"user"},"token-admin":{"name":"ops","role":"admin"}}'
+export FEDCTL_SUBMIT_ALLOW_UNAUTH=false
+```
+
+Notes:
+- `role=user` can access only its own submissions.
+- `role=admin` can access/cancel/purge all submissions.
+- Keep at least one `role=admin` token if submit-runner should report jobs/results back to the service.
+- Legacy `FEDCTL_SUBMIT_TOKENS` still works as admin-only tokens for backward compatibility.
+
 Or configure these in `.fedctl/fedctl.yaml` (env vars still take precedence):
 
 ```yaml

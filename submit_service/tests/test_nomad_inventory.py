@@ -27,6 +27,7 @@ def _cfg(ttl: int = 5) -> SubmitConfig:
     return SubmitConfig(
         db_url="sqlite:///submit_service/state/submit.db",
         tokens=set(),
+        token_identities={},
         allow_unauth=True,
         service_endpoint=None,
         nomad_endpoint="http://127.0.0.1:4646",

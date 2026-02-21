@@ -16,6 +16,7 @@ This document covers only `fedctl submit` commands and current implemented behav
 - Commands:
   - `fedctl submit run`
   - `fedctl submit status`
+  - `fedctl submit cancel`
   - `fedctl submit logs`
   - `fedctl submit ls`
   - `fedctl submit inventory`
@@ -71,6 +72,14 @@ If using submit-service, displays:
 - `blocked_reason` when blocked
 - `error_message` when failed
 - mapped Nomad job id when different
+
+### `fedctl submit cancel <submission_id>`
+
+Cancel a submission via submit-service.
+
+Notes:
+- In token-mapped auth mode, normal users can cancel only their own submissions.
+- Admin tokens can cancel any submission.
 
 ### `fedctl submit logs <submission_id>`
 
