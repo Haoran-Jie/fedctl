@@ -10,7 +10,12 @@ import logging
 
 from ..artifacts import validate_artifact_url
 from ..config import SubmitConfig
-from ..models import SubmissionCreateRequest, SubmissionJobsUpdate, SubmissionRecord
+from ..models import (
+    SubmissionCreateRequest,
+    SubmissionJobsUpdate,
+    SubmissionLogsUpdate,
+    SubmissionRecord,
+)
 from ..nomad_client import NomadClient, NomadError
 from ..storage import Storage, new_submission_id, utcnow
 from ..workers.dispatcher import dispatch_submission
@@ -145,11 +150,30 @@ def get_submission_logs(
     except KeyError:
         raise HTTPException(status_code=404, detail="Submission not found")
     _ensure_submission_access(record, principal)
+    archived = _archived_log_text(
+        record=record,
+        job=job,
+        task=task,
+        index=index,
+        stderr=stderr,
+    )
+    resolve_error: HTTPException | None = None
+    nomad_job_id: str | None = None
+    resolved_task = task or "submit"
+    try:
+        nomad_job_id, resolved_task = _resolve_nomad_job(record, job, task, index)
+    except HTTPException as exc:
+        resolve_error = exc
 
-    nomad_job_id, resolved_task = _resolve_nomad_job(record, job, task, index)
     if not nomad_job_id:
+        if archived is not None:
+            return archived
+        if resolve_error is not None:
+            raise resolve_error
         raise HTTPException(status_code=409, detail="Submission not running in Nomad")
     if not cfg.nomad_endpoint:
+        if archived is not None:
+            return archived
         raise HTTPException(status_code=500, detail="Nomad endpoint not configured")
 
     client = NomadClient(
@@ -163,12 +187,18 @@ def get_submission_logs(
         allocs = client.job_allocations(nomad_job_id)
         alloc = _latest_alloc(allocs)
         if not alloc:
+            if archived is not None:
+                return archived
             raise HTTPException(status_code=404, detail="No allocations found")
         alloc_id = alloc.get("ID")
         if not isinstance(alloc_id, str):
+            if archived is not None:
+                return archived
             raise HTTPException(status_code=404, detail="Allocation ID missing")
         return client.alloc_logs(alloc_id, resolved_task, stderr=stderr, follow=follow)
     except NomadError as exc:
+        if archived is not None:
+            return archived
         raise HTTPException(status_code=502, detail=str(exc))
     finally:
         client.close()
@@ -232,6 +262,33 @@ def update_submission_jobs(
         submission_id,
         sorted([k for k in payload.jobs.keys() if isinstance(k, str)]),
     )
+    return SubmissionRecord.from_row(updated)
+
+
+@router.post("/v1/submissions/{submission_id}/logs", response_model=SubmissionRecord)
+def update_submission_logs(
+    submission_id: str,
+    payload: SubmissionLogsUpdate,
+    request: Request,
+    cfg: SubmitConfig = Depends(get_config),
+    storage: Storage = Depends(get_storage),
+) -> SubmissionRecord:
+    principal = authenticate(request, cfg)
+    try:
+        record = storage.get_submission(submission_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Submission not found")
+    _ensure_submission_access(record, principal)
+
+    updates: dict[str, Any] = {}
+    if payload.logs_location is not None:
+        updates["logs_location"] = payload.logs_location
+    if payload.logs_archive is not None:
+        updates["logs_archive"] = payload.logs_archive
+    if not updates:
+        return SubmissionRecord.from_row(record)
+
+    updated = storage.update_submission(submission_id, updates)
     return SubmissionRecord.from_row(updated)
 
 
@@ -345,6 +402,62 @@ def _resolve_nomad_job(
         )
 
     return job_id, job_id
+
+
+def _archived_log_text(
+    *,
+    record: dict[str, Any],
+    job: str,
+    task: str | None,
+    index: int,
+    stderr: bool,
+) -> str | None:
+    archive = record.get("logs_archive")
+    if not isinstance(archive, dict):
+        return None
+    raw_entries = archive.get("entries")
+    if not isinstance(raw_entries, list):
+        return None
+    candidates: list[dict[str, Any]] = []
+    for entry in raw_entries:
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("job") != job:
+            continue
+        entry_index = entry.get("index")
+        if isinstance(entry_index, bool):
+            continue
+        if isinstance(entry_index, int):
+            resolved_index = entry_index
+        elif isinstance(entry_index, str) and entry_index.isdigit():
+            resolved_index = int(entry_index)
+        else:
+            resolved_index = 1
+        if resolved_index != index:
+            continue
+        if bool(entry.get("stderr")) != stderr:
+            continue
+        if not isinstance(entry.get("content"), str):
+            continue
+        candidates.append(entry)
+    if not candidates:
+        return None
+    if task:
+        for entry in candidates:
+            if _archive_task(entry) == task:
+                return entry["content"]
+        return None
+    if len(candidates) == 1:
+        return candidates[0]["content"]
+    unique_tasks = {_archive_task(entry) for entry in candidates}
+    if len(unique_tasks) == 1:
+        return candidates[0]["content"]
+    return None
+
+
+def _archive_task(entry: dict[str, Any]) -> str | None:
+    task = entry.get("task")
+    return task if isinstance(task, str) else None
 
 
 def _principal_for_token(token: str, cfg: SubmitConfig) -> AuthPrincipal | None:

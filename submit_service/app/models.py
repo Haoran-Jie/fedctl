@@ -22,6 +22,11 @@ class SubmissionJobsUpdate(BaseModel):
     jobs: dict[str, Any]
 
 
+class SubmissionLogsUpdate(BaseModel):
+    logs_location: str | None = None
+    logs_archive: dict[str, Any] | None = None
+
+
 class SubmissionRecord(BaseModel):
     submission_id: str
     user: str

@@ -116,6 +116,7 @@ The CLI still performs the upload and passes the URL to the service.
 - GET `/v1/submissions`
 - GET `/v1/submissions/{id}`
 - GET `/v1/submissions/{id}/logs`
+- POST `/v1/submissions/{id}/logs` (runner log archive updates)
 - POST `/v1/submissions/{id}/cancel`
 - POST `/v1/submissions/purge`
 - POST `/v1/submissions/{id}/results`
@@ -128,6 +129,12 @@ Inventory cache TTL can be set with `SUBMIT_NOMAD_INV_TTL` (seconds).
 
 The dispatcher may set submissions to `blocked` when capacity is insufficient. The reason
 is stored in `blocked_reason` and returned by `GET /v1/submissions/{id}`.
+
+### Archived logs fallback
+
+When submit-runner cleanup destroys Nomad jobs, live allocation logs disappear. The runner
+now reports a pre-destroy log archive to submit-service, and `GET /v1/submissions/{id}/logs`
+falls back to archived logs if live Nomad logs are unavailable.
 
 ### Example request
 

@@ -43,6 +43,7 @@ class Storage:
                     env_json TEXT,
                     priority INTEGER,
                     logs_location TEXT,
+                    logs_archive_json TEXT,
                     result_location TEXT,
                     result_artifacts_json TEXT,
                     error_message TEXT,
@@ -64,6 +65,10 @@ class Storage:
                 conn.execute("ALTER TABLE submissions ADD COLUMN result_artifacts_json TEXT")
             except sqlite3.OperationalError:
                 pass
+            try:
+                conn.execute("ALTER TABLE submissions ADD COLUMN logs_archive_json TEXT")
+            except sqlite3.OperationalError:
+                pass
 
     def create_submission(self, payload: dict[str, Any]) -> dict[str, Any]:
         args = payload.pop("args", []) or []
@@ -73,11 +78,14 @@ class Storage:
             payload["blocked_reason"] = None
         if "result_artifacts" not in payload:
             payload["result_artifacts"] = []
+        if "logs_archive" not in payload:
+            payload["logs_archive"] = {}
         payload = {
             **payload,
             "args_json": json.dumps(args),
             "env_json": json.dumps(env),
             "jobs_json": json.dumps(jobs) if jobs is not None else None,
+            "logs_archive_json": json.dumps(payload.pop("logs_archive")),
             "result_artifacts_json": json.dumps(payload.pop("result_artifacts")),
         }
         with self._connect() as conn:
@@ -87,12 +95,12 @@ class Storage:
                     id, user, project_name, experiment, status, created_at,
                     started_at, finished_at, nomad_job_id, artifact_url,
                     submit_image, node_class, args_json, env_json, priority,
-                    logs_location, result_location, result_artifacts_json, error_message, blocked_reason, namespace, jobs_json
+                    logs_location, logs_archive_json, result_location, result_artifacts_json, error_message, blocked_reason, namespace, jobs_json
                 ) VALUES (
                     :id, :user, :project_name, :experiment, :status, :created_at,
                     :started_at, :finished_at, :nomad_job_id, :artifact_url,
                     :submit_image, :node_class, :args_json, :env_json, :priority,
-                    :logs_location, :result_location, :result_artifacts_json, :error_message, :blocked_reason, :namespace, :jobs_json
+                    :logs_location, :logs_archive_json, :result_location, :result_artifacts_json, :error_message, :blocked_reason, :namespace, :jobs_json
                 )
                 """,
                 payload,
@@ -163,7 +171,7 @@ class Storage:
         params: dict[str, Any] = {}
         for key, value in updates.items():
             column = key
-            if key in {"args", "env", "jobs", "result_artifacts"}:
+            if key in {"args", "env", "jobs", "result_artifacts", "logs_archive"}:
                 column = f"{key}_json"
                 value = json.dumps(value)
             columns.append(f"{column} = :{column}")
@@ -207,6 +215,7 @@ class Storage:
         record["args"] = _safe_json_loads(record.pop("args_json") or "[]")
         record["env"] = _safe_json_loads(record.pop("env_json") or "{}")
         record["jobs"] = _safe_json_loads(record.pop("jobs_json") or "{}")
+        record["logs_archive"] = _safe_json_loads(record.pop("logs_archive_json") or "{}")
         record["result_artifacts"] = _safe_json_loads(
             record.pop("result_artifacts_json") or "[]"
         )

@@ -148,3 +148,48 @@ def test_token_map_enforces_owner_scope_and_admin_override(
     admin_cancel_bob = client.post(f"/v1/submissions/{bob_id}/cancel", headers=admin_headers)
     assert admin_cancel_bob.status_code == 200
     assert admin_cancel_bob.json()["status"] == "cancelled"
+
+
+def test_logs_falls_back_to_archived_when_nomad_unavailable(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = _make_client(tmp_path, monkeypatch)
+    submission_id = client.post("/v1/submissions", json=_payload()).json()["submission_id"]
+
+    update = client.post(
+        f"/v1/submissions/{submission_id}/logs",
+        json={
+            "logs_location": "inline://submit-service-db",
+            "logs_archive": {
+                "schema": "v1",
+                "entries": [
+                    {
+                        "job": "submit",
+                        "index": 1,
+                        "task": "submit",
+                        "stderr": True,
+                        "content": "archived submit stderr",
+                    },
+                    {
+                        "job": "superlink",
+                        "index": 1,
+                        "task": "exp-superlink",
+                        "stderr": True,
+                        "content": "archived superlink stderr",
+                    },
+                ],
+            },
+        },
+    )
+    assert update.status_code == 200
+
+    submit_logs = client.get(f"/v1/submissions/{submission_id}/logs")
+    assert submit_logs.status_code == 200
+    assert submit_logs.text == "archived submit stderr"
+
+    superlink_logs = client.get(
+        f"/v1/submissions/{submission_id}/logs",
+        params={"job": "superlink", "task": "exp-superlink"},
+    )
+    assert superlink_logs.status_code == 200
+    assert superlink_logs.text == "archived superlink stderr"

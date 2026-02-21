@@ -8,6 +8,7 @@ import shutil
 import threading
 import time
 from pathlib import Path
+from typing import Callable
 
 import httpx
 import logging
@@ -21,6 +22,7 @@ from fedctl.util.console import console
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
+_MAX_ARCHIVED_LOG_CHARS = 200_000
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -89,6 +91,19 @@ def main(argv: list[str] | None = None) -> int:
     if uploader.enabled:
         uploader.start()
         logger.info("result uploader started (store=%s, submission=%s)", result_store, submission_id)
+    log_archiver = _LogArchiver(
+        submission_id=submission_id,
+        submit_service_endpoint=submit_service_endpoint,
+        submit_service_token=submit_service_token,
+        experiment=args.experiment,
+        num_supernodes=args.num_supernodes,
+        supernodes=args.supernodes,
+        endpoint=endpoint,
+        namespace=namespace,
+        token=token,
+    )
+    if log_archiver.enabled:
+        logger.info("log archiver enabled (submission=%s)", submission_id)
 
     exit_code = run_run(
         path=str(project_path),
@@ -112,7 +127,10 @@ def main(argv: list[str] | None = None) -> int:
         endpoint=endpoint,
         namespace=namespace,
         token=token,
-        pre_cleanup=uploader.final_sweep if uploader.enabled else None,
+        pre_cleanup=_combine_pre_cleanup(
+            uploader.final_sweep if uploader.enabled else None,
+            log_archiver.final_sweep if log_archiver.enabled else None,
+        ),
         destroy=args.destroy,
     )
     if uploader.enabled:
@@ -313,6 +331,18 @@ def _supernode_task_name(device_type: str | None, instance_idx: int) -> str:
     return f"supernode-{group_suffix}"
 
 
+def _combine_pre_cleanup(*hooks: Callable[[], None] | None) -> Callable[[], None] | None:
+    active = [hook for hook in hooks if hook is not None]
+    if not active:
+        return None
+
+    def _run() -> None:
+        for hook in active:
+            hook()
+
+    return _run
+
+
 class _ResultUploader:
     def __init__(
         self,
@@ -491,6 +521,206 @@ class _ResultUploader:
             logger.warning("result bundle upload failed: %s", exc)
 
 
+class _LogArchiver:
+    def __init__(
+        self,
+        *,
+        submission_id: str | None,
+        submit_service_endpoint: str | None,
+        submit_service_token: str | None,
+        experiment: str | None,
+        num_supernodes: int,
+        supernodes: list[str] | None,
+        endpoint: str | None,
+        namespace: str | None,
+        token: str | None,
+    ) -> None:
+        self._submission_id = submission_id
+        self._submit_service_endpoint = submit_service_endpoint
+        self._submit_service_token = submit_service_token
+        self._experiment = experiment
+        self._num_supernodes = num_supernodes
+        self._supernodes = supernodes
+        self._endpoint = endpoint
+        self._namespace = namespace
+        self._token = token
+
+    @property
+    def enabled(self) -> bool:
+        return bool(
+            self._submission_id
+            and self._submit_service_endpoint
+            and self._experiment
+            and self._endpoint
+        )
+
+    def final_sweep(self) -> None:
+        if not self.enabled:
+            return
+        entries = self._collect()
+        if not entries:
+            logger.info("log archiver: no logs captured")
+            return
+        payload = {
+            "logs_location": "inline://submit-service-db",
+            "logs_archive": {
+                "schema": "v1",
+                "captured_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                "entries": entries,
+            },
+        }
+        headers: dict[str, str] = {}
+        if self._submit_service_token:
+            headers["Authorization"] = f"Bearer {self._submit_service_token}"
+        url = (
+            self._submit_service_endpoint.rstrip("/")
+            + f"/v1/submissions/{self._submission_id}/logs"
+        )
+        try:
+            resp = httpx.post(url, json=payload, headers=headers, timeout=20.0)
+            if resp.status_code >= 400:
+                logger.warning(
+                    "log archive report failed: status=%s body=%s",
+                    resp.status_code,
+                    resp.text[:200],
+                )
+                return
+            logger.info(
+                "log archive report ok: submission_id=%s entries=%d",
+                self._submission_id,
+                len(entries),
+            )
+            console.print("[green]✓ Archived Nomad logs to submit service[/green]")
+        except httpx.HTTPError as exc:
+            logger.warning("log archive report failed: %s", exc)
+
+    def _collect(self) -> list[dict[str, object]]:
+        targets = self._targets()
+        if not targets:
+            return []
+        client = _nomad_client(self._endpoint, self._namespace, self._token)
+        entries: list[dict[str, object]] = []
+        try:
+            for target in targets:
+                job_id = target["job_id"]
+                task = target["task"]
+                try:
+                    allocs = client.job_allocations(job_id)
+                except Exception as exc:
+                    logger.info("log archiver: allocations unavailable job=%s err=%s", job_id, exc)
+                    continue
+                alloc = _latest_alloc(allocs)
+                if not alloc:
+                    continue
+                alloc_id = alloc.get("ID")
+                if not isinstance(alloc_id, str):
+                    continue
+                for stderr in (False, True):
+                    try:
+                        log_text = client.alloc_logs(
+                            alloc_id,
+                            task,
+                            stderr=stderr,
+                            follow=False,
+                        )
+                    except Exception as exc:
+                        logger.info(
+                            "log archiver: alloc logs unavailable job=%s task=%s stderr=%s err=%s",
+                            job_id,
+                            task,
+                            stderr,
+                            exc,
+                        )
+                        continue
+                    entries.append(
+                        {
+                            "job": target["job"],
+                            "index": target["index"],
+                            "job_id": job_id,
+                            "task": task,
+                            "alloc_id": alloc_id,
+                            "stderr": stderr,
+                            "content": _truncate_log_text(log_text),
+                        }
+                    )
+        finally:
+            client.close()
+        return entries
+
+    def _targets(self) -> list[dict[str, object]]:
+        if not self._submission_id or not self._experiment:
+            return []
+        jobs = _build_jobs_report(
+            experiment=self._experiment,
+            num_supernodes=self._num_supernodes,
+            supernodes=self._supernodes,
+        )
+        targets: list[dict[str, object]] = [
+            {
+                "job": "submit",
+                "index": 1,
+                "job_id": self._submission_id,
+                "task": "submit",
+            }
+        ]
+        superlink = jobs.get("superlink")
+        if isinstance(superlink, dict):
+            job_id = superlink.get("job_id")
+            task = superlink.get("task")
+            if isinstance(job_id, str) and isinstance(task, str):
+                targets.append(
+                    {
+                        "job": "superlink",
+                        "index": 1,
+                        "job_id": job_id,
+                        "task": task,
+                    }
+                )
+        supernodes = jobs.get("supernodes")
+        if isinstance(supernodes, dict):
+            job_id = supernodes.get("job_id")
+            tasks = supernodes.get("tasks")
+            if isinstance(job_id, str) and isinstance(tasks, list):
+                clean_tasks = [task for task in tasks if isinstance(task, str)]
+                for idx, task in enumerate(clean_tasks, start=1):
+                    targets.append(
+                        {
+                            "job": "supernodes",
+                            "index": idx,
+                            "job_id": job_id,
+                            "task": task,
+                        }
+                    )
+        serverapp = jobs.get("superexec_serverapp")
+        if isinstance(serverapp, dict):
+            job_id = serverapp.get("job_id")
+            task = serverapp.get("task")
+            if isinstance(job_id, str) and isinstance(task, str):
+                targets.append(
+                    {
+                        "job": "superexec_serverapp",
+                        "index": 1,
+                        "job_id": job_id,
+                        "task": task,
+                    }
+                )
+        clientapps = jobs.get("superexec_clientapps")
+        if isinstance(clientapps, dict):
+            job_ids = clientapps.get("job_ids")
+            if isinstance(job_ids, list):
+                clean_job_ids = [job_id for job_id in job_ids if isinstance(job_id, str)]
+                for idx, job_id in enumerate(clean_job_ids, start=1):
+                    targets.append(
+                        {
+                            "job": "superexec_clientapps",
+                            "index": idx,
+                            "job_id": job_id,
+                            "task": job_id,
+                        }
+                    )
+        return targets
+
+
 def _nomad_client(
     endpoint: str | None,
     namespace: str | None,
@@ -535,6 +765,24 @@ def _find_running_alloc(
         if isinstance(alloc_id, str):
             return alloc_id
     return None
+
+
+def _latest_alloc(allocs: object) -> dict[str, object] | None:
+    if not isinstance(allocs, list) or not allocs:
+        return None
+    candidates = [alloc for alloc in allocs if isinstance(alloc, dict)]
+    if not candidates:
+        return None
+    candidates.sort(key=_alloc_sort_key, reverse=True)
+    return candidates[0]
+
+
+def _alloc_sort_key(alloc: dict[str, object]) -> int:
+    for key in ("ModifyTime", "CreateTime"):
+        value = alloc.get(key)
+        if isinstance(value, int):
+            return value
+    return 0
 
 
 def _iter_files(entries: object) -> list[dict[str, object]]:
@@ -600,6 +848,17 @@ def _bundle_name(submission_id: str | None, experiment: str | None) -> str:
     base = submission_id or experiment or "results"
     safe = "".join(ch if ch.isalnum() or ch in {"-", "_"} else "_" for ch in base)
     return f"{safe}-results.tar.gz"
+
+
+def _truncate_log_text(text: str, *, max_chars: int = _MAX_ARCHIVED_LOG_CHARS) -> str:
+    if len(text) <= max_chars:
+        return text
+    keep = max_chars // 2
+    return (
+        text[:keep]
+        + "\n\n...[log truncated for archive size]...\n\n"
+        + text[-keep:]
+    )
 
 
 if __name__ == "__main__":
