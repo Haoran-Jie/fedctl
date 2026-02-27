@@ -20,8 +20,6 @@ def test_nomad_client_sets_headers_and_base_url() -> None:
         profile_name="p",
         endpoint="http://127.0.0.1:4646",
         namespace="ns",
-        access_mode="lan-only",
-        tailscale_subnet_cidr=None,
         nomad_token="tok",
     )
 
@@ -37,8 +35,6 @@ def test_status_leader_parses_string(monkeypatch) -> None:
         profile_name="p",
         endpoint="http://127.0.0.1:4646",
         namespace=None,
-        access_mode="lan-only",
-        tailscale_subnet_cidr=None,
         nomad_token=None,
     )
     client = NomadClient(cfg)
@@ -60,8 +56,6 @@ def test_alloc_logs_follow_flag(monkeypatch) -> None:
         profile_name="p",
         endpoint="http://127.0.0.1:4646",
         namespace=None,
-        access_mode="lan-only",
-        tailscale_subnet_cidr=None,
         nomad_token=None,
     )
     client = NomadClient(cfg)

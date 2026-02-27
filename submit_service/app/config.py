@@ -241,14 +241,27 @@ def _normalize_role(value: object) -> str:
 
 def _repo_config_data() -> dict[str, object] | None:
     path_raw = os.environ.get("SUBMIT_REPO_CONFIG", "").strip()
-    path = Path(path_raw) if path_raw else Path.cwd() / ".fedctl" / "fedctl.yaml"
-    if not path.exists():
-        return None
-    try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except Exception:
-        return None
-    return data if isinstance(data, dict) else None
+    if path_raw:
+        path = Path(path_raw).expanduser()
+        if not path.exists():
+            return None
+        try:
+            data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        except Exception:
+            return None
+        return data if isinstance(data, dict) else None
+
+    repo_dir = Path.cwd() / ".fedctl"
+    for path in (repo_dir / "fedctl_local.yaml", repo_dir / "fedctl.yaml"):
+        if not path.exists():
+            continue
+        try:
+            data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if isinstance(data, dict):
+            return data
+    return None
 
 
 def load_repo_config_data() -> dict[str, object]:

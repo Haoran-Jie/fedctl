@@ -35,8 +35,6 @@ def run_register(
         profile_name="register",
         endpoint=endpoint,
         namespace=None,
-        access_mode="lan-only",
-        tailscale_subnet_cidr=None,
         nomad_token=bootstrap_token,
     )
 
@@ -214,8 +212,6 @@ def _write_profile(name: str, endpoint: str, namespace: str, *, force: bool) -> 
     p = tomlkit.table()
     p["endpoint"] = endpoint
     p["namespace"] = namespace
-    p["access_mode"] = "lan-only"
-    p["tailscale"] = tomlkit.table()
     profiles[name] = p
     doc["active_profile"] = name
     save_raw_toml(doc)

@@ -15,6 +15,10 @@ uvicorn submit_service.app.main:app --reload --host 0.0.0.0 --port 8080
 
 Copy `submit_service/deployments/env.example` and set values for Nomad and auth.
 
+Repo-config lookup for submit-service:
+- If `SUBMIT_REPO_CONFIG` is set, that file is used.
+- Otherwise submit-service checks `.fedctl/fedctl_local.yaml` first, then `.fedctl/fedctl.yaml`.
+
 ## Deployment (systemd)
 
 1) Create a venv and install requirements on the host:

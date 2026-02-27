@@ -6,10 +6,8 @@ This document covers only `fedctl submit` commands and current implemented behav
 
 ## CLI Visibility
 
-- Default `fedctl --help` is submit-first and shows `submit` as the visible user surface.
-- Admin commands remain executable but are hidden from default help.
-- To display admin commands in help, set:
-  - `FEDCTL_SHOW_ADMIN_HELP=1 fedctl --help`
+- `fedctl --help` shows all commands.
+- `submit` is listed first in the command table.
 
 ## Scope
 
@@ -51,7 +49,6 @@ Core flags:
 - `--stream/--no-stream` (default: enabled)
 - `--verbose`
 - `--destroy/--no-destroy` (default: `--destroy`)
-- `--submit-node-class <class>`
 - `--submit-image <tag>`
 - `--artifact-store <url>`
 - `--priority <int>`

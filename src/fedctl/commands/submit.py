@@ -15,7 +15,11 @@ import httpx
 
 from fedctl.config.io import load_config
 from fedctl.config.merge import get_effective_config
-from fedctl.config.repo import load_repo_config, parse_submit_repo_config, get_image_registry
+from fedctl.config.repo import (
+    parse_submit_repo_config,
+    get_image_registry,
+    resolve_repo_config,
+)
 from fedctl.nomad.client import NomadClient
 from fedctl.nomad.errors import NomadConnectionError, NomadHTTPError, NomadTLSError
 from fedctl.project.errors import ProjectError
@@ -47,6 +51,7 @@ _ARCHIVE_SKIP_DIRS = {
     ".tox",
     ".ruff_cache",
 }
+_SUBMIT_NODE_CLASS = "submit"
 
 
 def _print_step(idx: int, total: int, title: str) -> None:
@@ -80,7 +85,6 @@ def run_submit(
     stream: bool,
     verbose: bool,
     destroy: bool,
-    submit_node_class: str | None,
     submit_image: str | None,
     artifact_store: str | None,
     priority: int | None,
@@ -101,15 +105,20 @@ def run_submit(
     exp_name = normalize_experiment_name(
         experiment or f"{project_name}-{_timestamp_compact()}"
     )
-    submit_client = _submit_service_client(repo_config=repo_config)
+    repo_resolution = resolve_repo_config(
+        repo_config=repo_config,
+        include_profile=True,
+        include_project_local=True,
+        project_root=project_path,
+    )
+    repo_cfg = repo_resolution.data
+    submit_client = _submit_service_client(repo_cfg=repo_cfg)
     submission_id = None
     if not submit_client:
         submission_id = f"submit-{exp_name}-{_timestamp_compact()}"
         _print_ok(f"Submission ID: {submission_id}")
 
-    repo_cfg = _load_repo_cfg(repo_config=repo_config)
     submit_cfg = parse_submit_repo_config(repo_cfg)
-    resolved_node_class = submit_node_class or submit_cfg.node_class or "submit"
     resolved_image = submit_image or submit_cfg.image
     resolved_artifact_store = artifact_store or submit_cfg.artifact_store
     if not resolved_image:
@@ -131,7 +140,7 @@ def run_submit(
             registry=registry,
         )
 
-    repo_cfg_path = _resolve_repo_cfg_path(repo_config=repo_config)
+    repo_cfg_path = repo_resolution.path
 
     _print_step(2, 4, "Package project")
     try:
@@ -170,7 +179,7 @@ def run_submit(
                     "experiment": exp_name,
                     "artifact_url": artifact_url,
                     "submit_image": resolved_image,
-                    "node_class": resolved_node_class,
+                    "node_class": _SUBMIT_NODE_CLASS,
                     "args": _runner_args(
                         project_dir_name=project_path.name,
                         exp_name=exp_name,
@@ -207,7 +216,7 @@ def run_submit(
     job = render_submit_job(
         SubmitJobSpec(
             job_name=submission_id or f"submit-{exp_name}-{_timestamp_compact()}",
-            node_class=resolved_node_class,
+            node_class=_SUBMIT_NODE_CLASS,
             image=resolved_image,
             artifact_url=artifact_url,
             namespace=eff.namespace or "default",
@@ -265,7 +274,7 @@ def run_submit(
         namespace=eff.namespace,
         artifact_url=artifact_url,
         submit_image=resolved_image,
-        node_class=resolved_node_class,
+        node_class=_SUBMIT_NODE_CLASS,
     )
     _print_ok(f"Submitted job: {submission_id}")
     console.print(f"[cyan]Next:[/cyan] fedctl submit status {submission_id}")
@@ -875,42 +884,22 @@ def _rewrite_local_endpoint(endpoint: str) -> str:
     return f"{scheme}://${{attr.unique.network.ip-address}}:{port}"
 
 
-def _load_repo_cfg(*, repo_config: str | None) -> dict[str, object]:
-    path = _resolve_repo_cfg_path(repo_config=repo_config)
-    if path:
-        return load_repo_config(config_path=path)
-    return {}
-
-
-def _resolve_repo_cfg_path(*, repo_config: str | None) -> Path | None:
-    if repo_config:
-        path = Path(repo_config).expanduser()
-        if not path.is_absolute():
-            path = (Path.cwd() / path).resolve()
-        if path.exists():
-            return path
-        return None
-    try:
-        cfg = load_config()
-        profile_cfg = cfg.profiles.get(cfg.active_profile)
-        if profile_cfg and profile_cfg.repo_config:
-            path = Path(profile_cfg.repo_config).expanduser()
-            if not path.is_absolute():
-                path = (Path.cwd() / path).resolve()
-            if path.exists():
-                return path
-    except Exception:
-        return None
-    return None
-
-
-def _submit_service_client(*, repo_config: str | None = None) -> SubmitServiceClient | None:
+def _submit_service_client(
+    *,
+    repo_cfg: dict[str, object] | None = None,
+    repo_config: str | None = None,
+) -> SubmitServiceClient | None:
     endpoint = os.environ.get("FEDCTL_SUBMIT_ENDPOINT")
     token = os.environ.get("FEDCTL_SUBMIT_TOKEN")
     user = os.environ.get("FEDCTL_SUBMIT_USER")
-    
-    repo_cfg = _load_repo_cfg(repo_config=repo_config)
-    submit_cfg = parse_submit_repo_config(repo_cfg)
+
+    if repo_cfg is None:
+        repo_cfg = resolve_repo_config(
+            repo_config=repo_config,
+            include_profile=True,
+        ).data
+
+    submit_cfg = parse_submit_repo_config(repo_cfg or {})
     if not endpoint:
         endpoint = submit_cfg.endpoint
     if not token:

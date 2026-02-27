@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
 
 from fedctl.config.io import load_config
-from fedctl.config.repo import load_repo_config, get_image_registry
+from fedctl.config.repo import get_image_registry, resolve_repo_config
 from fedctl.config.merge import get_effective_config
 from fedctl.build.errors import BuildError
 from fedctl.build.build import build_image, image_exists
@@ -30,6 +31,20 @@ from fedctl.project.errors import ProjectError
 from fedctl.project.flwr_inspect import inspect_flwr_project
 from fedctl.util.console import console
 from datetime import datetime, timezone
+
+
+@dataclass(frozen=True)
+class _RepoDeployConfig:
+    supernodes: dict[str, object]
+    supernode_resources: dict[str, object]
+    network_profiles: dict[str, object]
+    network_ingress_profiles: dict[str, object]
+    network_egress_profiles: dict[str, object]
+    network_default: str | None
+    network_scope: str | None
+    network_image: str | None
+    network_apply: dict[str, object]
+    allow_oversubscribe: object
 
 def run_deploy(
     *,
@@ -70,136 +85,22 @@ def run_deploy(
     if dry_run and not out:
         out = "rendered"
 
-    repo_cfg = {}
-    repo_deploy = {}
-    repo_supernodes = {}
-    repo_placement = {}
-    repo_resources = {}
-    repo_supernode_resources = {}
-    repo_network = {}
-    repo_network_profiles = {}
-    repo_network_ingress_profiles = {}
-    repo_network_egress_profiles = {}
-    repo_network_default = None
-    repo_network_scope = None
-    repo_network_image = None
-    repo_network_apply = {}
-    repo_allow_oversubscribe = None
-    if repo_config:
-        repo_cfg = load_repo_config(config_path=Path(repo_config))
-        repo_deploy = (
-            repo_cfg.get("deploy", {}) if isinstance(repo_cfg.get("deploy"), dict) else {}
-        )
-        repo_supernodes = (
-            repo_deploy.get("supernodes", {})
-            if isinstance(repo_deploy.get("supernodes"), dict)
-            else {}
-        )
-        repo_placement = (
-            repo_deploy.get("placement", {})
-            if isinstance(repo_deploy.get("placement"), dict)
-            else {}
-        )
-        repo_resources = (
-            repo_deploy.get("resources", {})
-            if isinstance(repo_deploy.get("resources"), dict)
-            else {}
-        )
-        repo_supernode_resources = (
-            repo_resources.get("supernode", {})
-            if isinstance(repo_resources.get("supernode"), dict)
-            else {}
-        )
-        repo_network = (
-            repo_deploy.get("network", {}) if isinstance(repo_deploy.get("network"), dict) else {}
-        )
-        repo_network_profiles = (
-            repo_network.get("profiles", {})
-            if isinstance(repo_network.get("profiles"), dict)
-            else {}
-        )
-        repo_network_ingress_profiles = (
-            repo_network.get("ingress_profiles", {})
-            if isinstance(repo_network.get("ingress_profiles"), dict)
-            else {}
-        )
-        repo_network_egress_profiles = (
-            repo_network.get("egress_profiles", {})
-            if isinstance(repo_network.get("egress_profiles"), dict)
-            else {}
-        )
-        repo_network_default = repo_network.get("default_profile")
-        repo_network_scope = repo_network.get("scope")
-        repo_network_image = repo_network.get("image")
-        repo_network_apply = (
-            repo_network.get("apply", {})
-            if isinstance(repo_network.get("apply"), dict)
-            else {}
-        )
-        repo_allow_oversubscribe = repo_placement.get("allow_oversubscribe")
-    else:
-        try:
-            cfg = load_config()
-            profile_name = profile or cfg.active_profile
-            profile_cfg = cfg.profiles.get(profile_name)
-            if profile_cfg and profile_cfg.repo_config:
-                repo_cfg = load_repo_config(config_path=Path(profile_cfg.repo_config))
-                repo_deploy = (
-                    repo_cfg.get("deploy", {})
-                    if isinstance(repo_cfg.get("deploy"), dict)
-                    else {}
-                )
-                repo_supernodes = (
-                    repo_deploy.get("supernodes", {})
-                    if isinstance(repo_deploy.get("supernodes"), dict)
-                    else {}
-                )
-                repo_placement = (
-                    repo_deploy.get("placement", {})
-                    if isinstance(repo_deploy.get("placement"), dict)
-                    else {}
-                )
-                repo_resources = (
-                    repo_deploy.get("resources", {})
-                    if isinstance(repo_deploy.get("resources"), dict)
-                    else {}
-                )
-                repo_supernode_resources = (
-                    repo_resources.get("supernode", {})
-                    if isinstance(repo_resources.get("supernode"), dict)
-                    else {}
-                )
-                repo_network = (
-                    repo_deploy.get("network", {})
-                    if isinstance(repo_deploy.get("network"), dict)
-                    else {}
-                )
-                repo_network_profiles = (
-                    repo_network.get("profiles", {})
-                    if isinstance(repo_network.get("profiles"), dict)
-                    else {}
-                )
-                repo_network_ingress_profiles = (
-                    repo_network.get("ingress_profiles", {})
-                    if isinstance(repo_network.get("ingress_profiles"), dict)
-                    else {}
-                )
-                repo_network_egress_profiles = (
-                    repo_network.get("egress_profiles", {})
-                    if isinstance(repo_network.get("egress_profiles"), dict)
-                    else {}
-                )
-                repo_network_default = repo_network.get("default_profile")
-                repo_network_scope = repo_network.get("scope")
-                repo_network_image = repo_network.get("image")
-                repo_network_apply = (
-                    repo_network.get("apply", {})
-                    if isinstance(repo_network.get("apply"), dict)
-                    else {}
-                )
-                repo_allow_oversubscribe = repo_placement.get("allow_oversubscribe")
-        except Exception:
-            pass
+    repo_cfg = resolve_repo_config(
+        repo_config=repo_config,
+        profile_name=profile,
+        include_profile=True,
+    ).data
+    repo_defaults = _repo_deploy_config(repo_cfg)
+    repo_supernodes = repo_defaults.supernodes
+    repo_supernode_resources = repo_defaults.supernode_resources
+    repo_network_profiles = repo_defaults.network_profiles
+    repo_network_ingress_profiles = repo_defaults.network_ingress_profiles
+    repo_network_egress_profiles = repo_defaults.network_egress_profiles
+    repo_network_default = repo_defaults.network_default
+    repo_network_scope = repo_defaults.network_scope
+    repo_network_image = repo_defaults.network_image
+    repo_network_apply = repo_defaults.network_apply
+    repo_allow_oversubscribe = repo_defaults.allow_oversubscribe
 
     supernodes = supernodes or []
     supernodes_by_type = None
@@ -327,54 +228,6 @@ def run_deploy(
         return 1
 
     exp_name = _resolve_experiment_name(experiment)
-    if not repo_config:
-        profile_cfg = cfg.profiles.get(eff.profile_name)
-        if profile_cfg and profile_cfg.repo_config:
-            repo_cfg = load_repo_config(config_path=Path(profile_cfg.repo_config))
-            repo_deploy = (
-                repo_cfg.get("deploy", {})
-                if isinstance(repo_cfg.get("deploy"), dict)
-                else {}
-            )
-            repo_supernodes = (
-                repo_deploy.get("supernodes", {})
-                if isinstance(repo_deploy.get("supernodes"), dict)
-                else {}
-            )
-            repo_placement = (
-                repo_deploy.get("placement", {})
-                if isinstance(repo_deploy.get("placement"), dict)
-                else {}
-            )
-            repo_resources = (
-                repo_deploy.get("resources", {})
-                if isinstance(repo_deploy.get("resources"), dict)
-                else {}
-            )
-            repo_supernode_resources = (
-                repo_resources.get("supernode", {})
-                if isinstance(repo_resources.get("supernode"), dict)
-                else {}
-            )
-            repo_network = (
-                repo_deploy.get("network", {})
-                if isinstance(repo_deploy.get("network"), dict)
-                else {}
-            )
-            repo_network_profiles = (
-                repo_network.get("profiles", {})
-                if isinstance(repo_network.get("profiles"), dict)
-                else {}
-            )
-            repo_network_default = repo_network.get("default_profile")
-            repo_network_scope = repo_network.get("scope")
-            repo_network_image = repo_network.get("image")
-            repo_network_apply = (
-                repo_network.get("apply", {})
-                if isinstance(repo_network.get("apply"), dict)
-                else {}
-            )
-            repo_allow_oversubscribe = repo_placement.get("allow_oversubscribe")
     client = NomadClient(eff)
     try:
         if not eff.nomad_token and client.acl_enabled():
@@ -546,15 +399,50 @@ def run_deploy(
         client.close()
 
 
+def _repo_deploy_config(repo_cfg: dict[str, object]) -> _RepoDeployConfig:
+    deploy = _as_dict(repo_cfg.get("deploy"))
+    supernodes = _as_dict(deploy.get("supernodes"))
+    placement = _as_dict(deploy.get("placement"))
+    resources = _as_dict(deploy.get("resources"))
+    supernode_resources = _as_dict(resources.get("supernode"))
+    network = _as_dict(deploy.get("network"))
+    network_profiles = _as_dict(network.get("profiles"))
+    network_ingress_profiles = _as_dict(network.get("ingress_profiles"))
+    network_egress_profiles = _as_dict(network.get("egress_profiles"))
+    network_apply = _as_dict(network.get("apply"))
+    return _RepoDeployConfig(
+        supernodes=supernodes,
+        supernode_resources=supernode_resources,
+        network_profiles=network_profiles,
+        network_ingress_profiles=network_ingress_profiles,
+        network_egress_profiles=network_egress_profiles,
+        network_default=_as_optional_str(network.get("default_profile")),
+        network_scope=_as_optional_str(network.get("scope")),
+        network_image=_as_optional_str(network.get("image")),
+        network_apply=network_apply,
+        allow_oversubscribe=placement.get("allow_oversubscribe"),
+    )
+
+
+def _as_dict(value: object) -> dict[str, object]:
+    return value if isinstance(value, dict) else {}
+
+
+def _as_optional_str(value: object) -> str | None:
+    if isinstance(value, str) and value:
+        return value
+    return None
+
+
 def _resolve_network_plan(
     *,
     net: list[str] | None,
     placements: list[SupernodePlacement] | None,
     supernodes_by_type: dict[str, int] | None,
     num_supernodes: int,
-    repo_network_profiles: dict[str, dict[str, float | int]],
-    repo_network_ingress_profiles: dict[str, dict[str, float | int]],
-    repo_network_egress_profiles: dict[str, dict[str, float | int]],
+    repo_network_profiles: dict[str, object],
+    repo_network_ingress_profiles: dict[str, object],
+    repo_network_egress_profiles: dict[str, object],
     repo_network_default: str | None,
     repo_network_scope: str | None,
 ) -> tuple[NetworkPlan | None, list[SupernodePlacement] | None]:
@@ -580,13 +468,20 @@ def _resolve_network_plan(
                 for idx in range(1, num_supernodes + 1)
             ]
 
+    profiles = {k: v for k, v in repo_network_profiles.items() if isinstance(v, dict)}
+    ingress_profiles = {
+        k: v for k, v in repo_network_ingress_profiles.items() if isinstance(v, dict)
+    }
+    egress_profiles = {
+        k: v for k, v in repo_network_egress_profiles.items() if isinstance(v, dict)
+    }
     plan = plan_network(
         assignments=assignments,
         placements=placements_for_network,
         default_profile=repo_network_default,
-        profiles=repo_network_profiles,
-        ingress_profiles=repo_network_ingress_profiles,
-        egress_profiles=repo_network_egress_profiles,
+        profiles=profiles,
+        ingress_profiles=ingress_profiles,
+        egress_profiles=egress_profiles,
         scope=repo_network_scope,
     )
     return plan, placements_for_network

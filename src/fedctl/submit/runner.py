@@ -734,8 +734,6 @@ def _nomad_client(
         profile_name="submit-runner",
         endpoint=endpoint,
         namespace=namespace,
-        access_mode="lan-only",
-        tailscale_subnet_cidr=None,
         nomad_token=token,
     )
     return NomadClient(cfg)

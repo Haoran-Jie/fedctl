@@ -1,26 +1,21 @@
 """CLI entrypoint for fedctl."""
 
-import os
 import typer
 from pathlib import Path
-import tomlkit
 from rich import print
 from rich.table import Table
+from typer.core import TyperGroup
 
 from fedctl.commands.address import run_address
 from fedctl.commands.build import run_build
 from fedctl.commands.configure import run_configure
 from fedctl.commands.run import run_run
 from fedctl.commands.destroy import run_destroy
-from fedctl.commands.status import run_status
 from fedctl.commands.register import run_register
 from fedctl.commands.deploy import run_deploy
-from fedctl.commands.discover import run_discover
-from fedctl.commands.doctor import run_doctor
 from fedctl.commands.inspect import run_inspect
 from fedctl.commands.local import run_local_down, run_local_status, run_local_up
 from fedctl.commands.logs import run_logs
-from fedctl.commands.ping import run_ping
 from fedctl.commands.submit import (
     run_submit,
     run_submit_cancel,
@@ -34,28 +29,35 @@ from fedctl.commands.submit import (
 from fedctl.config.io import load_config, load_raw_toml, save_raw_toml
 from fedctl.config.merge import get_effective_config
 
-app = typer.Typer(add_completion=False, help="fedctl CLI")
+class OrderedHelpTyperGroup(TyperGroup):
+    HELP_COMMAND_ORDER = (
+        "submit",
+        "destroy",
+        "local",
+        "profile",
+        "run",
+        "build",
+        "deploy",
+    )
 
-_SHOW_ADMIN_HELP = os.getenv("FEDCTL_SHOW_ADMIN_HELP", "").lower() in {
-    "1",
-    "true",
-    "yes",
-    "on",
-}
+    def list_commands(self, ctx):
+        commands = list(super().list_commands(ctx))
+        order = {name: idx for idx, name in enumerate(self.HELP_COMMAND_ORDER)}
+        commands.sort(key=lambda name: order.get(name, len(order)))
+        return commands
 
 
-def _admin_hidden() -> bool:
-    return not _SHOW_ADMIN_HELP
+app = typer.Typer(add_completion=False, help="fedctl CLI", cls=OrderedHelpTyperGroup)
 
 
 config_app = typer.Typer(help="Manage fedctl configuration")
 profile_app = typer.Typer(help="Manage profiles")
 local_app = typer.Typer(help="Local Nomad harness")
 submit_app = typer.Typer(help="Submit jobs to Nomad")
-app.add_typer(config_app, name="config", hidden=_admin_hidden())
-app.add_typer(profile_app, name="profile", hidden=_admin_hidden())
-app.add_typer(local_app, name="local", hidden=_admin_hidden())
 app.add_typer(submit_app, name="submit")
+app.add_typer(config_app, name="config", hidden=True)
+app.add_typer(profile_app, name="profile")
+app.add_typer(local_app, name="local")
 
 
 @app.callback(invoke_without_command=True)
@@ -76,21 +78,19 @@ def config_show() -> None:
     table.add_column("Value")
     table.add_row("endpoint", eff.endpoint)
     table.add_row("namespace", str(eff.namespace))
-    table.add_row("access_mode", eff.access_mode)
-    table.add_row("tailscale.subnet_cidr", str(eff.tailscale_subnet_cidr))
     table.add_row("nomad_token", "set" if eff.nomad_token else "missing")
     print(table)
 
 
 @profile_app.command("ls")
 def profile_ls() -> None:
+    """List available profiles and mark the active one."""
     cfg = load_config()
     table = Table(title="Profiles")
     table.add_column("Name")
     table.add_column("Endpoint")
     table.add_column("Namespace")
     table.add_column("Repo config")
-    table.add_column("Access mode")
     for name, p in cfg.profiles.items():
         marker = "*" if name == cfg.active_profile else ""
         repo_cfg = _format_repo_config(p.repo_config)
@@ -99,13 +99,13 @@ def profile_ls() -> None:
             p.endpoint,
             str(p.namespace),
             repo_cfg,
-            p.access_mode,
         )
     print(table)
 
 
 @profile_app.command("use")
 def profile_use(name: str) -> None:
+    """Set the active profile."""
     doc = load_raw_toml()
     profiles = doc.get("profiles", {})
     if name not in profiles:
@@ -121,9 +121,8 @@ def profile_add(
     endpoint: str = typer.Option(..., "--endpoint"),
     namespace: str = typer.Option(None, "--namespace"),
     repo_config: str = typer.Option(None, "--repo-config"),
-    access_mode: str = typer.Option("lan-only", "--access-mode"),
-    tailscale_subnet_cidr: str = typer.Option(None, "--tailscale-subnet-cidr"),
 ) -> None:
+    """Create a new profile."""
     doc = load_raw_toml()
     if "profiles" not in doc:
         doc["profiles"] = {}
@@ -132,16 +131,12 @@ def profile_add(
 
     p = {
         "endpoint": endpoint,
-        "access_mode": access_mode,
-        "tailscale": {},
     }
 
     if namespace is not None:
         p["namespace"] = namespace
     if repo_config is not None:
         p["repo_config"] = str(Path(repo_config).expanduser().resolve())
-    if tailscale_subnet_cidr is not None:
-        p["tailscale"]["subnet_cidr"] = tailscale_subnet_cidr
 
     doc["profiles"][name] = p
     save_raw_toml(doc)
@@ -154,12 +149,10 @@ def profile_set(
     endpoint: str | None = typer.Option(None, "--endpoint"),
     namespace: str | None = typer.Option(None, "--namespace"),
     repo_config: str | None = typer.Option(None, "--repo-config"),
-    access_mode: str | None = typer.Option(None, "--access-mode"),
-    tailscale_subnet_cidr: str | None = typer.Option(None, "--tailscale-subnet-cidr"),
     clear_namespace: bool = typer.Option(False, "--clear-namespace"),
     clear_repo_config: bool = typer.Option(False, "--clear-repo-config"),
-    clear_tailscale_subnet: bool = typer.Option(False, "--clear-tailscale-subnet"),
 ) -> None:
+    """Update an existing profile."""
     doc = load_raw_toml()
     profiles = doc.get("profiles", {})
     if name not in profiles:
@@ -168,8 +161,6 @@ def profile_set(
     p = profiles[name]
     if endpoint is not None:
         p["endpoint"] = endpoint
-    if access_mode is not None:
-        p["access_mode"] = access_mode
 
     if clear_namespace:
         p.pop("namespace", None)
@@ -180,14 +171,6 @@ def profile_set(
         p.pop("repo_config", None)
     elif repo_config is not None:
         p["repo_config"] = str(Path(repo_config).expanduser().resolve())
-
-    if "tailscale" not in p:
-        p["tailscale"] = tomlkit.table()
-    ts = p["tailscale"]
-    if clear_tailscale_subnet:
-        ts.pop("subnet_cidr", None)
-    elif tailscale_subnet_cidr is not None:
-        ts["subnet_cidr"] = tailscale_subnet_cidr
 
     save_raw_toml(doc)
     print(f"Updated profile: [bold]{name}[/bold]")
@@ -226,7 +209,6 @@ def submit_run(
     stream: bool = typer.Option(True, "--stream/--no-stream"),
     verbose: bool = typer.Option(False, "--verbose"),
     destroy: bool = typer.Option(True, "--destroy/--no-destroy"),
-    submit_node_class: str | None = typer.Option(None, "--submit-node-class"),
     submit_image: str | None = typer.Option(None, "--submit-image"),
     artifact_store: str | None = typer.Option(None, "--artifact-store"),
     priority: int | None = typer.Option(None, "--priority"),
@@ -253,7 +235,6 @@ def submit_run(
             stream=stream,
             verbose=verbose,
             destroy=destroy,
-            submit_node_class=submit_node_class,
             submit_image=submit_image,
             artifact_store=artifact_store,
             priority=priority,
@@ -413,6 +394,7 @@ def _truncate_path(value: str, max_len: int = 48) -> str:
 
 @profile_app.command("rm")
 def profile_rm(name: str) -> None:
+    """Remove a profile (cannot remove the active profile)."""
     doc = load_raw_toml()
     profiles = doc.get("profiles", {})
     if name not in profiles:
@@ -426,63 +408,7 @@ def profile_rm(name: str) -> None:
     print(f"Removed profile: [bold]{name}[/bold]")
 
 
-@app.command(hidden=_admin_hidden())
-def doctor(
-    profile: str = typer.Option(None, "--profile"),
-    endpoint: str = typer.Option(None, "--endpoint"),
-    namespace: str = typer.Option(None, "--namespace"),
-    token: str = typer.Option(None, "--token"),
-) -> None:
-    """Check connectivity/auth/TLS to Nomad."""
-    raise SystemExit(
-        run_doctor(
-            profile=profile,
-            endpoint=endpoint,
-            namespace=namespace,
-            token=token,
-        )
-    )
-
-
-@app.command(hidden=_admin_hidden())
-def ping(
-    profile: str = typer.Option(None, "--profile"),
-    endpoint: str = typer.Option(None, "--endpoint"),
-    namespace: str = typer.Option(None, "--namespace"),
-    token: str = typer.Option(None, "--token"),
-) -> None:
-    """Quick connectivity check to Nomad (/v1/status/leader)."""
-    raise SystemExit(
-        run_ping(
-            profile=profile,
-            endpoint=endpoint,
-            namespace=namespace,
-            token=token,
-        )
-    )
-
-
-@app.command(hidden=_admin_hidden())
-def discover(
-    wide: bool = typer.Option(False, "--wide"),
-    json_output: bool = typer.Option(False, "--json"),
-    device: str = typer.Option(None, "--device"),
-    status: str = typer.Option(None, "--status"),
-    node_class: str = typer.Option(None, "--class"),
-) -> None:
-    """List Nomad nodes and their labels."""
-    raise SystemExit(
-        run_discover(
-            wide=wide,
-            json_output=json_output,
-            device=device,
-            status=status,
-            node_class=node_class,
-        )
-    )
-
-
-@app.command(hidden=_admin_hidden())
+@app.command()
 def deploy(
     dry_run: bool = typer.Option(False, "--dry-run"),
     out: str | None = typer.Option(None, "--out"),
@@ -518,7 +444,7 @@ def deploy(
     )
 
 
-@app.command(hidden=_admin_hidden())
+@app.command()
 def build(
     path: str = typer.Argument(".", help="Path to a Flower project (dir or pyproject.toml)."),
     flwr_version: str = typer.Option("1.25.0", "--flwr-version"),
@@ -544,7 +470,7 @@ def build(
     )
 
 
-@app.command(hidden=_admin_hidden())
+@app.command(hidden=True)
 def address(
     exp: str | None = typer.Option(None, "--exp"),
     format: str = typer.Option("plain", "--format"),
@@ -558,7 +484,7 @@ def address(
     )
 
 
-@app.command(hidden=_admin_hidden())
+@app.command(hidden=True)
 def configure(
     path: str = typer.Argument(".", help="Path to a Flower project (dir or pyproject.toml)."),
     exp: str | None = typer.Option(None, "--exp"),
@@ -574,7 +500,7 @@ def configure(
     )
 
 
-@app.command(hidden=_admin_hidden())
+@app.command()
 def run(
     path: str = typer.Argument(".", help="Path to a Flower project (dir or pyproject.toml)."),
     flwr_version: str = typer.Option("1.25.0", "--flwr-version"),
@@ -626,7 +552,7 @@ def run(
     )
 
 
-@app.command(hidden=_admin_hidden())
+@app.command()
 def destroy(
     exp: str | None = typer.Argument(None, help="Experiment name."),
     purge: bool = typer.Option(False, "--purge"),
@@ -650,21 +576,7 @@ def destroy(
     )
 
 
-@app.command(hidden=_admin_hidden())
-def status(
-    exp: str | None = typer.Argument(None, help="Experiment name."),
-    all: bool = typer.Option(False, "--all"),
-) -> None:
-    """Show allocation status for an experiment."""
-    raise SystemExit(
-        run_status(
-            experiment=exp,
-            show_all=all,
-        )
-    )
-
-
-@app.command(hidden=_admin_hidden())
+@app.command(hidden=True)
 def logs(
     exp: str | None = typer.Argument(None, help="Experiment name."),
     component: str = typer.Option("all", "--component"),
@@ -680,7 +592,7 @@ def logs(
     )
 
 
-@app.command(hidden=_admin_hidden())
+@app.command(hidden=True)
 def register(
     username: str = typer.Argument(..., help="Username (also namespace by default)."),
     endpoint: str = typer.Option(..., "--endpoint"),
@@ -704,7 +616,7 @@ def register(
     )
 
 
-@app.command(hidden=_admin_hidden())
+@app.command(hidden=True)
 def inspect(
     path: str = typer.Argument(".", help="Path to a Flower project (dir or pyproject.toml).")
 ) -> None:

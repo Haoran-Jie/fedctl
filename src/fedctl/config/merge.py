@@ -32,7 +32,5 @@ def get_effective_config(
         profile_name=name,
         endpoint=eff_endpoint,
         namespace=eff_namespace,
-        access_mode=p.access_mode,
-        tailscale_subnet_cidr=p.tailscale.subnet_cidr,
         nomad_token=eff_token,
     )

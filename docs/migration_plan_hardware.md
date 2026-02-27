@@ -941,8 +941,7 @@ dig +short vw8d5a0.glddns.com
 
 **Deliverables:**
 - `fedctl submit ls` works from laptop.
-- Operator note: default `fedctl --help` is submit-first. To show admin commands in help, run:
-  - `FEDCTL_SHOW_ADMIN_HELP=1 fedctl --help`
+- Operator note: `fedctl --help` shows all commands, with `submit` listed first.
 
 **Phase 6 Log (what we actually did)**
 - Updated laptop repo config in `.fedctl/fedctl.yaml`:

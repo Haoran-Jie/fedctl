@@ -12,3 +12,4 @@ rendered/
 .fedctl/
 results/
 submit_service/state/*.db
+refs/

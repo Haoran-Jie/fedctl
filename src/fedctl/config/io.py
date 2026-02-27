@@ -6,7 +6,7 @@ from typing import Dict
 import tomlkit
 
 from .paths import config_path, repo_default_config_path
-from .schema import FedctlConfig, ProfileConfig, TailscaleConfig
+from .schema import FedctlConfig, ProfileConfig
 
 _DEFAULT_REPO_CONFIG_TEXT = """# Default fedctl repo config.
 # Project-local .fedctl/fedctl.yaml takes precedence over this file.
@@ -37,7 +37,6 @@ deploy:
       high: { delay_ms: 120, jitter_ms: 25, loss_pct: 2.5, rate_mbit: 20, rate_latency_ms: 50, rate_burst_kbit: 256 }
 
 submit:
-  node_class: submit
   image: "192.168.8.101:5000/fedctl-submit:latest"
   artifact_store: "s3+presign://fedctl-submits/fedctl-submits"
   endpoint: "http://10.100.2.142:8080"
@@ -69,12 +68,7 @@ def ensure_config_exists() -> Path:
 
         default_tbl = tomlkit.table()
         default_tbl["endpoint"] = "http://127.0.0.1:4646"
-        default_tbl["access_mode"] = "lan-only"
         default_tbl["repo_config"] = str(default_repo_cfg)
-
-        # Optional nested section can exist but should not contain None
-        ts = tomlkit.table()
-        default_tbl["tailscale"] = ts
 
         profiles["default"] = default_tbl
         cfg_path.write_text(tomlkit.dumps(doc))
@@ -118,14 +112,10 @@ def load_config() -> FedctlConfig:
 
     profiles: Dict[str, ProfileConfig] = {}
     for name, p in profiles_tbl.items():
-        ts_tbl = p.get("tailscale", {}) if hasattr(p, "get") else {}
-        tailscale = TailscaleConfig(subnet_cidr=ts_tbl.get("subnet_cidr"))
         profiles[name] = ProfileConfig(
             endpoint=str(p["endpoint"]),
             namespace=p.get("namespace"),
             repo_config=p.get("repo_config"),
-            access_mode=p.get("access_mode", "lan-only"),
-            tailscale=tailscale,
         )
 
     return FedctlConfig(active_profile=active, profiles=profiles)

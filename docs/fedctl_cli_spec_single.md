@@ -8,14 +8,8 @@ This spec reflects the **implemented** CLI and behavior as of today.
 
 ## Help Visibility
 
-- Default help is submit-first:
-  - `fedctl --help`
-- Admin commands are hidden from default help but still runnable.
-- To include admin commands in help when needed:
-
-```bash
-FEDCTL_SHOW_ADMIN_HELP=1 fedctl --help
-```
+- `fedctl --help` shows all commands.
+- `submit` is listed first in the command table.
 
 ---
 
@@ -49,12 +43,6 @@ fedctl run . --exp exp1 --namespace alice
 - Env overrides: `FEDCTL_PROFILE`, `FEDCTL_ENDPOINT`, `FEDCTL_NAMESPACE`, `NOMAD_TOKEN`
 - Most Nomad commands accept: `--profile`, `--endpoint`, `--namespace`, `--token`
 - ACLs: a token is required only if Nomad ACLs are enabled.
-
-Access modes (profile `access_mode`):
-- `lan-only` (default)
-- `tailscale-mesh`
-- `tailscale-subnet` (use `tailscale.subnet_cidr`)
-- `ssh-tunnel`
 
 ---
 
@@ -103,14 +91,10 @@ Flags:
 - `--endpoint <url>`: Nomad API endpoint stored in the profile. Required.
 - `--namespace <name>`: Default namespace for this profile.
 - `--repo-config <path>`: Default repo config path stored in the profile.
-- `--access-mode <lan-only|tailscale-mesh|tailscale-subnet|ssh-tunnel>`: Connectivity mode hints (affects warnings/help text). Default `lan-only`.
-- `--tailscale-subnet-cidr <cidr>`: Subnet route to use when `access_mode=tailscale-subnet`.
 
 Examples:
 ```bash
 fedctl profile add lab --endpoint https://nomad.lab:4646 --namespace alice
-fedctl profile add lab --endpoint https://nomad.lab:4646 --access-mode tailscale-subnet \
-  --tailscale-subnet-cidr 100.64.0.0/10
 ```
 
 ---
@@ -122,12 +106,8 @@ Flags:
 - `--endpoint <url>`: Update the profile endpoint.
 - `--namespace <name>`: Update the default namespace.
 - `--repo-config <path>`: Update the stored repo config path.
-- `--access-mode <lan-only|tailscale-mesh|tailscale-subnet|ssh-tunnel>`: Update connectivity mode hints.
-- `--tailscale-subnet-cidr <cidr>`: Update tailscale subnet route.
 - `--clear-namespace`: Remove the namespace from the profile.
 - `--clear-repo-config`: Remove the repo config path.
-- `--clear-tls-ca`: Remove the custom CA path.
-- `--clear-tailscale-subnet`: Remove the tailscale subnet route.
 
 Examples:
 ```bash
@@ -146,62 +126,6 @@ Flags: none
 Example:
 ```bash
 fedctl profile rm oldlab
-```
-
----
-
-### `fedctl doctor`
-Check config resolution and Nomad connectivity.
-
-Flags:
-- `--profile <name>`: Use a specific profile instead of the active one.
-- `--endpoint <url>`: Override Nomad endpoint for this call.
-- `--namespace <name>`: Override namespace for this call.
-- `--token <token>`: Override NOMAD token for this call.
-
-Example:
-```bash
-fedctl doctor --profile lab
-```
-
----
-
-### `fedctl ping`
-Quick connectivity check to Nomad (`/v1/status/leader`).
-
-Flags:
-- `--profile <name>`: Use a specific profile instead of the active one.
-- `--endpoint <url>`: Override Nomad endpoint for this call.
-- `--namespace <name>`: Override namespace for this call.
-- `--token <token>`: Override NOMAD token for this call.
-
-Example:
-```bash
-fedctl ping --endpoint https://nomad.lab:4646
-```
-
----
-
-### `fedctl discover`
-List Nomad nodes and extracted device metadata.
-
-Flags:
-- `--profile <name>`: Use a specific profile instead of the active one.
-- `--endpoint <url>`: Override Nomad endpoint for this call.
-- `--namespace <name>`: Override namespace for this call.
-- `--token <token>`: Override NOMAD token for this call.
-- `--wide`: Add extra columns (arch, OS, node ID).
-- `--json`: Print raw Nomad node JSON instead of a table.
-- `--device <device>`: Filter by node device label (from metadata).
-- `--status <status>`: Filter by node status (e.g., `ready`).
-- `--class <node_class>`: Filter by Nomad node class.
-
-Examples:
-```bash
-fedctl discover
-fedctl discover --wide --status ready
-fedctl discover --device rpi --class edge
-fedctl discover --json
 ```
 
 ---
@@ -231,7 +155,6 @@ Flags:
 - `--stream / --no-stream`: Stream `flwr run` logs. Default enabled.
 - `--verbose`: Show full build output.
 - `--destroy / --no-destroy`: Destroy Nomad jobs after run. Default `--destroy`.
-- `--submit-node-class <name>`: Override submit node class.
 - `--submit-image <image>`: Override submit runner image.
 - `--artifact-store <url>`: Override artifact store (e.g., `s3+presign://...`).
 - `--priority <n>`: Queue priority (submit service).
@@ -486,27 +409,6 @@ fedctl run . --federation remote-deployment --no-stream
 
 Notes:
 - `--net` requires `deploy.network.image` in `.fedctl/fedctl.yaml` and Nomad tasks must allow `NET_ADMIN`.
-
----
-
-### `fedctl status [EXP]`
-Show allocation status for an experiment.
-
-Flags:
-- `--all`: Ignore `EXP` and show all experiments.
-- `--namespace <name>`: Override namespace for this call.
-- `--profile <name>`: Use a specific profile instead of the active one.
-- `--endpoint <url>`: Override Nomad endpoint for this call.
-- `--token <token>`: Override NOMAD token for this call.
-
-Examples:
-```bash
-fedctl status exp1 --namespace alice
-fedctl status --all --namespace alice
-```
-
-Notes:
-- When a deployment manifest exists, `fedctl status` also prints a per-SuperNode table with node ID and net profile.
 
 ---
 

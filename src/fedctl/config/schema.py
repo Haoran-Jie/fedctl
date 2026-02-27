@@ -1,14 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, Optional, Literal
-
-AccessMode = Literal["tailscale-subnet", "tailscale-mesh", "lan-only", "ssh-tunnel"]
-
-
-@dataclass
-class TailscaleConfig:
-    subnet_cidr: Optional[str] = None
+from typing import Dict, Optional
 
 
 @dataclass
@@ -16,8 +9,6 @@ class ProfileConfig:
     endpoint: str
     namespace: Optional[str] = None
     repo_config: Optional[str] = None
-    access_mode: AccessMode = "lan-only"
-    tailscale: TailscaleConfig = field(default_factory=TailscaleConfig)
 
 
 @dataclass
@@ -31,6 +22,4 @@ class EffectiveConfig:
     profile_name: str
     endpoint: str
     namespace: Optional[str]
-    access_mode: AccessMode
-    tailscale_subnet_cidr: Optional[str]
     nomad_token: Optional[str]

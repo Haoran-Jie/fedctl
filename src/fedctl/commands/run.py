@@ -18,6 +18,7 @@ from fedctl.project.flwr_inspect import inspect_flwr_project
 from fedctl.build.state import load_project_build
 from fedctl.build.build import image_exists, pull_image
 from fedctl.build.errors import BuildError
+from fedctl.config.repo import resolve_repo_config_path
 from fedctl.util.console import console
 
 
@@ -221,7 +222,8 @@ def _timestamp_compact() -> str:
 def _resolve_run_repo_config(*, repo_config: str | None, project_root: Path) -> str | None:
     if repo_config:
         return repo_config
-    candidate = project_root / ".fedctl" / "fedctl.yaml"
-    if candidate.exists():
-        return str(candidate)
-    return None
+    path = resolve_repo_config_path(
+        project_root=project_root,
+        include_project_local=True,
+    )
+    return str(path) if path else None
