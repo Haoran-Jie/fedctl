@@ -1,5 +1,6 @@
 """CLI entrypoint for fedctl."""
 
+from importlib import metadata as importlib_metadata
 import typer
 from pathlib import Path
 from rich import print
@@ -60,9 +61,38 @@ app.add_typer(profile_app, name="profile")
 app.add_typer(local_app, name="local")
 
 
+def _fedctl_version() -> str:
+    try:
+        return importlib_metadata.version("fedctl")
+    except importlib_metadata.PackageNotFoundError:
+        try:
+            from fedctl import __version__
+
+            return __version__
+        except Exception:
+            return "unknown"
+
+
+def _version_callback(value: bool) -> None:
+    if not value:
+        return
+    typer.echo(_fedctl_version())
+    raise typer.Exit()
+
+
 @app.callback(invoke_without_command=True)
-def main(ctx: typer.Context) -> None:
+def main(
+    ctx: typer.Context,
+    version: bool = typer.Option(
+        False,
+        "--version",
+        callback=_version_callback,
+        is_eager=True,
+        help="Show fedctl version and exit.",
+    ),
+) -> None:
     """Entry point for the CLI."""
+    _ = version
     if ctx.invoked_subcommand is None:
         typer.echo(ctx.get_help())
         raise typer.Exit()

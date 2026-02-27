@@ -11,11 +11,22 @@ class ArtifactUploadError(RuntimeError):
     pass
 
 
-def upload_artifact(archive_path: Path, artifact_store: str) -> str:
+def upload_artifact(
+    archive_path: Path,
+    artifact_store: str,
+    *,
+    presign_endpoint: str | None = None,
+    presign_token: str | None = None,
+) -> str:
     if artifact_store.startswith(("http://", "https://")):
         return _upload_http(archive_path, artifact_store)
     if artifact_store.startswith("s3+presign://"):
-        return _upload_s3_presign(archive_path, artifact_store)
+        return _upload_s3_presign(
+            archive_path,
+            artifact_store,
+            presign_endpoint=presign_endpoint,
+            presign_token=presign_token,
+        )
     if artifact_store.startswith("s3://"):
         return _upload_s3(archive_path, artifact_store)
     raise ArtifactUploadError("Unsupported artifact_store; use http(s) or s3.")
@@ -63,21 +74,32 @@ def _upload_s3(archive_path: Path, s3_url: str) -> str:
     return _s3_getter_url(bucket, key, endpoint)
 
 
-def _upload_s3_presign(archive_path: Path, s3_url: str) -> str:
+def _upload_s3_presign(
+    archive_path: Path,
+    s3_url: str,
+    *,
+    presign_endpoint: str | None = None,
+    presign_token: str | None = None,
+) -> str:
     parsed = urlparse(s3_url)
     bucket = parsed.netloc
     if not bucket:
         raise ArtifactUploadError("S3 URL must include a bucket (s3://bucket/prefix).")
     prefix = parsed.path.lstrip("/")
     key = f"{prefix}/{archive_path.name}" if prefix else archive_path.name
-    presign_endpoint = os.environ.get("FEDCTL_PRESIGN_ENDPOINT")
+    if presign_endpoint is None:
+        presign_endpoint = os.environ.get("FEDCTL_PRESIGN_ENDPOINT")
     if not presign_endpoint:
         submit_service = os.environ.get("SUBMIT_SERVICE_ENDPOINT", "").strip()
         if submit_service:
             presign_endpoint = submit_service.rstrip("/") + "/v1/presign"
     if presign_endpoint:
         return _upload_via_presign_service(
-            archive_path, presign_endpoint, bucket=bucket, key=key
+            archive_path,
+            presign_endpoint,
+            bucket=bucket,
+            key=key,
+            token=presign_token,
         )
     try:
         import boto3
@@ -111,9 +133,11 @@ def _upload_via_presign_service(
     *,
     bucket: str,
     key: str,
+    token: str | None = None,
 ) -> str:
     headers: dict[str, str] = {}
-    token = os.environ.get("SUBMIT_SERVICE_TOKEN")
+    if token is None:
+        token = os.environ.get("SUBMIT_SERVICE_TOKEN")
     if token:
         headers["Authorization"] = f"Bearer {token}"
     expires = int(os.environ.get("FEDCTL_PRESIGN_TTL", "1800"))

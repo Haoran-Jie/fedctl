@@ -121,6 +121,10 @@ def run_submit(
     submit_cfg = parse_submit_repo_config(repo_cfg)
     resolved_image = submit_image or submit_cfg.image
     resolved_artifact_store = artifact_store or submit_cfg.artifact_store
+    presign_endpoint = (
+        submit_client.endpoint.rstrip("/") + "/v1/presign" if submit_client else None
+    )
+    presign_token = submit_client.token if submit_client else submit_cfg.token
     if not resolved_image:
         console.print("[red]✗ Missing submit image.[/red] Use --submit-image or repo config.")
         return 1
@@ -156,7 +160,12 @@ def run_submit(
 
     _print_step(3, 4, "Upload artifact")
     try:
-        artifact_url = upload_artifact(archive_path, resolved_artifact_store)
+        artifact_url = upload_artifact(
+            archive_path,
+            resolved_artifact_store,
+            presign_endpoint=presign_endpoint,
+            presign_token=presign_token,
+        )
     except ArtifactUploadError as exc:
         console.print(f"[red]✗ Artifact upload error:[/red] {exc}")
         return 1
