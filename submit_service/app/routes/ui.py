@@ -33,21 +33,21 @@ _LOG_JOBS = [
 ]
 
 
-@router.get("/", response_class=HTMLResponse)
+@router.get("/", response_class=HTMLResponse, response_model=None)
 def home(request: Request) -> RedirectResponse:
     if current_ui_principal(request) is None:
         return RedirectResponse(url="/ui/login", status_code=303)
     return RedirectResponse(url="/ui/submissions", status_code=303)
 
 
-@router.get("/ui/login", response_class=HTMLResponse)
+@router.get("/ui/login", response_class=HTMLResponse, response_model=None)
 def login_page(request: Request) -> HTMLResponse | RedirectResponse:
     if current_ui_principal(request) is not None:
         return RedirectResponse(url="/ui/submissions", status_code=303)
     return _render(request, "login.html", {"error": None})
 
 
-@router.post("/ui/login", response_class=HTMLResponse)
+@router.post("/ui/login", response_class=HTMLResponse, response_model=None)
 def login_submit(request: Request, token: str = Form(...)) -> HTMLResponse | RedirectResponse:
     cfg: SubmitConfig = request.app.state.cfg
     try:
@@ -62,13 +62,13 @@ def login_submit(request: Request, token: str = Form(...)) -> HTMLResponse | Red
     return RedirectResponse(url="/ui/submissions", status_code=303)
 
 
-@router.post("/ui/logout")
+@router.post("/ui/logout", response_model=None)
 def logout_submit(request: Request) -> RedirectResponse:
     logout(request)
     return RedirectResponse(url="/ui/login", status_code=303)
 
 
-@router.get("/ui/submissions", response_class=HTMLResponse)
+@router.get("/ui/submissions", response_class=HTMLResponse, response_model=None)
 def submissions_page(
     request: Request,
     status: str = Query("active"),
@@ -93,7 +93,7 @@ def submissions_page(
     )
 
 
-@router.get("/ui/submissions/{submission_id}", response_class=HTMLResponse)
+@router.get("/ui/submissions/{submission_id}", response_class=HTMLResponse, response_model=None)
 def submission_detail_page(
     submission_id: str,
     request: Request,
@@ -131,7 +131,7 @@ def submission_detail_page(
     )
 
 
-@router.post("/ui/submissions/{submission_id}/cancel")
+@router.post("/ui/submissions/{submission_id}/cancel", response_model=None)
 def submission_cancel(
     submission_id: str,
     request: Request,
@@ -148,7 +148,7 @@ def submission_cancel(
     return RedirectResponse(url=f"/ui/submissions/{submission_id}", status_code=303)
 
 
-@router.get("/ui/submissions/{submission_id}/logs", response_class=HTMLResponse)
+@router.get("/ui/submissions/{submission_id}/logs", response_class=HTMLResponse, response_model=None)
 def submission_logs_panel(
     submission_id: str,
     request: Request,
@@ -190,7 +190,7 @@ def submission_logs_panel(
     )
 
 
-@router.get("/ui/nodes", response_class=HTMLResponse)
+@router.get("/ui/nodes", response_class=HTMLResponse, response_model=None)
 def nodes_page(
     request: Request,
     status: str | None = Query(None),
