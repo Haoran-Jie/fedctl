@@ -130,6 +130,7 @@ class Dispatcher:
                 )
             dispatch_submission(self._storage, submission, self._cfg)
         self._reconcile_running()
+        self._purge_completed_jobs()
 
     def _reconcile_running(self) -> None:
         if not self._cfg.nomad_endpoint:
@@ -169,6 +170,51 @@ class Dispatcher:
                     finished_at=utcnow(),
                     error_message=f"Nomad allocation {status}",
                 )
+
+    def _purge_completed_jobs(self) -> None:
+        delay_s = max(0, int(self._cfg.autopurge_completed_after_s))
+        if delay_s <= 0 or not self._cfg.nomad_endpoint:
+            return
+        now = utcnow()
+        completed = self._storage.list_submissions(limit=200, statuses=["completed"])
+        for submission in completed:
+            nomad_job_id = submission.get("nomad_job_id")
+            if not isinstance(nomad_job_id, str) or not nomad_job_id:
+                continue
+            finished_at = _parse_dt(submission.get("finished_at"))
+            if finished_at is None:
+                continue
+            age_s = (now - finished_at).total_seconds()
+            if age_s < delay_s:
+                continue
+            client = NomadClient(
+                self._cfg.nomad_endpoint,
+                token=self._cfg.nomad_token,
+                namespace=submission.get("namespace") or self._cfg.nomad_namespace,
+                tls_ca=self._cfg.nomad_tls_ca,
+                tls_skip_verify=self._cfg.nomad_tls_skip_verify,
+            )
+            try:
+                client.stop_job(nomad_job_id, purge=True)
+            except NomadError as exc:
+                logger.warning(
+                    "completed job purge failed: submission=%s job=%s err=%s",
+                    submission.get("id"),
+                    nomad_job_id,
+                    exc,
+                )
+                continue
+            finally:
+                client.close()
+            self._storage.update_submission(
+                submission["id"],
+                {"nomad_job_id": None},
+            )
+            logger.info(
+                "purged completed submission job: submission=%s job=%s",
+                submission.get("id"),
+                nomad_job_id,
+            )
 
 
 def _build_nomad_job(submission: dict[str, Any], cfg: SubmitConfig) -> dict[str, Any]:
@@ -226,6 +272,18 @@ def _alloc_status(alloc: dict[str, Any] | None) -> str | None:
         return None
     status = alloc.get("ClientStatus")
     return status if isinstance(status, str) else None
+
+
+def _parse_dt(value: object) -> datetime | None:
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
 
 
 def _select_report_token(cfg: SubmitConfig) -> str | None:

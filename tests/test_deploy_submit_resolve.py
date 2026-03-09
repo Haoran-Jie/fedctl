@@ -4,9 +4,14 @@ from dataclasses import dataclass
 
 from fedctl.deploy import naming
 from fedctl.deploy.render import render_deploy
-from fedctl.deploy.resolve import wait_for_superlink
+from fedctl.deploy.resolve import wait_for_superlink, wait_for_supernodes
 from fedctl.deploy.spec import default_deploy_spec
-from fedctl.deploy.submit import submit_jobs
+from fedctl.deploy.submit import (
+    submit_jobs,
+    submit_superexec_jobs,
+    submit_superlink_job,
+    submit_supernodes_job,
+)
 
 
 def test_submit_jobs_order() -> None:
@@ -46,6 +51,40 @@ def test_wait_for_superlink_success() -> None:
     assert result.ports == {"control": 27738, "fleet": 27739, "serverappio": 27740}
 
 
+def test_submit_phase_helpers() -> None:
+    spec = default_deploy_spec(
+        num_supernodes=2,
+        image="example/superexec:latest",
+        experiment="exp-test",
+    )
+    rendered = render_deploy(spec)
+    client = DummySubmitClient()
+
+    superlink = submit_superlink_job(client, rendered)
+    supernodes = submit_supernodes_job(client, rendered)
+    superexec = submit_superexec_jobs(client, rendered)
+
+    assert superlink == naming.job_superlink("exp-test")
+    assert supernodes == naming.job_supernodes("exp-test")
+    assert superexec == [
+        naming.job_superexec_serverapp("exp-test"),
+        naming.job_superexec_clientapp("exp-test", 1),
+        naming.job_superexec_clientapp("exp-test", 2),
+    ]
+    assert client.submitted == [superlink, supernodes, *superexec]
+
+
+def test_wait_for_supernodes_success() -> None:
+    client = DummySupernodesResolveClient()
+    wait_for_supernodes(
+        client,
+        job_name=naming.job_supernodes("exp-test"),
+        expected_allocs=2,
+        timeout_seconds=5,
+        poll_interval=0.1,
+    )
+
+
 class DummySubmitClient:
     def __init__(self) -> None:
         self.submitted: list[str] = []
@@ -82,5 +121,24 @@ class DummyResolveClient:
                         }
                     ]
                 }
+            },
+        }
+
+
+@dataclass
+class DummySupernodesResolveClient:
+    def job_allocations(self, job_name: str) -> list[dict]:
+        assert job_name == naming.job_supernodes("exp-test")
+        return [
+            {"ID": "alloc-1", "ClientStatus": "running"},
+            {"ID": "alloc-2", "ClientStatus": "running"},
+        ]
+
+    def allocation(self, alloc_id: str) -> dict:
+        return {
+            "ID": alloc_id,
+            "ClientStatus": "running",
+            "TaskStates": {
+                "supernode-task": {"State": "running"},
             },
         }

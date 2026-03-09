@@ -7,22 +7,40 @@ from fedctl.deploy.render import RenderedJobs
 from fedctl.nomad.client import NomadClient
 
 
-def submit_jobs(client: NomadClient, rendered: RenderedJobs) -> list[str]:
-    submitted: list[str] = []
+def submit_superlink_job(client: NomadClient, rendered: RenderedJobs) -> str | None:
     _submit(client, rendered.superlink)
-    submitted.append(_job_name(rendered.superlink) or "")
+    return _job_name(rendered.superlink)
 
+
+def submit_supernodes_job(client: NomadClient, rendered: RenderedJobs) -> str | None:
     _submit(client, rendered.supernodes)
-    submitted.append(_job_name(rendered.supernodes) or "")
+    return _job_name(rendered.supernodes)
 
+
+def submit_superexec_jobs(client: NomadClient, rendered: RenderedJobs) -> list[str]:
+    submitted: list[str] = []
     _submit(client, rendered.superexec_serverapp)
-    submitted.append(_job_name(rendered.superexec_serverapp) or "")
+    serverapp = _job_name(rendered.superexec_serverapp)
+    if serverapp:
+        submitted.append(serverapp)
 
     for job in rendered.superexec_clientapps:
         _submit(client, job)
         name = _job_name(job)
         if name:
             submitted.append(name)
+    return submitted
+
+
+def submit_jobs(client: NomadClient, rendered: RenderedJobs) -> list[str]:
+    submitted: list[str] = []
+    superlink = submit_superlink_job(client, rendered)
+    if superlink:
+        submitted.append(superlink)
+    supernodes = submit_supernodes_job(client, rendered)
+    if supernodes:
+        submitted.append(supernodes)
+    submitted.extend(submit_superexec_jobs(client, rendered))
 
     return [name for name in submitted if name]
 

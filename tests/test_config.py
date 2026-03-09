@@ -148,6 +148,34 @@ def test_nomad_token_is_env_or_flag_only_not_persisted(tmp_path: Path, monkeypat
     assert "flag-token-456" not in cfg_path.read_text()
 
 
+def test_effective_config_defaults_namespace_to_default_when_unset(
+    tmp_path: Path, monkeypatch
+) -> None:
+    _use_tmp_xdg(monkeypatch, tmp_path)
+    _ = ensure_config_exists()
+    cfg = load_config()
+    monkeypatch.delenv("FEDCTL_NAMESPACE", raising=False)
+
+    eff = get_effective_config(cfg)
+    assert eff.namespace == "default"
+
+
+def test_effective_config_treats_blank_namespace_as_default(
+    tmp_path: Path, monkeypatch
+) -> None:
+    _use_tmp_xdg(monkeypatch, tmp_path)
+    _ = ensure_config_exists()
+
+    doc = load_raw_toml()
+    doc["profiles"]["default"]["namespace"] = "   "
+    save_raw_toml(doc)
+    cfg = load_config()
+
+    monkeypatch.setenv("FEDCTL_NAMESPACE", "  ")
+    eff = get_effective_config(cfg)
+    assert eff.namespace == "default"
+
+
 def test_unknown_profile_raises(tmp_path: Path, monkeypatch) -> None:
     _use_tmp_xdg(monkeypatch, tmp_path)
     cfg = load_config()

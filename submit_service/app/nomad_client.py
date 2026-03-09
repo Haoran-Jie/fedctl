@@ -40,8 +40,9 @@ class NomadClient:
     def submit_job(self, job: dict[str, Any]) -> Any:
         return self._post("/v1/jobs", job)
 
-    def stop_job(self, job_id: str) -> Any:
-        return self._delete(f"/v1/job/{job_id}")
+    def stop_job(self, job_id: str, *, purge: bool = False) -> Any:
+        suffix = "?purge=true" if purge else ""
+        return self._delete(f"/v1/job/{job_id}{suffix}")
 
     def job(self, job_id: str) -> Any:
         return self._get(f"/v1/job/{job_id}")

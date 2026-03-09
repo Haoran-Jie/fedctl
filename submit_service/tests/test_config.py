@@ -26,7 +26,12 @@ def _clear_env(monkeypatch) -> None:
         "SUBMIT_DATACENTER",
         "SUBMIT_DEFAULT_PRIORITY",
         "SUBMIT_NOMAD_INV_TTL",
+        "SUBMIT_AUTOPURGE_COMPLETED_AFTER",
         "SUBMIT_DOCKER_SOCKET",
+        "SUBMIT_UI_ENABLED",
+        "SUBMIT_UI_SESSION_SECRET",
+        "SUBMIT_UI_COOKIE_NAME",
+        "SUBMIT_UI_COOKIE_SECURE",
     ):
         monkeypatch.delenv(key, raising=False)
 
@@ -91,3 +96,27 @@ def test_submit_repo_config_env_overrides_default_fallback(tmp_path, monkeypatch
 
     cfg = config_mod.load_config()
     assert cfg.nomad_endpoint == "http://from-explicit:4646"
+
+
+def test_load_config_parses_autopurge_completed_after_env(tmp_path, monkeypatch) -> None:
+    _clear_env(monkeypatch)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("SUBMIT_AUTOPURGE_COMPLETED_AFTER", "60")
+
+    cfg = config_mod.load_config()
+    assert cfg.autopurge_completed_after_s == 60
+
+
+def test_load_config_parses_ui_env(tmp_path, monkeypatch) -> None:
+    _clear_env(monkeypatch)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("SUBMIT_UI_ENABLED", "true")
+    monkeypatch.setenv("SUBMIT_UI_SESSION_SECRET", "secret")
+    monkeypatch.setenv("SUBMIT_UI_COOKIE_NAME", "fedctl_ui")
+    monkeypatch.setenv("SUBMIT_UI_COOKIE_SECURE", "true")
+
+    cfg = config_mod.load_config()
+    assert cfg.ui_enabled is True
+    assert cfg.ui_session_secret == "secret"
+    assert cfg.ui_cookie_name == "fedctl_ui"
+    assert cfg.ui_cookie_secure is True

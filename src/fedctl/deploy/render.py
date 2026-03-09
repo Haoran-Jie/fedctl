@@ -397,7 +397,12 @@ def _netem_script() -> str:
     return "\n".join(lines)
 
 
-def _netem_wrapper_script(command: str) -> str:
+def _netem_wrapper_script(
+    command: str,
+    *,
+    wait_env: str | None = None,
+    wait_timeout_s: int = 60,
+) -> str:
     lines = [
         "set -eu",
         'PATH="/python/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"',
@@ -447,9 +452,33 @@ def _netem_wrapper_script(command: str) -> str:
         "fi",
         "tc qdisc show dev \"$IFACE\" || true",
         "tc qdisc show dev \"$IN_IFB\" || true",
-        f"exec {command}",
     ]
+    if wait_env:
+        lines.extend(_wait_for_env_lines(wait_env, timeout_s=wait_timeout_s))
+    lines.append(f"exec {command}")
     return "\n".join(lines)
+
+
+def _wait_for_env_script(command: str, env_name: str, *, timeout_s: int = 60) -> str:
+    lines = _wait_for_env_lines(env_name, timeout_s=timeout_s)
+    lines.append(command)
+    return "\n".join(lines)
+
+
+def _wait_for_env_lines(env_name: str, *, timeout_s: int = 60) -> list[str]:
+    timeout_env = f"FEDCTL_WAIT_{env_name}_TIMEOUT_S"
+    return [
+        f'MAX_WAIT="$${{{timeout_env}:-{timeout_s}}}"',
+        "WAITED=0",
+        f'while [ -z "$${{{env_name}:-}}" ] && [ "$WAITED" -lt "$MAX_WAIT" ]; do',
+        "  sleep 1",
+        "  WAITED=$((WAITED + 1))",
+        "done",
+        f'if [ -z "$${{{env_name}:-}}" ]; then',
+        f'  echo "{env_name} is empty after $MAX_WAIT seconds" >&2',
+        "  exit 1",
+        "fi",
+    ]
 
 
 def _shell_exec_command(parts: list[str], *, include_path: bool = False) -> str:
@@ -573,7 +602,13 @@ def _superexec_clientapp_context(
         args = [arg for arg in args if arg != "--insecure"]
 
     entrypoint = ["/bin/sh", "-lc"]
-    task_args = [_shell_exec_command(["flower-superexec", *args], include_path=True)]
+    task_args = [
+        _wait_for_env_script(
+            _shell_exec_command(["flower-superexec", *args], include_path=True),
+            "CLIENT_IO",
+            timeout_s=60,
+        )
+    ]
     env: dict[str, str] = {}
     user = spec.superexec.user
     network_plan = spec.supernodes.network
@@ -584,7 +619,11 @@ def _superexec_clientapp_context(
         ingress_data = _profile_data(network_plan, ingress_profile, direction="ingress")
         if egress_profile != "none" or ingress_profile != "none":
             task_args = [
-                _netem_wrapper_script(_shell_exec_command(["flower-superexec", *args]))
+                _netem_wrapper_script(
+                    _shell_exec_command(["flower-superexec", *args]),
+                    wait_env="CLIENT_IO",
+                    wait_timeout_s=60,
+                )
             ]
             env.update(_netem_env(egress_profile, egress_data))
             env.update(_netem_ingress_env(ingress_profile, ingress_data))

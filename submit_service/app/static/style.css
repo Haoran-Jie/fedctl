@@ -1,0 +1,120 @@
+:root {
+  --bg: #f4f1e8;
+  --panel: #fffdf8;
+  --line: #d6cfbf;
+  --text: #1f1d18;
+  --muted: #6b6455;
+  --accent: #1d6f5f;
+  --warn: #b7791f;
+  --error: #a12622;
+  --queued: #7c6f22;
+  --running: #1d6f5f;
+  --blocked: #b7791f;
+  --completed: #2b5f9e;
+  --failed: #a12622;
+  --cancelled: #6b6455;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: Georgia, "Iowan Old Style", serif;
+  background: linear-gradient(180deg, #ece6d8 0%, var(--bg) 100%);
+  color: var(--text);
+}
+code, pre, input, select, button { font-family: "SFMono-Regular", Menlo, monospace; }
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem 2rem;
+  border-bottom: 1px solid var(--line);
+  background: rgba(255, 253, 248, 0.9);
+  position: sticky;
+  top: 0;
+}
+.brand { color: var(--text); text-decoration: none; font-size: 1.3rem; font-weight: 700; }
+.subtitle { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.95rem; }
+.nav { display: flex; align-items: center; gap: 0.8rem; }
+.nav a { color: var(--accent); text-decoration: none; }
+.nav form { margin: 0; }
+.page { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  padding: 1.2rem;
+  margin-bottom: 1.2rem;
+  box-shadow: 0 6px 18px rgba(79, 63, 38, 0.06);
+}
+.narrow { max-width: 34rem; margin: 3rem auto; }
+.section-head { display: flex; justify-content: space-between; gap: 1rem; align-items: start; margin-bottom: 1rem; }
+.muted { color: var(--muted); }
+.inline-form, .grid-form, .stack { display: flex; gap: 0.75rem; align-items: end; flex-wrap: wrap; }
+.stack { flex-direction: column; align-items: stretch; }
+.compact-grid label, .logs-form label { min-width: 10rem; }
+label { display: flex; flex-direction: column; gap: 0.3rem; font-size: 0.95rem; }
+input, select, button {
+  border: 1px solid var(--line);
+  padding: 0.55rem 0.7rem;
+  font-size: 0.95rem;
+  background: #fff;
+  color: var(--text);
+}
+button, .button {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+}
+.button.secondary { background: #e4dccb; color: var(--text); }
+.actions { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 0.7rem 0.6rem; border-top: 1px solid var(--line); vertical-align: top; }
+th { font-size: 0.9rem; color: var(--muted); }
+.kv-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.9rem; }
+.kv-grid span { display: block; font-size: 0.85rem; color: var(--muted); }
+.kv-grid strong { display: block; margin-top: 0.15rem; }
+.two-col { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+.code-box, .log-box {
+  background: #f8f4eb;
+  border: 1px solid var(--line);
+  padding: 0.9rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  min-height: 5rem;
+}
+.log-box { max-height: 32rem; overflow: auto; }
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  color: #fff;
+  font-size: 0.85rem;
+  text-transform: lowercase;
+}
+.badge-queued { background: var(--queued); }
+.badge-running { background: var(--running); }
+.badge-blocked { background: var(--blocked); }
+.badge-completed { background: var(--completed); }
+.badge-failed { background: var(--failed); }
+.badge-cancelled { background: var(--cancelled); }
+.badge-ready, .badge-up { background: var(--running); }
+.badge-down, .badge-drain { background: var(--blocked); }
+.alert {
+  padding: 0.8rem 0.9rem;
+  margin: 0.8rem 0;
+  border-left: 4px solid;
+  background: #faf7ef;
+}
+.alert.error { border-color: var(--error); }
+.alert.warn { border-color: var(--warn); }
+.wrap { overflow-wrap: anywhere; word-break: break-word; }
+.artifact-list { margin: 0; padding-left: 1.2rem; }
+@media (max-width: 760px) {
+  .topbar, .section-head { flex-direction: column; align-items: stretch; }
+  .page { padding: 1rem; }
+  table { display: block; overflow-x: auto; }
+}

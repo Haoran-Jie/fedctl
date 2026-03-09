@@ -78,6 +78,69 @@ def wait_for_superlink(
     raise DeployError(msg)
 
 
+def wait_for_supernodes(
+    client: NomadClient,
+    *,
+    job_name: str = "supernodes",
+    expected_allocs: int | None = None,
+    timeout_seconds: int = 120,
+    poll_interval: float = 2.0,
+) -> None:
+    deadline = time.monotonic() + timeout_seconds
+    last_report: tuple[int, int] | None = None
+    console.print(f"[bold]SuperNodes job:[/bold] {job_name}")
+    while True:
+        if time.monotonic() >= deadline:
+            break
+
+        allocs = client.job_allocations(job_name)
+        alloc_list = [alloc for alloc in allocs if isinstance(alloc, dict)] if isinstance(allocs, list) else []
+        ready_allocs = 0
+        fatal_state: tuple[str, str] | None = None
+
+        for alloc in alloc_list:
+            alloc_id = alloc.get("ID")
+            if not isinstance(alloc_id, str) or not alloc_id:
+                continue
+            detail = client.allocation(alloc_id)
+            if not isinstance(detail, dict):
+                continue
+            status = _alloc_status(detail) or "unknown"
+            if status in {"failed", "lost"}:
+                fatal_state = (alloc_id, status)
+                break
+            if status != "running":
+                continue
+            if _all_task_states_running(detail):
+                ready_allocs += 1
+
+        if fatal_state is not None:
+            alloc_id, status = fatal_state
+            raise DeployError(f"SuperNodes allocation {alloc_id} entered {status}.")
+
+        total_expected = expected_allocs if isinstance(expected_allocs, int) else len(alloc_list)
+        if total_expected < 1:
+            total_expected = 1
+        report = (ready_allocs, total_expected)
+        if report != last_report:
+            console.print(
+                f"[cyan]Ready allocs:[/cyan] {ready_allocs}/{total_expected}"
+            )
+            last_report = report
+
+        if expected_allocs is not None:
+            ready = ready_allocs >= expected_allocs
+        else:
+            ready = len(alloc_list) > 0 and ready_allocs == len(alloc_list)
+        if ready:
+            console.print("[green]✓ SuperNodes are running[/green]")
+            return
+
+        time.sleep(poll_interval)
+
+    raise DeployError("Timed out waiting for SuperNodes to become ready.")
+
+
 def _style_state(state: str | None) -> str:
     if not state:
         return "[white]unknown[/white]"
@@ -232,6 +295,19 @@ def _task_state(alloc: dict[str, Any], task_name: str) -> str | None:
         return None
     state = task.get("State")
     return state.lower() if isinstance(state, str) else None
+
+
+def _all_task_states_running(alloc: dict[str, Any]) -> bool:
+    task_states = alloc.get("TaskStates")
+    if not isinstance(task_states, dict) or not task_states:
+        return False
+    for task in task_states.values():
+        if not isinstance(task, dict):
+            return False
+        state = task.get("State")
+        if not isinstance(state, str) or state.lower() != "running":
+            return False
+    return True
 
 
 def _extract_ports(alloc: dict[str, Any]) -> dict[str, int]:

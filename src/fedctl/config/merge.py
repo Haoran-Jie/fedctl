@@ -24,7 +24,12 @@ def get_effective_config(
     env_token = os.environ.get("NOMAD_TOKEN")
 
     eff_endpoint = endpoint or env_endpoint or p.endpoint
-    eff_namespace = namespace or env_namespace or p.namespace
+    eff_namespace = (
+        _normalize_namespace(namespace)
+        or _normalize_namespace(env_namespace)
+        or _normalize_namespace(p.namespace)
+        or "default"
+    )
 
     eff_token = token or env_token
 
@@ -34,3 +39,10 @@ def get_effective_config(
         namespace=eff_namespace,
         nomad_token=eff_token,
     )
+
+
+def _normalize_namespace(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    normalized = value.strip()
+    return normalized if normalized else None

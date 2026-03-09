@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% block title %}{{ submission.id }} | fedctl submit service{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="section-head">
+    <div>
+      <h1>{{ submission.id }}</h1>
+      <p class="muted">{{ submission.project_name }} / {{ submission.experiment }}</p>
+    </div>
+    <div class="actions">
+      <a class="button secondary" href="/ui/submissions">Back to submissions</a>
+      {% if submission.can_cancel %}
+      <form method="post" action="/ui/submissions/{{ submission.id }}/cancel">
+        <button type="submit">Cancel submission</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  <div class="kv-grid">
+    <div><span>ID</span><strong>{{ submission.id }}</strong></div>
+    <div><span>Status</span><strong>{% set status = submission.status %}{% include '_status_badge.html' %}</strong></div>
+    <div><span>Owner</span><strong>{{ submission.owner }}</strong></div>
+    <div><span>Namespace</span><strong>{{ submission.namespace }}</strong></div>
+    <div><span>Priority</span><strong>{{ submission.priority }}</strong></div>
+    <div><span>Nomad job</span><strong>{{ submission.nomad_job_id }}</strong></div>
+    <div><span>Created</span><strong>{{ submission.created_at }}</strong></div>
+    <div><span>Started</span><strong>{{ submission.started_at }}</strong></div>
+    <div><span>Finished</span><strong>{{ submission.finished_at }}</strong></div>
+    <div><span>Submit image</span><strong class="wrap">{{ submission.submit_image }}</strong></div>
+    <div><span>Artifact URL</span><strong class="wrap">{{ submission.artifact_url }}</strong></div>
+    <div><span>Result location</span><strong class="wrap">{{ submission.result_location }}</strong></div>
+  </div>
+  {% if submission.blocked_reason %}
+  <div class="alert warn"><strong>Blocked:</strong> {{ submission.blocked_reason }}</div>
+  {% endif %}
+  {% if submission.error_message %}
+  <div class="alert error"><strong>Error:</strong> {{ submission.error_message }}</div>
+  {% endif %}
+</section>
+
+<section class="panel two-col">
+  <div>
+    <h2>Runner args</h2>
+    <pre class="code-box">{{ submission.args | join('\n') if submission.args else 'None' }}</pre>
+  </div>
+  <div>
+    <h2>Runner env</h2>
+    <pre class="code-box">{% if submission.env %}{% for key, value in submission.env.items() %}{{ key }}={{ value }}
+{% endfor %}{% else %}None{% endif %}</pre>
+  </div>
+</section>
+
+<section class="panel two-col">
+  <div>
+    <h2>Job mapping</h2>
+    <pre class="code-box">{% if submission.jobs %}{% for key, value in submission.jobs.items() %}{{ key }}: {{ value }}
+{% endfor %}{% else %}No job mapping recorded.{% endif %}</pre>
+  </div>
+  <div>
+    <h2>Result artifacts</h2>
+    {% if submission.result_artifacts %}
+    <ul class="artifact-list">
+      {% for item in submission.result_artifacts %}
+      <li class="wrap">{{ item }}</li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="muted">No result artifacts recorded.</p>
+    {% endif %}
+  </div>
+</section>
+
+{% include 'logs_panel.html' %}
+{% endblock %}

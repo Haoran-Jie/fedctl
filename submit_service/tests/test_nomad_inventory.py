@@ -41,6 +41,7 @@ def _cfg(ttl: int = 5) -> SubmitConfig:
         default_priority=50,
         docker_socket=None,
         nomad_inventory_ttl=ttl,
+        autopurge_completed_after_s=0,
     )
 
 

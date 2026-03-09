@@ -97,6 +97,8 @@ def test_render_deploy_superexec_jobs() -> None:
     client_cfg = client_group["Tasks"][0]["Config"]
     assert client_cfg["entrypoint"] == ["/bin/sh", "-lc"]
     assert "$${CLIENT_IO}" in client_cfg["args"][0]
+    assert "while [ -z \"$${CLIENT_IO:-}\" ]" in client_cfg["args"][0]
+    assert "FEDCTL_WAIT_CLIENT_IO_TIMEOUT_S" in client_cfg["args"][0]
 
 
 def test_render_deploy_supernodes_netem_task() -> None:

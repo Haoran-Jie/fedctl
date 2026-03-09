@@ -19,6 +19,29 @@ Repo-config lookup for submit-service:
 - If `SUBMIT_REPO_CONFIG` is set, that file is used.
 - Otherwise submit-service checks `.fedctl/fedctl_local.yaml` first, then `.fedctl/fedctl.yaml`.
 
+### Internal web UI
+
+The submit service can expose a small server-rendered UI for monitoring and control.
+
+- Enable with `SUBMIT_UI_ENABLED=true`
+- Set `SUBMIT_UI_SESSION_SECRET` to a non-empty value
+- Optional:
+  - `SUBMIT_UI_COOKIE_NAME` (default `fedctl_submit_session`)
+  - `SUBMIT_UI_COOKIE_SECURE` (set `true` when served over HTTPS)
+
+The UI is intended for internal CL network / VPN access and supports:
+- token login
+- submission list/detail
+- cancel
+- logs / archived logs
+- admin nodes page
+
+Project submission still happens through the CLI:
+
+```bash
+fedctl submit run /path/to/project
+```
+
 ## Deployment (systemd)
 
 1) Create a venv and install requirements on the host:
@@ -127,7 +150,18 @@ The CLI still performs the upload and passes the URL to the service.
 - POST `/v1/presign` (S3 presigned URL)
 - GET `/v1/nodes` (inventory; includes allocations by default; set `include_allocs=false` to skip)
 
+UI routes when enabled:
+- GET `/ui/login`
+- POST `/ui/login`
+- POST `/ui/logout`
+- GET `/ui/submissions`
+- GET `/ui/submissions/{id}`
+- POST `/ui/submissions/{id}/cancel`
+- GET `/ui/submissions/{id}/logs`
+- GET `/ui/nodes`
+
 Inventory cache TTL can be set with `SUBMIT_NOMAD_INV_TTL` (seconds).
+Auto-purge completed Nomad jobs can be set with `SUBMIT_AUTOPURGE_COMPLETED_AFTER` (seconds, `0` disables).
 
 ### Queue gating
 

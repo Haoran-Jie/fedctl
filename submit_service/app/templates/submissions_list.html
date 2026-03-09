@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+{% block title %}Submissions | fedctl submit service{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="section-head">
+    <div>
+      <h1>Submissions</h1>
+      <p class="muted">Submission remains CLI-first: <code>fedctl submit run &lt;project-dir&gt;</code>.</p>
+    </div>
+    <form method="get" action="/ui/submissions" class="inline-form">
+      <label for="status">Filter</label>
+      <select name="status" id="status" onchange="this.form.submit()">
+        {% for item in status_filters %}
+        <option value="{{ item }}" {% if item == status_filter %}selected{% endif %}>{{ item }}</option>
+        {% endfor %}
+      </select>
+    </form>
+  </div>
+  {% if rows %}
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Project</th>
+        <th>Experiment</th>
+        <th>Status</th>
+        {% if principal and principal.role == 'admin' %}<th>Owner</th>{% endif %}
+        <th>Created</th>
+        <th>Finished</th>
+        <th>Namespace</th>
+        <th>Blocked / error</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr>
+        <td><a href="/ui/submissions/{{ row.id }}">{{ row.id }}</a></td>
+        <td>{{ row.project_name }}</td>
+        <td>{{ row.experiment }}</td>
+        <td>{% set status = row.status %}{% include '_status_badge.html' %}</td>
+        {% if principal and principal.role == 'admin' %}<td>{{ row.owner }}</td>{% endif %}
+        <td>{{ row.created_at }}</td>
+        <td>{{ row.finished_at }}</td>
+        <td>{{ row.namespace }}</td>
+        <td class="wrap">{{ row.blocked_reason or '-' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">No submissions match this filter.</p>
+  {% endif %}
+</section>
+{% endblock %}

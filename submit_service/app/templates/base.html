@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}fedctl submit service{% endblock %}</title>
+    <link rel="stylesheet" href="{{ request.url_for('ui-static', path='style.css') }}">
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <a class="brand" href="/ui/submissions">fedctl submit service</a>
+        <p class="subtitle">Monitoring and control on rpi1</p>
+      </div>
+      {% if principal %}
+      <nav class="nav">
+        <a href="/ui/submissions">Submissions</a>
+        {% if principal.role == 'admin' %}
+        <a href="/ui/nodes">Nodes</a>
+        {% endif %}
+        <form method="post" action="/ui/logout">
+          <button type="submit">Log out {{ principal.name }}</button>
+        </form>
+      </nav>
+      {% endif %}
+    </header>
+    <main class="page">
+      {% block content %}{% endblock %}
+    </main>
+  </body>
+</html>

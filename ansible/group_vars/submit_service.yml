@@ -5,7 +5,13 @@ submit_repo_dir: "/opt/fedctl"
 submit_venv_path: "/opt/fedctl/.venv"
 submit_db_url: "sqlite:////opt/fedctl/submit_service/state/submit.db"
 submit_dispatch_mode: "queue"
+submit_autopurge_completed_after_s: 60
 submit_allow_unauth: false
+submit_ui_enabled: true
+submit_ui_session_secret: "ad9acb3eaccf734ffe54f409756aa64c746053221be7bbf609dc9c32b8957193"
+submit_ui_cookie_name: "fedctl_submit_session"
+submit_ui_cookie_secure: false
+submit_service_public_endpoint: "http://10.100.2.142:8080"
 submit_repo_config_path: "/etc/fedctl/cluster-fedctl.yaml"
 submit_legacy_repo_config_path: "/opt/fedctl/.fedctl/fedctl.yaml"
 submit_cluster_repo_config:
@@ -57,11 +63,11 @@ submit_cluster_repo_config:
     node_class: submit
     image: jiahborcn/fedctl-submit:latest
     artifact_store: s3+presign://fedctl-submits/fedctl-submits
-    endpoint: http://10.100.2.142:8080
+    endpoint: "{{ submit_service_public_endpoint }}"
     token: flwruser1
     user: samuel
   submit-service:
-    endpoint: http://192.168.8.101:8080
+    endpoint: "http://{{ cluster_nomad_server_host }}:8080"
     tokens: token1,token2
     allow_unauth: true
     nomad_endpoint: http://127.0.0.1:4646
@@ -72,7 +78,7 @@ submit_cluster_repo_config:
     datacenter: dc1
     default_priority: 50
     docker_socket: /var/run/docker.sock
-  image_registry: 192.168.8.101:5000
+  image_registry: "{{ cluster_registry_hostport }}"
 
 # Replace with your real tokens or use ansible-vault.
 submit_tokens:
@@ -120,4 +126,4 @@ submit_token_map:
     role: user
 
 # If omitted, defaults to the first nomad server host in inventory.
-# submit_nomad_endpoint: "http://192.168.8.101:4646"
+# submit_nomad_endpoint: "http://{{ cluster_nomad_server_host }}:4646"

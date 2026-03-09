@@ -32,6 +32,11 @@ class SubmitConfig:
     default_priority: int
     docker_socket: str | None
     nomad_inventory_ttl: int
+    autopurge_completed_after_s: int
+    ui_enabled: bool = False
+    ui_session_secret: str | None = None
+    ui_cookie_name: str = "fedctl_submit_session"
+    ui_cookie_secure: bool = False
 
 
 def load_config() -> SubmitConfig:
@@ -92,6 +97,30 @@ def load_config() -> SubmitConfig:
         os.environ.get("SUBMIT_NOMAD_INV_TTL", ""),
         default=_parse_int(str(repo_submit.get("nomad_inventory_ttl") or ""), default=5),
     )
+    autopurge_completed_after_s = _parse_int(
+        os.environ.get("SUBMIT_AUTOPURGE_COMPLETED_AFTER", ""),
+        default=_parse_int(
+            str(repo_submit.get("autopurge_completed_after_s") or ""),
+            default=0,
+        ),
+    )
+    ui_enabled = _parse_bool(
+        os.environ.get("SUBMIT_UI_ENABLED", ""),
+        default=_parse_bool(str(repo_submit.get("ui_enabled") or ""), default=False),
+    )
+    ui_session_secret_raw = os.environ.get("SUBMIT_UI_SESSION_SECRET")
+    if ui_session_secret_raw is None:
+        repo_secret = repo_submit.get("ui_session_secret")
+        ui_session_secret_raw = repo_secret if isinstance(repo_secret, str) else None
+    ui_session_secret = ui_session_secret_raw.strip() if ui_session_secret_raw else None
+    ui_cookie_name = (
+        os.environ.get("SUBMIT_UI_COOKIE_NAME")
+        or str(repo_submit.get("ui_cookie_name") or "fedctl_submit_session")
+    ).strip() or "fedctl_submit_session"
+    ui_cookie_secure = _parse_bool(
+        os.environ.get("SUBMIT_UI_COOKIE_SECURE", ""),
+        default=_parse_bool(str(repo_submit.get("ui_cookie_secure") or ""), default=False),
+    )
 
     docker_socket = os.environ.get(
         "SUBMIT_DOCKER_SOCKET", str(repo_submit.get("docker_socket") or "/var/run/docker.sock")
@@ -116,6 +145,11 @@ def load_config() -> SubmitConfig:
         default_priority=default_priority,
         docker_socket=docker_socket,
         nomad_inventory_ttl=nomad_inventory_ttl,
+        autopurge_completed_after_s=max(0, autopurge_completed_after_s),
+        ui_enabled=ui_enabled,
+        ui_session_secret=ui_session_secret,
+        ui_cookie_name=ui_cookie_name,
+        ui_cookie_secure=ui_cookie_secure,
     )
 
 

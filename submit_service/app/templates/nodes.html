@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% block title %}Nodes | fedctl submit service{% endblock %}
+{% block content %}
+<section class="panel">
+  <div class="section-head">
+    <div>
+      <h1>Nodes</h1>
+      <p class="muted">Cluster inventory for submit-service administration.</p>
+    </div>
+    <form method="get" action="/ui/nodes" class="grid-form compact-grid">
+      <label>Status
+        <input type="text" name="status" value="{{ filters.status }}">
+      </label>
+      <label>Node class
+        <input type="text" name="node_class" value="{{ filters.node_class }}">
+      </label>
+      <label>Device type
+        <input type="text" name="device_type" value="{{ filters.device_type }}">
+      </label>
+      <div class="form-actions">
+        <button type="submit">Apply filters</button>
+      </div>
+    </form>
+  </div>
+  {% if error %}
+  <div class="alert error">{{ error }}</div>
+  {% endif %}
+  {% if nodes %}
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>ID</th>
+        <th>Status</th>
+        <th>Node class</th>
+        <th>Device type</th>
+        <th>Alloc count</th>
+        <th>Alloc summary</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for node in nodes %}
+      <tr>
+        <td>{{ node.name }}</td>
+        <td class="wrap">{{ node.id }}</td>
+        <td>{% set status = node.status %}{% include '_status_badge.html' %}</td>
+        <td>{{ node.node_class }}</td>
+        <td>{{ node.device_type }}</td>
+        <td>{{ node.alloc_count }}</td>
+        <td class="wrap">{{ node.alloc_summary }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">No nodes matched the current filters.</p>
+  {% endif %}
+</section>
+{% endblock %}

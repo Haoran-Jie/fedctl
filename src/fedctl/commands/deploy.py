@@ -19,9 +19,14 @@ from fedctl.deploy.errors import DeployError
 from fedctl.deploy.render import RenderedJobs, render_deploy
 from fedctl.deploy.network import NetworkPlan, parse_net_assignments, plan_network
 from fedctl.deploy.plan import SupernodePlacement, parse_supernodes, plan_supernodes
-from fedctl.deploy.resolve import wait_for_superlink
+from fedctl.deploy.resolve import wait_for_superlink, wait_for_supernodes
 from fedctl.deploy.spec import default_deploy_spec, normalize_experiment_name
-from fedctl.deploy.submit import submit_jobs
+from fedctl.deploy.submit import (
+    submit_jobs,
+    submit_superexec_jobs,
+    submit_superlink_job,
+    submit_supernodes_job,
+)
 from fedctl.nomad.client import NomadClient
 from fedctl.nomad.errors import NomadConnectionError, NomadHTTPError, NomadTLSError
 from fedctl.state.errors import StateError
@@ -339,16 +344,27 @@ def run_deploy(
             console.print(f"[red]✗ Render error:[/red] {exc}")
             return 1
 
-        submit_jobs(client, rendered)
         if no_wait:
+            submit_jobs(client, rendered)
             console.print("[green]✓ Submitted jobs.[/green] Skipping wait/manifest.")
             return 0
 
+        superlink_job_name = submit_superlink_job(client, rendered)
         superlink_alloc = wait_for_superlink(
             client,
-            job_name=rendered.superlink["Job"]["Name"],
+            job_name=superlink_job_name or rendered.superlink["Job"]["Name"],
             timeout_seconds=timeout_seconds,
         )
+
+        supernodes_job_name = submit_supernodes_job(client, rendered)
+        wait_for_supernodes(
+            client,
+            job_name=supernodes_job_name or rendered.supernodes["Job"]["Name"],
+            expected_allocs=len(rendered.superexec_clientapps),
+            timeout_seconds=timeout_seconds,
+        )
+
+        submit_superexec_jobs(client, rendered)
         manifest = _build_manifest(
             rendered,
             superlink_alloc,
