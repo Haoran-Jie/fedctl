@@ -7,7 +7,7 @@
 
 - name: Map CPU architecture to Nomad artifact arch
   ansible.builtin.set_fact:
-    nomad_arch: "{{ nomad_arch_map[ansible_architecture] | default('') }}"
+    nomad_arch: "{{ nomad_arch_map[ansible_facts['architecture']] | default('') }}"
   vars:
     nomad_arch_map:
       aarch64: arm64
@@ -21,7 +21,7 @@
   ansible.builtin.assert:
     that:
       - nomad_arch | length > 0
-    fail_msg: "Unsupported architecture for Nomad install: {{ ansible_architecture }}"
+    fail_msg: "Unsupported architecture for Nomad install: {{ ansible_facts['architecture'] }}"
 
 - name: Download Nomad zip
   ansible.builtin.get_url:
