@@ -13,12 +13,23 @@
     <h1>{{ submission.id }}</h1>
     <p class="muted">{{ submission.project_name }} / {{ submission.experiment }}</p>
   </div>
-  <div class="hero-status">
-    {% set status = submission.status %}{% include '_status_badge.html' %}
+  <div class="detail-summary-strip">
+    <div class="summary-chip">
+      <span>Status</span>
+      <strong>{% set status = submission.status %}{% include '_status_badge.html' %}</strong>
+    </div>
+    <div class="summary-chip">
+      <span>Namespace</span>
+      <strong>{{ submission.namespace }}</strong>
+    </div>
+    <div class="summary-chip">
+      <span>Priority</span>
+      <strong>{{ submission.priority }}</strong>
+    </div>
   </div>
 </section>
 
-<section class="panel">
+<section class="panel action-panel">
   <div class="section-head">
     <div class="section-copy">
       <h2>Overview</h2>
@@ -33,19 +44,36 @@
       {% endif %}
     </div>
   </div>
-  <div class="kv-grid">
-    <div><span>ID</span><strong>{{ submission.id }}</strong></div>
-    <div><span>Status</span><strong>{% set status = submission.status %}{% include '_status_badge.html' %}</strong></div>
-    <div><span>Owner</span><strong>{{ submission.owner }}</strong></div>
-    <div><span>Namespace</span><strong>{{ submission.namespace }}</strong></div>
-    <div><span>Priority</span><strong>{{ submission.priority }}</strong></div>
-    <div><span>Nomad job</span><strong>{{ submission.nomad_job_id }}</strong></div>
-    <div><span>Created</span><strong>{{ submission.created_at }}</strong></div>
-    <div><span>Started</span><strong>{{ submission.started_at }}</strong></div>
-    <div><span>Finished</span><strong>{{ submission.finished_at }}</strong></div>
-    <div><span>Submit image</span><strong class="wrap">{{ submission.submit_image }}</strong></div>
-    <div><span>Artifact URL</span><strong class="wrap">{{ submission.artifact_url }}</strong></div>
-    <div><span>Result location</span><strong class="wrap">{{ submission.result_location }}</strong></div>
+  <div class="detail-grid">
+    <article class="info-card">
+      <h3>Identity</h3>
+      <dl class="meta-list">
+        <div><dt>ID</dt><dd class="wrap">{{ submission.id }}</dd></div>
+        <div><dt>Project</dt><dd>{{ submission.project_name }}</dd></div>
+        <div><dt>Experiment</dt><dd>{{ submission.experiment }}</dd></div>
+        <div><dt>Owner</dt><dd>{{ submission.owner }}</dd></div>
+        <div><dt>Namespace</dt><dd><code>{{ submission.namespace }}</code></dd></div>
+        <div><dt>Status</dt><dd>{% set status = submission.status %}{% include '_status_badge.html' %}</dd></div>
+      </dl>
+    </article>
+    <article class="info-card">
+      <h3>Execution</h3>
+      <dl class="meta-list">
+        <div><dt>Nomad job</dt><dd class="wrap">{{ submission.nomad_job_id }}</dd></div>
+        <div><dt>Submit image</dt><dd class="wrap">{{ submission.submit_image }}</dd></div>
+        <div><dt>Artifact URL</dt><dd class="wrap">{{ submission.artifact_url }}</dd></div>
+        <div><dt>Result location</dt><dd class="wrap">{{ submission.result_location }}</dd></div>
+      </dl>
+    </article>
+    <article class="info-card">
+      <h3>Timing</h3>
+      <dl class="meta-list">
+        <div><dt>Created</dt><dd>{{ submission.created_at }}</dd></div>
+        <div><dt>Started</dt><dd>{{ submission.started_at }}</dd></div>
+        <div><dt>Finished</dt><dd>{{ submission.finished_at }}</dd></div>
+        <div><dt>Priority</dt><dd>{{ submission.priority }}</dd></div>
+      </dl>
+    </article>
   </div>
   {% if submission.blocked_reason %}
   <div class="alert warn"><strong>Blocked:</strong> {{ submission.blocked_reason }}</div>
@@ -58,11 +86,11 @@
 <section class="panel two-col">
   <div class="section-block">
     <h2>Runner args</h2>
-    <pre class="code-box">{{ submission.args | join('\n') if submission.args else 'None' }}</pre>
+    <pre class="code-box code-scroll">{{ submission.args | join('\n') if submission.args else 'None' }}</pre>
   </div>
   <div class="section-block">
     <h2>Runner env</h2>
-    <pre class="code-box">{% if submission.env %}{% for key, value in submission.env.items() %}{{ key }}={{ value }}
+    <pre class="code-box code-scroll">{% if submission.env %}{% for key, value in submission.env.items() %}{{ key }}={{ value }}
 {% endfor %}{% else %}None{% endif %}</pre>
   </div>
 </section>
@@ -70,7 +98,7 @@
 <section class="panel two-col">
   <div class="section-block">
     <h2>Job mapping</h2>
-    <pre class="code-box">{% if submission.jobs %}{% for key, value in submission.jobs.items() %}{{ key }}: {{ value }}
+    <pre class="code-box code-scroll">{% if submission.jobs %}{% for key, value in submission.jobs.items() %}{{ key }}: {{ value }}
 {% endfor %}{% else %}No job mapping recorded.{% endif %}</pre>
   </div>
   <div class="section-block">

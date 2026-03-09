@@ -97,7 +97,7 @@ def list_visible_submissions_for_ui(
     storage: Storage,
     principal: AuthPrincipal,
     *,
-    status_filter: str = "active",
+    status_filter: str = "all",
     limit: int = 200,
 ) -> list[dict[str, Any]]:
     rows = storage.list_submissions(
@@ -110,6 +110,28 @@ def list_visible_submissions_for_ui(
     if status_filter == "all":
         filtered.sort(key=lambda row: 0 if str(row.get("status") or "") in _ACTIVE_STATUSES else 1)
     return filtered
+
+
+def submission_stats_for_ui(rows: list[dict[str, Any]]) -> dict[str, int]:
+    stats = {
+        "total": 0,
+        "active": 0,
+        "blocked": 0,
+        "failed": 0,
+        "completed": 0,
+    }
+    for row in rows:
+        status = str(row.get("status") or "")
+        stats["total"] += 1
+        if status in _ACTIVE_STATUSES:
+            stats["active"] += 1
+        if status == "blocked":
+            stats["blocked"] += 1
+        if status == "failed":
+            stats["failed"] += 1
+        if status == "completed":
+            stats["completed"] += 1
+    return stats
 
 
 
@@ -356,5 +378,4 @@ def _matches_status_filter(record: dict[str, Any], status_filter: str) -> bool:
     if status_filter == "active":
         return status in _ACTIVE_STATUSES
     return status == status_filter
-
 

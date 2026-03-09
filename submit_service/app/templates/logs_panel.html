@@ -9,7 +9,7 @@
       <strong>{{ job }} / {{ 'stderr' if stderr else 'stdout' }}</strong>
     </div>
   </div>
-  <form method="get" action="/ui/submissions/{{ submission.id }}" class="grid-form logs-form">
+  <form method="get" action="/ui/submissions/{{ submission.id }}" class="grid-form logs-form log-controls">
     <label>Job
       <select name="job">
         {% for value, label in log_jobs %}

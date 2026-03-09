@@ -1,19 +1,12 @@
 {% extends 'base.html' %}
 {% block title %}Submissions | fedctl submit service{% endblock %}
 {% block content %}
-{% set stats = namespace(total=0, active=0, blocked=0, failed=0, completed=0) %}
-{% for row in rows %}
-  {% set stats.total = stats.total + 1 %}
-  {% if row.status in ['queued', 'running', 'blocked'] %}{% set stats.active = stats.active + 1 %}{% endif %}
-  {% if row.status == 'blocked' %}{% set stats.blocked = stats.blocked + 1 %}{% endif %}
-  {% if row.status == 'failed' %}{% set stats.failed = stats.failed + 1 %}{% endif %}
-  {% if row.status == 'completed' %}{% set stats.completed = stats.completed + 1 %}{% endif %}
-{% endfor %}
 <section class="hero-panel">
   <div>
     <div class="eyebrow">Submit monitoring</div>
     <h1>Submissions</h1>
-    <p class="muted">Submission remains CLI-first: <code>fedctl submit run &lt;project-dir&gt;</code>. Use this page to inspect queue state, failures, archived logs, and completion status.</p>
+    <p class="muted">Use this page to inspect queue state, failures, archived logs, and completion status.</p>
+    <p class="muted">Submission remains CLI-first: <code>fedctl submit run &lt;project-dir&gt;</code>. </p>
   </div>
   <div class="quick-command">
     <span class="quick-command-label">Common CLI</span>

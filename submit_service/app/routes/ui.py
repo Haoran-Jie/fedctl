@@ -18,6 +18,7 @@ from ..submissions_service import (
     is_cancellable,
     list_visible_submissions_for_ui,
     resolve_submission_logs,
+    submission_stats_for_ui,
 )
 from ..ui_auth import current_ui_principal, login_via_token, logout, require_ui_admin
 
@@ -82,6 +83,11 @@ def submissions_page(
     if principal is None:
         return RedirectResponse(url="/ui/login", status_code=303)
     status_filter = status if status in _STATUS_FILTERS else "active"
+    visible_rows = list_visible_submissions_for_ui(
+        request.app.state.storage,
+        principal.as_auth_principal(),
+        status_filter="all",
+    )
     rows = list_visible_submissions_for_ui(
         request.app.state.storage,
         principal.as_auth_principal(),
@@ -93,6 +99,7 @@ def submissions_page(
         {
             "status_filter": status_filter,
             "status_filters": _STATUS_FILTERS,
+            "stats": submission_stats_for_ui(visible_rows),
             "rows": [_submission_row_view(row, principal.role) for row in rows],
         },
     )
