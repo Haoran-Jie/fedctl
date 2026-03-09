@@ -19,6 +19,12 @@ class AuthPrincipal:
     token: str | None = None
 
 
+@dataclass(frozen=True)
+class ResolvedLogs:
+    content: str
+    source: str
+
+
 _ACTIVE_STATUSES = {"queued", "running", "blocked"}
 _CANCELLABLE_STATUSES = {"queued", "running", "blocked"}
 
@@ -145,6 +151,27 @@ def resolve_submission_logs(
     stderr: bool = True,
     follow: bool = False,
 ) -> str:
+    return resolve_submission_logs_detail(
+        record,
+        cfg,
+        job=job,
+        task=task,
+        index=index,
+        stderr=stderr,
+        follow=follow,
+    ).content
+
+
+def resolve_submission_logs_detail(
+    record: dict[str, Any],
+    cfg: SubmitConfig,
+    *,
+    job: str = "submit",
+    task: str | None = None,
+    index: int = 1,
+    stderr: bool = True,
+    follow: bool = False,
+) -> ResolvedLogs:
     archived = archived_log_text(
         record=record,
         job=job,
@@ -162,13 +189,13 @@ def resolve_submission_logs(
 
     if not nomad_job_id:
         if archived is not None:
-            return archived
+            return ResolvedLogs(content=archived, source="archived")
         if resolve_error is not None:
             raise resolve_error
         raise HTTPException(status_code=409, detail="Submission not running in Nomad")
     if not cfg.nomad_endpoint:
         if archived is not None:
-            return archived
+            return ResolvedLogs(content=archived, source="archived")
         raise HTTPException(status_code=500, detail="Nomad endpoint not configured")
 
     client = NomadClient(
@@ -183,17 +210,20 @@ def resolve_submission_logs(
         alloc = latest_alloc(allocs)
         if not alloc:
             if archived is not None:
-                return archived
+                return ResolvedLogs(content=archived, source="archived")
             raise HTTPException(status_code=404, detail="No allocations found")
         alloc_id = alloc.get("ID")
         if not isinstance(alloc_id, str):
             if archived is not None:
-                return archived
+                return ResolvedLogs(content=archived, source="archived")
             raise HTTPException(status_code=404, detail="Allocation ID missing")
-        return client.alloc_logs(alloc_id, resolved_task, stderr=stderr, follow=follow)
+        return ResolvedLogs(
+            content=client.alloc_logs(alloc_id, resolved_task, stderr=stderr, follow=follow),
+            source="live",
+        )
     except NomadError as exc:
         if archived is not None:
-            return archived
+            return ResolvedLogs(content=archived, source="archived")
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     finally:
         client.close()
@@ -378,4 +408,3 @@ def _matches_status_filter(record: dict[str, Any], status_filter: str) -> bool:
     if status_filter == "active":
         return status in _ACTIVE_STATUSES
     return status == status_filter
-

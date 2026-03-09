@@ -134,6 +134,31 @@ def test_ui_admin_can_view_nodes_and_all_submissions(tmp_path, monkeypatch: pyte
     assert "Nodes" in nodes.text
 
 
+def test_ui_stats_are_based_on_all_visible_submissions_not_active_filter(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = _make_ui_client(tmp_path, monkeypatch)
+    storage = client.app.state.storage
+
+    alice_headers = {"Authorization": "Bearer tok-alice"}
+    queued_id = client.post("/v1/submissions", json=_payload(), headers=alice_headers).json()["submission_id"]
+    completed_id = client.post("/v1/submissions", json=_payload(), headers=alice_headers).json()["submission_id"]
+    failed_id = client.post("/v1/submissions", json=_payload(), headers=alice_headers).json()["submission_id"]
+    blocked_id = client.post("/v1/submissions", json=_payload(), headers=alice_headers).json()["submission_id"]
+
+    storage.update_submission(queued_id, {"status": "running"})
+    storage.update_submission(completed_id, {"status": "completed"})
+    storage.update_submission(failed_id, {"status": "failed"})
+    storage.update_submission(blocked_id, {"status": "blocked"})
+
+    _login(client, "tok-alice")
+    page = client.get("/ui/submissions?status=active")
+    assert page.status_code == 200
+    assert "<strong>4</strong>" in page.text
+    assert "<strong>2</strong>" in page.text
+    assert "<strong>1</strong>" in page.text
+
+
 def test_ui_non_admin_redirected_from_nodes(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
     client = _make_ui_client(tmp_path, monkeypatch)
     _login(client, "tok-alice")
@@ -170,6 +195,36 @@ def test_ui_detail_shows_archived_logs(tmp_path, monkeypatch: pytest.MonkeyPatch
     detail = client.get(f"/ui/submissions/{submission_id}")
     assert detail.status_code == 200
     assert "archived submit stderr" in detail.text
+
+
+def test_ui_detail_renders_structured_args_env_and_jobs(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = _make_ui_client(tmp_path, monkeypatch)
+    storage = client.app.state.storage
+
+    alice_headers = {"Authorization": "Bearer tok-alice"}
+    submission_id = client.post("/v1/submissions", json=_payload(), headers=alice_headers).json()["submission_id"]
+    storage.update_submission(
+        submission_id,
+        {
+            "jobs": {
+                "superlink": {
+                    "job_id": "job-superlink",
+                    "task": "superlink",
+                    "alloc_group": "core",
+                }
+            }
+        },
+    )
+
+    _login(client, "tok-alice")
+    detail = client.get(f"/ui/submissions/{submission_id}")
+    assert detail.status_code == 200
+    assert "Runner args" in detail.text
+    assert "FEDCTL_ENDPOINT" in detail.text
+    assert "Job IDs" in detail.text
+    assert "job-superlink" in detail.text
 
 
 def test_ui_requires_secret_when_enabled(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:

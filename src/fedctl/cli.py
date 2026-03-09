@@ -7,26 +7,6 @@ from rich import print
 from rich.table import Table
 from typer.core import TyperGroup
 
-from fedctl.commands.address import run_address
-from fedctl.commands.build import run_build
-from fedctl.commands.configure import run_configure
-from fedctl.commands.run import run_run
-from fedctl.commands.destroy import run_destroy
-from fedctl.commands.register import run_register
-from fedctl.commands.deploy import run_deploy
-from fedctl.commands.inspect import run_inspect
-from fedctl.commands.local import run_local_down, run_local_status, run_local_up
-from fedctl.commands.logs import run_logs
-from fedctl.commands.submit import (
-    run_submit,
-    run_submit_cancel,
-    run_submit_logs,
-    run_submit_ls,
-    run_submit_purge,
-    run_submit_results,
-    run_submit_status,
-    run_submit_inventory,
-)
 from fedctl.config.io import load_config, load_raw_toml, save_raw_toml
 from fedctl.config.merge import get_effective_config
 
@@ -244,6 +224,8 @@ def submit_run(
     priority: int | None = typer.Option(None, "--priority"),
 ) -> None:
     """Submit a project for queued execution."""
+    from fedctl.commands.submit import run_submit
+
     raise SystemExit(
         run_submit(
             path=path,
@@ -277,6 +259,8 @@ def submit_status(
     submission_id: str = typer.Argument(..., help="Submission ID."),
 ) -> None:
     """Show status for a submitted job."""
+    from fedctl.commands.submit import run_submit_status
+
     raise SystemExit(run_submit_status(submission_id=submission_id))
 
 
@@ -285,6 +269,8 @@ def submit_cancel(
     submission_id: str = typer.Argument(..., help="Submission ID."),
 ) -> None:
     """Cancel a submitted job."""
+    from fedctl.commands.submit import run_submit_cancel
+
     raise SystemExit(run_submit_cancel(submission_id=submission_id))
 
 
@@ -328,6 +314,8 @@ def submit_logs(
       fedctl submit logs <id> --job supernodes --task supernode-1
       fedctl submit logs <id> --job superexec_clientapps --index 2
     """
+    from fedctl.commands.submit import run_submit_logs
+
     raise SystemExit(
         run_submit_logs(
             submission_id=submission_id,
@@ -346,6 +334,8 @@ def submit_ls(
     active: bool = typer.Option(True, "--active/--all"),
 ) -> None:
     """List recent submissions."""
+    from fedctl.commands.submit import run_submit_ls
+
     raise SystemExit(run_submit_ls(limit=limit, active=active))
 
 
@@ -359,6 +349,8 @@ def submit_inventory(
     device_type: str | None = typer.Option(None, "--device-type"),
 ) -> None:
     """Show Nomad node inventory via the submit service."""
+    from fedctl.commands.submit import run_submit_inventory
+
     raise SystemExit(
         run_submit_inventory(
             include_allocs=include_allocs,
@@ -374,6 +366,8 @@ def submit_inventory(
 @submit_app.command("purge")
 def submit_purge() -> None:
     """Clear submit-service and local submission history."""
+    from fedctl.commands.submit import run_submit_purge
+
     raise SystemExit(run_submit_purge())
 
 
@@ -384,6 +378,8 @@ def submit_results(
     out: str | None = typer.Option(None, "--out"),
 ) -> None:
     """Show or download result artifacts for a submission."""
+    from fedctl.commands.submit import run_submit_results
+
     raise SystemExit(
         run_submit_results(
             submission_id=submission_id,
@@ -456,6 +452,8 @@ def deploy(
     no_wait: bool = typer.Option(False, "--no-wait"),
 ) -> None:
     """Deploy Flower jobs to Nomad (or render with --dry-run)."""
+    from fedctl.commands.deploy import run_deploy
+
     raise SystemExit(
         run_deploy(
             dry_run=dry_run,
@@ -486,6 +484,8 @@ def build(
     verbose: bool = typer.Option(False, "--verbose"),
 ) -> None:
     """Build a SuperExec Docker image for a Flower project."""
+    from fedctl.commands.build import run_build
+
     raise SystemExit(
         run_build(
             path=path,
@@ -506,6 +506,8 @@ def address(
     format: str = typer.Option("plain", "--format"),
 ) -> None:
     """Resolve the SuperLink control address."""
+    from fedctl.commands.address import run_address
+
     raise SystemExit(
         run_address(
             experiment=exp,
@@ -521,6 +523,8 @@ def configure(
     backup: bool = typer.Option(True, "--backup/--no-backup"),
 ) -> None:
     """Patch pyproject.toml with the resolved federation address."""
+    from fedctl.commands.configure import run_configure
+
     raise SystemExit(
         run_configure(
             path=path,
@@ -556,6 +560,8 @@ def run(
     destroy: bool = typer.Option(True, "--destroy/--no-destroy"),
 ) -> None:
     """Build, deploy, configure, and run a Flower project."""
+    from fedctl.commands.run import run_run
+
     raise SystemExit(
         run_run(
             path=path,
@@ -593,6 +599,8 @@ def destroy(
     token: str | None = typer.Option(None, "--token"),
 ) -> None:
     """Stop jobs for an experiment, optionally purging them."""
+    from fedctl.commands.destroy import run_destroy
+
     raise SystemExit(
         run_destroy(
             experiment=exp,
@@ -613,6 +621,8 @@ def logs(
     stderr: bool = typer.Option(True, "--stderr/--stdout"),
 ) -> None:
     """Fetch active allocation logs for an experiment."""
+    from fedctl.commands.logs import run_logs
+
     raise SystemExit(
         run_logs(
             experiment=exp,
@@ -633,6 +643,8 @@ def register(
     force: bool = typer.Option(False, "--force"),
 ) -> None:
     """Register a user namespace and scoped ACL token using a bootstrap token."""
+    from fedctl.commands.register import run_register
+
     raise SystemExit(
         run_register(
             username=username,
@@ -651,6 +663,8 @@ def inspect(
     path: str = typer.Argument(".", help="Path to a Flower project (dir or pyproject.toml).")
 ) -> None:
     """Inspect a Flower project for fedctl metadata."""
+    from fedctl.commands.inspect import run_inspect
+
     raise SystemExit(run_inspect(path))
 
 
@@ -663,6 +677,8 @@ def local_up(
     expected_nodes: int | None = typer.Option(None, "--expected-nodes"),
 ) -> None:
     """Start a local Nomad harness from HCL configs."""
+    from fedctl.commands.local import run_local_up
+
     if not client:
         raise typer.BadParameter("At least one --client is required.")
     raise SystemExit(
@@ -682,10 +698,14 @@ def local_down(
     force: bool = typer.Option(False, "--force"),
 ) -> None:
     """Stop the local Nomad harness."""
+    from fedctl.commands.local import run_local_down
+
     raise SystemExit(run_local_down(wipe=wipe, force=force))
 
 
 @local_app.command("status")
 def local_status() -> None:
     """Show local harness status."""
+    from fedctl.commands.local import run_local_status
+
     raise SystemExit(run_local_status())

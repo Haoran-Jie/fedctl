@@ -1,15 +1,16 @@
-<section class="panel">
+<section class="panel" id="logs-panel">
   <div class="section-head">
     <div class="section-copy">
       <h2>Logs</h2>
-      <p class="muted">Switch between live Nomad logs and archived fallback using the selector below.</p>
+      <p class="muted">Inspect live Nomad output when available, with archived fallback after cleanup.</p>
     </div>
-    <div class="log-hint">
+    <div class="log-hint log-meta">
       <span>Current view</span>
       <strong>{{ job }} / {{ 'stderr' if stderr else 'stdout' }}</strong>
+      <span class="log-source log-source-{{ logs_source or 'unknown' }}">{{ logs_source or 'unresolved' }}</span>
     </div>
   </div>
-  <form method="get" action="/ui/submissions/{{ submission.id }}" class="grid-form logs-form log-controls">
+  <form method="get" action="/ui/submissions/{{ submission.id }}#logs-panel" class="grid-form logs-form log-controls">
     <label>Job
       <select name="job">
         {% for value, label in log_jobs %}
@@ -30,11 +31,13 @@
       </select>
     </label>
     <div class="form-actions">
-      <button type="submit">Refresh logs</button>
+      <button type="submit">Reload</button>
     </div>
   </form>
   {% if logs_error %}
   <div class="alert error">{{ logs_error }}</div>
   {% endif %}
-  <div class="log-box ansi-log">{{ logs_html | safe }}</div>
+  <div class="log-box-wrap">
+    <div class="log-box ansi-log">{{ logs_html | safe }}</div>
+  </div>
 </section>

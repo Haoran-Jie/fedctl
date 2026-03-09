@@ -14,6 +14,10 @@
     <h1>Nodes</h1>
     <p class="muted">Inspect current capacity, role mix, and allocation pressure from the same submit-service control plane.</p>
   </div>
+  <div class="quick-command">
+    <span class="quick-command-label">Common CLI</span>
+    <code>{{ quick_command }}</code>
+  </div>
 </section>
 
 <section class="stats-grid">
@@ -37,18 +41,18 @@
       <h2>Inventory</h2>
       <p class="muted">Use filters to narrow the current cluster view.</p>
     </div>
-    <form method="get" action="/ui/nodes" class="grid-form compact-grid">
-      <label>Status
-        <input type="text" name="status" value="{{ filters.status }}">
-      </label>
-      <label>Node class
-        <input type="text" name="node_class" value="{{ filters.node_class }}">
-      </label>
-      <label>Device type
-        <input type="text" name="device_type" value="{{ filters.device_type }}">
-      </label>
-      <div class="form-actions">
-        <button type="submit">Apply filters</button>
+    <form method="get" action="/ui/nodes" class="filter-bar filter-bar-wide">
+      <div class="filter-group">
+        <label>Status</label>
+        <input type="text" name="status" value="{{ filters.status }}" onchange="this.form.requestSubmit()">
+      </div>
+      <div class="filter-group">
+        <label>Node class</label>
+        <input type="text" name="node_class" value="{{ filters.node_class }}" onchange="this.form.requestSubmit()">
+      </div>
+      <div class="filter-group">
+        <label>Device type</label>
+        <input type="text" name="device_type" value="{{ filters.device_type }}" onchange="this.form.requestSubmit()">
       </div>
     </form>
   </div>

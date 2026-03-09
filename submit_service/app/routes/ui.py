@@ -17,7 +17,7 @@ from ..submissions_service import (
     get_submission_or_404,
     is_cancellable,
     list_visible_submissions_for_ui,
-    resolve_submission_logs,
+    resolve_submission_logs_detail,
     submission_stats_for_ui,
 )
 from ..ui_auth import current_ui_principal, login_via_token, logout, require_ui_admin
@@ -101,6 +101,7 @@ def submissions_page(
             "status_filters": _STATUS_FILTERS,
             "stats": submission_stats_for_ui(visible_rows),
             "rows": [_submission_row_view(row, principal.role) for row in rows],
+            "quick_command": _submission_list_command(status_filter),
         },
     )
 
@@ -122,7 +123,7 @@ def submission_detail_page(
         submission_id,
         principal.as_auth_principal(),
     )
-    logs_content, logs_error = _resolve_logs_for_view(
+    logs_content, logs_error, logs_source = _resolve_logs_for_view(
         request,
         record,
         job=job,
@@ -140,6 +141,7 @@ def submission_detail_page(
         stderr=stderr,
         logs_content=logs_content,
         logs_error=logs_error,
+        logs_source=logs_source,
     )
 
 
@@ -177,7 +179,7 @@ def submission_logs_panel(
         submission_id,
         principal.as_auth_principal(),
     )
-    logs_content, logs_error = _resolve_logs_for_view(
+    logs_content, logs_error, logs_source = _resolve_logs_for_view(
         request,
         record,
         job=job,
@@ -194,6 +196,7 @@ def submission_logs_panel(
             "logs_content": logs_content,
             "logs_html": _render_logs_html(logs_content),
             "logs_error": logs_error,
+            "logs_source": logs_source,
             "job": job,
             "task": task or "",
             "index": index,
@@ -255,6 +258,11 @@ def nodes_page(
                 "device_type": device_type or "",
             },
             "error": None,
+            "quick_command": _inventory_command(
+                status=status,
+                node_class=node_class,
+                device_type=device_type,
+            ),
         },
     )
 
@@ -271,6 +279,7 @@ def _render_submission_detail(
     stderr: bool,
     logs_content: str | None,
     logs_error: str | None,
+    logs_source: str | None,
 ) -> HTMLResponse:
     detail = _submission_detail_view(record, role)
     return _render(
@@ -281,6 +290,7 @@ def _render_submission_detail(
             "logs_content": logs_content,
             "logs_html": _render_logs_html(logs_content),
             "logs_error": logs_error,
+            "logs_source": logs_source,
             "job": job,
             "task": task or "",
             "index": index,
@@ -299,9 +309,9 @@ def _resolve_logs_for_view(
     task: str | None,
     index: int,
     stderr: bool,
-) -> tuple[str | None, str | None]:
+) -> tuple[str | None, str | None, str | None]:
     try:
-        content = resolve_submission_logs(
+        resolved = resolve_submission_logs_detail(
             record,
             request.app.state.cfg,
             job=job,
@@ -312,8 +322,8 @@ def _resolve_logs_for_view(
         )
     except HTTPException as exc:
         detail = exc.detail if isinstance(exc.detail, str) else "Failed to load logs."
-        return None, detail
-    return content, None
+        return None, detail, None
+    return resolved.content, None, resolved.source
 
 
 
@@ -359,6 +369,8 @@ def _submission_detail_view(record: dict[str, Any], role: str) -> dict[str, Any]
     result_artifacts = record.get("result_artifacts")
     if not isinstance(result_artifacts, list):
         result_artifacts = []
+    args = record.get("args") if isinstance(record.get("args"), list) else []
+    env = record.get("env") if isinstance(record.get("env"), dict) else {}
     return {
         "id": record.get("id"),
         "project_name": record.get("project_name") or "-",
@@ -373,9 +385,12 @@ def _submission_detail_view(record: dict[str, Any], role: str) -> dict[str, Any]
         "nomad_job_id": record.get("nomad_job_id") or "-",
         "artifact_url": record.get("artifact_url") or "-",
         "submit_image": record.get("submit_image") or "-",
-        "args": record.get("args") if isinstance(record.get("args"), list) else [],
-        "env": record.get("env") if isinstance(record.get("env"), dict) else {},
+        "args": args,
+        "args_view": [_arg_view(arg, idx) for idx, arg in enumerate(args, start=1)],
+        "env": env,
+        "env_items": _env_items_view(env),
         "jobs": jobs,
+        "job_entries": _job_entries_view(jobs),
         "result_location": record.get("result_location") or "-",
         "result_artifacts": result_artifacts,
         "error_message": record.get("error_message") or "",
@@ -403,6 +418,98 @@ def _node_view(node: dict[str, Any]) -> dict[str, Any]:
         ) or "-",
     }
 
+
+
+def _arg_view(arg: Any, index: int) -> dict[str, Any]:
+    raw = str(arg)
+    if raw.startswith("--") and "=" in raw:
+        name, value = raw.split("=", 1)
+        return {"index": index, "kind": "option", "name": name, "value": value, "raw": raw}
+    if raw.startswith("--"):
+        return {"index": index, "kind": "flag", "name": raw, "value": "", "raw": raw}
+    if raw.startswith("-") and len(raw) > 1:
+        return {"index": index, "kind": "switch", "name": raw, "value": "", "raw": raw}
+    return {"index": index, "kind": "value", "name": raw, "value": "", "raw": raw}
+
+
+def _env_items_view(env: dict[str, Any]) -> list[dict[str, str]]:
+    return [{"key": str(key), "value": str(env[key])} for key in sorted(env)]
+
+
+def _job_entries_view(jobs: dict[str, Any]) -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
+    for job_name, info in jobs.items():
+        if not isinstance(info, dict):
+            entries.append(
+                {
+                    "name": str(job_name),
+                    "summary": str(info),
+                    "job_ids": [],
+                    "tasks": [],
+                    "fields": [],
+                }
+            )
+            continue
+        job_ids: list[str] = []
+        if isinstance(info.get("job_id"), str):
+            job_ids.append(info["job_id"])
+        if isinstance(info.get("job_ids"), list):
+            job_ids.extend(str(item) for item in info["job_ids"] if isinstance(item, str))
+        tasks: list[str] = []
+        if isinstance(info.get("task"), str):
+            tasks.append(info["task"])
+        if isinstance(info.get("tasks"), list):
+            tasks.extend(str(item) for item in info["tasks"] if isinstance(item, str))
+        fields: list[dict[str, str]] = []
+        for key in sorted(info):
+            if key in {"job_id", "job_ids", "task", "tasks"}:
+                continue
+            value = info[key]
+            if isinstance(value, list):
+                rendered = ", ".join(str(item) for item in value)
+            elif isinstance(value, dict):
+                rendered = ", ".join(f"{k}={v}" for k, v in sorted(value.items()))
+            else:
+                rendered = str(value)
+            fields.append({"label": key.replace("_", " "), "value": rendered})
+        summary_bits: list[str] = []
+        if job_ids:
+            summary_bits.append(f"{len(job_ids)} job id" + ("" if len(job_ids) == 1 else "s"))
+        if tasks:
+            summary_bits.append(f"{len(tasks)} task" + ("" if len(tasks) == 1 else "s"))
+        entries.append(
+            {
+                "name": str(job_name),
+                "summary": ", ".join(summary_bits) or "No mapping details",
+                "job_ids": job_ids,
+                "tasks": tasks,
+                "fields": fields,
+            }
+        )
+    entries.sort(key=lambda item: item["name"])
+    return entries
+
+
+def _submission_list_command(status_filter: str) -> str:
+    if status_filter == "active":
+        return "fedctl submit ls --active"
+    return "fedctl submit ls --all"
+
+
+def _inventory_command(
+    *,
+    status: str | None,
+    node_class: str | None,
+    device_type: str | None,
+) -> str:
+    parts = ["fedctl submit inventory"]
+    if status:
+        parts.extend(["--status", status])
+    if node_class:
+        parts.extend(["--class", node_class])
+    if device_type:
+        parts.extend(["--device-type", device_type])
+    return " ".join(parts)
 
 
 def _fmt_dt(value: Any) -> str:

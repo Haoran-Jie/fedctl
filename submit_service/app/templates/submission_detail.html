@@ -14,7 +14,7 @@
     <p class="muted">{{ submission.project_name }} / {{ submission.experiment }}</p>
   </div>
   <div class="detail-summary-strip">
-    <div class="summary-chip">
+    <div class="summary-chip status-chip">
       <span>Status</span>
       <strong>{% set status = submission.status %}{% include '_status_badge.html' %}</strong>
     </div>
@@ -86,20 +86,91 @@
 <section class="panel two-col">
   <div class="section-block">
     <h2>Runner args</h2>
-    <pre class="code-box code-scroll">{{ submission.args | join('\n') if submission.args else 'None' }}</pre>
+    {% if submission.args_view %}
+    <div class="args-grid">
+      {% for arg in submission.args_view %}
+      <div class="arg-card">
+        <div class="arg-head">
+          <span class="arg-index">{{ arg.index }}</span>
+          <span class="arg-kind">{{ arg.kind }}</span>
+        </div>
+        <div class="arg-line">
+          <span class="arg-name">{{ arg.name }}</span>
+          {% if arg.value %}
+          <code class="arg-value">{{ arg.value }}</code>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="muted">No runner args recorded.</p>
+    {% endif %}
   </div>
   <div class="section-block">
     <h2>Runner env</h2>
-    <pre class="code-box code-scroll">{% if submission.env %}{% for key, value in submission.env.items() %}{{ key }}={{ value }}
-{% endfor %}{% else %}None{% endif %}</pre>
+    {% if submission.env_items %}
+    <dl class="structured-pairs">
+      {% for item in submission.env_items %}
+      <div>
+        <dt><code>{{ item.key }}</code></dt>
+        <dd class="wrap"><code>{{ item.value }}</code></dd>
+      </div>
+      {% endfor %}
+    </dl>
+    {% else %}
+    <p class="muted">No runner env recorded.</p>
+    {% endif %}
   </div>
 </section>
 
 <section class="panel two-col">
   <div class="section-block">
     <h2>Job mapping</h2>
-    <pre class="code-box code-scroll">{% if submission.jobs %}{% for key, value in submission.jobs.items() %}{{ key }}: {{ value }}
-{% endfor %}{% else %}No job mapping recorded.{% endif %}</pre>
+    {% if submission.job_entries %}
+    <div class="mapping-grid">
+      {% for entry in submission.job_entries %}
+      <article class="mapping-card">
+        <div class="mapping-head">
+          <h3>{{ entry.name }}</h3>
+          <span class="mapping-summary">{{ entry.summary }}</span>
+        </div>
+        {% if entry.job_ids %}
+        <div class="mapping-block">
+          <span class="mapping-label">Job IDs</span>
+          <ul class="mapping-list">
+            {% for item in entry.job_ids %}
+            <li><code>{{ item }}</code></li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+        {% if entry.tasks %}
+        <div class="mapping-block">
+          <span class="mapping-label">Tasks</span>
+          <ul class="mapping-list">
+            {% for item in entry.tasks %}
+            <li><code>{{ item }}</code></li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+        {% if entry.fields %}
+        <dl class="mapping-fields">
+          {% for field in entry.fields %}
+          <div>
+            <dt>{{ field.label }}</dt>
+            <dd class="wrap">{{ field.value }}</dd>
+          </div>
+          {% endfor %}
+        </dl>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="muted">No job mapping recorded.</p>
+    {% endif %}
   </div>
   <div class="section-block">
     <h2>Result artifacts</h2>
