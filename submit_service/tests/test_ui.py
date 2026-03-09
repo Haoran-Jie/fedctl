@@ -12,6 +12,7 @@ fastapi = pytest.importorskip("fastapi")
 from fastapi.testclient import TestClient
 
 from submit_service.app.main import create_app
+from submit_service.app.routes import ui as ui_routes
 
 
 TOKEN_MAP = {
@@ -182,3 +183,10 @@ def test_ui_requires_secret_when_enabled(tmp_path, monkeypatch: pytest.MonkeyPat
 
     with pytest.raises(RuntimeError, match="SUBMIT_UI_SESSION_SECRET"):
         create_app()
+
+
+def test_render_logs_html_converts_ansi_sequences() -> None:
+    rendered = ui_routes._render_logs_html("\x1b[92mINFO\x1b[0m: hello")
+    assert "INFO" in rendered
+    assert "\x1b[" not in rendered
+    assert "style=" in rendered or "color:" in rendered

@@ -1,11 +1,54 @@
 {% extends 'base.html' %}
 {% block title %}Submissions | fedctl submit service{% endblock %}
 {% block content %}
+{% set stats = namespace(total=0, active=0, blocked=0, failed=0, completed=0) %}
+{% for row in rows %}
+  {% set stats.total = stats.total + 1 %}
+  {% if row.status in ['queued', 'running', 'blocked'] %}{% set stats.active = stats.active + 1 %}{% endif %}
+  {% if row.status == 'blocked' %}{% set stats.blocked = stats.blocked + 1 %}{% endif %}
+  {% if row.status == 'failed' %}{% set stats.failed = stats.failed + 1 %}{% endif %}
+  {% if row.status == 'completed' %}{% set stats.completed = stats.completed + 1 %}{% endif %}
+{% endfor %}
+<section class="hero-panel">
+  <div>
+    <div class="eyebrow">Submit monitoring</div>
+    <h1>Submissions</h1>
+    <p class="muted">Submission remains CLI-first: <code>fedctl submit run &lt;project-dir&gt;</code>. Use this page to inspect queue state, failures, archived logs, and completion status.</p>
+  </div>
+  <div class="quick-command">
+    <span class="quick-command-label">Common CLI</span>
+    <code>fedctl submit ls --active</code>
+  </div>
+</section>
+
+<section class="stats-grid">
+  <article class="stat-card">
+    <span>Total visible</span>
+    <strong>{{ stats.total }}</strong>
+  </article>
+  <article class="stat-card">
+    <span>Active</span>
+    <strong>{{ stats.active }}</strong>
+  </article>
+  <article class="stat-card">
+    <span>Blocked</span>
+    <strong>{{ stats.blocked }}</strong>
+  </article>
+  <article class="stat-card">
+    <span>Failed</span>
+    <strong>{{ stats.failed }}</strong>
+  </article>
+  <article class="stat-card">
+    <span>Completed</span>
+    <strong>{{ stats.completed }}</strong>
+  </article>
+</section>
+
 <section class="panel">
   <div class="section-head">
     <div>
-      <h1>Submissions</h1>
-      <p class="muted">Submission remains CLI-first: <code>fedctl submit run &lt;project-dir&gt;</code>.</p>
+      <h2>Recent submissions</h2>
+      <p class="muted">Filter what you see without changing the underlying submit-service state.</p>
     </div>
     <form method="get" action="/ui/submissions" class="inline-form">
       <label for="status">Filter</label>
@@ -17,7 +60,7 @@
     </form>
   </div>
   {% if rows %}
-  <table>
+  <table class="data-table">
     <thead>
       <tr>
         <th>ID</th>
@@ -34,14 +77,17 @@
     <tbody>
       {% for row in rows %}
       <tr>
-        <td><a href="/ui/submissions/{{ row.id }}">{{ row.id }}</a></td>
+        <td>
+          <a class="primary-link" href="/ui/submissions/{{ row.id }}">{{ row.id }}</a>
+          <div class="table-subtext">{{ row.namespace }}</div>
+        </td>
         <td>{{ row.project_name }}</td>
         <td>{{ row.experiment }}</td>
         <td>{% set status = row.status %}{% include '_status_badge.html' %}</td>
         {% if principal and principal.role == 'admin' %}<td>{{ row.owner }}</td>{% endif %}
         <td>{{ row.created_at }}</td>
         <td>{{ row.finished_at }}</td>
-        <td>{{ row.namespace }}</td>
+        <td><code>{{ row.namespace }}</code></td>
         <td class="wrap">{{ row.blocked_reason or '-' }}</td>
       </tr>
       {% endfor %}

@@ -1,5 +1,14 @@
 <section class="panel">
-  <h2>Logs</h2>
+  <div class="section-head">
+    <div class="section-copy">
+      <h2>Logs</h2>
+      <p class="muted">Switch between live Nomad logs and archived fallback using the selector below.</p>
+    </div>
+    <div class="log-hint">
+      <span>Current view</span>
+      <strong>{{ job }} / {{ 'stderr' if stderr else 'stdout' }}</strong>
+    </div>
+  </div>
   <form method="get" action="/ui/submissions/{{ submission.id }}" class="grid-form logs-form">
     <label>Job
       <select name="job">
@@ -27,5 +36,5 @@
   {% if logs_error %}
   <div class="alert error">{{ logs_error }}</div>
   {% endif %}
-  <pre class="log-box">{{ logs_content or 'No log content available for this selection.' }}</pre>
+  <div class="log-box ansi-log">{{ logs_html | safe }}</div>
 </section>

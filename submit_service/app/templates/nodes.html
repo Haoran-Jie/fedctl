@@ -1,11 +1,41 @@
 {% extends 'base.html' %}
 {% block title %}Nodes | fedctl submit service{% endblock %}
 {% block content %}
+{% set node_stats = namespace(total=0, ready=0, busy=0) %}
+{% for node in nodes %}
+  {% set node_stats.total = node_stats.total + 1 %}
+  {% if node.status in ['ready', 'up'] %}{% set node_stats.ready = node_stats.ready + 1 %}{% endif %}
+  {% if node.alloc_count > 0 %}{% set node_stats.busy = node_stats.busy + 1 %}{% endif %}
+{% endfor %}
+
+<section class="hero-panel">
+  <div>
+    <div class="eyebrow">Cluster inventory</div>
+    <h1>Nodes</h1>
+    <p class="muted">Inspect current capacity, role mix, and allocation pressure from the same submit-service control plane.</p>
+  </div>
+</section>
+
+<section class="stats-grid">
+  <article class="stat-card">
+    <span>Total nodes</span>
+    <strong>{{ node_stats.total }}</strong>
+  </article>
+  <article class="stat-card">
+    <span>Ready / up</span>
+    <strong>{{ node_stats.ready }}</strong>
+  </article>
+  <article class="stat-card">
+    <span>With allocations</span>
+    <strong>{{ node_stats.busy }}</strong>
+  </article>
+</section>
+
 <section class="panel">
   <div class="section-head">
-    <div>
-      <h1>Nodes</h1>
-      <p class="muted">Cluster inventory for submit-service administration.</p>
+    <div class="section-copy">
+      <h2>Inventory</h2>
+      <p class="muted">Use filters to narrow the current cluster view.</p>
     </div>
     <form method="get" action="/ui/nodes" class="grid-form compact-grid">
       <label>Status
@@ -26,7 +56,7 @@
   <div class="alert error">{{ error }}</div>
   {% endif %}
   {% if nodes %}
-  <table>
+  <table class="data-table">
     <thead>
       <tr>
         <th>Name</th>

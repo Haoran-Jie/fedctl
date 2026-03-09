@@ -1,11 +1,28 @@
 {% extends 'base.html' %}
 {% block title %}{{ submission.id }} | fedctl submit service{% endblock %}
 {% block content %}
+<div class="page-crumbs">
+  <a href="/ui/submissions">Submissions</a>
+  <span>/</span>
+  <span>{{ submission.id }}</span>
+</div>
+
+<section class="hero-panel detail-hero">
+  <div>
+    <div class="eyebrow">Submission detail</div>
+    <h1>{{ submission.id }}</h1>
+    <p class="muted">{{ submission.project_name }} / {{ submission.experiment }}</p>
+  </div>
+  <div class="hero-status">
+    {% set status = submission.status %}{% include '_status_badge.html' %}
+  </div>
+</section>
+
 <section class="panel">
   <div class="section-head">
-    <div>
-      <h1>{{ submission.id }}</h1>
-      <p class="muted">{{ submission.project_name }} / {{ submission.experiment }}</p>
+    <div class="section-copy">
+      <h2>Overview</h2>
+      <p class="muted">Submission metadata, execution mapping, and artifact locations.</p>
     </div>
     <div class="actions">
       <a class="button secondary" href="/ui/submissions">Back to submissions</a>
@@ -39,11 +56,11 @@
 </section>
 
 <section class="panel two-col">
-  <div>
+  <div class="section-block">
     <h2>Runner args</h2>
     <pre class="code-box">{{ submission.args | join('\n') if submission.args else 'None' }}</pre>
   </div>
-  <div>
+  <div class="section-block">
     <h2>Runner env</h2>
     <pre class="code-box">{% if submission.env %}{% for key, value in submission.env.items() %}{{ key }}={{ value }}
 {% endfor %}{% else %}None{% endif %}</pre>
@@ -51,12 +68,12 @@
 </section>
 
 <section class="panel two-col">
-  <div>
+  <div class="section-block">
     <h2>Job mapping</h2>
     <pre class="code-box">{% if submission.jobs %}{% for key, value in submission.jobs.items() %}{{ key }}: {{ value }}
 {% endfor %}{% else %}No job mapping recorded.{% endif %}</pre>
   </div>
-  <div>
+  <div class="section-block">
     <h2>Result artifacts</h2>
     {% if submission.result_artifacts %}
     <ul class="artifact-list">

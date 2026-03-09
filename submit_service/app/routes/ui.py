@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 from datetime import datetime
+from html import escape
 from pathlib import Path
+import re
 from typing import Any
 
+from ansi2html import Ansi2HTMLConverter
 from fastapi import APIRouter, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -31,6 +34,8 @@ _LOG_JOBS = [
     ("superexec_serverapp", "SuperExec serverapp"),
     ("superexec_clientapps", "SuperExec clientapps"),
 ]
+_ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
+_ANSI_CONVERTER = Ansi2HTMLConverter(inline=True, dark_bg=False)
 
 
 @router.get("/", response_class=HTMLResponse, response_model=None)
@@ -180,6 +185,7 @@ def submission_logs_panel(
             "request": request,
             "submission": _submission_detail_view(record, principal.role),
             "logs_content": logs_content,
+            "logs_html": _render_logs_html(logs_content),
             "logs_error": logs_error,
             "job": job,
             "task": task or "",
@@ -266,6 +272,7 @@ def _render_submission_detail(
         {
             "submission": detail,
             "logs_content": logs_content,
+            "logs_html": _render_logs_html(logs_content),
             "logs_error": logs_error,
             "job": job,
             "task": task or "",
@@ -402,3 +409,11 @@ def _fmt_dt(value: Any) -> str:
         except ValueError:
             return str(value)
     return dt.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _render_logs_html(content: str | None) -> str:
+    if not content:
+        return '<span class="log-empty">No log content available for this selection.</span>'
+    if _ANSI_RE.search(content):
+        return _ANSI_CONVERTER.convert(content, full=False)
+    return escape(content)
