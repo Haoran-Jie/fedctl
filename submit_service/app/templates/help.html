@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% block title %}Help | fedctl submit service{% endblock %}
+{% block content %}
+<section class="hero-panel">
+  <div>
+    <div class="eyebrow">Submit CLI guide</div>
+    <h1>fedctl submit help</h1>
+    <p class="muted">This page covers the submit-focused CLI surface. Start with <code>fedctl submit run</code>, then use status, logs, results, and inventory as needed.</p>
+  </div>
+  <div class="quick-command">
+    <span class="quick-command-label">Primary command</span>
+    <code>fedctl submit run &lt;project-dir&gt;</code>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="section-head">
+    <div class="section-copy">
+      <h2>Quick start</h2>
+      <p class="muted">The normal workflow for most users is submit, watch, inspect, and download results.</p>
+    </div>
+  </div>
+  <div class="help-steps">
+    {% for step in quickstart_steps %}
+    <article class="help-step">
+      <div class="help-step-index">{{ loop.index }}</div>
+      <div class="help-step-body">
+        <h3>{{ step.title }}</h3>
+        <p class="muted">{{ step.body }}</p>
+        <pre><code>{{ step.command }}</code></pre>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+
+<section class="panel">
+  <div class="section-head">
+    <div class="section-copy">
+      <h2>Command reference</h2>
+      <p class="muted">Examples are written against the current <code>fedctl submit</code> command surface.</p>
+    </div>
+  </div>
+  <div class="help-command-grid">
+    {% for command in commands %}
+    <article class="help-command-card {% if command.importance == 'primary' %}help-command-primary{% endif %}">
+      <div class="help-command-head">
+        <h3>{{ command.name }}</h3>
+        {% if command.importance == 'primary' %}
+        <span class="help-pill">Most important</span>
+        {% endif %}
+      </div>
+      <p class="muted">{{ command.summary }}</p>
+      <div class="help-block">
+        <span class="mapping-label">Syntax</span>
+        <pre><code>{{ command.syntax }}</code></pre>
+      </div>
+      <div class="help-block">
+        <span class="mapping-label">Examples</span>
+        <ul class="help-example-list">
+          {% for example in command.examples %}
+          <li><code>{{ example }}</code></li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% if command.notes %}
+      <div class="help-block">
+        <span class="mapping-label">Notes</span>
+        <ul class="help-note-list">
+          {% for note in command.notes %}
+          <li>{{ note }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

@@ -37,6 +37,118 @@ _LOG_JOBS = [
     ("superexec_serverapp", "SuperExec serverapp"),
     ("superexec_clientapps", "SuperExec clientapps"),
 ]
+_HELP_COMMANDS = [
+    {
+        "name": "submit run",
+        "summary": "Package a local Flower project, upload the archive, and create a queued submission.",
+        "importance": "primary",
+        "syntax": "fedctl submit run <project-dir>",
+        "examples": [
+            "fedctl submit run ../quickstart-pytorch",
+            "fedctl submit run ../quickstart-pytorch --exp pytorch-baseline-r1",
+            "fedctl submit run ../quickstart-pytorch --priority 70 --no-destroy",
+        ],
+        "notes": [
+            "This is the main entrypoint for normal users.",
+            "It handles inspect, archive, upload, and submit in one flow.",
+            "Use --no-destroy when you want to inspect live Nomad jobs after completion.",
+        ],
+    },
+    {
+        "name": "submit ls",
+        "summary": "List recent submissions from the submit service.",
+        "importance": "standard",
+        "syntax": "fedctl submit ls [--active|--all] [--limit N]",
+        "examples": [
+            "fedctl submit ls",
+            "fedctl submit ls --all",
+            "fedctl submit ls --limit 50",
+        ],
+        "notes": [
+            "Default output is active-first because --active is enabled by default.",
+        ],
+    },
+    {
+        "name": "submit status",
+        "summary": "Show the current status, blocked reason, or failure message for one submission.",
+        "importance": "standard",
+        "syntax": "fedctl submit status <submission-id>",
+        "examples": [
+            "fedctl submit status sub-20260227182713-5413",
+        ],
+        "notes": [
+            "Use this first when a run looks stuck or blocked.",
+        ],
+    },
+    {
+        "name": "submit logs",
+        "summary": "Read live or archived logs for the submit job and downstream Flower jobs.",
+        "importance": "standard",
+        "syntax": "fedctl submit logs <submission-id> [--job JOB] [--task TASK] [--index N] [--stderr|--stdout] [--follow]",
+        "examples": [
+            "fedctl submit logs sub-20260227182713-5413",
+            "fedctl submit logs sub-20260227182713-5413 --job superlink --stderr",
+            "fedctl submit logs sub-20260227182713-5413 --job superexec_clientapps --index 2 --stdout",
+        ],
+        "notes": [
+            "Use --job supernodes with --task to target a specific supernode task.",
+            "When Nomad allocations are gone, the service falls back to archived logs if available.",
+        ],
+    },
+    {
+        "name": "submit cancel",
+        "summary": "Stop an active submission and mark it cancelled.",
+        "importance": "standard",
+        "syntax": "fedctl submit cancel <submission-id>",
+        "examples": [
+            "fedctl submit cancel sub-20260227182713-5413",
+        ],
+        "notes": [
+            "Use this for queued, running, or blocked submissions.",
+        ],
+    },
+    {
+        "name": "submit purge",
+        "summary": "Delete submission history, either for one terminal submission or for all history.",
+        "importance": "standard",
+        "syntax": "fedctl submit purge [submission-id]",
+        "examples": [
+            "fedctl submit purge sub-20260227182713-5413",
+            "fedctl submit purge",
+        ],
+        "notes": [
+            "Purging a single submission is allowed for the owner or admin, but only after it is completed, failed, or cancelled.",
+            "Purging without an ID clears the whole submission history and is the stronger action.",
+        ],
+    },
+    {
+        "name": "submit results",
+        "summary": "Show or download result artifact URLs recorded for a submission.",
+        "importance": "standard",
+        "syntax": "fedctl submit results <submission-id> [--download] [--out PATH]",
+        "examples": [
+            "fedctl submit results sub-20260227182713-5413",
+            "fedctl submit results sub-20260227182713-5413 --download --out ./results",
+        ],
+        "notes": [
+            "This is useful when the runner uploaded result files and you want the URLs or local copies.",
+        ],
+    },
+    {
+        "name": "submit inventory",
+        "summary": "Inspect the Nomad node inventory exposed by the submit service.",
+        "importance": "standard",
+        "syntax": "fedctl submit inventory [--status STATUS] [--class CLASS] [--device-type TYPE] [--detail] [--json]",
+        "examples": [
+            "fedctl submit inventory",
+            "fedctl submit inventory --status ready --class submit",
+            "fedctl submit inventory --detail",
+        ],
+        "notes": [
+            "This is mainly an operator/admin command for checking cluster capacity and placement constraints.",
+        ],
+    },
+]
 _ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
 _ANSI_CONVERTER = Ansi2HTMLConverter(inline=True, dark_bg=False)
 
@@ -108,10 +220,42 @@ def submissions_page(
     )
 
 
+@router.get("/ui/help", response_class=HTMLResponse, response_model=None)
+def help_page(request: Request) -> HTMLResponse | RedirectResponse:
+    principal = current_ui_principal(request)
+    if principal is None:
+        return RedirectResponse(url="/ui/login", status_code=303)
+    return _render(
+        request,
+        "help.html",
+        {
+            "commands": _HELP_COMMANDS,
+            "quickstart_steps": [
+                {
+                    "title": "Submit a project",
+                    "body": "Run fedctl submit run on a local Flower project directory. This is the normal path for users.",
+                    "command": "fedctl submit run ../quickstart-pytorch",
+                },
+                {
+                    "title": "Check queue and status",
+                    "body": "List active submissions, then inspect one specific submission if needed.",
+                    "command": "fedctl submit ls --active\nfedctl submit status <submission-id>",
+                },
+                {
+                    "title": "Inspect logs or results",
+                    "body": "Use logs during execution and results after completion.",
+                    "command": "fedctl submit logs <submission-id> --job submit --stderr\nfedctl submit results <submission-id>",
+                },
+            ],
+        },
+    )
+
+
 @router.get("/ui/submissions/{submission_id}", response_class=HTMLResponse, response_model=None)
 def submission_detail_page(
     submission_id: str,
     request: Request,
+    return_to: str | None = Query(None),
     job: str = Query("submit"),
     task: str | None = Query(None),
     index: int = Query(1, ge=1),
@@ -144,6 +288,7 @@ def submission_detail_page(
         logs_content=logs_content,
         logs_error=logs_error,
         logs_source=logs_source,
+        return_to=_safe_return_to(return_to),
     )
 
 
@@ -168,6 +313,7 @@ def submission_cancel(
 def submission_purge(
     submission_id: str,
     request: Request,
+    return_to: str | None = Form(None),
 ) -> RedirectResponse:
     principal = current_ui_principal(request)
     if principal is None:
@@ -177,7 +323,7 @@ def submission_purge(
         submission_id=submission_id,
         principal=principal.as_auth_principal(),
     )
-    return RedirectResponse(url="/ui/submissions", status_code=303)
+    return RedirectResponse(url=_safe_return_to(return_to), status_code=303)
 
 
 @router.get("/ui/submissions/{submission_id}/logs", response_class=HTMLResponse, response_model=None)
@@ -298,6 +444,7 @@ def _render_submission_detail(
     logs_content: str | None,
     logs_error: str | None,
     logs_source: str | None,
+    return_to: str,
 ) -> HTMLResponse:
     detail = _submission_detail_view(record, role)
     return _render(
@@ -314,6 +461,7 @@ def _render_submission_detail(
             "index": index,
             "stderr": stderr,
             "log_jobs": _LOG_JOBS,
+            "return_to": return_to,
         },
     )
 
@@ -364,6 +512,12 @@ def _render(
         context=merged,
         status_code=status_code,
     )
+
+
+def _safe_return_to(value: str | None) -> str:
+    if isinstance(value, str) and value.startswith("/ui/submissions"):
+        return value
+    return "/ui/submissions"
 
 
 

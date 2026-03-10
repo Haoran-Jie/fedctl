@@ -78,6 +78,17 @@ def test_ui_requires_session_and_login_succeeds(tmp_path, monkeypatch: pytest.Mo
     assert "Submissions" in page.text
 
 
+def test_ui_help_page_shows_submit_commands(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    client = _make_ui_client(tmp_path, monkeypatch)
+    _login(client, "tok-alice")
+
+    page = client.get("/ui/help")
+    assert page.status_code == 200
+    assert "fedctl submit run" in page.text
+    assert "fedctl submit inventory" in page.text
+    assert "Most important" in page.text
+
+
 def test_ui_user_scope_cancel_and_purge(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
     client = _make_ui_client(tmp_path, monkeypatch)
     storage = client.app.state.storage
@@ -101,9 +112,16 @@ def test_ui_user_scope_cancel_and_purge(tmp_path, monkeypatch: pytest.MonkeyPatc
     assert "cancelled" in detail.text
     assert "Purge submission" in detail.text
 
-    purge = client.post(f"/ui/submissions/{alice_id}/purge", follow_redirects=False)
+    filtered_detail = client.get(f"/ui/submissions/{alice_id}?return_to=/ui/submissions?status=completed")
+    assert 'href="/ui/submissions?status=completed"' in filtered_detail.text
+
+    purge = client.post(
+        f"/ui/submissions/{alice_id}/purge",
+        data={"return_to": "/ui/submissions?status=completed"},
+        follow_redirects=False,
+    )
     assert purge.status_code == 303
-    assert purge.headers["location"] == "/ui/submissions"
+    assert purge.headers["location"] == "/ui/submissions?status=completed"
 
     missing = client.get(f"/ui/submissions/{alice_id}")
     assert missing.status_code == 404

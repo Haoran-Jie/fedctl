@@ -11,6 +11,7 @@
     </div>
   </div>
   <form method="get" action="/ui/submissions/{{ submission.id }}#logs-panel" class="grid-form logs-form log-controls">
+    <input type="hidden" name="return_to" value="{{ return_to }}">
     <label>Job
       <select name="job">
         {% for value, label in log_jobs %}

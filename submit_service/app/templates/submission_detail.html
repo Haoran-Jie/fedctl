@@ -2,7 +2,7 @@
 {% block title %}{{ submission.id }} | fedctl submit service{% endblock %}
 {% block content %}
 <div class="page-crumbs">
-  <a href="/ui/submissions">Submissions</a>
+  <a href="{{ return_to }}">Submissions</a>
   <span>/</span>
   <span>{{ submission.id }}</span>
 </div>
@@ -36,7 +36,7 @@
       <p class="muted">Submission metadata, execution mapping, and artifact locations.</p>
     </div>
     <div class="actions">
-      <a class="button secondary" href="/ui/submissions">Back to submissions</a>
+      <a class="button secondary" href="{{ return_to }}">Back to submissions</a>
       {% if submission.can_cancel %}
       <form method="post" action="/ui/submissions/{{ submission.id }}/cancel">
         <button type="submit">Cancel submission</button>
@@ -44,6 +44,7 @@
       {% endif %}
       {% if submission.can_purge %}
       <form method="post" action="/ui/submissions/{{ submission.id }}/purge">
+        <input type="hidden" name="return_to" value="{{ return_to }}">
         <button type="submit" class="danger-button">Purge submission</button>
       </form>
       {% endif %}
