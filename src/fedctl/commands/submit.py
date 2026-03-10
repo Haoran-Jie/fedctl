@@ -32,6 +32,7 @@ from fedctl.build.tagging import default_image_tag
 from fedctl.state.errors import StateError
 from fedctl.state.submissions import (
     SubmissionRecord,
+    clear_submission,
     clear_submissions,
     load_submissions,
     record_submission,
@@ -596,24 +597,42 @@ def run_submit_ls(*, limit: int, active: bool = True) -> int:
     return 0
 
 
-def run_submit_purge() -> int:
+def run_submit_purge(*, submission_id: str | None = None) -> int:
     submit_client = _submit_service_client()
     if submit_client:
         try:
-            submit_client.purge_submissions()
-            console.print("[green]✓ Cleared submit-service history.[/green]")
+            if submission_id:
+                submit_client.purge_submission(submission_id)
+                console.print(
+                    f"[green]✓ Purged submit-service record:[/green] {submission_id}"
+                )
+            else:
+                submit_client.purge_submissions()
+                console.print("[green]✓ Cleared submit-service history.[/green]")
         except SubmitServiceError as exc:
             console.print(f"[red]✗ Submit service error:[/red] {exc}")
             return 1
     else:
-        console.print("[yellow]![/yellow] Submit service not configured; skipping remote purge.")
+        console.print(
+            "[yellow]![/yellow] Submit service not configured; skipping remote purge."
+        )
 
     try:
-        path = clear_submissions()
+        if submission_id:
+            path = clear_submission(submission_id)
+        else:
+            path = clear_submissions()
     except Exception as exc:
-        console.print(f"[red]✗ Failed to clear local history:[/red] {exc}")
+        if submission_id:
+            console.print(f"[red]✗ Failed to purge local submission:[/red] {exc}")
+        else:
+            console.print(f"[red]✗ Failed to clear local history:[/red] {exc}")
         return 1
-    console.print(f"[green]✓ Cleared local history:[/green] {path}")
+    if submission_id:
+        console.print(f"[green]✓ Purged local submission:[/green] {submission_id}")
+        console.print(f"[dim]{path}[/dim]")
+    else:
+        console.print(f"[green]✓ Cleared local history:[/green] {path}")
     return 0
 
 

@@ -150,6 +150,59 @@ def test_token_map_enforces_owner_scope_and_admin_override(
     assert admin_cancel_bob.json()["status"] == "cancelled"
 
 
+def test_owner_can_purge_single_terminal_submission_only(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("SUBMIT_REPO_CONFIG", str(tmp_path / "missing-fedctl.yaml"))
+    monkeypatch.setenv("SUBMIT_DB_URL", f"sqlite:///{tmp_path / 'submit.db'}")
+    monkeypatch.setenv(
+        "FEDCTL_SUBMIT_TOKEN_MAP",
+        json.dumps(
+            {
+                "tok-user": {"name": "alice", "role": "user"},
+                "tok-admin": {"name": "ops", "role": "admin"},
+            }
+        ),
+    )
+    monkeypatch.delenv("FEDCTL_SUBMIT_TOKENS", raising=False)
+    monkeypatch.setenv("FEDCTL_SUBMIT_ALLOW_UNAUTH", "false")
+    app = create_app()
+    client = TestClient(app)
+
+    user_headers = {"Authorization": "Bearer tok-user"}
+    admin_headers = {"Authorization": "Bearer tok-admin"}
+
+    first_id = client.post("/v1/submissions", json=_payload(), headers=user_headers).json()[
+        "submission_id"
+    ]
+    second_payload = dict(_payload())
+    second_payload["experiment"] = "mnist-20250126"
+    second_id = client.post(
+        "/v1/submissions",
+        json=second_payload,
+        headers=user_headers,
+    ).json()["submission_id"]
+
+    active = client.post(f"/v1/submissions/{first_id}/purge", headers=user_headers)
+    assert active.status_code == 409
+
+    client.app.state.storage.update_submission(first_id, {"status": "completed"})
+
+    purged = client.post(f"/v1/submissions/{first_id}/purge", headers=user_headers)
+    assert purged.status_code == 200
+    assert purged.json() == {"status": "ok"}
+
+    missing = client.get(f"/v1/submissions/{first_id}", headers=admin_headers)
+    assert missing.status_code == 404
+
+    remaining = client.get(f"/v1/submissions/{second_id}", headers=admin_headers)
+    assert remaining.status_code == 200
+    assert remaining.json()["submission_id"] == second_id
+
+    foreign = client.post(f"/v1/submissions/{second_id}/purge", headers=admin_headers)
+    assert foreign.status_code == 409
+
+
 def test_logs_falls_back_to_archived_when_nomad_unavailable(
     tmp_path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

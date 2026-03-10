@@ -27,6 +27,7 @@ class ResolvedLogs:
 
 _ACTIVE_STATUSES = {"queued", "running", "blocked"}
 _CANCELLABLE_STATUSES = {"queued", "running", "blocked"}
+_PURGEABLE_STATUSES = {"completed", "failed", "cancelled"}
 
 
 def authenticate_request(request: Request, cfg: SubmitConfig) -> AuthPrincipal:
@@ -262,9 +263,27 @@ def cancel_submission_record(
     return SubmissionRecord.from_row(updated)
 
 
+def purge_submission_record(
+    storage: Storage,
+    *,
+    submission_id: str,
+    principal: AuthPrincipal,
+) -> None:
+    record = get_submission_or_404(storage, submission_id, principal)
+    if not is_purgeable(record.get("status")):
+        raise HTTPException(
+            status_code=409,
+            detail="Only completed, failed, or cancelled submissions can be purged",
+        )
+    storage.delete_submission(submission_id)
+
 
 def is_cancellable(status: object) -> bool:
     return isinstance(status, str) and status in _CANCELLABLE_STATUSES
+
+
+def is_purgeable(status: object) -> bool:
+    return isinstance(status, str) and status in _PURGEABLE_STATUSES
 
 
 

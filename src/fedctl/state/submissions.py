@@ -81,3 +81,18 @@ def clear_submissions() -> Path:
     tmp_path.write_text(payload, encoding="utf-8")
     os.replace(tmp_path, path)
     return path
+
+
+def clear_submission(submission_id: str) -> Path:
+    path = submissions_path()
+    entries = [
+        entry
+        for entry in load_submissions()
+        if entry.get("submission_id") != submission_id
+    ]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = json.dumps(entries, indent=2, sort_keys=True)
+    tmp_path = path.with_suffix(path.suffix + ".tmp")
+    tmp_path.write_text(payload, encoding="utf-8")
+    os.replace(tmp_path, path)
+    return path

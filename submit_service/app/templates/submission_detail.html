@@ -42,6 +42,11 @@
         <button type="submit">Cancel submission</button>
       </form>
       {% endif %}
+      {% if submission.can_purge %}
+      <form method="post" action="/ui/submissions/{{ submission.id }}/purge">
+        <button type="submit" class="danger-button">Purge submission</button>
+      </form>
+      {% endif %}
     </div>
   </div>
   <div class="detail-grid">

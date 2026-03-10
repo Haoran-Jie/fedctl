@@ -154,6 +154,14 @@ class Storage:
         with self._connect() as conn:
             conn.execute("DELETE FROM submissions")
 
+    def delete_submission(self, submission_id: str) -> bool:
+        with self._connect() as conn:
+            cursor = conn.execute(
+                "DELETE FROM submissions WHERE id = ?",
+                (submission_id,),
+            )
+        return cursor.rowcount > 0
+
     def get_submission(self, submission_id: str) -> dict[str, Any]:
         with self._connect() as conn:
             row = conn.execute(

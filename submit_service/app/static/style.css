@@ -185,6 +185,10 @@ button, .button {
   line-height: 1;
 }
 .button.secondary { background: #dce7ea; color: var(--text); }
+.danger-button {
+  background: #8f2f2b;
+  color: #fff;
+}
 .actions { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
 .actions .button,
 .actions button {

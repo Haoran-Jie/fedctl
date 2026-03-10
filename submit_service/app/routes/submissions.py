@@ -21,6 +21,7 @@ from ..submissions_service import (
     cancel_submission_record,
     get_submission_or_404,
     list_visible_submissions,
+    purge_submission_record,
     resolve_submission_logs,
 )
 from ..workers.dispatcher import dispatch_submission
@@ -236,4 +237,20 @@ def purge_submissions(
     if principal.role != "admin":
         raise HTTPException(status_code=403, detail="Admin access required")
     storage.clear_submissions()
+    return {"status": "ok"}
+
+
+@router.post("/v1/submissions/{submission_id}/purge")
+def purge_submission(
+    submission_id: str,
+    request: Request,
+    cfg: SubmitConfig = Depends(get_config),
+    storage: Storage = Depends(get_storage),
+) -> dict[str, str]:
+    principal = authenticate(request, cfg)
+    purge_submission_record(
+        storage,
+        submission_id=submission_id,
+        principal=principal,
+    )
     return {"status": "ok"}

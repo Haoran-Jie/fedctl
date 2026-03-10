@@ -78,8 +78,9 @@ def test_ui_requires_session_and_login_succeeds(tmp_path, monkeypatch: pytest.Mo
     assert "Submissions" in page.text
 
 
-def test_ui_user_scope_and_cancel(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_ui_user_scope_cancel_and_purge(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
     client = _make_ui_client(tmp_path, monkeypatch)
+    storage = client.app.state.storage
 
     alice_headers = {"Authorization": "Bearer tok-alice"}
     bob_headers = {"Authorization": "Bearer tok-bob"}
@@ -98,6 +99,18 @@ def test_ui_user_scope_and_cancel(tmp_path, monkeypatch: pytest.MonkeyPatch) -> 
     assert cancel.status_code == 303
     detail = client.get(f"/ui/submissions/{alice_id}")
     assert "cancelled" in detail.text
+    assert "Purge submission" in detail.text
+
+    purge = client.post(f"/ui/submissions/{alice_id}/purge", follow_redirects=False)
+    assert purge.status_code == 303
+    assert purge.headers["location"] == "/ui/submissions"
+
+    missing = client.get(f"/ui/submissions/{alice_id}")
+    assert missing.status_code == 404
+
+    storage.update_submission(bob_id, {"status": "completed"})
+    foreign = client.post(f"/ui/submissions/{bob_id}/purge", follow_redirects=False)
+    assert foreign.status_code == 404
 
 
 def test_ui_admin_can_view_nodes_and_all_submissions(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:

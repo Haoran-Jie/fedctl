@@ -16,7 +16,9 @@ from ..submissions_service import (
     cancel_submission_record,
     get_submission_or_404,
     is_cancellable,
+    is_purgeable,
     list_visible_submissions_for_ui,
+    purge_submission_record,
     resolve_submission_logs_detail,
     submission_stats_for_ui,
 )
@@ -160,6 +162,22 @@ def submission_cancel(
         principal=principal.as_auth_principal(),
     )
     return RedirectResponse(url=f"/ui/submissions/{submission_id}", status_code=303)
+
+
+@router.post("/ui/submissions/{submission_id}/purge", response_model=None)
+def submission_purge(
+    submission_id: str,
+    request: Request,
+) -> RedirectResponse:
+    principal = current_ui_principal(request)
+    if principal is None:
+        return RedirectResponse(url="/ui/login", status_code=303)
+    purge_submission_record(
+        request.app.state.storage,
+        submission_id=submission_id,
+        principal=principal.as_auth_principal(),
+    )
+    return RedirectResponse(url="/ui/submissions", status_code=303)
 
 
 @router.get("/ui/submissions/{submission_id}/logs", response_class=HTMLResponse, response_model=None)
@@ -396,6 +414,7 @@ def _submission_detail_view(record: dict[str, Any], role: str) -> dict[str, Any]
         "error_message": record.get("error_message") or "",
         "blocked_reason": record.get("blocked_reason") or "",
         "can_cancel": is_cancellable(record.get("status")),
+        "can_purge": is_purgeable(record.get("status")),
     }
 
 

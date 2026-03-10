@@ -364,11 +364,13 @@ def submit_inventory(
 
 
 @submit_app.command("purge")
-def submit_purge() -> None:
-    """Clear submit-service and local submission history."""
+def submit_purge(
+    submission_id: str | None = typer.Argument(None, help="Submission ID to purge.")
+) -> None:
+    """Clear all submission history, or purge one submission by ID."""
     from fedctl.commands.submit import run_submit_purge
 
-    raise SystemExit(run_submit_purge())
+    raise SystemExit(run_submit_purge(submission_id=submission_id))
 
 
 @submit_app.command("results")

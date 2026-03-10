@@ -108,6 +108,9 @@ class SubmitServiceClient:
     def cancel_submission(self, submission_id: str) -> dict[str, Any]:
         return self._request("POST", f"/v1/submissions/{submission_id}/cancel")
 
+    def purge_submission(self, submission_id: str) -> dict[str, Any]:
+        return self._request("POST", f"/v1/submissions/{submission_id}/purge")
+
     def purge_submissions(self) -> dict[str, Any]:
         return self._request("POST", "/v1/submissions/purge")
 
