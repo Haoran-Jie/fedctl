@@ -92,8 +92,10 @@
                     <button
                       type="button"
                       class="button secondary artifact-action"
-                      onclick="const value=this.dataset.copy||''; const done=() => { this.textContent='Copied'; setTimeout(() => this.textContent='Copy', 1200); }; if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(value).then(done).catch(() => { const el=document.createElement('textarea'); el.value=value; el.setAttribute('readonly',''); el.style.position='absolute'; el.style.left='-9999px'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); done(); }); } else { const el=document.createElement('textarea'); el.value=value; el.setAttribute('readonly',''); el.style.position='absolute'; el.style.left='-9999px'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); done(); }"
                       data-copy="{{ submission.artifact_url.url }}"
+                      data-copy-label="Copy"
+                      data-copy-done-label="Copied"
+                      data-copy-toast="Artifact URL copied"
                     >
                       Copy
                     </button>
@@ -120,8 +122,10 @@
                     <button
                       type="button"
                       class="button secondary artifact-action"
-                      onclick="const value=this.dataset.copy||''; const done=() => { this.textContent='Copied'; setTimeout(() => this.textContent='Copy', 1200); }; if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(value).then(done).catch(() => { const el=document.createElement('textarea'); el.value=value; el.setAttribute('readonly',''); el.style.position='absolute'; el.style.left='-9999px'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); done(); }); } else { const el=document.createElement('textarea'); el.value=value; el.setAttribute('readonly',''); el.style.position='absolute'; el.style.left='-9999px'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); done(); }"
                       data-copy="{{ submission.result_location.url }}"
+                      data-copy-label="Copy"
+                      data-copy-done-label="Copied"
+                      data-copy-toast="Result location copied"
                     >
                       Copy
                     </button>
@@ -171,8 +175,10 @@
           <button
             type="button"
             class="button secondary copy-button"
-            onclick="const value=this.dataset.copy||''; const done=() => { this.textContent='Copied'; setTimeout(() => this.textContent='Copy', 1200); }; if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(value).then(done).catch(() => { const el=document.createElement('textarea'); el.value=value; el.setAttribute('readonly',''); el.style.position='absolute'; el.style.left='-9999px'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); done(); }); } else { const el=document.createElement('textarea'); el.value=value; el.setAttribute('readonly',''); el.style.position='absolute'; el.style.left='-9999px'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); done(); }"
             data-copy="{{ submission.submit_request_view.command_preview }}"
+            data-copy-label="Copy"
+            data-copy-done-label="Copied"
+            data-copy-toast="Command copied"
           >
             Copy
           </button>

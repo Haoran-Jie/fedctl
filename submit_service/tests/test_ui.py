@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 import pytest
 
@@ -76,6 +77,9 @@ def test_ui_requires_session_and_login_succeeds(tmp_path, monkeypatch: pytest.Mo
     page = client.get("/ui/submissions")
     assert page.status_code == 200
     assert "Submissions" in page.text
+    assert "data-toast-root" in page.text
+    assert "data-sticky-panel" in page.text
+    assert "data-sticky-shell" in page.text
 
 
 def test_ui_help_page_shows_submit_commands(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -108,6 +112,11 @@ def test_ui_user_scope_cancel_and_purge(tmp_path, monkeypatch: pytest.MonkeyPatc
 
     cancel = client.post(f"/ui/submissions/{alice_id}/cancel", follow_redirects=False)
     assert cancel.status_code == 303
+    cancel_location = urlsplit(cancel.headers["location"])
+    assert cancel_location.path == f"/ui/submissions/{alice_id}"
+    cancel_query = parse_qs(cancel_location.query)
+    assert cancel_query["notice"] == ["Submission cancelled."]
+    assert cancel_query["notice_kind"] == ["success"]
     detail = client.get(f"/ui/submissions/{alice_id}")
     assert "cancelled" in detail.text
     assert "Purge submission" in detail.text
@@ -121,7 +130,12 @@ def test_ui_user_scope_cancel_and_purge(tmp_path, monkeypatch: pytest.MonkeyPatc
         follow_redirects=False,
     )
     assert purge.status_code == 303
-    assert purge.headers["location"] == "/ui/submissions?status=completed"
+    purge_location = urlsplit(purge.headers["location"])
+    assert purge_location.path == "/ui/submissions"
+    purge_query = parse_qs(purge_location.query)
+    assert purge_query["status"] == ["completed"]
+    assert purge_query["notice"] == ["Submission purged."]
+    assert purge_query["notice_kind"] == ["success"]
 
     missing = client.get(f"/ui/submissions/{alice_id}")
     assert missing.status_code == 404
@@ -163,6 +177,8 @@ def test_ui_admin_can_view_nodes_and_all_submissions(tmp_path, monkeypatch: pyte
     nodes = client.get("/ui/nodes")
     assert nodes.status_code == 200
     assert "Nodes" in nodes.text
+    assert "data-sticky-panel" in nodes.text
+    assert "data-sticky-shell" in nodes.text
 
 
 def test_ui_stats_are_based_on_all_visible_submissions_not_active_filter(

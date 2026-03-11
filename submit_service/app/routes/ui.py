@@ -5,6 +5,7 @@ from html import escape
 from pathlib import Path
 import re
 from typing import Any
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from ansi2html import Ansi2HTMLConverter
 from fastapi import APIRouter, Form, HTTPException, Query, Request
@@ -306,7 +307,10 @@ def submission_cancel(
         submission_id=submission_id,
         principal=principal.as_auth_principal(),
     )
-    return RedirectResponse(url=f"/ui/submissions/{submission_id}", status_code=303)
+    return RedirectResponse(
+        url=_append_notice(f"/ui/submissions/{submission_id}", "Submission cancelled."),
+        status_code=303,
+    )
 
 
 @router.post("/ui/submissions/{submission_id}/purge", response_model=None)
@@ -323,7 +327,10 @@ def submission_purge(
         submission_id=submission_id,
         principal=principal.as_auth_principal(),
     )
-    return RedirectResponse(url=_safe_return_to(return_to), status_code=303)
+    return RedirectResponse(
+        url=_append_notice(_safe_return_to(return_to), "Submission purged."),
+        status_code=303,
+    )
 
 
 @router.get("/ui/submissions/{submission_id}/logs", response_class=HTMLResponse, response_model=None)
@@ -518,6 +525,22 @@ def _safe_return_to(value: str | None) -> str:
     if isinstance(value, str) and value.startswith("/ui/submissions"):
         return value
     return "/ui/submissions"
+
+
+def _append_notice(url: str, message: str, kind: str = "success") -> str:
+    parts = urlsplit(url)
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    query["notice"] = message
+    query["notice_kind"] = kind
+    return urlunsplit(
+        (
+            parts.scheme,
+            parts.netloc,
+            parts.path,
+            urlencode(query),
+            parts.fragment,
+        )
+    )
 
 
 

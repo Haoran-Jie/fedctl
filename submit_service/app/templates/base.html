@@ -28,5 +28,103 @@
     <main class="page">
       {% block content %}{% endblock %}
     </main>
+    <div class="toast-stack" data-toast-root aria-live="polite" aria-atomic="true"></div>
+    <script>
+      (() => {
+        const toastRoot = document.querySelector('[data-toast-root]');
+        if (!toastRoot) return;
+
+        const removeNoticeFromUrl = () => {
+          const url = new URL(window.location.href);
+          if (!url.searchParams.has('notice')) return;
+          url.searchParams.delete('notice');
+          url.searchParams.delete('notice_kind');
+          const next = `${url.pathname}${url.search}${url.hash}`;
+          window.history.replaceState({}, '', next);
+        };
+
+        const showToast = (message, kind = 'success') => {
+          if (!message) return;
+          const toast = document.createElement('div');
+          toast.className = `toast toast-${kind}`;
+          toast.textContent = message;
+          toastRoot.appendChild(toast);
+          window.requestAnimationFrame(() => {
+            toast.classList.add('is-visible');
+          });
+          window.setTimeout(() => {
+            toast.classList.remove('is-visible');
+            window.setTimeout(() => toast.remove(), 220);
+          }, 2400);
+        };
+
+        const copyText = async (value) => {
+          if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(value);
+            return;
+          }
+          const el = document.createElement('textarea');
+          el.value = value;
+          el.setAttribute('readonly', '');
+          el.style.position = 'absolute';
+          el.style.left = '-9999px';
+          document.body.appendChild(el);
+          el.select();
+          document.execCommand('copy');
+          document.body.removeChild(el);
+        };
+
+        const syncStickyShells = () => {
+          const topbar = document.querySelector('.topbar');
+          const stickyOffset = topbar ? Math.ceil(topbar.offsetHeight + 8) : 90;
+          document.documentElement.style.setProperty('--sticky-top-offset', `${stickyOffset}px`);
+          document.querySelectorAll('[data-sticky-shell]').forEach((shell) => {
+            const panel = shell.closest('[data-sticky-panel]');
+            if (!panel) return;
+            panel.style.setProperty('--sticky-shell-height', `${Math.ceil(shell.offsetHeight)}px`);
+          });
+        };
+
+        window.fedctlUI = {
+          showToast,
+          syncStickyShells,
+          async copy(button) {
+            const value = button.dataset.copy || '';
+            if (!value) return;
+            const originalLabel = button.dataset.copyLabel || button.textContent.trim();
+            const copiedLabel = button.dataset.copyDoneLabel || 'Copied';
+            try {
+              await copyText(value);
+              button.textContent = copiedLabel;
+              window.setTimeout(() => {
+                button.textContent = originalLabel;
+              }, 1200);
+              showToast(button.dataset.copyToast || 'Copied to clipboard');
+            } catch (error) {
+              showToast(button.dataset.copyErrorToast || 'Copy failed', 'error');
+            }
+          },
+        };
+
+        document.addEventListener('click', (event) => {
+          const button = event.target.closest('[data-copy]');
+          if (!button) return;
+          event.preventDefault();
+          window.fedctlUI.copy(button);
+        });
+
+        const noticeUrl = new URL(window.location.href);
+        const noticeMessage = noticeUrl.searchParams.get('notice');
+        if (noticeMessage) {
+          showToast(noticeMessage, noticeUrl.searchParams.get('notice_kind') || 'success');
+          removeNoticeFromUrl();
+        }
+
+        const sync = () => syncStickyShells();
+        window.addEventListener('load', sync);
+        window.addEventListener('resize', sync);
+        sync();
+      })();
+    </script>
   </body>
 </html>
