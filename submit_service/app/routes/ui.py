@@ -802,14 +802,22 @@ def _arg_view(arg: Any, index: int) -> dict[str, Any]:
 def _job_entries_view(jobs: dict[str, Any]) -> list[dict[str, Any]]:
     entries: list[dict[str, Any]] = []
     for job_name, info in jobs.items():
+        role = _job_role_view(str(job_name))
         if not isinstance(info, dict):
             entries.append(
                 {
                     "name": str(job_name),
+                    "kind": role["kind"],
+                    "role_label": role["label"],
+                    "order": role["order"],
                     "summary": str(info),
                     "job_ids": [],
                     "tasks": [],
                     "fields": [],
+                    "log_job": role["log_job"],
+                    "log_task": "",
+                    "primary_job_id": "",
+                    "has_details": False,
                 }
             )
             continue
@@ -843,14 +851,49 @@ def _job_entries_view(jobs: dict[str, Any]) -> list[dict[str, Any]]:
         entries.append(
             {
                 "name": str(job_name),
+                "kind": role["kind"],
+                "role_label": role["label"],
+                "order": role["order"],
                 "summary": ", ".join(summary_bits) or "No mapping details",
                 "job_ids": job_ids,
                 "tasks": tasks,
                 "fields": fields,
+                "log_job": role["log_job"],
+                "log_task": tasks[0] if len(tasks) == 1 else "",
+                "primary_job_id": job_ids[0] if job_ids else "",
+                "has_details": bool(fields),
             }
         )
-    entries.sort(key=lambda item: item["name"])
+    entries.sort(key=lambda item: (item["order"], item["name"]))
     return entries
+
+
+def _job_role_view(job_name: str) -> dict[str, Any]:
+    mapping = {
+        "submit": {"kind": "submit", "label": "Submit", "order": 0, "log_job": "submit"},
+        "superlink": {"kind": "superlink", "label": "SuperLink", "order": 1, "log_job": "superlink"},
+        "supernodes": {"kind": "supernodes", "label": "Supernodes", "order": 2, "log_job": "supernodes"},
+        "superexec_serverapp": {
+            "kind": "serverapp",
+            "label": "Serverapp",
+            "order": 3,
+            "log_job": "superexec_serverapp",
+        },
+        "superexec_clientapps": {
+            "kind": "clientapps",
+            "label": "Clientapps",
+            "order": 4,
+            "log_job": "superexec_clientapps",
+        },
+    }
+    if job_name in mapping:
+        return mapping[job_name]
+    return {
+        "kind": _slug(job_name),
+        "label": job_name.replace("_", " "),
+        "order": 99,
+        "log_job": job_name,
+    }
 
 
 def _submission_list_command(status_filter: str) -> str:

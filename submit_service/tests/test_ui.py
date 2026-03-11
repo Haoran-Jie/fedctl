@@ -280,7 +280,7 @@ def test_ui_detail_shows_archived_logs(tmp_path, monkeypatch: pytest.MonkeyPatch
     assert "archived submit stderr" in detail.text
     assert 'data-log-filter' in detail.text
     assert "Copy logs" in detail.text
-    assert "Copy link" in detail.text
+    assert "Copy link" not in detail.text
     assert 'data-logs-endpoint="/ui/submissions/' in detail.text
     assert "Follow" in detail.text
     assert "Latest" in detail.text
@@ -368,6 +368,13 @@ def test_ui_detail_renders_structured_args_env_and_jobs(
     assert "Resolved project root" in detail.text
     assert "Job IDs" in detail.text
     assert "job-superlink" in detail.text
+    assert "Open logs" in detail.text
+    assert "job=superlink" in detail.text
+    assert "Show details" in detail.text
+    assert "SuperLink" in detail.text
+    assert 'data-mapping-detail' in detail.text
+    assert "Copy job ID" not in detail.text
+    assert "Expand all" not in detail.text
 
 
 def test_ui_detail_hides_results_tab(

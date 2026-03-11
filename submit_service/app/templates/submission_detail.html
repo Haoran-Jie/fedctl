@@ -251,15 +251,41 @@
         {% if submission.job_entries %}
         <div class="mapping-grid">
           {% for entry in submission.job_entries %}
-          <article class="mapping-card">
+          <article class="mapping-card mapping-card-{{ entry.kind }}">
             <div class="mapping-head">
-              <h3>{{ entry.name }}</h3>
-              <span class="mapping-summary">{{ entry.summary }}</span>
+              <div class="mapping-title-wrap">
+                <div class="mapping-title-row">
+                  <span class="mapping-role-badge mapping-role-{{ entry.kind }}">{{ entry.role_label }}</span>
+                  <h3>{{ entry.name }}</h3>
+                </div>
+                <span class="mapping-summary">{{ entry.summary }}</span>
+              </div>
+              <div class="mapping-actions">
+                <a
+                  class="button secondary mapping-action"
+                  href="/ui/submissions/{{ submission.id }}?return_to={{ return_to | urlencode }}&job={{ entry.log_job | urlencode }}{% if entry.log_task %}&task={{ entry.log_task | urlencode }}{% endif %}#tab-logs"
+                >
+                  Open logs
+                </a>
+                {% if entry.has_details %}
+                <button
+                  type="button"
+                  class="button secondary mapping-action"
+                  data-mapping-toggle
+                  data-open-label="Hide details"
+                  data-closed-label="Show details"
+                  aria-expanded="false"
+                  aria-controls="mapping-detail-{{ loop.index }}"
+                >
+                  Show details
+                </button>
+                {% endif %}
+              </div>
             </div>
             {% if entry.job_ids %}
             <div class="mapping-block">
               <span class="mapping-label">Job IDs</span>
-              <ul class="mapping-list">
+              <ul class="mapping-list mapping-list-rich">
                 {% for item in entry.job_ids %}
                 <li><code>{{ item }}</code></li>
                 {% endfor %}
@@ -269,7 +295,7 @@
             {% if entry.tasks %}
             <div class="mapping-block">
               <span class="mapping-label">Tasks</span>
-              <ul class="mapping-list">
+              <ul class="mapping-list mapping-list-chips">
                 {% for item in entry.tasks %}
                 <li><code>{{ item }}</code></li>
                 {% endfor %}
@@ -277,14 +303,17 @@
             </div>
             {% endif %}
             {% if entry.fields %}
-            <dl class="mapping-fields">
-              {% for field in entry.fields %}
-              <div>
-                <dt>{{ field.label }}</dt>
-                <dd class="wrap">{{ field.value }}</dd>
-              </div>
-              {% endfor %}
-            </dl>
+            <details class="mapping-detail" id="mapping-detail-{{ loop.index }}" data-mapping-detail>
+              <summary class="visually-hidden">Metadata details</summary>
+              <dl class="mapping-fields">
+                {% for field in entry.fields %}
+                <div>
+                  <dt>{{ field.label }}</dt>
+                  <dd class="wrap">{{ field.value }}</dd>
+                </div>
+                {% endfor %}
+              </dl>
+            </details>
             {% endif %}
           </article>
           {% endfor %}
@@ -329,6 +358,41 @@
       activate(hashTarget, false);
     }
 
+    const mappingDetails = Array.from(document.querySelectorAll('[data-mapping-detail]'));
+    const mappingToggles = Array.from(document.querySelectorAll('[data-mapping-toggle]'));
+
+    const syncMappingToggle = (toggle) => {
+      const targetId = toggle.getAttribute('aria-controls');
+      if (!targetId) return;
+      const detail = document.getElementById(targetId);
+      if (!(detail instanceof HTMLDetailsElement)) return;
+      const isOpen = detail.open;
+      toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+      toggle.textContent = isOpen ? (toggle.dataset.openLabel || 'Hide details') : (toggle.dataset.closedLabel || 'Show details');
+    };
+
+    mappingToggles.forEach((toggle) => {
+      syncMappingToggle(toggle);
+      toggle.addEventListener('click', () => {
+        const targetId = toggle.getAttribute('aria-controls');
+        if (!targetId) return;
+        const detail = document.getElementById(targetId);
+        if (!(detail instanceof HTMLDetailsElement)) return;
+        detail.open = !detail.open;
+        syncMappingToggle(toggle);
+      });
+    });
+
+    mappingDetails.forEach((detail) => {
+      detail.addEventListener('toggle', () => {
+        mappingToggles.forEach((toggle) => {
+          if (toggle.getAttribute('aria-controls') === detail.id) {
+            syncMappingToggle(toggle);
+          }
+        });
+      });
+    });
+
     const logsPanel = document.querySelector('[data-logs-panel]');
     if (!logsPanel) return;
 
@@ -345,7 +409,6 @@
     const followToggle = logsPanel.querySelector('[data-log-follow-toggle]');
     const latestButton = logsPanel.querySelector('[data-log-jump]');
     const copyLogsButton = logsPanel.querySelector('[data-log-copy]');
-    const copyLinkButton = logsPanel.querySelector('[data-log-link]');
     const lineCountNode = logsPanel.querySelector('[data-log-line-count]');
     const matchCountNode = logsPanel.querySelector('[data-log-match-count]');
     const followStatusNode = logsPanel.querySelector('[data-log-follow-status]');
@@ -381,23 +444,6 @@
       if (copyLogsButton) {
         copyLogsButton.dataset.copy = visibleLines().join('\n');
       }
-      if (!copyLinkButton) return;
-      const params = new URLSearchParams();
-      new FormData(logsForm).forEach((value, key) => {
-        if (typeof value !== 'string') return;
-        if (key === 'return_to' || key === 'log_filter' || key === 'log_wrap') return;
-        params.set(key, value);
-      });
-      if (logsFilterInput.value.trim()) {
-        params.set('log_filter', logsFilterInput.value.trim());
-      }
-      if (logsBox.dataset.logWrap === 'off') {
-        params.set('log_wrap', 'off');
-      }
-      const url = new URL(window.location.href);
-      url.search = params.toString();
-      url.hash = 'tab-logs';
-      copyLinkButton.dataset.copy = url.toString();
     };
 
     const updateCounts = () => {
