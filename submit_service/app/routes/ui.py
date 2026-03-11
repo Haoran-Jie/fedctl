@@ -557,7 +557,7 @@ def _submission_detail_view(record: dict[str, Any], role: str) -> dict[str, Any]
         "started_at": _fmt_dt(record.get("started_at")),
         "finished_at": _fmt_dt(record.get("finished_at")),
         "nomad_job_id": record.get("nomad_job_id") or "-",
-        "artifact_url": record.get("artifact_url") or "-",
+        "artifact_url": _link_entry_view(record.get("artifact_url")),
         "submit_image": record.get("submit_image") or "-",
         "submit_request": submit_request,
         "submit_request_view": _submit_request_view(submit_request),
@@ -565,8 +565,8 @@ def _submission_detail_view(record: dict[str, Any], role: str) -> dict[str, Any]
         "args_view": [_arg_view(arg, idx) for idx, arg in enumerate(args, start=1)],
         "jobs": jobs,
         "job_entries": _job_entries_view(jobs),
-        "result_location": record.get("result_location") or "-",
-        "result_artifacts": result_artifacts,
+        "result_location": _link_entry_view(record.get("result_location")),
+        "result_artifacts": _artifact_rows_view(result_artifacts),
         "error_message": record.get("error_message") or "",
         "blocked_reason": record.get("blocked_reason") or "",
         "can_cancel": is_cancellable(record.get("status")),
@@ -632,6 +632,77 @@ def _request_value(value: Any) -> str:
     if isinstance(value, bool):
         return "yes" if value else "no"
     return str(value)
+
+
+def _link_entry_view(value: Any) -> dict[str, str] | None:
+    if not isinstance(value, str) or not value or value == "-":
+        return None
+    return {
+        "url": value,
+        "label": _artifact_name_from_url(value) or value,
+    }
+
+
+def _artifact_rows_view(artifacts: list[Any]) -> dict[str, list[dict[str, str]]]:
+    rows = [_artifact_view(item, idx) for idx, item in enumerate(artifacts, start=1)]
+    primary = [row for row in rows if row["priority"] == "primary"]
+    secondary = [row for row in rows if row["priority"] != "primary"]
+    return {"primary": primary, "secondary": secondary}
+
+
+def _artifact_view(item: Any, index: int) -> dict[str, str]:
+    if isinstance(item, dict):
+        url = str(item.get("url") or item.get("href") or item.get("path") or item.get("name") or "-")
+        label = str(item.get("name") or item.get("filename") or _artifact_name_from_url(url) or f"artifact-{index}")
+    else:
+        url = str(item)
+        label = _artifact_name_from_url(url) or f"artifact-{index}"
+    artifact_type = _artifact_type(label)
+    return {
+        "label": label,
+        "url": url,
+        "type": artifact_type,
+        "priority": "primary" if _is_primary_artifact(label) else "secondary",
+    }
+
+
+def _artifact_name_from_url(url: str) -> str:
+    trimmed = url.rstrip("/")
+    if not trimmed:
+        return ""
+    name = trimmed.rsplit("/", 1)[-1]
+    return name or trimmed
+
+
+def _artifact_type(name: str) -> str:
+    lower = name.lower()
+    if lower.endswith((".json",)):
+        return "json"
+    if lower.endswith((".csv", ".tsv", ".parquet")):
+        return "table"
+    if lower.endswith((".zip", ".tar", ".tar.gz", ".tgz")):
+        return "archive"
+    if lower.endswith((".png", ".jpg", ".jpeg", ".svg", ".pdf")):
+        return "report"
+    if lower.endswith((".pt", ".pth", ".bin", ".onnx", ".ckpt", ".npz", ".npy")):
+        return "model"
+    if lower.endswith((".log", ".txt")):
+        return "log"
+    return "artifact"
+
+
+def _is_primary_artifact(name: str) -> bool:
+    lower = name.lower()
+    primary_markers = (
+        "result",
+        "summary",
+        "metric",
+        "report",
+        "model",
+        "final",
+        "output",
+    )
+    return any(marker in lower for marker in primary_markers)
 
 
 def _node_view(node: dict[str, Any]) -> dict[str, Any]:
