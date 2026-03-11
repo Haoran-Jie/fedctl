@@ -271,6 +271,21 @@ def test_ui_detail_renders_structured_args_env_and_jobs(
     assert "job-superlink" in detail.text
 
 
+def test_ui_detail_hides_results_tab(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = _make_ui_client(tmp_path, monkeypatch)
+
+    alice_headers = {"Authorization": "Bearer tok-alice"}
+    submission_id = client.post("/v1/submissions", json=_payload(), headers=alice_headers).json()["submission_id"]
+
+    _login(client, "tok-alice")
+    detail = client.get(f"/ui/submissions/{submission_id}")
+    assert detail.status_code == 200
+    assert 'id="tab-button-results"' not in detail.text
+    assert 'id="tab-results"' not in detail.text
+
+
 def test_ui_requires_secret_when_enabled(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SUBMIT_REPO_CONFIG", str(tmp_path / "missing-fedctl.yaml"))
     monkeypatch.setenv("SUBMIT_DB_URL", f"sqlite:///{tmp_path / 'submit.db'}")

@@ -53,7 +53,6 @@
   <div class="tab-bar" role="tablist" aria-label="Submission sections">
     <button type="button" class="tab-button is-active" role="tab" aria-selected="true" aria-controls="tab-overview" id="tab-button-overview" data-tab-target="tab-overview">Overview</button>
     <button type="button" class="tab-button" role="tab" aria-selected="false" aria-controls="tab-request" id="tab-button-request" data-tab-target="tab-request">Request</button>
-    <button type="button" class="tab-button" role="tab" aria-selected="false" aria-controls="tab-results" id="tab-button-results" data-tab-target="tab-results">Results</button>
     <button type="button" class="tab-button" role="tab" aria-selected="false" aria-controls="tab-logs" id="tab-button-logs" data-tab-target="tab-logs">Logs</button>
     <button type="button" class="tab-button" role="tab" aria-selected="false" aria-controls="tab-jobs" id="tab-button-jobs" data-tab-target="tab-jobs">Jobs</button>
   </div>
@@ -76,59 +75,63 @@
         <dl class="meta-list">
           <div><dt>Nomad job</dt><dd class="wrap">{{ submission.nomad_job_id }}</dd></div>
           <div><dt>Submit image</dt><dd class="wrap">{{ submission.submit_image }}</dd></div>
-        </dl>
-        <div class="execution-link-list">
           {% if submission.artifact_url %}
-          <div class="execution-link-card">
-            <span>Artifact URL</span>
-            <div class="execution-link-name wrap">{{ submission.artifact_url.label }}</div>
-            <div class="execution-link-footer">
-              <div class="execution-link-meta">
-                <span class="artifact-type-badge">{{ submission.artifact_url.type }}</span>
-                {% if submission.artifact_url.signed == 'yes' %}
-                <span class="artifact-state-badge">signed</span>
-                {% endif %}
+          <div class="execution-meta-row">
+            <dt>Artifact URL</dt>
+            <dd>
+              <div class="execution-entry-block">
+                <div class="execution-link-name wrap">{{ submission.artifact_url.label }}</div>
+                <div class="execution-link-footer">
+                  <div class="execution-link-meta">
+                    <span class="artifact-type-badge">{{ submission.artifact_url.type }}</span>
+                    {% if submission.artifact_url.signed == 'yes' %}
+                    <span class="artifact-state-badge">signed</span>
+                    {% endif %}
+                  </div>
+                  <div class="execution-link-actions">
+                    <button
+                      type="button"
+                      class="button secondary artifact-action"
+                      onclick="const value=this.dataset.copy||''; const done=() => { this.textContent='Copied'; setTimeout(() => this.textContent='Copy', 1200); }; if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(value).then(done).catch(() => { const el=document.createElement('textarea'); el.value=value; el.setAttribute('readonly',''); el.style.position='absolute'; el.style.left='-9999px'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); done(); }); } else { const el=document.createElement('textarea'); el.value=value; el.setAttribute('readonly',''); el.style.position='absolute'; el.style.left='-9999px'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); done(); }"
+                      data-copy="{{ submission.artifact_url.url }}"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div class="execution-link-actions">
-                <a class="button secondary artifact-action" href="{{ submission.artifact_url.url }}" target="_blank" rel="noreferrer">Open</a>
-                <button
-                  type="button"
-                  class="button secondary artifact-action"
-                  onclick="const value=this.dataset.copy||''; const done=() => { this.textContent='Copied'; setTimeout(() => this.textContent='Copy URL', 1200); }; if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(value).then(done).catch(() => { const el=document.createElement('textarea'); el.value=value; el.setAttribute('readonly',''); el.style.position='absolute'; el.style.left='-9999px'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); done(); }); } else { const el=document.createElement('textarea'); el.value=value; el.setAttribute('readonly',''); el.style.position='absolute'; el.style.left='-9999px'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); done(); }"
-                  data-copy="{{ submission.artifact_url.url }}"
-                >
-                  Copy URL
-                </button>
-              </div>
-            </div>
+            </dd>
           </div>
           {% endif %}
           {% if submission.result_location %}
-          <div class="execution-link-card">
-            <span>Result location</span>
-            <div class="execution-link-name wrap">{{ submission.result_location.label }}</div>
-            <div class="execution-link-footer">
-              <div class="execution-link-meta">
-                <span class="artifact-type-badge">{{ submission.result_location.type }}</span>
-                {% if submission.result_location.signed == 'yes' %}
-                <span class="artifact-state-badge">signed</span>
-                {% endif %}
+          <div class="execution-meta-row">
+            <dt>Result location</dt>
+            <dd>
+              <div class="execution-entry-block">
+                <div class="execution-link-name wrap">{{ submission.result_location.label }}</div>
+                <div class="execution-link-footer">
+                  <div class="execution-link-meta">
+                    <span class="artifact-type-badge">{{ submission.result_location.type }}</span>
+                    {% if submission.result_location.signed == 'yes' %}
+                    <span class="artifact-state-badge">signed</span>
+                    {% endif %}
+                  </div>
+                  <div class="execution-link-actions">
+                    <button
+                      type="button"
+                      class="button secondary artifact-action"
+                      onclick="const value=this.dataset.copy||''; const done=() => { this.textContent='Copied'; setTimeout(() => this.textContent='Copy', 1200); }; if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(value).then(done).catch(() => { const el=document.createElement('textarea'); el.value=value; el.setAttribute('readonly',''); el.style.position='absolute'; el.style.left='-9999px'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); done(); }); } else { const el=document.createElement('textarea'); el.value=value; el.setAttribute('readonly',''); el.style.position='absolute'; el.style.left='-9999px'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); done(); }"
+                      data-copy="{{ submission.result_location.url }}"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div class="execution-link-actions">
-                <a class="button secondary artifact-action" href="{{ submission.result_location.url }}" target="_blank" rel="noreferrer">Open</a>
-                <button
-                  type="button"
-                  class="button secondary artifact-action"
-                  onclick="const value=this.dataset.copy||''; const done=() => { this.textContent='Copied'; setTimeout(() => this.textContent='Copy URL', 1200); }; if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(value).then(done).catch(() => { const el=document.createElement('textarea'); el.value=value; el.setAttribute('readonly',''); el.style.position='absolute'; el.style.left='-9999px'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); done(); }); } else { const el=document.createElement('textarea'); el.value=value; el.setAttribute('readonly',''); el.style.position='absolute'; el.style.left='-9999px'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); done(); }"
-                  data-copy="{{ submission.result_location.url }}"
-                >
-                  Copy URL
-                </button>
-              </div>
-            </div>
+            </dd>
           </div>
           {% endif %}
-        </div>
+        </dl>
       </article>
       <article class="info-card overview-card overview-card-timing">
         <h3>Timing</h3>
@@ -282,89 +285,6 @@
         </div>
         {% else %}
         <p class="muted">No job mapping recorded.</p>
-        {% endif %}
-      </div>
-    </section>
-  </div>
-
-  <div id="tab-results" class="tab-panel" role="tabpanel" aria-labelledby="tab-button-results" hidden>
-    <section class="tab-section">
-      <div class="section-head">
-        <div class="section-copy">
-          <h2>Result artifacts</h2>
-          <p class="muted">Primary outputs first, then secondary artifacts if present.</p>
-        </div>
-      </div>
-      <div class="section-block scroll-section-block">
-        {% if submission.result_artifacts.primary or submission.result_artifacts.secondary %}
-        {% if submission.result_artifacts.primary %}
-        <div class="artifact-group">
-          <div class="artifact-group-title">Primary outputs</div>
-          <div class="artifact-rows">
-            {% for item in submission.result_artifacts.primary %}
-            <article class="artifact-row">
-              <div class="artifact-meta">
-                <div class="artifact-name wrap">{{ item.label }}</div>
-                <div class="artifact-subline">
-                  <span class="artifact-type-badge">{{ item.type }}</span>
-                  {% if item.signed == 'yes' %}
-                  <span class="artifact-state-badge">signed</span>
-                  {% endif %}
-                </div>
-              </div>
-              <div class="artifact-actions">
-                <a class="button secondary artifact-action" href="{{ item.url }}" target="_blank" rel="noreferrer">Open</a>
-                <button
-                  type="button"
-                  class="button secondary artifact-action"
-                  onclick="const value=this.dataset.copy||''; const done=() => { this.textContent='Copied'; setTimeout(() => this.textContent='Copy URL', 1200); }; if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(value).then(done).catch(() => { const el=document.createElement('textarea'); el.value=value; el.setAttribute('readonly',''); el.style.position='absolute'; el.style.left='-9999px'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); done(); }); } else { const el=document.createElement('textarea'); el.value=value; el.setAttribute('readonly',''); el.style.position='absolute'; el.style.left='-9999px'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); done(); }"
-                  data-copy="{{ item.url }}"
-                >
-                  Copy URL
-                </button>
-              </div>
-            </article>
-            {% endfor %}
-          </div>
-        </div>
-        {% endif %}
-        {% if submission.result_artifacts.secondary %}
-        <details class="artifact-detail">
-          <summary>Other artifacts ({{ submission.result_artifacts.secondary|length }})</summary>
-          <div class="artifact-rows">
-            {% for item in submission.result_artifacts.secondary %}
-            <article class="artifact-row artifact-row-secondary">
-              <div class="artifact-meta">
-                <div class="artifact-name wrap">{{ item.label }}</div>
-                <div class="artifact-subline">
-                  <span class="artifact-type-badge">{{ item.type }}</span>
-                  {% if item.signed == 'yes' %}
-                  <span class="artifact-state-badge">signed</span>
-                  {% endif %}
-                </div>
-              </div>
-              <div class="artifact-actions">
-                <a class="button secondary artifact-action" href="{{ item.url }}" target="_blank" rel="noreferrer">Open</a>
-                <button
-                  type="button"
-                  class="button secondary artifact-action"
-                  onclick="const value=this.dataset.copy||''; const done=() => { this.textContent='Copied'; setTimeout(() => this.textContent='Copy URL', 1200); }; if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(value).then(done).catch(() => { const el=document.createElement('textarea'); el.value=value; el.setAttribute('readonly',''); el.style.position='absolute'; el.style.left='-9999px'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); done(); }); } else { const el=document.createElement('textarea'); el.value=value; el.setAttribute('readonly',''); el.style.position='absolute'; el.style.left='-9999px'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); done(); }"
-                  data-copy="{{ item.url }}"
-                >
-                  Copy URL
-                </button>
-              </div>
-            </article>
-            {% endfor %}
-          </div>
-        </details>
-        {% endif %}
-        {% else %}
-        {% if submission.status in ["queued", "running", "blocked"] %}
-        <p class="muted">No result artifacts yet. This submission has not reached a completed terminal state.</p>
-        {% else %}
-        <p class="muted">No result artifacts were reported for this submission.</p>
-        {% endif %}
         {% endif %}
       </div>
     </section>

@@ -380,7 +380,7 @@ th { font-size: 0.9rem; color: var(--muted); }
   align-items: start;
 }
 .overview-grid {
-  grid-template-columns: 1fr 1.05fr 0.95fr;
+  grid-template-columns: 0.95fr 1fr 0.95fr;
 }
 .info-card {
   background: #f2f7f8;
@@ -404,6 +404,10 @@ th { font-size: 0.9rem; color: var(--muted); }
 .meta-list > div {
   display: grid;
   gap: 0.2rem;
+}
+.execution-meta-row dd {
+  display: grid;
+  gap: 0.22rem;
 }
 .meta-list dt {
   color: var(--muted);
@@ -676,53 +680,31 @@ th { font-size: 0.9rem; color: var(--muted); }
 .artifact-detail[open] summary {
   margin-bottom: 0.15rem;
 }
-.execution-link-list {
-  display: grid;
-  gap: 0.7rem;
-  margin-top: 0.8rem;
-}
-.execution-link-card {
-  padding: 0.78rem 0.86rem;
-  border: 1px solid rgba(29, 111, 95, 0.1);
-  border-radius: 14px;
-  background: #f5faf9;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  column-gap: 0.9rem;
-  row-gap: 0.35rem;
-  align-items: start;
-}
-.execution-link-card > span {
-  display: block;
-  margin-bottom: 0.25rem;
-  color: var(--muted);
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  grid-column: 1 / -1;
-}
 .execution-link-name {
   font-weight: 700;
-  font-size: 0.92rem;
+  font-size: 0.9rem;
   line-height: 1.4;
-  margin-bottom: 0.38rem;
-  grid-column: 1 / -1;
+  margin-bottom: 0.08rem;
 }
 .execution-link-meta {
   display: flex;
   flex-wrap: nowrap;
   gap: 0.35rem 0.45rem;
-  align-self: center;
+  align-self: start;
 }
 .execution-link-footer {
-  display: contents;
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 0.8rem;
+  flex-wrap: wrap;
 }
 .execution-link-actions {
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
-  justify-content: flex-end;
-  align-self: center;
+  justify-content: flex-start;
+  align-self: start;
   justify-self: end;
 }
 .execution-link-actions .artifact-action {
@@ -1148,12 +1130,6 @@ th { font-size: 0.9rem; color: var(--muted); }
   .log-hint { text-align: left; }
   .detail-summary-strip { justify-content: stretch; }
   .overview-grid { grid-template-columns: 1fr; }
-  .execution-link-card {
-    grid-template-columns: 1fr;
-  }
-  .execution-link-name {
-    grid-column: auto;
-  }
   .execution-link-meta {
     flex-wrap: wrap;
   }
