@@ -386,9 +386,6 @@ def submission_logs_panel(
 @router.get("/ui/nodes", response_class=HTMLResponse, response_model=None)
 def nodes_page(
     request: Request,
-    status: str | None = Query(None),
-    node_class: str | None = Query(None),
-    device_type: str | None = Query(None),
     q: str | None = Query(None),
 ) -> HTMLResponse | RedirectResponse:
     principal = current_ui_principal(request)
@@ -408,24 +405,13 @@ def nodes_page(
             "nodes.html",
             {
                 "nodes": [],
-                "filters": {
-                    "status": status or "",
-                    "node_class": node_class or "",
-                    "device_type": device_type or "",
-                    "q": search_query,
-                },
+                "filters": {"q": search_query},
                 "error": str(exc),
             },
             status_code=502,
         )
     filtered = []
     for node in nodes:
-        if status and node.get("status") != status:
-            continue
-        if node_class and node.get("node_class") != node_class:
-            continue
-        if device_type and node.get("device_type") != device_type:
-            continue
         view = _node_view(node)
         if search_query and not _node_matches_query(view, search_query):
             continue
@@ -435,18 +421,9 @@ def nodes_page(
         "nodes.html",
         {
             "nodes": filtered,
-            "filters": {
-                "status": status or "",
-                "node_class": node_class or "",
-                "device_type": device_type or "",
-                "q": search_query,
-            },
+            "filters": {"q": search_query},
             "error": None,
-            "quick_command": _inventory_command(
-                status=status,
-                node_class=node_class,
-                device_type=device_type,
-            ),
+            "quick_command": _inventory_command(),
         },
     )
 
@@ -586,8 +563,10 @@ def _node_matches_query(record: dict[str, Any], query: str) -> bool:
         [
             record.get("name"),
             record.get("id"),
+            record.get("status"),
             record.get("node_class"),
             record.get("device_type"),
+            record.get("alloc_count"),
             record.get("alloc_summary"),
         ],
         query,
@@ -884,20 +863,8 @@ def _submission_list_command(status_filter: str) -> str:
     }.get(status_filter, "fedctl submit ls --active")
 
 
-def _inventory_command(
-    *,
-    status: str | None,
-    node_class: str | None,
-    device_type: str | None,
-) -> str:
-    parts = ["fedctl submit inventory"]
-    if status:
-        parts.extend(["--status", status])
-    if node_class:
-        parts.extend(["--class", node_class])
-    if device_type:
-        parts.extend(["--device-type", device_type])
-    return " ".join(parts)
+def _inventory_command() -> str:
+    return "fedctl submit inventory"
 
 
 def _fmt_dt(value: Any) -> str:

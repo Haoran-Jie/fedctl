@@ -41,19 +41,19 @@
   <div class="section-head sticky-shell" data-sticky-shell>
     <div>
       <h2>Recent submissions</h2>
-      <p class="muted">Filter what you see without changing the underlying submit-service state.</p>
     </div>
-    <form method="get" action="/ui/submissions" class="filter-bar">
-      <div class="filter-group">
+    <form method="get" action="/ui/submissions" class="filter-bar filter-bar-submissions">
+      <div class="filter-group filter-group-segments">
         <span class="filter-label">View</span>
         <input type="hidden" name="status" value="{{ status_filter }}">
-        <div class="segmented-control" role="group" aria-label="Submission status filters">
+        <div class="segmented-control" data-segmented-control role="group" aria-label="Submission status filters">
           {% for item in status_filters %}
           <button
             type="submit"
             name="status"
             value="{{ item }}"
             class="segment-button{% if item == status_filter %} is-active{% endif %}"
+            data-segment-button
             aria-pressed="{% if item == status_filter %}true{% else %}false{% endif %}"
           >
             {{ item|capitalize }}
@@ -69,10 +69,8 @@
           name="q"
           value="{{ search_query }}"
           placeholder="ID, experiment, project, owner"
+          data-auto-submit="260"
         >
-      </div>
-      <div class="filter-actions">
-        <button type="submit">Search</button>
       </div>
     </form>
   </div>

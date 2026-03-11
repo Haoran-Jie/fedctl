@@ -1,17 +1,19 @@
-<section class="panel" id="logs-panel">
+<section class="panel" id="logs-panel" data-logs-panel data-logs-endpoint="/ui/submissions/{{ submission.id }}/logs">
   <div class="section-head">
     <div class="section-copy">
       <h2>Logs</h2>
       <p class="muted">Inspect live Nomad output when available, with archived fallback after cleanup.</p>
     </div>
-    <div class="log-hint log-meta">
+    <div class="log-hint log-meta" data-log-meta>
       <span>Current view</span>
       <strong>{{ job }} / {{ 'stderr' if stderr else 'stdout' }}</strong>
       <span class="log-source log-source-{{ logs_source or 'unknown' }}">{{ logs_source or 'unresolved' }}</span>
     </div>
   </div>
-  <form method="get" action="/ui/submissions/{{ submission.id }}#tab-logs" class="grid-form logs-form log-controls">
+  <form method="get" action="/ui/submissions/{{ submission.id }}#tab-logs" class="grid-form logs-form log-controls" data-log-server-form>
     <input type="hidden" name="return_to" value="{{ return_to }}">
+    <input type="hidden" name="log_filter" value="" data-log-filter-state>
+    <input type="hidden" name="log_wrap" value="on" data-log-wrap-state>
     <label>Job
       <select name="job">
         {% for value, label in log_jobs %}
@@ -32,13 +34,49 @@
       </select>
     </label>
     <div class="form-actions">
-      <button type="submit">Reload</button>
+      <button type="submit">Apply</button>
     </div>
   </form>
-  {% if logs_error %}
-  <div class="alert error">{{ logs_error }}</div>
-  {% endif %}
-  <div class="log-box-wrap">
-    <div class="log-box ansi-log">{{ logs_html | safe }}</div>
+  <div class="log-view-toolbar">
+    <label class="log-inline-search">Filter lines
+      <input type="search" value="" placeholder="error, traceback, clientapp" data-log-filter>
+    </label>
+    <div class="log-view-actions">
+      <button type="button" class="button secondary" data-log-wrap-toggle aria-pressed="true">Wrap on</button>
+      <button type="button" class="button secondary" data-log-follow-toggle aria-pressed="false">Follow</button>
+      <button type="button" class="button secondary" data-log-jump>Latest</button>
+      <button
+        type="button"
+        class="button secondary"
+        data-log-copy
+        data-copy=""
+        data-copy-label="Copy logs"
+        data-copy-done-label="Copied"
+        data-copy-toast="Logs copied"
+      >
+        Copy logs
+      </button>
+      <button
+        type="button"
+        class="button secondary"
+        data-log-link
+        data-copy=""
+        data-copy-label="Copy link"
+        data-copy-done-label="Linked"
+        data-copy-toast="Log view link copied"
+      >
+        Copy link
+      </button>
+    </div>
   </div>
+  <div class="log-status-strip">
+    <span class="log-stat"><strong data-log-line-count>{{ logs_content.splitlines() | length if logs_content else 0 }}</strong> lines</span>
+    <span class="log-stat"><strong data-log-match-count>{{ logs_content.splitlines() | length if logs_content else 0 }}</strong> shown</span>
+    <span class="log-stat" data-log-follow-status>Follow off</span>
+  </div>
+  <div class="alert error" data-log-error {% if not logs_error %}hidden{% endif %}>{{ logs_error or '' }}</div>
+  <div class="log-box-wrap" data-log-frame>
+    <div class="log-box ansi-log" data-log-box data-log-wrap="on">{{ logs_html | safe }}</div>
+  </div>
+  <textarea hidden data-log-raw>{{ logs_content or '' }}</textarea>
 </section>

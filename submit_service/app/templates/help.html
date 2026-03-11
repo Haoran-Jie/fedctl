@@ -13,68 +13,99 @@
   </div>
 </section>
 
-<section class="panel">
-  <div class="section-head">
-    <div class="section-copy">
-      <h2>Quick start</h2>
-      <p class="muted">The normal workflow for most users is submit, watch, inspect, and download results.</p>
-    </div>
-  </div>
-  <div class="help-steps">
-    {% for step in quickstart_steps %}
-    <article class="help-step">
-      <div class="help-step-index">{{ loop.index }}</div>
-      <div class="help-step-body">
-        <h3>{{ step.title }}</h3>
-        <p class="muted">{{ step.body }}</p>
-        <pre><code>{{ step.command }}</code></pre>
+<section class="help-layout">
+  <aside class="panel help-rail" data-help-rail>
+    <span class="quick-command-label">On this page</span>
+    <nav class="help-toc" aria-label="Help page contents">
+      <a href="#quickstart" class="help-toc-link" data-help-nav-link>Quick start</a>
+      <a href="#reference" class="help-toc-link" data-help-nav-link>Command reference</a>
+      <div class="help-toc-group">
+        {% for command in commands %}
+        {% set command_id = 'command-' ~ (command.name | lower | replace(' ', '-')) %}
+        <a href="#{{ command_id }}" class="help-toc-link help-toc-link-sub" data-help-nav-link>{{ command.name }}</a>
+        {% endfor %}
       </div>
-    </article>
-    {% endfor %}
+    </nav>
+  </aside>
+
+  <div class="help-main">
+    <section class="panel" id="quickstart" data-help-section>
+      <div class="section-head">
+        <div class="section-copy">
+          <h2>Quick start</h2>
+          <p class="muted">The normal workflow for most users is submit, watch, inspect, and download results.</p>
+        </div>
+      </div>
+      <div class="help-steps">
+        {% for step in quickstart_steps %}
+        <article class="help-step">
+          <div class="help-step-index">{{ loop.index }}</div>
+          <div class="help-step-body">
+            <h3>{{ step.title }}</h3>
+            <p class="muted">{{ step.body }}</p>
+            <pre><code>{{ step.command }}</code></pre>
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="panel" id="reference" data-help-section>
+      <div class="section-head">
+        <div class="section-copy">
+          <h2>Command reference</h2>
+          <p class="muted">Examples are written against the current <code>fedctl submit</code> command surface.</p>
+        </div>
+      </div>
+      <div class="help-command-grid">
+        {% for command in commands %}
+        {% set command_id = 'command-' ~ (command.name | lower | replace(' ', '-')) %}
+        {% set command_link = request.url_for('help_page') ~ '#' ~ command_id %}
+        <article id="{{ command_id }}" class="help-command-card {% if command.importance == 'primary' %}help-command-primary{% endif %}" data-help-section>
+          <div class="help-command-head">
+            <div class="help-command-title">
+              <h3><a href="#{{ command_id }}" class="help-anchor-link">{{ command.name }}</a></h3>
+              {% if command.importance == 'primary' %}
+              <span class="help-pill">Most important</span>
+              {% endif %}
+            </div>
+            <div class="help-command-actions">
+              <button type="button" data-copy="{{ command.syntax }}" data-copy-label="Copy" data-copy-done-label="Copied" data-copy-toast="Command copied">Copy</button>
+              <button type="button" data-copy="{{ command_link }}" data-copy-label="Link" data-copy-done-label="Linked" data-copy-toast="Command link copied">Link</button>
+            </div>
+          </div>
+          <p class="muted">{{ command.summary }}</p>
+          <div class="help-block">
+            <span class="mapping-label">Syntax</span>
+            <pre><code>{{ command.syntax }}</code></pre>
+          </div>
+          <div class="help-block">
+            <span class="mapping-label">Examples</span>
+            <ul class="help-example-list">
+              {% for example in command.examples %}
+              <li><code>{{ example }}</code></li>
+              {% endfor %}
+            </ul>
+          </div>
+          {% if command.notes %}
+          <div class="help-block">
+            <span class="mapping-label">Notes</span>
+            <ul class="help-note-list">
+              {% for note in command.notes %}
+              <li>{{ note }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+          {% endif %}
+        </article>
+        {% endfor %}
+      </div>
+    </section>
   </div>
 </section>
 
-<section class="panel">
-  <div class="section-head">
-    <div class="section-copy">
-      <h2>Command reference</h2>
-      <p class="muted">Examples are written against the current <code>fedctl submit</code> command surface.</p>
-    </div>
-  </div>
-  <div class="help-command-grid">
-    {% for command in commands %}
-    <article class="help-command-card {% if command.importance == 'primary' %}help-command-primary{% endif %}">
-      <div class="help-command-head">
-        <h3>{{ command.name }}</h3>
-        {% if command.importance == 'primary' %}
-        <span class="help-pill">Most important</span>
-        {% endif %}
-      </div>
-      <p class="muted">{{ command.summary }}</p>
-      <div class="help-block">
-        <span class="mapping-label">Syntax</span>
-        <pre><code>{{ command.syntax }}</code></pre>
-      </div>
-      <div class="help-block">
-        <span class="mapping-label">Examples</span>
-        <ul class="help-example-list">
-          {% for example in command.examples %}
-          <li><code>{{ example }}</code></li>
-          {% endfor %}
-        </ul>
-      </div>
-      {% if command.notes %}
-      <div class="help-block">
-        <span class="mapping-label">Notes</span>
-        <ul class="help-note-list">
-          {% for note in command.notes %}
-          <li>{{ note }}</li>
-          {% endfor %}
-        </ul>
-      </div>
-      {% endif %}
-    </article>
-    {% endfor %}
-  </div>
-</section>
+<button type="button" class="back-to-top" data-back-to-top aria-label="Back to top">
+  <span aria-hidden="true">↑</span>
+  <span>Top</span>
+</button>
 {% endblock %}

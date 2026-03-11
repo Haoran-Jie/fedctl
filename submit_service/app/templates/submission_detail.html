@@ -328,6 +328,205 @@
     if (hashTarget && panels.some((panel) => panel.id === hashTarget)) {
       activate(hashTarget, false);
     }
+
+    const logsPanel = document.querySelector('[data-logs-panel]');
+    if (!logsPanel) return;
+
+    const logsEndpoint = logsPanel.dataset.logsEndpoint;
+    const logsForm = logsPanel.querySelector('[data-log-server-form]');
+    const logsBox = logsPanel.querySelector('[data-log-box]');
+    const logsRawField = logsPanel.querySelector('[data-log-raw]');
+    const logsMeta = logsPanel.querySelector('[data-log-meta]');
+    const logsError = logsPanel.querySelector('[data-log-error]');
+    const logsFilterInput = logsPanel.querySelector('[data-log-filter]');
+    const logsFilterState = logsPanel.querySelector('[data-log-filter-state]');
+    const logsWrapState = logsPanel.querySelector('[data-log-wrap-state]');
+    const wrapToggle = logsPanel.querySelector('[data-log-wrap-toggle]');
+    const followToggle = logsPanel.querySelector('[data-log-follow-toggle]');
+    const latestButton = logsPanel.querySelector('[data-log-jump]');
+    const copyLogsButton = logsPanel.querySelector('[data-log-copy]');
+    const copyLinkButton = logsPanel.querySelector('[data-log-link]');
+    const lineCountNode = logsPanel.querySelector('[data-log-line-count]');
+    const matchCountNode = logsPanel.querySelector('[data-log-match-count]');
+    const followStatusNode = logsPanel.querySelector('[data-log-follow-status]');
+    if (!logsForm || !logsBox || !logsRawField || !logsFilterInput || !wrapToggle || !followToggle) {
+      return;
+    }
+
+    let renderedLogsHtml = logsBox.innerHTML;
+    let rawLogs = logsRawField.value || '';
+    let followTimerId = null;
+    let followEnabled = false;
+
+    const escapeHtml = (value) =>
+      value
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;');
+
+    const splitLines = (value) => {
+      if (!value) return [];
+      return value.split(/\r?\n/);
+    };
+
+    const visibleLines = () => {
+      const query = logsFilterInput.value.trim().toLowerCase();
+      const lines = splitLines(rawLogs);
+      if (!query) return lines;
+      return lines.filter((line) => line.toLowerCase().includes(query));
+    };
+
+    const updateCopyTargets = () => {
+      if (copyLogsButton) {
+        copyLogsButton.dataset.copy = visibleLines().join('\n');
+      }
+      if (!copyLinkButton) return;
+      const params = new URLSearchParams();
+      new FormData(logsForm).forEach((value, key) => {
+        if (typeof value !== 'string') return;
+        if (key === 'return_to' || key === 'log_filter' || key === 'log_wrap') return;
+        params.set(key, value);
+      });
+      if (logsFilterInput.value.trim()) {
+        params.set('log_filter', logsFilterInput.value.trim());
+      }
+      if (logsBox.dataset.logWrap === 'off') {
+        params.set('log_wrap', 'off');
+      }
+      const url = new URL(window.location.href);
+      url.search = params.toString();
+      url.hash = 'tab-logs';
+      copyLinkButton.dataset.copy = url.toString();
+    };
+
+    const updateCounts = () => {
+      const total = splitLines(rawLogs).length;
+      const shown = visibleLines().length;
+      if (lineCountNode) {
+        lineCountNode.textContent = String(total);
+      }
+      if (matchCountNode) {
+        matchCountNode.textContent = String(shown);
+      }
+      if (followStatusNode) {
+        followStatusNode.textContent = followEnabled ? 'Follow on' : 'Follow off';
+      }
+    };
+
+    const jumpToLatest = () => {
+      logsBox.scrollTop = logsBox.scrollHeight;
+    };
+
+    const renderLogs = () => {
+      const query = logsFilterInput.value.trim().toLowerCase();
+      if (!query) {
+        logsBox.innerHTML = renderedLogsHtml;
+      } else {
+        const filtered = visibleLines();
+        if (filtered.length) {
+          logsBox.innerHTML = escapeHtml(filtered.join('\n'));
+        } else {
+          logsBox.innerHTML = '<span class="log-empty log-filter-empty">No lines match current filter.</span>';
+        }
+      }
+      logsFilterState.value = logsFilterInput.value.trim();
+      updateCounts();
+      updateCopyTargets();
+    };
+
+    const setWrapState = (wrapOn) => {
+      logsBox.dataset.logWrap = wrapOn ? 'on' : 'off';
+      wrapToggle.setAttribute('aria-pressed', wrapOn ? 'true' : 'false');
+      wrapToggle.textContent = wrapOn ? 'Wrap on' : 'Wrap off';
+      logsWrapState.value = wrapOn ? 'on' : 'off';
+      updateCopyTargets();
+    };
+
+    const stopFollow = () => {
+      followEnabled = false;
+      followToggle.setAttribute('aria-pressed', 'false');
+      followToggle.textContent = 'Follow';
+      if (followTimerId !== null) {
+        window.clearInterval(followTimerId);
+        followTimerId = null;
+      }
+      updateCounts();
+    };
+
+    const refreshLogs = async () => {
+      if (!logsEndpoint || document.getElementById('tab-logs')?.hidden) return;
+      const params = new URLSearchParams();
+      new FormData(logsForm).forEach((value, key) => {
+        if (typeof value !== 'string') return;
+        if (key === 'log_filter' || key === 'log_wrap') return;
+        params.set(key, value);
+      });
+      try {
+        const response = await fetch(`${logsEndpoint}?${params.toString()}`, {
+          headers: { 'X-Requested-With': 'fetch' },
+          credentials: 'same-origin',
+        });
+        if (!response.ok) throw new Error(`Unexpected status ${response.status}`);
+        const documentText = await response.text();
+        const nextDoc = new DOMParser().parseFromString(documentText, 'text/html');
+        const nextPanel = nextDoc.querySelector('[data-logs-panel]');
+        if (!nextPanel) return;
+        const nextBox = nextPanel.querySelector('[data-log-box]');
+        const nextRawField = nextPanel.querySelector('[data-log-raw]');
+        const nextMeta = nextPanel.querySelector('[data-log-meta]');
+        const nextError = nextPanel.querySelector('[data-log-error]');
+        renderedLogsHtml = nextBox?.innerHTML || '';
+        rawLogs = nextRawField?.value || '';
+        if (logsMeta && nextMeta) {
+          logsMeta.innerHTML = nextMeta.innerHTML;
+        }
+        if (logsError) {
+          const nextErrorText = nextError?.textContent?.trim() || '';
+          logsError.textContent = nextErrorText;
+          logsError.hidden = !nextErrorText;
+        }
+        renderLogs();
+        jumpToLatest();
+      } catch (error) {
+        stopFollow();
+        window.fedctlUI?.showToast?.('Unable to refresh logs', 'error');
+      }
+    };
+
+    const setFollowState = (enabled) => {
+      if (!enabled) {
+        stopFollow();
+        return;
+      }
+      followEnabled = true;
+      followToggle.setAttribute('aria-pressed', 'true');
+      followToggle.textContent = 'Pause';
+      updateCounts();
+      if (followTimerId !== null) {
+        window.clearInterval(followTimerId);
+      }
+      followTimerId = window.setInterval(refreshLogs, 4000);
+      refreshLogs();
+    };
+
+    const initialUrl = new URL(window.location.href);
+    logsFilterInput.value = initialUrl.searchParams.get('log_filter') || '';
+    setWrapState(initialUrl.searchParams.get('log_wrap') !== 'off');
+    renderLogs();
+
+    logsFilterInput.addEventListener('input', renderLogs);
+    wrapToggle.addEventListener('click', () => {
+      setWrapState(logsBox.dataset.logWrap !== 'on');
+    });
+    followToggle.addEventListener('click', () => {
+      setFollowState(!followEnabled);
+    });
+    latestButton?.addEventListener('click', jumpToLatest);
+    logsForm.addEventListener('submit', () => {
+      logsFilterState.value = logsFilterInput.value.trim();
+      logsWrapState.value = logsBox.dataset.logWrap === 'off' ? 'off' : 'on';
+    });
   })();
 </script>
 {% endblock %}

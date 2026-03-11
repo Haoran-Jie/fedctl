@@ -39,27 +39,12 @@
   <div class="section-head sticky-shell" data-sticky-shell>
     <div class="section-copy">
       <h2>Inventory</h2>
-      <p class="muted">Use filters to narrow the current cluster view.</p>
+      <p class="muted">Use search to narrow the current cluster view.</p>
     </div>
-    <form method="get" action="/ui/nodes" class="filter-bar filter-bar-wide">
+    <form method="get" action="/ui/nodes" class="filter-bar filter-bar-wide filter-bar-nodes">
       <div class="filter-group filter-group-search">
         <label for="node-search">Search</label>
-        <input type="search" id="node-search" name="q" value="{{ filters.q }}" placeholder="node name, ID, class">
-      </div>
-      <div class="filter-group">
-        <label>Status</label>
-        <input type="text" name="status" value="{{ filters.status }}" onchange="this.form.requestSubmit()">
-      </div>
-      <div class="filter-group">
-        <label>Node class</label>
-        <input type="text" name="node_class" value="{{ filters.node_class }}" onchange="this.form.requestSubmit()">
-      </div>
-      <div class="filter-group">
-        <label>Device type</label>
-        <input type="text" name="device_type" value="{{ filters.device_type }}" onchange="this.form.requestSubmit()">
-      </div>
-      <div class="filter-actions">
-        <button type="submit">Search</button>
+        <input type="search" id="node-search" name="q" value="{{ filters.q }}" placeholder="node name, ID, status, class" data-auto-submit="260">
       </div>
     </form>
   </div>
@@ -94,7 +79,7 @@
     </tbody>
   </table>
   {% else %}
-  <p class="muted">No nodes matched the current filters.</p>
+  <p class="muted">No nodes matched the current search.</p>
   {% endif %}
 </section>
 {% endblock %}

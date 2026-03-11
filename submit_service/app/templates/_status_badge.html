@@ -1,1 +1,5 @@
-<span class="badge badge-{{ status|lower }}">{{ status }}</span>
+{% set badge_key = status|lower %}
+<span class="badge badge-{{ badge_key }}">
+  <span class="badge-marker" aria-hidden="true"></span>
+  <span class="badge-label">{{ status }}</span> 
+</span>

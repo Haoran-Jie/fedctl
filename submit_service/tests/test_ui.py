@@ -87,6 +87,8 @@ def test_ui_requires_session_and_login_succeeds(tmp_path, monkeypatch: pytest.Mo
     assert '>Cancelled<' in page.text
     assert '>All<' in page.text
     assert '<select name="status"' not in page.text
+    assert 'data-auto-submit="260"' in page.text
+    assert ">Search</button>" not in page.text
 
 
 def test_ui_help_page_shows_submit_commands(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -98,6 +100,11 @@ def test_ui_help_page_shows_submit_commands(tmp_path, monkeypatch: pytest.Monkey
     assert "fedctl submit run" in page.text
     assert "fedctl submit inventory" in page.text
     assert "Most important" in page.text
+    assert "On this page" in page.text
+    assert 'href="#quickstart"' in page.text
+    assert 'id="command-submit-run"' in page.text
+    assert 'data-copy-label="Link"' in page.text
+    assert 'data-back-to-top' in page.text
 
 
 def test_ui_user_scope_cancel_and_purge(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -271,6 +278,12 @@ def test_ui_detail_shows_archived_logs(tmp_path, monkeypatch: pytest.MonkeyPatch
     detail = client.get(f"/ui/submissions/{submission_id}")
     assert detail.status_code == 200
     assert "archived submit stderr" in detail.text
+    assert 'data-log-filter' in detail.text
+    assert "Copy logs" in detail.text
+    assert "Copy link" in detail.text
+    assert 'data-logs-endpoint="/ui/submissions/' in detail.text
+    assert "Follow" in detail.text
+    assert "Latest" in detail.text
 
 
 def test_ui_nodes_search_filters_inventory(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -308,6 +321,10 @@ def test_ui_nodes_search_filters_inventory(tmp_path, monkeypatch: pytest.MonkeyP
     assert "jetson4" in page.text
     assert "rpi2" not in page.text
     assert 'value="jet"' in page.text
+    assert 'data-auto-submit="260"' in page.text
+    assert 'name="status"' not in page.text
+    assert 'name="node_class"' not in page.text
+    assert 'name="device_type"' not in page.text
 
 
 def test_ui_detail_renders_structured_args_env_and_jobs(

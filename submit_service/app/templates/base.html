@@ -43,19 +43,65 @@
           window.history.replaceState({}, '', next);
         };
 
+        const toastGlyph = (kind) => {
+          if (kind === 'error') {
+            return `
+              <span class="toast-glyph toast-glyph-error">
+                <span></span>
+                <span></span>
+              </span>
+            `;
+          }
+          return `
+            <span class="toast-glyph toast-glyph-success">
+              <span></span>
+            </span>
+          `;
+        };
+
+        const dismissToast = (toast) => {
+          if (!toast || toast.dataset.dismissed === 'true') return;
+          toast.dataset.dismissed = 'true';
+          if (toast._timeoutId) {
+            window.clearTimeout(toast._timeoutId);
+          }
+          toast.classList.remove('is-visible');
+          toast.classList.add('is-leaving');
+          window.setTimeout(() => toast.remove(), 220);
+        };
+
+        const scheduleToastDismiss = (toast, delay = 2600) => {
+          if (toast._timeoutId) {
+            window.clearTimeout(toast._timeoutId);
+          }
+          toast._timeoutId = window.setTimeout(() => dismissToast(toast), delay);
+        };
+
         const showToast = (message, kind = 'success') => {
           if (!message) return;
           const toast = document.createElement('div');
           toast.className = `toast toast-${kind}`;
-          toast.textContent = message;
+          toast.innerHTML = `
+            <span class="toast-icon" aria-hidden="true">${toastGlyph(kind)}</span>
+            <span class="toast-message">${message}</span>
+            <button type="button" class="toast-close" aria-label="Dismiss notification">
+              <span></span>
+              <span></span>
+            </button>
+          `;
+          const closeButton = toast.querySelector('.toast-close');
+          closeButton?.addEventListener('click', () => dismissToast(toast));
+          toast.addEventListener('mouseenter', () => {
+            if (toast._timeoutId) {
+              window.clearTimeout(toast._timeoutId);
+            }
+          });
+          toast.addEventListener('mouseleave', () => scheduleToastDismiss(toast, 1200));
           toastRoot.appendChild(toast);
           window.requestAnimationFrame(() => {
             toast.classList.add('is-visible');
           });
-          window.setTimeout(() => {
-            toast.classList.remove('is-visible');
-            window.setTimeout(() => toast.remove(), 220);
-          }, 2400);
+          scheduleToastDismiss(toast);
         };
 
         const copyText = async (value) => {
@@ -93,11 +139,24 @@
             if (!value) return;
             const originalLabel = button.dataset.copyLabel || button.textContent.trim();
             const copiedLabel = button.dataset.copyDoneLabel || 'Copied';
+            const labelNode =
+              button.querySelector('[data-copy-label-node]') ||
+              button.querySelector('.copy-button-label');
             try {
               await copyText(value);
-              button.textContent = copiedLabel;
+              button.dataset.copyState = 'done';
+              if (labelNode) {
+                labelNode.textContent = copiedLabel;
+              } else {
+                button.textContent = copiedLabel;
+              }
               window.setTimeout(() => {
-                button.textContent = originalLabel;
+                button.dataset.copyState = 'idle';
+                if (labelNode) {
+                  labelNode.textContent = originalLabel;
+                } else {
+                  button.textContent = originalLabel;
+                }
               }, 1200);
               showToast(button.dataset.copyToast || 'Copied to clipboard');
             } catch (error) {
@@ -110,7 +169,96 @@
           const button = event.target.closest('[data-copy]');
           if (!button) return;
           event.preventDefault();
+          if (!button.dataset.copyEnhanced) {
+            const label = button.dataset.copyLabel || button.textContent.trim() || 'Copy';
+            button.dataset.copyLabel = label;
+            button.dataset.copyEnhanced = 'true';
+            button.dataset.copyState = button.dataset.copyState || 'idle';
+            button.classList.add('copy-action');
+            button.innerHTML = `
+              <span class="copy-button-icon" aria-hidden="true">
+                <span class="copy-glyph copy-glyph-copy"></span>
+                <span class="copy-glyph copy-glyph-check"></span>
+              </span>
+              <span class="copy-button-label" data-copy-label-node>${label}</span>
+            `;
+          }
           window.fedctlUI.copy(button);
+        });
+
+        document.querySelectorAll('[data-copy]').forEach((button) => {
+          if (button.dataset.copyEnhanced) return;
+          const label = button.dataset.copyLabel || button.textContent.trim() || 'Copy';
+          button.dataset.copyLabel = label;
+          button.dataset.copyEnhanced = 'true';
+          button.dataset.copyState = button.dataset.copyState || 'idle';
+          button.classList.add('copy-action');
+          button.innerHTML = `
+            <span class="copy-button-icon" aria-hidden="true">
+              <span class="copy-glyph copy-glyph-copy"></span>
+              <span class="copy-glyph copy-glyph-check"></span>
+            </span>
+            <span class="copy-button-label" data-copy-label-node>${label}</span>
+          `;
+        });
+
+        document.querySelectorAll('[data-auto-submit]').forEach((input) => {
+          const form = input.form;
+          if (!form) return;
+          const delay = Number.parseInt(input.dataset.autoSubmit || '250', 10);
+          let timeoutId = null;
+          const submit = () => form.requestSubmit();
+          input.addEventListener('input', () => {
+            if (timeoutId !== null) {
+              window.clearTimeout(timeoutId);
+            }
+            timeoutId = window.setTimeout(submit, Number.isNaN(delay) ? 250 : delay);
+          });
+          input.addEventListener('search', submit);
+        });
+
+        document.querySelectorAll('[data-segmented-control]').forEach((control) => {
+          control.querySelectorAll('[data-segment-button]').forEach((button) => {
+            button.addEventListener('click', (event) => {
+              const form = button.form;
+              if (!form) return;
+              const hiddenStatus = form.querySelector('input[type="hidden"][name="status"]');
+              if (hiddenStatus) {
+                hiddenStatus.value = button.value;
+              }
+            });
+          });
+        });
+
+        const helpNavLinks = Array.from(document.querySelectorAll('[data-help-nav-link]'));
+        const helpSections = Array.from(document.querySelectorAll('[data-help-section][id]'));
+        const backToTopButton = document.querySelector('[data-back-to-top]');
+
+        const syncHelpNavigation = () => {
+          if (!helpNavLinks.length && !backToTopButton) return;
+          const topbar = document.querySelector('.topbar');
+          const offset = topbar ? topbar.offsetHeight + 28 : 112;
+          let activeId = helpSections[0]?.id || '';
+          helpSections.forEach((section) => {
+            if (section.getBoundingClientRect().top - offset <= 0) {
+              activeId = section.id;
+            }
+          });
+          helpNavLinks.forEach((link) => {
+            const targetId = (link.getAttribute('href') || '').replace(/^#/, '');
+            if (targetId === activeId) {
+              link.dataset.active = 'true';
+            } else {
+              delete link.dataset.active;
+            }
+          });
+          if (backToTopButton) {
+            backToTopButton.classList.toggle('is-visible', window.scrollY > 320);
+          }
+        };
+
+        backToTopButton?.addEventListener('click', () => {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
         });
 
         const noticeUrl = new URL(window.location.href);
@@ -123,7 +271,11 @@
         const sync = () => syncStickyShells();
         window.addEventListener('load', sync);
         window.addEventListener('resize', sync);
+        window.addEventListener('scroll', syncHelpNavigation, { passive: true });
+        window.addEventListener('resize', syncHelpNavigation);
+        window.addEventListener('hashchange', syncHelpNavigation);
         sync();
+        syncHelpNavigation();
       })();
     </script>
   </body>
