@@ -331,12 +331,30 @@ def submit_logs(
 @submit_app.command("ls")
 def submit_ls(
     limit: int = typer.Option(20, "--limit"),
-    active: bool = typer.Option(True, "--active/--all"),
+    active: bool = typer.Option(False, "--active"),
+    completed: bool = typer.Option(False, "--completed"),
+    failed: bool = typer.Option(False, "--failed"),
+    cancelled: bool = typer.Option(False, "--cancelled"),
+    all: bool = typer.Option(False, "--all"),
 ) -> None:
     """List recent submissions."""
     from fedctl.commands.submit import run_submit_ls
 
-    raise SystemExit(run_submit_ls(limit=limit, active=active))
+    selected = [
+        name
+        for name, enabled in (
+            ("active", active),
+            ("completed", completed),
+            ("failed", failed),
+            ("cancelled", cancelled),
+            ("all", all),
+        )
+        if enabled
+    ]
+    if len(selected) > 1:
+        raise typer.BadParameter("Choose only one status flag for submit ls.")
+    status_filter = selected[0] if selected else "active"
+    raise SystemExit(run_submit_ls(limit=limit, status_filter=status_filter))
 
 
 @submit_app.command("inventory")

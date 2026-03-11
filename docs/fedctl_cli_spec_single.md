@@ -210,11 +210,16 @@ List recent submissions.
 
 Flags:
 - `--limit <n>`: Max rows. Default `20`.
-- `--active`: Show only active submissions.
+- `--active`: Show only queued/running/blocked submissions.
+- `--completed`: Show only completed submissions.
+- `--failed`: Show only failed submissions.
+- `--cancelled`: Show only cancelled submissions.
+- `--all`: Show all submissions.
 
 Example:
 ```bash
-fedctl submit ls --active
+fedctl submit ls
+fedctl submit ls --completed
 ```
 
 ---

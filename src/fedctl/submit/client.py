@@ -32,10 +32,13 @@ class SubmitServiceClient:
         self,
         limit: int = 20,
         *,
+        status_filter: str | None = None,
         active_only: bool = False,
     ) -> list[dict[str, Any]]:
         params = {"limit": str(limit)}
-        if active_only:
+        if status_filter:
+            params["status"] = status_filter
+        elif active_only:
             params["active_only"] = "true"
         return self._request("GET", "/v1/submissions", params=params)
 

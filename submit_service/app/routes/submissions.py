@@ -28,6 +28,7 @@ from ..workers.dispatcher import dispatch_submission
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+_SUBMISSION_STATUS_FILTERS = {"active", "completed", "failed", "cancelled", "all"}
 
 
 def get_config(request: Request) -> SubmitConfig:
@@ -92,14 +93,22 @@ def list_submissions(
     request: Request,
     limit: int = Query(20, ge=1, le=200),
     active_only: bool = Query(False),
+    status: str | None = Query(None),
     cfg: SubmitConfig = Depends(get_config),
     storage: Storage = Depends(get_storage),
 ) -> list[SubmissionRecord]:
     principal = authenticate(request, cfg)
+    status_filter = status.strip().lower() if isinstance(status, str) and status.strip() else None
+    if status_filter is not None and status_filter not in _SUBMISSION_STATUS_FILTERS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unsupported status filter: {status_filter}",
+        )
     return list_visible_submissions(
         storage,
         principal,
         limit=limit,
+        status_filter=status_filter,
         active_only=active_only,
     )
 

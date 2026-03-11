@@ -52,3 +52,31 @@ def test_submit_purge_routes_optional_submission_id(monkeypatch) -> None:
     result = runner.invoke(cli.app, ["submit", "purge"])
     assert result.exit_code == 0
     assert captured["submission_id"] is None
+
+
+def test_submit_ls_routes_status_filter(monkeypatch) -> None:
+    runner = CliRunner()
+    captured = {}
+
+    def fake_run_submit_ls(*, limit: int, status_filter: str):
+        captured["limit"] = limit
+        captured["status_filter"] = status_filter
+        return 0
+
+    monkeypatch.setattr(submit_commands, "run_submit_ls", fake_run_submit_ls)
+
+    result = runner.invoke(cli.app, ["submit", "ls", "--completed", "--limit", "7"])
+    assert result.exit_code == 0
+    assert captured["limit"] == 7
+    assert captured["status_filter"] == "completed"
+
+    result = runner.invoke(cli.app, ["submit", "ls"])
+    assert result.exit_code == 0
+    assert captured["status_filter"] == "active"
+
+
+def test_submit_ls_rejects_multiple_status_flags() -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli.app, ["submit", "ls", "--active", "--all"])
+    assert result.exit_code != 0
+    assert "Choose only one status flag" in result.output

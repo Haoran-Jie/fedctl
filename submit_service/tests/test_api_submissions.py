@@ -75,6 +75,24 @@ def test_list_submissions_active_only_filter(
     assert first not in ids
 
 
+def test_list_submissions_status_filter(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = _make_client(tmp_path, monkeypatch)
+    storage = client.app.state.storage
+
+    completed_id = client.post("/v1/submissions", json=_payload()).json()["submission_id"]
+    failed_id = client.post("/v1/submissions", json=_payload()).json()["submission_id"]
+    storage.update_submission(completed_id, {"status": "completed"})
+    storage.update_submission(failed_id, {"status": "failed"})
+
+    response = client.get("/v1/submissions", params={"limit": 10, "status": "failed"})
+    assert response.status_code == 200
+    ids = [entry["submission_id"] for entry in response.json()]
+    assert failed_id in ids
+    assert completed_id not in ids
+
+
 def test_auth_requires_token(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SUBMIT_REPO_CONFIG", str(tmp_path / "missing-fedctl.yaml"))
     monkeypatch.setenv("SUBMIT_DB_URL", f"sqlite:///{tmp_path / 'submit.db'}")

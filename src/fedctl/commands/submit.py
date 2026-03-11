@@ -570,11 +570,14 @@ def _style_log_line(text: Text, stripped: str) -> None:
         text.stylize("bright_black")
 
 
-def run_submit_ls(*, limit: int, active: bool = True) -> int:
+_ACTIVE_SUBMISSION_STATUSES = {"queued", "running", "blocked"}
+
+
+def run_submit_ls(*, limit: int, status_filter: str = "active") -> int:
     submit_client = _submit_service_client()
     if submit_client:
         try:
-            entries = submit_client.list_submissions(limit=limit, active_only=active)
+            entries = submit_client.list_submissions(limit=limit, status_filter=status_filter)
         except SubmitServiceError as exc:
             console.print(f"[red]✗ Submit service error:[/red] {exc}")
             return 1
@@ -583,7 +586,7 @@ def run_submit_ls(*, limit: int, active: bool = True) -> int:
             return 0
         rows = []
         for entry in entries:
-            if active and entry.get("status") not in {"queued", "running", "blocked"}:
+            if not _submit_ls_matches_status(entry.get("status"), status_filter):
                 continue
             submission_id = entry.get("submission_id", "-")
             experiment = entry.get("experiment", "-")
@@ -607,10 +610,11 @@ def run_submit_ls(*, limit: int, active: bool = True) -> int:
         return 0
 
     rows = []
-    display_limit = max(limit, 0) or len(entries)
-    for entry in entries[:display_limit]:
-        if active and entry.get("status") not in {"queued", "running", "blocked"}:
-            continue
+    filtered_entries = [
+        entry for entry in entries if _submit_ls_matches_status(entry.get("status"), status_filter)
+    ]
+    display_limit = max(limit, 0) or len(filtered_entries)
+    for entry in filtered_entries[:display_limit]:
         submission_id = entry.get("submission_id", "-")
         experiment = entry.get("experiment", "-")
         created_at = entry.get("created_at", "-")
@@ -621,6 +625,15 @@ def run_submit_ls(*, limit: int, active: bool = True) -> int:
         return 0
     print_table("Submissions", ["ID", "Experiment", "Namespace", "Created"], rows)
     return 0
+
+
+def _submit_ls_matches_status(status: object, status_filter: str) -> bool:
+    value = str(status or "")
+    if status_filter == "all":
+        return True
+    if status_filter == "active":
+        return value in _ACTIVE_SUBMISSION_STATUSES
+    return value == status_filter
 
 
 def run_submit_purge(*, submission_id: str | None = None) -> int:

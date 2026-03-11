@@ -59,14 +59,14 @@ _HELP_COMMANDS = [
         "name": "submit ls",
         "summary": "List recent submissions from the submit service.",
         "importance": "standard",
-        "syntax": "fedctl submit ls [--active|--all] [--limit N]",
+        "syntax": "fedctl submit ls [--active|--completed|--failed|--cancelled|--all] [--limit N]",
         "examples": [
             "fedctl submit ls",
-            "fedctl submit ls --all",
+            "fedctl submit ls --completed",
             "fedctl submit ls --limit 50",
         ],
         "notes": [
-            "Default output is active-first because --active is enabled by default.",
+            "Default output shows the active queue even when no status flag is provided.",
         ],
     },
     {
@@ -824,9 +824,13 @@ def _job_entries_view(jobs: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _submission_list_command(status_filter: str) -> str:
-    if status_filter == "active":
-        return "fedctl submit ls --active"
-    return "fedctl submit ls --all"
+    return {
+        "active": "fedctl submit ls --active",
+        "completed": "fedctl submit ls --completed",
+        "failed": "fedctl submit ls --failed",
+        "cancelled": "fedctl submit ls --cancelled",
+        "all": "fedctl submit ls --all",
+    }.get(status_filter, "fedctl submit ls --active")
 
 
 def _inventory_command(

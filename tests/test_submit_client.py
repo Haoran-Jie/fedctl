@@ -83,6 +83,21 @@ def test_submit_client_list_submissions_active_only(monkeypatch) -> None:
     assert captured["params"]["active_only"] == "true"
 
 
+def test_submit_client_list_submissions_status_filter(monkeypatch) -> None:
+    captured = {}
+
+    def fake_request(method, url, json=None, params=None, headers=None, timeout=None):
+        captured["params"] = params
+        return DummyResp(200, "[]", json_obj=[])
+
+    monkeypatch.setattr(httpx, "request", fake_request)
+    client = SubmitServiceClient(endpoint="http://submit.example")
+    client.list_submissions(limit=11, status_filter="failed")
+    assert captured["params"]["limit"] == "11"
+    assert captured["params"]["status"] == "failed"
+    assert "active_only" not in captured["params"]
+
+
 def test_submit_client_stream_logs(monkeypatch) -> None:
     captured = {}
 

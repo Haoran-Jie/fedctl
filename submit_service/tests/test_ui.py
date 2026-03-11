@@ -327,3 +327,11 @@ def test_render_logs_html_converts_ansi_sequences() -> None:
     assert "INFO" in rendered
     assert "\x1b[" not in rendered
     assert "style=" in rendered or "color:" in rendered
+
+
+def test_submission_list_command_matches_ui_filters() -> None:
+    assert ui_routes._submission_list_command("active") == "fedctl submit ls --active"
+    assert ui_routes._submission_list_command("completed") == "fedctl submit ls --completed"
+    assert ui_routes._submission_list_command("failed") == "fedctl submit ls --failed"
+    assert ui_routes._submission_list_command("cancelled") == "fedctl submit ls --cancelled"
+    assert ui_routes._submission_list_command("all") == "fedctl submit ls --all"

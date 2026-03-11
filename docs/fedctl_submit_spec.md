@@ -103,6 +103,10 @@ List submissions.
 Flags:
 - `--limit <n>` default `20`
 - `--active` (queued/running/blocked only)
+- `--completed`
+- `--failed`
+- `--cancelled`
+- `--all`
 
 ### `fedctl submit inventory`
 

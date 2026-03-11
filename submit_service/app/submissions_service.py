@@ -88,9 +88,11 @@ def list_visible_submissions(
     principal: AuthPrincipal,
     *,
     limit: int = 20,
+    status_filter: str | None = None,
     active_only: bool = False,
 ) -> list[SubmissionRecord]:
-    statuses = ["queued", "running", "blocked"] if active_only else None
+    effective_filter = status_filter or ("active" if active_only else "all")
+    statuses = _submission_statuses_for_filter(effective_filter)
     rows = storage.list_submissions(
         limit=limit,
         statuses=statuses,
@@ -427,3 +429,11 @@ def _matches_status_filter(record: dict[str, Any], status_filter: str) -> bool:
     if status_filter == "active":
         return status in _ACTIVE_STATUSES
     return status == status_filter
+
+
+def _submission_statuses_for_filter(status_filter: str) -> list[str] | None:
+    if status_filter == "all":
+        return None
+    if status_filter == "active":
+        return list(_ACTIVE_STATUSES)
+    return [status_filter]
