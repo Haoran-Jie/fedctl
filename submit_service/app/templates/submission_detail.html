@@ -59,8 +59,8 @@
   </div>
 
   <div id="tab-overview" class="tab-panel is-active" role="tabpanel" aria-labelledby="tab-button-overview">
-    <div class="detail-grid">
-      <article class="info-card scroll-card">
+    <div class="detail-grid overview-grid">
+      <article class="info-card overview-card overview-card-identity">
         <h3>Identity</h3>
         <dl class="meta-list">
           <div><dt>ID</dt><dd class="wrap">{{ submission.id }}</dd></div>
@@ -71,7 +71,7 @@
           <div><dt>Status</dt><dd>{% set status = submission.status %}{% include '_status_badge.html' %}</dd></div>
         </dl>
       </article>
-      <article class="info-card scroll-card">
+      <article class="info-card overview-card overview-card-execution">
         <h3>Execution</h3>
         <dl class="meta-list">
           <div><dt>Nomad job</dt><dd class="wrap">{{ submission.nomad_job_id }}</dd></div>
@@ -130,7 +130,7 @@
           {% endif %}
         </div>
       </article>
-      <article class="info-card scroll-card">
+      <article class="info-card overview-card overview-card-timing">
         <h3>Timing</h3>
         <dl class="meta-list">
           <div><dt>Created</dt><dd>{{ submission.created_at }}</dd></div>
