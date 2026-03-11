@@ -51,7 +51,7 @@
     </div>
   </div>
   <div class="detail-grid">
-    <article class="info-card">
+    <article class="info-card scroll-card">
       <h3>Identity</h3>
       <dl class="meta-list">
         <div><dt>ID</dt><dd class="wrap">{{ submission.id }}</dd></div>
@@ -62,7 +62,7 @@
         <div><dt>Status</dt><dd>{% set status = submission.status %}{% include '_status_badge.html' %}</dd></div>
       </dl>
     </article>
-    <article class="info-card">
+    <article class="info-card scroll-card">
       <h3>Execution</h3>
       <dl class="meta-list">
         <div><dt>Nomad job</dt><dd class="wrap">{{ submission.nomad_job_id }}</dd></div>
@@ -105,7 +105,7 @@
         {% endif %}
       </div>
     </article>
-    <article class="info-card">
+    <article class="info-card scroll-card">
       <h3>Timing</h3>
       <dl class="meta-list">
         <div><dt>Created</dt><dd>{{ submission.created_at }}</dd></div>
@@ -235,7 +235,7 @@
 </section>
 
 <section class="panel two-col">
-  <div class="section-block">
+  <div class="section-block scroll-section-block">
     <h2>Job mapping</h2>
     {% if submission.job_entries %}
     <div class="mapping-grid">
@@ -282,7 +282,7 @@
     <p class="muted">No job mapping recorded.</p>
     {% endif %}
   </div>
-  <div class="section-block">
+  <div class="section-block scroll-section-block">
     <h2>Result artifacts</h2>
     {% if submission.result_artifacts.primary or submission.result_artifacts.secondary %}
     {% if submission.result_artifacts.primary %}
@@ -295,7 +295,6 @@
             <div class="artifact-name wrap">{{ item.label }}</div>
             <div class="artifact-subline">
               <span class="artifact-type-badge">{{ item.type }}</span>
-              <code class="artifact-url wrap">{{ item.url }}</code>
             </div>
           </div>
           <div class="artifact-actions">
@@ -324,7 +323,6 @@
             <div class="artifact-name wrap">{{ item.label }}</div>
             <div class="artifact-subline">
               <span class="artifact-type-badge">{{ item.type }}</span>
-              <code class="artifact-url wrap">{{ item.url }}</code>
             </div>
           </div>
           <div class="artifact-actions">
@@ -342,12 +340,6 @@
         {% endfor %}
       </div>
     </details>
-    {% endif %}
-    {% if submission.result_location and submission.result_location != "-" %}
-    <div class="artifact-location-note">
-      <span>Raw result location</span>
-      <code class="wrap">{{ submission.result_location }}</code>
-    </div>
     {% endif %}
     {% else %}
     {% if submission.status in ["queued", "running", "blocked"] %}
