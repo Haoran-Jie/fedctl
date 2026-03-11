@@ -30,6 +30,10 @@ def test_storage_create_and_list(tmp_path) -> None:
             "node_class": "submit",
             "args": ["-m", "fedctl.submit.runner"],
             "env": {"FEDCTL_ENDPOINT": "http://127.0.0.1:4646"},
+            "submit_request": {
+                "path_input": "../proj",
+                "command_preview": "fedctl submit run ../proj --exp exp",
+            },
             "priority": 50,
             "logs_location": None,
             "result_location": None,
@@ -44,6 +48,7 @@ def test_storage_create_and_list(tmp_path) -> None:
     assert row["id"] == sub_id
     assert row["args"] == ["-m", "fedctl.submit.runner"]
     assert row["env"]["FEDCTL_ENDPOINT"] == "http://127.0.0.1:4646"
+    assert row["submit_request"]["path_input"] == "../proj"
 
     rows = storage.list_submissions(limit=5)
     assert rows[0]["id"] == sub_id

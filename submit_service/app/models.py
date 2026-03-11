@@ -14,6 +14,7 @@ class SubmissionCreateRequest(BaseModel):
     node_class: str = "submit"
     args: list[str] = Field(default_factory=list)
     env: dict[str, str] = Field(default_factory=dict)
+    submit_request: dict[str, Any] = Field(default_factory=dict)
     priority: int | None = None
     namespace: str | None = None
 
@@ -42,6 +43,7 @@ class SubmissionRecord(BaseModel):
     node_class: str
     args: list[str] = Field(default_factory=list)
     env: dict[str, str] = Field(default_factory=dict)
+    submit_request: dict[str, Any] = Field(default_factory=dict)
     priority: int | None = None
     logs_location: str | None = None
     result_location: str | None = None
@@ -68,6 +70,7 @@ class SubmissionRecord(BaseModel):
             node_class=row["node_class"],
             args=row.get("args", []),
             env=row.get("env", {}),
+            submit_request=row.get("submit_request", {}),
             priority=row.get("priority"),
             logs_location=row.get("logs_location"),
             result_location=row.get("result_location"),

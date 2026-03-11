@@ -543,6 +543,9 @@ def _submission_detail_view(record: dict[str, Any], role: str) -> dict[str, Any]
         result_artifacts = []
     args = record.get("args") if isinstance(record.get("args"), list) else []
     env = record.get("env") if isinstance(record.get("env"), dict) else {}
+    submit_request = (
+        record.get("submit_request") if isinstance(record.get("submit_request"), dict) else {}
+    )
     return {
         "id": record.get("id"),
         "project_name": record.get("project_name") or "-",
@@ -557,6 +560,8 @@ def _submission_detail_view(record: dict[str, Any], role: str) -> dict[str, Any]
         "nomad_job_id": record.get("nomad_job_id") or "-",
         "artifact_url": record.get("artifact_url") or "-",
         "submit_image": record.get("submit_image") or "-",
+        "submit_request": submit_request,
+        "submit_request_view": _submit_request_view(submit_request),
         "args": args,
         "args_view": [_arg_view(arg, idx) for idx, arg in enumerate(args, start=1)],
         "env": env,
@@ -571,6 +576,53 @@ def _submission_detail_view(record: dict[str, Any], role: str) -> dict[str, Any]
         "can_purge": is_purgeable(record.get("status")),
     }
 
+
+def _submit_request_view(submit_request: dict[str, Any]) -> dict[str, Any]:
+    command_preview = submit_request.get("command_preview")
+    options = submit_request.get("options") if isinstance(submit_request.get("options"), dict) else {}
+    items: list[dict[str, str]] = []
+    preferred_order = [
+        "path",
+        "experiment",
+        "image",
+        "submit_image",
+        "artifact_store",
+        "num_supernodes",
+        "federation",
+        "timeout",
+        "priority",
+        "stream",
+        "destroy",
+        "auto_supernodes",
+        "allow_oversubscribe",
+        "platform",
+        "context",
+        "repo_config",
+        "push",
+        "verbose",
+        "supernodes",
+        "net",
+    ]
+    seen: set[str] = set()
+    for key in preferred_order + sorted(str(k) for k in options.keys()):
+        if key in seen or key not in options:
+            continue
+        seen.add(key)
+        value = options[key]
+        if isinstance(value, list):
+            rendered = ", ".join(str(item) for item in value) or "-"
+        elif isinstance(value, bool):
+            rendered = "true" if value else "false"
+        else:
+            rendered = str(value)
+        items.append({"label": key.replace("_", " "), "value": rendered})
+    return {
+        "path_input": submit_request.get("path_input") or "",
+        "project_root": submit_request.get("project_root") or "",
+        "cwd": submit_request.get("cwd") or "",
+        "command_preview": command_preview if isinstance(command_preview, str) else "",
+        "options": items,
+    }
 
 
 def _node_view(node: dict[str, Any]) -> dict[str, Any]:

@@ -525,6 +525,64 @@ th { font-size: 0.9rem; color: var(--muted); }
 .wrap { overflow-wrap: anywhere; word-break: break-word; }
 .artifact-list { margin: 0; padding-left: 1.2rem; }
 .artifact-list li { margin-bottom: 0.45rem; line-height: 1.45; }
+.command-preview-card {
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(29, 111, 95, 0.14);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(29, 111, 95, 0.06), #f6fbfa);
+  margin-bottom: 0.85rem;
+}
+.command-preview-card pre {
+  margin: 0.45rem 0 0;
+  white-space: pre-wrap;
+}
+.submit-request-meta {
+  margin-bottom: 0.85rem;
+}
+.request-option-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.55rem;
+}
+.request-option-card {
+  padding: 0.65rem 0.75rem;
+  border: 1px solid rgba(214, 207, 191, 0.95);
+  border-radius: 12px;
+  background: #f2f7f8;
+  min-width: 0;
+}
+.request-option-card span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 0.25rem;
+}
+.request-option-card strong {
+  display: block;
+  font-size: 0.9rem;
+  line-height: 1.3;
+}
+.runner-detail {
+  border: 1px solid rgba(214, 207, 191, 0.95);
+  border-radius: 16px;
+  background: #f8fbfb;
+  padding: 0.25rem 0.35rem 0.35rem;
+}
+.runner-detail summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 0.65rem 0.7rem;
+  font-weight: 700;
+  color: var(--accent-dark);
+}
+.runner-detail summary::-webkit-details-marker {
+  display: none;
+}
+.runner-detail[open] summary {
+  margin-bottom: 0.2rem;
+}
 .args-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));

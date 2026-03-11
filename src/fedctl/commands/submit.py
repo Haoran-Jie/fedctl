@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import json
 import re
+import shlex
 from urllib.parse import urlparse
 import tarfile
 import tempfile
@@ -190,6 +191,31 @@ def run_submit(
                     "artifact_url": artifact_url,
                     "submit_image": resolved_image,
                     "node_class": _SUBMIT_NODE_CLASS,
+                    "submit_request": _original_submit_request(
+                        path=path,
+                        project_root=info.root,
+                        experiment=exp_name,
+                        flwr_version=flwr_version,
+                        image=resolved_superexec_image,
+                        no_cache=no_cache,
+                        platform=platform,
+                        context=context,
+                        push=push,
+                        num_supernodes=num_supernodes,
+                        auto_supernodes=auto_supernodes,
+                        supernodes=supernodes,
+                        net=net,
+                        allow_oversubscribe=allow_oversubscribe,
+                        repo_config=repo_config,
+                        federation=federation,
+                        stream=stream,
+                        timeout_seconds=timeout_seconds,
+                        verbose=verbose,
+                        destroy=destroy,
+                        submit_image=resolved_image,
+                        artifact_store=resolved_artifact_store,
+                        priority=priority or 50,
+                    ),
                     "args": _runner_args(
                         project_dir_name=project_path.name,
                         exp_name=exp_name,
@@ -895,6 +921,125 @@ def _runner_env(eff: object, *, result_store: str | None = None) -> dict[str, st
         if value:
             env[key] = value
     return env
+
+
+def _original_submit_request(
+    *,
+    path: str,
+    project_root: Path,
+    experiment: str,
+    flwr_version: str,
+    image: str | None,
+    no_cache: bool,
+    platform: str | None,
+    context: str | None,
+    push: bool,
+    num_supernodes: int,
+    auto_supernodes: bool,
+    supernodes: list[str] | None,
+    net: list[str] | None,
+    allow_oversubscribe: bool | None,
+    repo_config: str | None,
+    federation: str,
+    stream: bool,
+    timeout_seconds: int,
+    verbose: bool,
+    destroy: bool,
+    submit_image: str | None,
+    artifact_store: str | None,
+    priority: int,
+) -> dict[str, object]:
+    cwd = Path.cwd()
+    options: dict[str, object] = {
+        "path": path,
+        "experiment": experiment,
+        "flwr_version": flwr_version,
+        "num_supernodes": num_supernodes,
+        "federation": federation,
+        "timeout": timeout_seconds,
+        "priority": priority,
+        "destroy": destroy,
+        "stream": stream,
+        "auto_supernodes": auto_supernodes,
+    }
+    if image:
+        options["image"] = image
+    if no_cache:
+        options["no_cache"] = True
+    if platform:
+        options["platform"] = platform
+    if context:
+        options["context"] = context
+    if push:
+        options["push"] = True
+    if supernodes:
+        options["supernodes"] = supernodes
+    if net:
+        options["net"] = net
+    if allow_oversubscribe is not None:
+        options["allow_oversubscribe"] = allow_oversubscribe
+    if repo_config:
+        options["repo_config"] = repo_config
+    if verbose:
+        options["verbose"] = True
+    if submit_image:
+        options["submit_image"] = submit_image
+    if artifact_store:
+        options["artifact_store"] = artifact_store
+    return {
+        "path_input": path,
+        "project_root": str(project_root.resolve()),
+        "cwd": str(cwd.resolve()),
+        "command_preview": _submit_command_preview(options),
+        "options": options,
+    }
+
+
+def _submit_command_preview(options: dict[str, object]) -> str:
+    parts = ["fedctl", "submit", "run", str(options["path"])]
+    if options.get("experiment"):
+        parts.extend(["--exp", str(options["experiment"])])
+    if options.get("image"):
+        parts.extend(["--image", str(options["image"])])
+    if options.get("no_cache"):
+        parts.append("--no-cache")
+    if options.get("platform"):
+        parts.extend(["--platform", str(options["platform"])])
+    if options.get("context"):
+        parts.extend(["--context", str(options["context"])])
+    if options.get("push"):
+        parts.append("--push")
+    if options.get("num_supernodes") is not None:
+        parts.extend(["--num-supernodes", str(options["num_supernodes"])])
+    if options.get("auto_supernodes") is False:
+        parts.append("--no-auto-supernodes")
+    for value in options.get("supernodes") or []:
+        parts.extend(["--supernodes", str(value)])
+    for value in options.get("net") or []:
+        parts.extend(["--net", str(value)])
+    if options.get("allow_oversubscribe") is True:
+        parts.append("--allow-oversubscribe")
+    elif options.get("allow_oversubscribe") is False:
+        parts.append("--no-allow-oversubscribe")
+    if options.get("repo_config"):
+        parts.extend(["--repo-config", str(options["repo_config"])])
+    if options.get("federation"):
+        parts.extend(["--federation", str(options["federation"])])
+    if options.get("stream") is False:
+        parts.append("--no-stream")
+    if options.get("timeout") is not None:
+        parts.extend(["--timeout", str(options["timeout"])])
+    if options.get("verbose"):
+        parts.append("--verbose")
+    if options.get("destroy") is False:
+        parts.append("--no-destroy")
+    if options.get("submit_image"):
+        parts.extend(["--submit-image", str(options["submit_image"])])
+    if options.get("artifact_store"):
+        parts.extend(["--artifact-store", str(options["artifact_store"])])
+    if options.get("priority") is not None:
+        parts.extend(["--priority", str(options["priority"])])
+    return shlex.join(parts)
 
 
 def _rewrite_local_endpoint(endpoint: str) -> str:

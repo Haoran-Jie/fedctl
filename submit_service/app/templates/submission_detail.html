@@ -91,26 +91,44 @@
 
 <section class="panel two-col">
   <div class="section-block">
-    <h2>Runner args</h2>
-    {% if submission.args_view %}
-    <div class="args-grid">
-      {% for arg in submission.args_view %}
-      <div class="arg-card">
-        <div class="arg-head">
-          <span class="arg-index">{{ arg.index }}</span>
-          <span class="arg-kind">{{ arg.kind }}</span>
-        </div>
-        <div class="arg-line">
-          <span class="arg-name">{{ arg.name }}</span>
-          {% if arg.value %}
-          <code class="arg-value">{{ arg.value }}</code>
-          {% endif %}
-        </div>
+    <h2>Original submit request</h2>
+    {% if submission.submit_request_view.command_preview %}
+    <div class="command-preview-card">
+      <span class="mapping-label">Command</span>
+      <pre><code>{{ submission.submit_request_view.command_preview }}</code></pre>
+    </div>
+    <dl class="structured-pairs submit-request-meta">
+      {% if submission.submit_request_view.path_input %}
+      <div>
+        <dt>Path input</dt>
+        <dd class="wrap"><code>{{ submission.submit_request_view.path_input }}</code></dd>
+      </div>
+      {% endif %}
+      {% if submission.submit_request_view.project_root %}
+      <div>
+        <dt>Resolved project root</dt>
+        <dd class="wrap"><code>{{ submission.submit_request_view.project_root }}</code></dd>
+      </div>
+      {% endif %}
+      {% if submission.submit_request_view.cwd %}
+      <div>
+        <dt>Working directory</dt>
+        <dd class="wrap"><code>{{ submission.submit_request_view.cwd }}</code></dd>
+      </div>
+      {% endif %}
+    </dl>
+    {% if submission.submit_request_view.options %}
+    <div class="request-option-grid">
+      {% for item in submission.submit_request_view.options %}
+      <div class="request-option-card">
+        <span>{{ item.label }}</span>
+        <strong class="wrap">{{ item.value }}</strong>
       </div>
       {% endfor %}
     </div>
+    {% endif %}
     {% else %}
-    <p class="muted">No runner args recorded.</p>
+    <p class="muted">Original submit request metadata was not recorded for this submission.</p>
     {% endif %}
   </div>
   <div class="section-block">
@@ -128,6 +146,38 @@
     <p class="muted">No runner env recorded.</p>
     {% endif %}
   </div>
+</section>
+
+<section class="panel">
+  <div class="section-head">
+    <div class="section-copy">
+      <h2>Internal runner args</h2>
+      <p class="muted">These are the derived arguments passed to the submit runner container, not the original CLI invocation.</p>
+    </div>
+  </div>
+  {% if submission.args_view %}
+  <details class="runner-detail">
+    <summary>Show internal runner args</summary>
+    <div class="args-grid">
+      {% for arg in submission.args_view %}
+      <div class="arg-card">
+        <div class="arg-head">
+          <span class="arg-index">{{ arg.index }}</span>
+          <span class="arg-kind">{{ arg.kind }}</span>
+        </div>
+        <div class="arg-line">
+          <span class="arg-name">{{ arg.name }}</span>
+          {% if arg.value %}
+          <code class="arg-value">{{ arg.value }}</code>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </details>
+  {% else %}
+  <p class="muted">No runner args recorded.</p>
+  {% endif %}
 </section>
 
 <section class="panel two-col">

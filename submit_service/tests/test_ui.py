@@ -239,6 +239,17 @@ def test_ui_detail_renders_structured_args_env_and_jobs(
     storage.update_submission(
         submission_id,
         {
+            "submit_request": {
+                "path_input": "../quickstart-pytorch",
+                "project_root": "/tmp/quickstart-pytorch",
+                "cwd": "/tmp",
+                "command_preview": "fedctl submit run ../quickstart-pytorch --exp mnist-20250125",
+                "options": {
+                    "path": "../quickstart-pytorch",
+                    "experiment": "mnist-20250125",
+                    "priority": 50,
+                },
+            },
             "jobs": {
                 "superlink": {
                     "job_id": "job-superlink",
@@ -252,7 +263,9 @@ def test_ui_detail_renders_structured_args_env_and_jobs(
     _login(client, "tok-alice")
     detail = client.get(f"/ui/submissions/{submission_id}")
     assert detail.status_code == 200
-    assert "Runner args" in detail.text
+    assert "Original submit request" in detail.text
+    assert "fedctl submit run ../quickstart-pytorch --exp mnist-20250125" in detail.text
+    assert "Internal runner args" in detail.text
     assert "FEDCTL_ENDPOINT" in detail.text
     assert "Job IDs" in detail.text
     assert "job-superlink" in detail.text

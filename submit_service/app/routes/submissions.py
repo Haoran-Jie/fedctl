@@ -69,6 +69,7 @@ def create_submission(
             "node_class": payload.node_class,
             "args": payload.args,
             "env": payload.env,
+            "submit_request": payload.submit_request,
             "priority": payload.priority,
             "logs_location": None,
             "result_location": None,

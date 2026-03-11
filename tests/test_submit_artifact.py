@@ -151,3 +151,8 @@ def test_run_submit_passes_submit_service_context_to_artifact_upload(
         "presign_endpoint": "http://submit.example:8080/v1/presign",
         "presign_token": "token-from-client",
     }
+    submit_request = captured["submission_payload"]["submit_request"]
+    assert submit_request["path_input"] == str(project_root)
+    assert submit_request["project_root"] == str(project_root.resolve())
+    assert "fedctl submit run" in submit_request["command_preview"]
+    assert submit_request["options"]["experiment"] == "demo-exp"
