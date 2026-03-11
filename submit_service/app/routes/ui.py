@@ -223,6 +223,7 @@ def submissions_page(
             "rows": [_submission_row_view(row, principal.role) for row in rows],
             "quick_command": _submission_list_command(status_filter),
             "return_to": _submission_list_return_to(status_filter=status_filter, q=search_query),
+            "page_palette_commands": _submissions_palette_commands(),
         },
     )
 
@@ -232,28 +233,30 @@ def help_page(request: Request) -> HTMLResponse | RedirectResponse:
     principal = current_ui_principal(request)
     if principal is None:
         return RedirectResponse(url="/ui/login", status_code=303)
+    quickstart_steps = [
+        {
+            "title": "Submit a project",
+            "body": "Run fedctl submit run on a local Flower project directory. This is the normal path for users.",
+            "command": "fedctl submit run ../quickstart-pytorch",
+        },
+        {
+            "title": "Check queue and status",
+            "body": "List active submissions, then inspect one specific submission if needed.",
+            "command": "fedctl submit ls --active\nfedctl submit status <submission-id>",
+        },
+        {
+            "title": "Inspect logs or results",
+            "body": "Use logs during execution and results after completion.",
+            "command": "fedctl submit logs <submission-id> --job submit --stderr\nfedctl submit results <submission-id>",
+        },
+    ]
     return _render(
         request,
         "help.html",
         {
             "commands": _HELP_COMMANDS,
-            "quickstart_steps": [
-                {
-                    "title": "Submit a project",
-                    "body": "Run fedctl submit run on a local Flower project directory. This is the normal path for users.",
-                    "command": "fedctl submit run ../quickstart-pytorch",
-                },
-                {
-                    "title": "Check queue and status",
-                    "body": "List active submissions, then inspect one specific submission if needed.",
-                    "command": "fedctl submit ls --active\nfedctl submit status <submission-id>",
-                },
-                {
-                    "title": "Inspect logs or results",
-                    "body": "Use logs during execution and results after completion.",
-                    "command": "fedctl submit logs <submission-id> --job submit --stderr\nfedctl submit results <submission-id>",
-                },
-            ],
+            "quickstart_steps": quickstart_steps,
+            "page_palette_commands": _help_palette_commands(_HELP_COMMANDS),
         },
     )
 
@@ -407,6 +410,7 @@ def nodes_page(
                 "nodes": [],
                 "filters": {"q": search_query},
                 "error": str(exc),
+                "page_palette_commands": _nodes_palette_commands(),
             },
             status_code=502,
         )
@@ -424,6 +428,7 @@ def nodes_page(
             "filters": {"q": search_query},
             "error": None,
             "quick_command": _inventory_command(),
+            "page_palette_commands": _nodes_palette_commands(),
         },
     )
 
@@ -459,6 +464,14 @@ def _render_submission_detail(
             "stderr": stderr,
             "log_jobs": _LOG_JOBS,
             "return_to": return_to,
+            "page_palette_commands": _submission_detail_palette_commands(
+                submission_id=detail["id"],
+                return_to=return_to,
+                job=job,
+                task=task or "",
+                index=index,
+                stderr=stderr,
+            ),
         },
     )
 
@@ -498,9 +511,11 @@ def _render(
     status_code: int = 200,
 ) -> HTMLResponse:
     principal = current_ui_principal(request)
+    page_palette_commands = list(context.get("page_palette_commands") or [])
     merged = {
         "request": request,
         "principal": principal,
+        "palette_commands": _global_palette_commands(principal) + page_palette_commands,
         **context,
     }
     return templates.TemplateResponse(
@@ -865,6 +880,238 @@ def _submission_list_command(status_filter: str) -> str:
 
 def _inventory_command() -> str:
     return "fedctl submit inventory"
+
+
+def _palette_command(
+    *,
+    command_id: str,
+    label: str,
+    group: str,
+    href: str,
+    keywords: list[str],
+) -> dict[str, Any]:
+    return {
+        "id": command_id,
+        "label": label,
+        "group": group,
+        "href": href,
+        "keywords": keywords,
+    }
+
+
+def _slug(value: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", value.casefold()).strip("-")
+    return slug or "item"
+
+
+def _help_command_anchor(name: str) -> str:
+    return f"command-{_slug(name)}"
+
+
+def _global_palette_commands(principal: Any) -> list[dict[str, Any]]:
+    if principal is None:
+        return []
+    commands = [
+        _palette_command(
+            command_id="go-submissions",
+            label="Go to Submissions",
+            group="Navigation",
+            href="/ui/submissions",
+            keywords=["queue", "runs", "dashboard", "home"],
+        ),
+        _palette_command(
+            command_id="go-help",
+            label="Go to Help",
+            group="Navigation",
+            href="/ui/help",
+            keywords=["docs", "guide", "reference", "commands"],
+        ),
+    ]
+    if getattr(principal, "role", None) == "admin":
+        commands.append(
+            _palette_command(
+                command_id="go-nodes",
+                label="Go to Nodes",
+                group="Navigation",
+                href="/ui/nodes",
+                keywords=["inventory", "cluster", "capacity", "operators"],
+            )
+        )
+    return commands
+
+
+def _submissions_palette_commands() -> list[dict[str, Any]]:
+    return [
+        _palette_command(
+            command_id=f"view-submissions-{status_filter}",
+            label=f"View {status_filter.capitalize()}",
+            group="Submissions",
+            href=f"/ui/submissions?status={status_filter}",
+            keywords=["submissions", "filter", "queue", status_filter],
+        )
+        for status_filter in _STATUS_FILTERS
+    ]
+
+
+def _nodes_palette_commands() -> list[dict[str, Any]]:
+    return [
+        _palette_command(
+            command_id="open-inventory",
+            label="Open Inventory",
+            group="Inventory",
+            href="/ui/nodes",
+            keywords=["nodes", "cluster", "capacity", "inventory"],
+        ),
+        _palette_command(
+            command_id="clear-node-search",
+            label="Clear node search",
+            group="Inventory",
+            href="/ui/nodes",
+            keywords=["nodes", "search", "reset", "clear"],
+        ),
+    ]
+
+
+def _help_palette_commands(commands: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    palette_commands = [
+        _palette_command(
+            command_id="jump-quickstart",
+            label="Jump to Quick start",
+            group="Help",
+            href="/ui/help#quickstart",
+            keywords=["help", "guide", "start", "workflow"],
+        ),
+        _palette_command(
+            command_id="jump-reference",
+            label="Jump to Command reference",
+            group="Help",
+            href="/ui/help#reference",
+            keywords=["help", "commands", "reference", "docs"],
+        ),
+    ]
+    for command in commands:
+        name = str(command.get("name") or "").strip()
+        if not name:
+            continue
+        palette_commands.append(
+            _palette_command(
+                command_id=f"jump-{_help_command_anchor(name)}",
+                label=f"Jump to {name}",
+                group="Help",
+                href=f"/ui/help#{_help_command_anchor(name)}",
+                keywords=["help", "command", "reference", name],
+            )
+        )
+    return palette_commands
+
+
+def _submission_detail_href(
+    submission_id: str,
+    *,
+    return_to: str,
+    job: str,
+    task: str,
+    index: int,
+    stderr: bool,
+    fragment: str | None = None,
+) -> str:
+    params: dict[str, str] = {
+        "return_to": return_to,
+        "job": job,
+        "index": str(index),
+        "stderr": "true" if stderr else "false",
+    }
+    if task:
+        params["task"] = task
+    return urlunsplit(
+        (
+            "",
+            "",
+            f"/ui/submissions/{submission_id}",
+            urlencode(params),
+            fragment or "",
+        )
+    )
+
+
+def _submission_detail_palette_commands(
+    *,
+    submission_id: str,
+    return_to: str,
+    job: str,
+    task: str,
+    index: int,
+    stderr: bool,
+) -> list[dict[str, Any]]:
+    return [
+        _palette_command(
+            command_id="detail-overview",
+            label="Show Overview",
+            group="Submission",
+            href=_submission_detail_href(
+                submission_id,
+                return_to=return_to,
+                job=job,
+                task=task,
+                index=index,
+                stderr=stderr,
+                fragment="tab-overview",
+            ),
+            keywords=["submission", "overview", "summary"],
+        ),
+        _palette_command(
+            command_id="detail-request",
+            label="Show Request",
+            group="Submission",
+            href=_submission_detail_href(
+                submission_id,
+                return_to=return_to,
+                job=job,
+                task=task,
+                index=index,
+                stderr=stderr,
+                fragment="tab-request",
+            ),
+            keywords=["submission", "request", "command", "options"],
+        ),
+        _palette_command(
+            command_id="detail-logs",
+            label="Show Logs",
+            group="Submission",
+            href=_submission_detail_href(
+                submission_id,
+                return_to=return_to,
+                job=job,
+                task=task,
+                index=index,
+                stderr=stderr,
+                fragment="tab-logs",
+            ),
+            keywords=["submission", "logs", "stderr", "stdout"],
+        ),
+        _palette_command(
+            command_id="detail-jobs",
+            label="Show Jobs",
+            group="Submission",
+            href=_submission_detail_href(
+                submission_id,
+                return_to=return_to,
+                job=job,
+                task=task,
+                index=index,
+                stderr=stderr,
+                fragment="tab-jobs",
+            ),
+            keywords=["submission", "jobs", "nomad", "mapping"],
+        ),
+        _palette_command(
+            command_id="detail-back",
+            label="Back to submissions",
+            group="Submission",
+            href=return_to,
+            keywords=["submissions", "back", "list", "return"],
+        ),
+    ]
 
 
 def _fmt_dt(value: Any) -> str:

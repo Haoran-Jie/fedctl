@@ -14,6 +14,16 @@
       </div>
       {% if principal %}
       <nav class="nav">
+        <button
+          type="button"
+          class="command-palette-trigger"
+          data-command-palette-open
+          aria-haspopup="dialog"
+          aria-controls="command-palette-dialog"
+        >
+          <span class="command-palette-trigger-label">Command menu</span>
+          <span class="command-palette-trigger-shortcut" aria-hidden="true">Ctrl/Cmd+K</span>
+        </button>
         <a class="nav-link" href="/ui/submissions">Submissions</a>
         <a class="nav-link" href="/ui/help">Help</a>
         {% if principal.role == 'admin' %}
@@ -28,6 +38,32 @@
     <main class="page">
       {% block content %}{% endblock %}
     </main>
+    {% if principal %}
+    <script id="command-palette-data" type="application/json">{{ palette_commands | tojson }}</script>
+    <div class="command-palette-shell" data-command-palette hidden>
+      <div class="command-palette-backdrop" data-command-palette-close></div>
+      <div class="command-palette-dialog" id="command-palette-dialog" role="dialog" aria-modal="true" aria-labelledby="command-palette-title">
+        <div class="command-palette-head">
+          <span class="command-palette-title" id="command-palette-title">Command menu</span>
+          <button type="button" class="command-palette-close" data-command-palette-close aria-label="Close command menu">Esc</button>
+        </div>
+        <label class="visually-hidden" for="command-palette-input">Search commands</label>
+        <div class="command-palette-input-wrap">
+          <input
+            id="command-palette-input"
+            type="search"
+            class="command-palette-input"
+            data-command-palette-input
+            placeholder="Search pages, filters, and sections"
+            autocomplete="off"
+            spellcheck="false"
+          >
+          <span class="command-palette-input-hint">Arrows to move, Enter to open</span>
+        </div>
+        <div class="command-palette-results" data-command-palette-results></div>
+      </div>
+    </div>
+    {% endif %}
     <div class="toast-stack" data-toast-root aria-live="polite" aria-atomic="true"></div>
     <script>
       (() => {
@@ -164,6 +200,232 @@
             }
           },
         };
+
+        const paletteShell = document.querySelector('[data-command-palette]');
+        const paletteTrigger = document.querySelector('[data-command-palette-open]');
+        const paletteInput = document.querySelector('[data-command-palette-input]');
+        const paletteResults = document.querySelector('[data-command-palette-results]');
+        const paletteSource = document.getElementById('command-palette-data');
+        const paletteCloseButtons = Array.from(document.querySelectorAll('[data-command-palette-close]'));
+        const groupOrder = {
+          Navigation: 0,
+          Submissions: 1,
+          Inventory: 2,
+          Help: 3,
+          Submission: 4,
+        };
+        let paletteCommands = [];
+        let paletteOpen = false;
+        let paletteSelection = 0;
+        let paletteMatches = [];
+        let palettePreviousFocus = null;
+
+        const isEditableTarget = (target) => {
+          if (!(target instanceof Element)) return false;
+          return Boolean(target.closest('input, textarea, select, [contenteditable="true"]'));
+        };
+
+        if (paletteSource?.textContent) {
+          try {
+            paletteCommands = JSON.parse(paletteSource.textContent);
+          } catch (error) {
+            paletteCommands = [];
+          }
+        }
+
+        const rankPaletteCommand = (command, query) => {
+          if (!query) return 1;
+          const normalizedQuery = query.toLowerCase();
+          const label = String(command.label || '').toLowerCase();
+          const group = String(command.group || '').toLowerCase();
+          const keywords = Array.isArray(command.keywords)
+            ? command.keywords.map((value) => String(value || '').toLowerCase())
+            : [];
+          const labelWords = label.split(/[\s/:-]+/).filter(Boolean);
+          if (label === normalizedQuery) return 1200;
+          if (keywords.includes(normalizedQuery)) return 1080;
+          if (label.startsWith(normalizedQuery)) return 980;
+          if (labelWords.some((word) => word.startsWith(normalizedQuery))) return 860;
+          if (keywords.some((word) => word.startsWith(normalizedQuery))) return 760;
+          const haystack = [label, group, ...keywords].join(' ');
+          if (haystack.includes(normalizedQuery)) return 560;
+          return 0;
+        };
+
+        const buildPaletteMatches = (query) => {
+          return paletteCommands
+            .map((command, index) => ({
+              ...command,
+              _order: index,
+              _score: rankPaletteCommand(command, query),
+            }))
+            .filter((command) => (query ? command._score > 0 : true))
+            .sort((left, right) => {
+              if (right._score !== left._score) return right._score - left._score;
+              const leftGroup = groupOrder[left.group] ?? 99;
+              const rightGroup = groupOrder[right.group] ?? 99;
+              if (leftGroup !== rightGroup) return leftGroup - rightGroup;
+              return left._order - right._order;
+            });
+        };
+
+        const renderPaletteResults = () => {
+          if (!paletteResults) return;
+          paletteResults.innerHTML = '';
+          if (!paletteMatches.length) {
+            const empty = document.createElement('div');
+            empty.className = 'command-palette-empty';
+            empty.textContent = 'No matching commands';
+            paletteResults.appendChild(empty);
+            return;
+          }
+
+          let currentGroup = '';
+          let groupSection = null;
+          let groupList = null;
+          paletteMatches.forEach((command, index) => {
+            if (command.group !== currentGroup) {
+              currentGroup = command.group;
+              groupSection = document.createElement('section');
+              groupSection.className = 'command-palette-group';
+              const heading = document.createElement('div');
+              heading.className = 'command-palette-group-label';
+              heading.textContent = currentGroup;
+              groupList = document.createElement('div');
+              groupList.className = 'command-palette-group-list';
+              groupSection.appendChild(heading);
+              groupSection.appendChild(groupList);
+              paletteResults.appendChild(groupSection);
+            }
+            if (!groupList) return;
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.className = 'command-palette-item';
+            if (index === paletteSelection) {
+              item.classList.add('is-active');
+            }
+            item.dataset.paletteIndex = String(index);
+            item.dataset.href = command.href;
+
+            const label = document.createElement('span');
+            label.className = 'command-palette-item-label';
+            label.textContent = command.label;
+            const meta = document.createElement('span');
+            meta.className = 'command-palette-item-meta';
+            meta.textContent = command.group;
+            item.appendChild(label);
+            item.appendChild(meta);
+            groupList.appendChild(item);
+          });
+          window.requestAnimationFrame(() => {
+            const activeItem = paletteResults.querySelector('.command-palette-item.is-active');
+            activeItem?.scrollIntoView({ block: 'nearest' });
+          });
+        };
+
+        const syncPalette = () => {
+          const query = (paletteInput?.value || '').trim();
+          paletteMatches = buildPaletteMatches(query);
+          paletteSelection = Math.max(0, Math.min(paletteSelection, paletteMatches.length - 1));
+          renderPaletteResults();
+        };
+
+        const closePalette = () => {
+          if (!paletteShell || !paletteOpen) return;
+          paletteOpen = false;
+          paletteShell.hidden = true;
+          document.body.classList.remove('palette-open');
+          if (paletteInput) {
+            paletteInput.value = '';
+          }
+          paletteMatches = [];
+          paletteSelection = 0;
+          if (palettePreviousFocus instanceof HTMLElement) {
+            palettePreviousFocus.focus({ preventScroll: true });
+          }
+        };
+
+        const openPalette = () => {
+          if (!paletteShell || !paletteInput) return;
+          palettePreviousFocus = document.activeElement;
+          paletteOpen = true;
+          paletteShell.hidden = false;
+          document.body.classList.add('palette-open');
+          paletteInput.value = '';
+          paletteSelection = 0;
+          syncPalette();
+          window.requestAnimationFrame(() => {
+            paletteInput.focus({ preventScroll: true });
+          });
+        };
+
+        const activatePaletteCommand = (command) => {
+          if (!command?.href) return;
+          closePalette();
+          window.location.assign(command.href);
+        };
+
+        paletteTrigger?.addEventListener('click', () => {
+          if (paletteOpen) {
+            closePalette();
+            return;
+          }
+          openPalette();
+        });
+
+        paletteCloseButtons.forEach((button) => {
+          button.addEventListener('click', closePalette);
+        });
+
+        paletteInput?.addEventListener('input', () => {
+          paletteSelection = 0;
+          syncPalette();
+        });
+
+        paletteInput?.addEventListener('keydown', (event) => {
+          if (!paletteMatches.length && event.key !== 'Escape') return;
+          if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            paletteSelection = Math.min(paletteSelection + 1, paletteMatches.length - 1);
+            renderPaletteResults();
+          } else if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            paletteSelection = Math.max(paletteSelection - 1, 0);
+            renderPaletteResults();
+          } else if (event.key === 'Enter') {
+            event.preventDefault();
+            activatePaletteCommand(paletteMatches[paletteSelection]);
+          } else if (event.key === 'Escape') {
+            event.preventDefault();
+            closePalette();
+          }
+        });
+
+        paletteResults?.addEventListener('click', (event) => {
+          if (!(event.target instanceof Element)) return;
+          const item = event.target.closest('[data-palette-index]');
+          if (!(item instanceof HTMLElement)) return;
+          const index = Number.parseInt(item.dataset.paletteIndex || '-1', 10);
+          if (Number.isNaN(index) || index < 0 || index >= paletteMatches.length) return;
+          activatePaletteCommand(paletteMatches[index]);
+        });
+
+        document.addEventListener('keydown', (event) => {
+          if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+            if (isEditableTarget(event.target)) return;
+            event.preventDefault();
+            if (paletteOpen) {
+              closePalette();
+            } else {
+              openPalette();
+            }
+            return;
+          }
+          if (event.key === 'Escape' && paletteOpen) {
+            event.preventDefault();
+            closePalette();
+          }
+        });
 
         document.addEventListener('click', (event) => {
           const button = event.target.closest('[data-copy]');
