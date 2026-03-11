@@ -11,6 +11,10 @@ submit_ui_enabled: true
 submit_ui_session_secret: "ad9acb3eaccf734ffe54f409756aa64c746053221be7bbf609dc9c32b8957193"
 submit_ui_cookie_name: "fedctl_submit_session"
 submit_ui_cookie_secure: false
+submit_aws_shared_credentials_file: "/home/rpi1/.aws/credentials"
+submit_aws_config_file: "/home/rpi1/.aws/config"
+submit_aws_profile: "default"
+submit_aws_region: "eu-north-1"
 submit_service_public_endpoint: "http://10.100.2.142:8080"
 submit_repo_config_path: "/etc/fedctl/cluster-fedctl.yaml"
 submit_legacy_repo_config_path: "/opt/fedctl/.fedctl/fedctl.yaml"
