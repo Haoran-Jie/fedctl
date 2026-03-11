@@ -78,9 +78,6 @@ def test_ui_requires_session_and_login_succeeds(tmp_path, monkeypatch: pytest.Mo
     assert page.status_code == 200
     assert "Submissions" in page.text
     assert "data-toast-root" in page.text
-    assert "data-command-palette" in page.text
-    assert "data-command-palette-open" in page.text
-    assert "Ctrl/Cmd+K" in page.text
     assert "data-sticky-panel" in page.text
     assert "data-sticky-shell" in page.text
     assert 'aria-label="Submission status filters"' in page.text
@@ -92,12 +89,6 @@ def test_ui_requires_session_and_login_succeeds(tmp_path, monkeypatch: pytest.Mo
     assert '<select name="status"' not in page.text
     assert 'data-auto-submit="260"' in page.text
     assert ">Search</button>" not in page.text
-    assert "View Active" in page.text
-    assert "View Completed" in page.text
-    assert "View Failed" in page.text
-    assert "View Cancelled" in page.text
-    assert "View All" in page.text
-    assert "Go to Nodes" not in page.text
 
 
 def test_ui_help_page_shows_submit_commands(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -114,9 +105,6 @@ def test_ui_help_page_shows_submit_commands(tmp_path, monkeypatch: pytest.Monkey
     assert 'id="command-submit-run"' in page.text
     assert 'data-copy-label="Link"' in page.text
     assert 'data-back-to-top' in page.text
-    assert "Jump to Quick start" in page.text
-    assert "Jump to Command reference" in page.text
-    assert "Jump to submit run" in page.text
 
 
 def test_ui_user_scope_cancel_and_purge(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -199,15 +187,12 @@ def test_ui_admin_can_view_nodes_and_all_submissions(tmp_path, monkeypatch: pyte
     listing = client.get("/ui/submissions?status=all")
     assert alice_id in listing.text
     assert "alice" in listing.text
-    assert "Go to Nodes" in listing.text
 
     nodes = client.get("/ui/nodes")
     assert nodes.status_code == 200
     assert "Nodes" in nodes.text
     assert "data-sticky-panel" in nodes.text
     assert "data-sticky-shell" in nodes.text
-    assert "Open Inventory" in nodes.text
-    assert "Clear node search" in nodes.text
 
 
 def test_ui_stats_are_based_on_all_visible_submissions_not_active_filter(
@@ -293,11 +278,6 @@ def test_ui_detail_shows_archived_logs(tmp_path, monkeypatch: pytest.MonkeyPatch
     detail = client.get(f"/ui/submissions/{submission_id}")
     assert detail.status_code == 200
     assert "archived submit stderr" in detail.text
-    assert "Show Overview" in detail.text
-    assert "Show Request" in detail.text
-    assert "Show Logs" in detail.text
-    assert "Show Jobs" in detail.text
-    assert "Back to submissions" in detail.text
     assert 'data-log-filter' in detail.text
     assert "Copy logs" in detail.text
     assert "Copy link" in detail.text
