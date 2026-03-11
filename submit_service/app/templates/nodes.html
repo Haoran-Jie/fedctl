@@ -42,6 +42,10 @@
       <p class="muted">Use filters to narrow the current cluster view.</p>
     </div>
     <form method="get" action="/ui/nodes" class="filter-bar filter-bar-wide">
+      <div class="filter-group filter-group-search">
+        <label for="node-search">Search</label>
+        <input type="search" id="node-search" name="q" value="{{ filters.q }}" placeholder="node name, ID, class">
+      </div>
       <div class="filter-group">
         <label>Status</label>
         <input type="text" name="status" value="{{ filters.status }}" onchange="this.form.requestSubmit()">
@@ -53,6 +57,9 @@
       <div class="filter-group">
         <label>Device type</label>
         <input type="text" name="device_type" value="{{ filters.device_type }}" onchange="this.form.requestSubmit()">
+      </div>
+      <div class="filter-actions">
+        <button type="submit">Search</button>
       </div>
     </form>
   </div>

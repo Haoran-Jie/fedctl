@@ -213,6 +213,28 @@ def test_ui_stats_are_based_on_all_visible_submissions_not_active_filter(
     assert "<strong>1</strong>" in page.text
 
 
+def test_ui_submissions_search_filters_rows_and_preserves_return_to(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = _make_ui_client(tmp_path, monkeypatch)
+    storage = client.app.state.storage
+
+    alice_headers = {"Authorization": "Bearer tok-alice"}
+    match_id = client.post("/v1/submissions", json=_payload(), headers=alice_headers).json()["submission_id"]
+    other_id = client.post("/v1/submissions", json=_payload(), headers=alice_headers).json()["submission_id"]
+    storage.update_submission(match_id, {"experiment": "vision-run"})
+    storage.update_submission(other_id, {"experiment": "nlp-run"})
+
+    _login(client, "tok-alice")
+    page = client.get("/ui/submissions?status=all&q=vision")
+    assert page.status_code == 200
+    assert match_id in page.text
+    assert other_id not in page.text
+    assert 'name="q"' in page.text
+    assert 'value="vision"' in page.text
+    assert "return_to=%2Fui%2Fsubmissions%3Fstatus%3Dall%26q%3Dvision" in page.text
+
+
 def test_ui_non_admin_redirected_from_nodes(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
     client = _make_ui_client(tmp_path, monkeypatch)
     _login(client, "tok-alice")
@@ -249,6 +271,43 @@ def test_ui_detail_shows_archived_logs(tmp_path, monkeypatch: pytest.MonkeyPatch
     detail = client.get(f"/ui/submissions/{submission_id}")
     assert detail.status_code == 200
     assert "archived submit stderr" in detail.text
+
+
+def test_ui_nodes_search_filters_inventory(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    client = _make_ui_client(tmp_path, monkeypatch)
+    client.app.state.inventory = type(
+        "DummyInventory",
+        (),
+        {
+            "list_nodes": staticmethod(
+                lambda include_allocs=True: [
+                    {
+                        "name": "rpi2",
+                        "id": "node-1",
+                        "status": "ready",
+                        "node_class": "submit",
+                        "device_type": "rpi",
+                        "allocations": [],
+                    },
+                    {
+                        "name": "jetson4",
+                        "id": "node-2",
+                        "status": "ready",
+                        "node_class": "gpu",
+                        "device_type": "jetson",
+                        "allocations": [],
+                    },
+                ]
+            )
+        },
+    )()
+
+    _login(client, "tok-admin")
+    page = client.get("/ui/nodes?q=jet")
+    assert page.status_code == 200
+    assert "jetson4" in page.text
+    assert "rpi2" not in page.text
+    assert 'value="jet"' in page.text
 
 
 def test_ui_detail_renders_structured_args_env_and_jobs(

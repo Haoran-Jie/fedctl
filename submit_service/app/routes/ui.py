@@ -193,11 +193,13 @@ def logout_submit(request: Request) -> RedirectResponse:
 def submissions_page(
     request: Request,
     status: str = Query("active"),
+    q: str | None = Query(None),
 ) -> HTMLResponse | RedirectResponse:
     principal = current_ui_principal(request)
     if principal is None:
         return RedirectResponse(url="/ui/login", status_code=303)
     status_filter = status if status in _STATUS_FILTERS else "active"
+    search_query = (q or "").strip()
     visible_rows = list_visible_submissions_for_ui(
         request.app.state.storage,
         principal.as_auth_principal(),
@@ -208,15 +210,19 @@ def submissions_page(
         principal.as_auth_principal(),
         status_filter=status_filter,
     )
+    if search_query:
+        rows = [row for row in rows if _submission_matches_query(row, search_query)]
     return _render(
         request,
         "submissions_list.html",
         {
             "status_filter": status_filter,
             "status_filters": _STATUS_FILTERS,
+            "search_query": search_query,
             "stats": submission_stats_for_ui(visible_rows),
             "rows": [_submission_row_view(row, principal.role) for row in rows],
             "quick_command": _submission_list_command(status_filter),
+            "return_to": _submission_list_return_to(status_filter=status_filter, q=search_query),
         },
     )
 
@@ -383,6 +389,7 @@ def nodes_page(
     status: str | None = Query(None),
     node_class: str | None = Query(None),
     device_type: str | None = Query(None),
+    q: str | None = Query(None),
 ) -> HTMLResponse | RedirectResponse:
     principal = current_ui_principal(request)
     if principal is None:
@@ -392,6 +399,7 @@ def nodes_page(
     except HTTPException:
         return RedirectResponse(url="/ui/submissions", status_code=303)
     inventory = request.app.state.inventory
+    search_query = (q or "").strip()
     try:
         nodes = inventory.list_nodes(include_allocs=True)
     except Exception as exc:
@@ -404,6 +412,7 @@ def nodes_page(
                     "status": status or "",
                     "node_class": node_class or "",
                     "device_type": device_type or "",
+                    "q": search_query,
                 },
                 "error": str(exc),
             },
@@ -417,7 +426,10 @@ def nodes_page(
             continue
         if device_type and node.get("device_type") != device_type:
             continue
-        filtered.append(_node_view(node))
+        view = _node_view(node)
+        if search_query and not _node_matches_query(view, search_query):
+            continue
+        filtered.append(view)
     return _render(
         request,
         "nodes.html",
@@ -427,6 +439,7 @@ def nodes_page(
                 "status": status or "",
                 "node_class": node_class or "",
                 "device_type": device_type or "",
+                "q": search_query,
             },
             "error": None,
             "quick_command": _inventory_command(
@@ -540,6 +553,44 @@ def _append_notice(url: str, message: str, kind: str = "success") -> str:
             urlencode(query),
             parts.fragment,
         )
+    )
+
+
+def _submission_list_return_to(*, status_filter: str, q: str) -> str:
+    params = {"status": status_filter}
+    if q:
+        params["q"] = q
+    return urlunsplit(("", "", "/ui/submissions", urlencode(params), ""))
+
+
+def _contains_query(values: list[object], query: str) -> bool:
+    needle = query.casefold()
+    return any(needle in str(value or "").casefold() for value in values)
+
+
+def _submission_matches_query(record: dict[str, Any], query: str) -> bool:
+    return _contains_query(
+        [
+            record.get("id"),
+            record.get("project_name"),
+            record.get("experiment"),
+            record.get("user"),
+            record.get("namespace"),
+        ],
+        query,
+    )
+
+
+def _node_matches_query(record: dict[str, Any], query: str) -> bool:
+    return _contains_query(
+        [
+            record.get("name"),
+            record.get("id"),
+            record.get("node_class"),
+            record.get("device_type"),
+            record.get("alloc_summary"),
+        ],
+        query,
     )
 
 

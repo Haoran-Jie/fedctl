@@ -16,6 +16,10 @@
   --failed: #a12622;
   --cancelled: #65717a;
   --sticky-top-offset: 5.6rem;
+  --glass-bg: rgba(251, 254, 253, 0.7);
+  --glass-strong: rgba(251, 254, 253, 0.82);
+  --glass-edge: rgba(255, 255, 255, 0.48);
+  --glass-shadow: 0 16px 34px rgba(26, 46, 58, 0.12);
 }
 
 * { box-sizing: border-box; }
@@ -35,12 +39,19 @@ code, pre, input, select, button { font-family: "SFMono-Regular", Menlo, monospa
   align-items: center;
   gap: 1rem;
   padding: 1.25rem 2rem;
-  border-bottom: 1px solid var(--line);
-  background: rgba(251, 254, 253, 0.94);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.42);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.56), rgba(251, 254, 253, 0.24)),
+    linear-gradient(135deg, rgba(29, 111, 95, 0.14), rgba(43, 95, 158, 0.08)),
+    var(--glass-bg);
   position: sticky;
   top: 0;
-  backdrop-filter: blur(14px);
-  z-index: 10;
+  backdrop-filter: blur(22px) saturate(145%);
+  -webkit-backdrop-filter: blur(22px) saturate(145%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 12px 30px rgba(26, 46, 58, 0.1);
+  z-index: 12;
 }
 .brand-wrap { min-width: 0; }
 .brand { color: var(--text); text-decoration: none; font-size: 1.3rem; font-weight: 700; letter-spacing: 0.01em; }
@@ -50,12 +61,23 @@ code, pre, input, select, button { font-family: "SFMono-Regular", Menlo, monospa
   color: var(--accent-dark);
   text-decoration: none;
   padding: 0.45rem 0.75rem;
-  border: 1px solid transparent;
+  border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 999px;
+  background: rgba(255, 255, 255, 0.24);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
-.nav-link:hover { background: var(--accent-soft); border-color: rgba(29, 111, 95, 0.16); }
+.nav-link:hover {
+  background: linear-gradient(180deg, rgba(220, 239, 235, 0.92), rgba(255, 255, 255, 0.55));
+  border-color: rgba(29, 111, 95, 0.18);
+}
 .nav form { margin: 0; }
-.topbar-button { background: var(--text); }
+.topbar-button {
+  background: linear-gradient(180deg, rgba(24, 33, 38, 0.92), rgba(24, 33, 38, 0.82));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 10px 22px rgba(24, 33, 38, 0.18);
+}
 .page { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
 .page-crumbs {
   display: flex;
@@ -241,11 +263,15 @@ button, .button {
   gap: 0.7rem;
   flex-wrap: wrap;
   padding: 0.85rem 0.95rem;
-  border: 1px solid rgba(29, 111, 95, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.36);
   border-radius: 16px;
   background:
-    linear-gradient(180deg, rgba(29, 111, 95, 0.08), rgba(248, 252, 252, 0.94)),
-    #f2f7f8;
+    linear-gradient(180deg, rgba(255, 255, 255, 0.45), rgba(248, 252, 252, 0.12)),
+    linear-gradient(135deg, rgba(29, 111, 95, 0.12), rgba(43, 95, 158, 0.05)),
+    rgba(242, 247, 248, 0.66);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.42),
+    0 10px 22px rgba(26, 46, 58, 0.08);
 }
 .filter-bar-wide {
   max-width: 100%;
@@ -260,14 +286,24 @@ button, .button {
   margin: -0.2rem -0.2rem 1rem;
   padding: 1rem 0.2rem 0.95rem;
   background:
-    linear-gradient(180deg, rgba(251, 254, 253, 0.98), rgba(251, 254, 253, 0.86)),
-    var(--panel);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(29, 111, 95, 0.1);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.58), rgba(251, 254, 253, 0.18)),
+    linear-gradient(135deg, rgba(29, 111, 95, 0.12), rgba(43, 95, 158, 0.06)),
+    var(--glass-strong);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  border-radius: 18px;
+  box-shadow:
+    inset 0 1px 0 var(--glass-edge),
+    var(--glass-shadow);
 }
 .filter-group {
   min-width: 10rem;
   flex: 1 1 10rem;
+}
+.filter-group-search {
+  min-width: 16rem;
+  flex: 1.4 1 16rem;
 }
 .filter-group label {
   color: var(--muted);
@@ -297,9 +333,11 @@ button, .button {
   gap: 0.3rem;
   padding: 0.24rem;
   border-radius: 999px;
-  border: 1px solid rgba(29, 111, 95, 0.14);
-  background: rgba(255, 255, 255, 0.75);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.48);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.62),
+    0 8px 16px rgba(26, 46, 58, 0.06);
 }
 .segment-button {
   min-height: auto;
