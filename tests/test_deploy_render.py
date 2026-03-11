@@ -64,6 +64,8 @@ def test_render_deploy_supernodes_groups() -> None:
     assert task_cfg["entrypoint"] == ["/bin/sh", "-lc"]
     cmd = task_cfg["args"][0]
     assert "$${SUP_LINK_ADDR}" in cmd
+    assert "while [ -z \"$${SUP_LINK_ADDR:-}\" ]" in cmd
+    assert "FEDCTL_WAIT_SUP_LINK_ADDR_TIMEOUT_S" in cmd
     assert "--node-config" in cmd
     assert "partition-id=0 num-partitions=2" in cmd
 
@@ -130,5 +132,6 @@ def test_render_deploy_supernodes_netem_task() -> None:
     assert first_task["Config"]["entrypoint"] == ["/bin/sh", "-lc"]
     assert first_task["Config"]["cap_add"] == ["NET_ADMIN"]
     assert first_task["Env"]["NET_PROFILE"] == "med"
+    assert "while [ -z \"$${SUP_LINK_ADDR:-}\" ]" in first_task["Config"]["args"][0]
     assert groups[1]["Tasks"][0]["Name"] == "supernode-rpi-2"
     assert "Env" not in groups[1]["Tasks"][0]

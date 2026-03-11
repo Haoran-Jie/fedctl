@@ -175,7 +175,13 @@ def _supernodes_context(spec: DeploySpec) -> dict[str, Any]:
         tasks = []
         netem_env: dict[str, str] | None = None
         entrypoint = ["/bin/sh", "-lc"]
-        task_args = [_shell_exec_command(["flower-supernode", *args], include_path=True)]
+        task_args = [
+            _wait_for_env_script(
+                _shell_exec_command(["flower-supernode", *args], include_path=True),
+                "SUP_LINK_ADDR",
+                timeout_s=60,
+            )
+        ]
         network_plan = spec.supernodes.network
         cap_add = None
         user = None
@@ -188,7 +194,11 @@ def _supernodes_context(spec: DeploySpec) -> dict[str, Any]:
                 netem_env = _netem_env(egress_profile, egress_data)
                 netem_env.update(_netem_ingress_env(ingress_profile, ingress_data))
                 task_args = [
-                    _netem_wrapper_script(_shell_exec_command(["flower-supernode", *args]))
+                    _netem_wrapper_script(
+                        _shell_exec_command(["flower-supernode", *args]),
+                        wait_env="SUP_LINK_ADDR",
+                        wait_timeout_s=60,
+                    )
                 ]
                 cap_add = ["NET_ADMIN"]
                 user = "root"
