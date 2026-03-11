@@ -276,12 +276,49 @@ button, .button {
   letter-spacing: 0.08em;
   margin-bottom: 0.2rem;
 }
+.filter-label {
+  display: block;
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.2rem;
+}
 .filter-group input,
 .filter-group select {
   min-width: 0;
   background: rgba(255, 255, 255, 0.95);
   border-color: rgba(214, 207, 191, 0.95);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+.segmented-control {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  padding: 0.24rem;
+  border-radius: 999px;
+  border: 1px solid rgba(29, 111, 95, 0.14);
+  background: rgba(255, 255, 255, 0.75);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+.segment-button {
+  min-height: auto;
+  padding: 0.58rem 0.95rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--accent-dark);
+  box-shadow: none;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+.segment-button:hover {
+  background: rgba(29, 111, 95, 0.1);
+}
+.segment-button.is-active {
+  background: linear-gradient(180deg, var(--accent), var(--accent-dark));
+  color: #fff;
+  box-shadow: 0 8px 16px rgba(29, 111, 95, 0.18);
 }
 .filter-actions {
   display: flex;

@@ -80,6 +80,13 @@ def test_ui_requires_session_and_login_succeeds(tmp_path, monkeypatch: pytest.Mo
     assert "data-toast-root" in page.text
     assert "data-sticky-panel" in page.text
     assert "data-sticky-shell" in page.text
+    assert 'aria-label="Submission status filters"' in page.text
+    assert '>Active<' in page.text
+    assert '>Completed<' in page.text
+    assert '>Failed<' in page.text
+    assert '>Cancelled<' in page.text
+    assert '>All<' in page.text
+    assert '<select name="status"' not in page.text
 
 
 def test_ui_help_page_shows_submit_commands(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:

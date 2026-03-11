@@ -45,12 +45,20 @@
     </div>
     <form method="get" action="/ui/submissions" class="filter-bar">
       <div class="filter-group">
-        <label for="status">View</label>
-        <select name="status" id="status" onchange="this.form.requestSubmit()">
+        <span class="filter-label">View</span>
+        <div class="segmented-control" role="group" aria-label="Submission status filters">
           {% for item in status_filters %}
-          <option value="{{ item }}" {% if item == status_filter %}selected{% endif %}>{{ item }}</option>
+          <button
+            type="submit"
+            name="status"
+            value="{{ item }}"
+            class="segment-button{% if item == status_filter %} is-active{% endif %}"
+            aria-pressed="{% if item == status_filter %}true{% else %}false{% endif %}"
+          >
+            {{ item|capitalize }}
+          </button>
           {% endfor %}
-        </select>
+        </div>
       </div>
     </form>
   </div>
