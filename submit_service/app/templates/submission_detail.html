@@ -32,8 +32,8 @@
 <section class="panel action-panel">
   <div class="section-head">
     <div class="section-copy">
-      <h2>Overview</h2>
-      <p class="muted">Submission metadata, execution mapping, and artifact locations.</p>
+      <h2>Submission workspace</h2>
+      <p class="muted">Switch between operational views without scrolling through the full page.</p>
     </div>
     <div class="actions">
       <a class="button secondary" href="{{ return_to }}">Back to submissions</a>
@@ -50,306 +50,365 @@
       {% endif %}
     </div>
   </div>
-  <div class="detail-grid">
-    <article class="info-card scroll-card">
-      <h3>Identity</h3>
-      <dl class="meta-list">
-        <div><dt>ID</dt><dd class="wrap">{{ submission.id }}</dd></div>
-        <div><dt>Project</dt><dd>{{ submission.project_name }}</dd></div>
-        <div><dt>Experiment</dt><dd>{{ submission.experiment }}</dd></div>
-        <div><dt>Owner</dt><dd>{{ submission.owner }}</dd></div>
-        <div><dt>Namespace</dt><dd><code>{{ submission.namespace }}</code></dd></div>
-        <div><dt>Status</dt><dd>{% set status = submission.status %}{% include '_status_badge.html' %}</dd></div>
-      </dl>
-    </article>
-    <article class="info-card scroll-card">
-      <h3>Execution</h3>
-      <dl class="meta-list">
-        <div><dt>Nomad job</dt><dd class="wrap">{{ submission.nomad_job_id }}</dd></div>
-        <div><dt>Submit image</dt><dd class="wrap">{{ submission.submit_image }}</dd></div>
-      </dl>
-      <div class="execution-link-list">
-        {% if submission.artifact_url %}
-        <div class="execution-link-card">
-          <span>Artifact URL</span>
-          <div class="execution-link-name wrap">{{ submission.artifact_url.label }}</div>
-          <div class="execution-link-actions">
-            <a class="button secondary artifact-action" href="{{ submission.artifact_url.url }}" target="_blank" rel="noreferrer">Open</a>
-            <button
-              type="button"
-              class="button secondary artifact-action"
-              onclick="const value=this.dataset.copy||''; const done=() => { this.textContent='Copied'; setTimeout(() => this.textContent='Copy URL', 1200); }; if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(value).then(done).catch(() => { const el=document.createElement('textarea'); el.value=value; el.setAttribute('readonly',''); el.style.position='absolute'; el.style.left='-9999px'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); done(); }); } else { const el=document.createElement('textarea'); el.value=value; el.setAttribute('readonly',''); el.style.position='absolute'; el.style.left='-9999px'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); done(); }"
-              data-copy="{{ submission.artifact_url.url }}"
-            >
-              Copy URL
-            </button>
-          </div>
-        </div>
-        {% endif %}
-        {% if submission.result_location %}
-        <div class="execution-link-card">
-          <span>Result location</span>
-          <div class="execution-link-name wrap">{{ submission.result_location.label }}</div>
-          <div class="execution-link-actions">
-            <a class="button secondary artifact-action" href="{{ submission.result_location.url }}" target="_blank" rel="noreferrer">Open</a>
-            <button
-              type="button"
-              class="button secondary artifact-action"
-              onclick="const value=this.dataset.copy||''; const done=() => { this.textContent='Copied'; setTimeout(() => this.textContent='Copy URL', 1200); }; if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(value).then(done).catch(() => { const el=document.createElement('textarea'); el.value=value; el.setAttribute('readonly',''); el.style.position='absolute'; el.style.left='-9999px'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); done(); }); } else { const el=document.createElement('textarea'); el.value=value; el.setAttribute('readonly',''); el.style.position='absolute'; el.style.left='-9999px'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); done(); }"
-              data-copy="{{ submission.result_location.url }}"
-            >
-              Copy URL
-            </button>
-          </div>
-        </div>
-        {% endif %}
-      </div>
-    </article>
-    <article class="info-card scroll-card">
-      <h3>Timing</h3>
-      <dl class="meta-list">
-        <div><dt>Created</dt><dd>{{ submission.created_at }}</dd></div>
-        <div><dt>Started</dt><dd>{{ submission.started_at }}</dd></div>
-        <div><dt>Finished</dt><dd>{{ submission.finished_at }}</dd></div>
-        <div><dt>Priority</dt><dd>{{ submission.priority }}</dd></div>
-      </dl>
-    </article>
-  </div>
-  {% if submission.blocked_reason %}
-  <div class="alert warn"><strong>Blocked:</strong> {{ submission.blocked_reason }}</div>
-  {% endif %}
-  {% if submission.error_message %}
-  <div class="alert error"><strong>Error:</strong> {{ submission.error_message }}</div>
-  {% endif %}
-</section>
 
-<section class="panel">
-  <div class="section-head">
-    <div class="section-copy">
-      <h2>Original submit request</h2>
-      <p class="muted">This is the reconstructed user-facing <code>fedctl submit run</code> request, not the internal runner invocation.</p>
-    </div>
+  <div class="tab-bar" role="tablist" aria-label="Submission sections">
+    <button type="button" class="tab-button is-active" role="tab" aria-selected="true" aria-controls="tab-overview" id="tab-button-overview" data-tab-target="tab-overview">Overview</button>
+    <button type="button" class="tab-button" role="tab" aria-selected="false" aria-controls="tab-request" id="tab-button-request" data-tab-target="tab-request">Request</button>
+    <button type="button" class="tab-button" role="tab" aria-selected="false" aria-controls="tab-jobs" id="tab-button-jobs" data-tab-target="tab-jobs">Jobs</button>
+    <button type="button" class="tab-button" role="tab" aria-selected="false" aria-controls="tab-results" id="tab-button-results" data-tab-target="tab-results">Results</button>
+    <button type="button" class="tab-button" role="tab" aria-selected="false" aria-controls="tab-logs" id="tab-button-logs" data-tab-target="tab-logs">Logs</button>
   </div>
-  {% if submission.submit_request_view.command_preview %}
-  <div class="terminal-card">
-    <div class="terminal-bar">
-      <div class="terminal-controls" aria-hidden="true">
-        <span class="terminal-control terminal-control-close"></span>
-        <span class="terminal-control terminal-control-min"></span>
-        <span class="terminal-control terminal-control-max"></span>
-      </div>
-      <span class="terminal-title">fedctl submit run</span>
-      <button
-        type="button"
-        class="button secondary copy-button"
-        onclick="const value=this.dataset.copy||''; const done=() => { this.textContent='Copied'; setTimeout(() => this.textContent='Copy', 1200); }; if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(value).then(done).catch(() => { const el=document.createElement('textarea'); el.value=value; el.setAttribute('readonly',''); el.style.position='absolute'; el.style.left='-9999px'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); done(); }); } else { const el=document.createElement('textarea'); el.value=value; el.setAttribute('readonly',''); el.style.position='absolute'; el.style.left='-9999px'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); done(); }"
-        data-copy="{{ submission.submit_request_view.command_preview }}"
-      >
-        Copy
-      </button>
-    </div>
-    <div class="terminal-body">
-      <pre><code><span class="terminal-prompt">$</span> {{ submission.submit_request_view.command_preview }}</code></pre>
-    </div>
-  </div>
-  {% if submission.submit_request_view.summary_items %}
-  <div class="request-summary-grid">
-    {% for item in submission.submit_request_view.summary_items %}
-    <div class="request-summary-card">
-      <span>{{ item.label }}</span>
-      <strong class="wrap">{{ item.value }}</strong>
-    </div>
-    {% endfor %}
-  </div>
-  {% endif %}
-  <details class="request-context-detail">
-    <summary>Request context</summary>
-    <div class="request-context-content">
-      <div class="request-origin-grid">
-        {% if submission.submit_request_view.path_input %}
-        <div class="request-origin-item">
-          <span>Path input</span>
-          <code class="wrap">{{ submission.submit_request_view.path_input }}</code>
-        </div>
-        {% endif %}
-        {% if submission.submit_request_view.project_root %}
-        <div class="request-origin-item">
-          <span>Resolved project root</span>
-          <code class="wrap">{{ submission.submit_request_view.project_root }}</code>
-        </div>
-        {% endif %}
-        {% if submission.submit_request_view.cwd %}
-        <div class="request-origin-item">
-          <span>Working directory</span>
-          <code class="wrap">{{ submission.submit_request_view.cwd }}</code>
-        </div>
-        {% endif %}
-      </div>
-      {% if submission.submit_request_view.detail_items %}
-      <dl class="request-option-list">
-        {% for item in submission.submit_request_view.detail_items %}
-        <div>
-          <dt>{{ item.label }}</dt>
-          <dd class="wrap">{{ item.value }}</dd>
-        </div>
-        {% endfor %}
-      </dl>
-      {% endif %}
-    </div>
-  </details>
-  {% else %}
-  <p class="muted">Original submit request metadata was not recorded for this submission.</p>
-  {% endif %}
-</section>
 
-<section class="panel">
-  <div class="section-head">
-    <div class="section-copy">
-      <h2>Internal runner args</h2>
-      <p class="muted">These are the derived arguments passed to the submit runner container, not the original CLI invocation.</p>
-    </div>
-  </div>
-  {% if submission.args_view %}
-  <details class="runner-detail">
-    <summary>Show internal runner args</summary>
-    <div class="args-grid">
-      {% for arg in submission.args_view %}
-      <div class="arg-card">
-        <div class="arg-head">
-          <span class="arg-index">{{ arg.index }}</span>
-          <span class="arg-kind">{{ arg.kind }}</span>
-        </div>
-        <div class="arg-line">
-          <span class="arg-name">{{ arg.name }}</span>
-          {% if arg.value %}
-          <code class="arg-value">{{ arg.value }}</code>
+  <div id="tab-overview" class="tab-panel is-active" role="tabpanel" aria-labelledby="tab-button-overview">
+    <div class="detail-grid">
+      <article class="info-card scroll-card">
+        <h3>Identity</h3>
+        <dl class="meta-list">
+          <div><dt>ID</dt><dd class="wrap">{{ submission.id }}</dd></div>
+          <div><dt>Project</dt><dd>{{ submission.project_name }}</dd></div>
+          <div><dt>Experiment</dt><dd>{{ submission.experiment }}</dd></div>
+          <div><dt>Owner</dt><dd>{{ submission.owner }}</dd></div>
+          <div><dt>Namespace</dt><dd><code>{{ submission.namespace }}</code></dd></div>
+          <div><dt>Status</dt><dd>{% set status = submission.status %}{% include '_status_badge.html' %}</dd></div>
+        </dl>
+      </article>
+      <article class="info-card scroll-card">
+        <h3>Execution</h3>
+        <dl class="meta-list">
+          <div><dt>Nomad job</dt><dd class="wrap">{{ submission.nomad_job_id }}</dd></div>
+          <div><dt>Submit image</dt><dd class="wrap">{{ submission.submit_image }}</dd></div>
+        </dl>
+        <div class="execution-link-list">
+          {% if submission.artifact_url %}
+          <div class="execution-link-card">
+            <span>Artifact URL</span>
+            <div class="execution-link-name wrap">{{ submission.artifact_url.label }}</div>
+            <div class="execution-link-actions">
+              <a class="button secondary artifact-action" href="{{ submission.artifact_url.url }}" target="_blank" rel="noreferrer">Open</a>
+              <button
+                type="button"
+                class="button secondary artifact-action"
+                onclick="const value=this.dataset.copy||''; const done=() => { this.textContent='Copied'; setTimeout(() => this.textContent='Copy URL', 1200); }; if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(value).then(done).catch(() => { const el=document.createElement('textarea'); el.value=value; el.setAttribute('readonly',''); el.style.position='absolute'; el.style.left='-9999px'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); done(); }); } else { const el=document.createElement('textarea'); el.value=value; el.setAttribute('readonly',''); el.style.position='absolute'; el.style.left='-9999px'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); done(); }"
+                data-copy="{{ submission.artifact_url.url }}"
+              >
+                Copy URL
+              </button>
+            </div>
+          </div>
+          {% endif %}
+          {% if submission.result_location %}
+          <div class="execution-link-card">
+            <span>Result location</span>
+            <div class="execution-link-name wrap">{{ submission.result_location.label }}</div>
+            <div class="execution-link-actions">
+              <a class="button secondary artifact-action" href="{{ submission.result_location.url }}" target="_blank" rel="noreferrer">Open</a>
+              <button
+                type="button"
+                class="button secondary artifact-action"
+                onclick="const value=this.dataset.copy||''; const done=() => { this.textContent='Copied'; setTimeout(() => this.textContent='Copy URL', 1200); }; if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(value).then(done).catch(() => { const el=document.createElement('textarea'); el.value=value; el.setAttribute('readonly',''); el.style.position='absolute'; el.style.left='-9999px'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); done(); }); } else { const el=document.createElement('textarea'); el.value=value; el.setAttribute('readonly',''); el.style.position='absolute'; el.style.left='-9999px'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); done(); }"
+                data-copy="{{ submission.result_location.url }}"
+              >
+                Copy URL
+              </button>
+            </div>
+          </div>
           {% endif %}
         </div>
-      </div>
-      {% endfor %}
-    </div>
-  </details>
-  {% else %}
-  <p class="muted">No runner args recorded.</p>
-  {% endif %}
-</section>
-
-<section class="panel two-col">
-  <div class="section-block scroll-section-block">
-    <h2>Job mapping</h2>
-    {% if submission.job_entries %}
-    <div class="mapping-grid">
-      {% for entry in submission.job_entries %}
-      <article class="mapping-card">
-        <div class="mapping-head">
-          <h3>{{ entry.name }}</h3>
-          <span class="mapping-summary">{{ entry.summary }}</span>
-        </div>
-        {% if entry.job_ids %}
-        <div class="mapping-block">
-          <span class="mapping-label">Job IDs</span>
-          <ul class="mapping-list">
-            {% for item in entry.job_ids %}
-            <li><code>{{ item }}</code></li>
-            {% endfor %}
-          </ul>
-        </div>
-        {% endif %}
-        {% if entry.tasks %}
-        <div class="mapping-block">
-          <span class="mapping-label">Tasks</span>
-          <ul class="mapping-list">
-            {% for item in entry.tasks %}
-            <li><code>{{ item }}</code></li>
-            {% endfor %}
-          </ul>
-        </div>
-        {% endif %}
-        {% if entry.fields %}
-        <dl class="mapping-fields">
-          {% for field in entry.fields %}
-          <div>
-            <dt>{{ field.label }}</dt>
-            <dd class="wrap">{{ field.value }}</dd>
-          </div>
-          {% endfor %}
-        </dl>
-        {% endif %}
       </article>
-      {% endfor %}
+      <article class="info-card scroll-card">
+        <h3>Timing</h3>
+        <dl class="meta-list">
+          <div><dt>Created</dt><dd>{{ submission.created_at }}</dd></div>
+          <div><dt>Started</dt><dd>{{ submission.started_at }}</dd></div>
+          <div><dt>Finished</dt><dd>{{ submission.finished_at }}</dd></div>
+          <div><dt>Priority</dt><dd>{{ submission.priority }}</dd></div>
+        </dl>
+      </article>
     </div>
-    {% else %}
-    <p class="muted">No job mapping recorded.</p>
+    {% if submission.blocked_reason %}
+    <div class="alert warn"><strong>Blocked:</strong> {{ submission.blocked_reason }}</div>
+    {% endif %}
+    {% if submission.error_message %}
+    <div class="alert error"><strong>Error:</strong> {{ submission.error_message }}</div>
     {% endif %}
   </div>
-  <div class="section-block scroll-section-block">
-    <h2>Result artifacts</h2>
-    {% if submission.result_artifacts.primary or submission.result_artifacts.secondary %}
-    {% if submission.result_artifacts.primary %}
-    <div class="artifact-group">
-      <div class="artifact-group-title">Primary outputs</div>
-      <div class="artifact-rows">
-        {% for item in submission.result_artifacts.primary %}
-        <article class="artifact-row">
-          <div class="artifact-meta">
-            <div class="artifact-name wrap">{{ item.label }}</div>
-            <div class="artifact-subline">
-              <span class="artifact-type-badge">{{ item.type }}</span>
-            </div>
+
+  <div id="tab-request" class="tab-panel" role="tabpanel" aria-labelledby="tab-button-request" hidden>
+    <section class="tab-section">
+      <div class="section-head">
+        <div class="section-copy">
+          <h2>Original submit request</h2>
+          <p class="muted">This is the reconstructed user-facing <code>fedctl submit run</code> request, not the internal runner invocation.</p>
+        </div>
+      </div>
+      {% if submission.submit_request_view.command_preview %}
+      <div class="terminal-card">
+        <div class="terminal-bar">
+          <div class="terminal-controls" aria-hidden="true">
+            <span class="terminal-control terminal-control-close"></span>
+            <span class="terminal-control terminal-control-min"></span>
+            <span class="terminal-control terminal-control-max"></span>
           </div>
-          <div class="artifact-actions">
-            <a class="button secondary artifact-action" href="{{ item.url }}" target="_blank" rel="noreferrer">Open</a>
-            <button
-              type="button"
-              class="button secondary artifact-action"
-              onclick="const value=this.dataset.copy||''; const done=() => { this.textContent='Copied'; setTimeout(() => this.textContent='Copy URL', 1200); }; if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(value).then(done).catch(() => { const el=document.createElement('textarea'); el.value=value; el.setAttribute('readonly',''); el.style.position='absolute'; el.style.left='-9999px'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); done(); }); } else { const el=document.createElement('textarea'); el.value=value; el.setAttribute('readonly',''); el.style.position='absolute'; el.style.left='-9999px'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); done(); }"
-              data-copy="{{ item.url }}"
-            >
-              Copy URL
-            </button>
-          </div>
-        </article>
+          <span class="terminal-title">fedctl submit run</span>
+          <button
+            type="button"
+            class="button secondary copy-button"
+            onclick="const value=this.dataset.copy||''; const done=() => { this.textContent='Copied'; setTimeout(() => this.textContent='Copy', 1200); }; if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(value).then(done).catch(() => { const el=document.createElement('textarea'); el.value=value; el.setAttribute('readonly',''); el.style.position='absolute'; el.style.left='-9999px'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); done(); }); } else { const el=document.createElement('textarea'); el.value=value; el.setAttribute('readonly',''); el.style.position='absolute'; el.style.left='-9999px'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); done(); }"
+            data-copy="{{ submission.submit_request_view.command_preview }}"
+          >
+            Copy
+          </button>
+        </div>
+        <div class="terminal-body">
+          <pre><code><span class="terminal-prompt">$</span> {{ submission.submit_request_view.command_preview }}</code></pre>
+        </div>
+      </div>
+      {% if submission.submit_request_view.summary_items %}
+      <div class="request-summary-grid">
+        {% for item in submission.submit_request_view.summary_items %}
+        <div class="request-summary-card">
+          <span>{{ item.label }}</span>
+          <strong class="wrap">{{ item.value }}</strong>
+        </div>
         {% endfor %}
       </div>
-    </div>
-    {% endif %}
-    {% if submission.result_artifacts.secondary %}
-    <details class="artifact-detail">
-      <summary>Other artifacts ({{ submission.result_artifacts.secondary|length }})</summary>
-      <div class="artifact-rows">
-        {% for item in submission.result_artifacts.secondary %}
-        <article class="artifact-row artifact-row-secondary">
-          <div class="artifact-meta">
-            <div class="artifact-name wrap">{{ item.label }}</div>
-            <div class="artifact-subline">
-              <span class="artifact-type-badge">{{ item.type }}</span>
+      {% endif %}
+      <details class="request-context-detail">
+        <summary>Request context</summary>
+        <div class="request-context-content">
+          <div class="request-origin-grid">
+            {% if submission.submit_request_view.path_input %}
+            <div class="request-origin-item">
+              <span>Path input</span>
+              <code class="wrap">{{ submission.submit_request_view.path_input }}</code>
             </div>
+            {% endif %}
+            {% if submission.submit_request_view.project_root %}
+            <div class="request-origin-item">
+              <span>Resolved project root</span>
+              <code class="wrap">{{ submission.submit_request_view.project_root }}</code>
+            </div>
+            {% endif %}
+            {% if submission.submit_request_view.cwd %}
+            <div class="request-origin-item">
+              <span>Working directory</span>
+              <code class="wrap">{{ submission.submit_request_view.cwd }}</code>
+            </div>
+            {% endif %}
           </div>
-          <div class="artifact-actions">
-            <a class="button secondary artifact-action" href="{{ item.url }}" target="_blank" rel="noreferrer">Open</a>
-            <button
-              type="button"
-              class="button secondary artifact-action"
-              onclick="const value=this.dataset.copy||''; const done=() => { this.textContent='Copied'; setTimeout(() => this.textContent='Copy URL', 1200); }; if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(value).then(done).catch(() => { const el=document.createElement('textarea'); el.value=value; el.setAttribute('readonly',''); el.style.position='absolute'; el.style.left='-9999px'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); done(); }); } else { const el=document.createElement('textarea'); el.value=value; el.setAttribute('readonly',''); el.style.position='absolute'; el.style.left='-9999px'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); done(); }"
-              data-copy="{{ item.url }}"
-            >
-              Copy URL
-            </button>
+          {% if submission.submit_request_view.detail_items %}
+          <dl class="request-option-list">
+            {% for item in submission.submit_request_view.detail_items %}
+            <div>
+              <dt>{{ item.label }}</dt>
+              <dd class="wrap">{{ item.value }}</dd>
+            </div>
+            {% endfor %}
+          </dl>
+          {% endif %}
+        </div>
+      </details>
+      {% else %}
+      <p class="muted">Original submit request metadata was not recorded for this submission.</p>
+      {% endif %}
+
+      <section class="tab-subsection">
+        <div class="section-head">
+          <div class="section-copy">
+            <h2>Internal runner args</h2>
+            <p class="muted">These are the derived arguments passed to the submit runner container, not the original CLI invocation.</p>
           </div>
-        </article>
-        {% endfor %}
+        </div>
+        {% if submission.args_view %}
+        <details class="runner-detail">
+          <summary>Show internal runner args</summary>
+          <div class="args-grid">
+            {% for arg in submission.args_view %}
+            <div class="arg-card">
+              <div class="arg-head">
+                <span class="arg-index">{{ arg.index }}</span>
+                <span class="arg-kind">{{ arg.kind }}</span>
+              </div>
+              <div class="arg-line">
+                <span class="arg-name">{{ arg.name }}</span>
+                {% if arg.value %}
+                <code class="arg-value">{{ arg.value }}</code>
+                {% endif %}
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </details>
+        {% else %}
+        <p class="muted">No runner args recorded.</p>
+        {% endif %}
+      </section>
+    </section>
+  </div>
+
+  <div id="tab-jobs" class="tab-panel" role="tabpanel" aria-labelledby="tab-button-jobs" hidden>
+    <section class="tab-section">
+      <div class="section-head">
+        <div class="section-copy">
+          <h2>Job mapping</h2>
+          <p class="muted">Nomad job and task mapping recorded by the submit runner.</p>
+        </div>
       </div>
-    </details>
-    {% endif %}
-    {% else %}
-    {% if submission.status in ["queued", "running", "blocked"] %}
-    <p class="muted">No result artifacts yet. This submission has not reached a completed terminal state.</p>
-    {% else %}
-    <p class="muted">No result artifacts were reported for this submission.</p>
-    {% endif %}
-    {% endif %}
+      <div class="section-block scroll-section-block">
+        {% if submission.job_entries %}
+        <div class="mapping-grid">
+          {% for entry in submission.job_entries %}
+          <article class="mapping-card">
+            <div class="mapping-head">
+              <h3>{{ entry.name }}</h3>
+              <span class="mapping-summary">{{ entry.summary }}</span>
+            </div>
+            {% if entry.job_ids %}
+            <div class="mapping-block">
+              <span class="mapping-label">Job IDs</span>
+              <ul class="mapping-list">
+                {% for item in entry.job_ids %}
+                <li><code>{{ item }}</code></li>
+                {% endfor %}
+              </ul>
+            </div>
+            {% endif %}
+            {% if entry.tasks %}
+            <div class="mapping-block">
+              <span class="mapping-label">Tasks</span>
+              <ul class="mapping-list">
+                {% for item in entry.tasks %}
+                <li><code>{{ item }}</code></li>
+                {% endfor %}
+              </ul>
+            </div>
+            {% endif %}
+            {% if entry.fields %}
+            <dl class="mapping-fields">
+              {% for field in entry.fields %}
+              <div>
+                <dt>{{ field.label }}</dt>
+                <dd class="wrap">{{ field.value }}</dd>
+              </div>
+              {% endfor %}
+            </dl>
+            {% endif %}
+          </article>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="muted">No job mapping recorded.</p>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+
+  <div id="tab-results" class="tab-panel" role="tabpanel" aria-labelledby="tab-button-results" hidden>
+    <section class="tab-section">
+      <div class="section-head">
+        <div class="section-copy">
+          <h2>Result artifacts</h2>
+          <p class="muted">Primary outputs first, then secondary artifacts if present.</p>
+        </div>
+      </div>
+      <div class="section-block scroll-section-block">
+        {% if submission.result_artifacts.primary or submission.result_artifacts.secondary %}
+        {% if submission.result_artifacts.primary %}
+        <div class="artifact-group">
+          <div class="artifact-group-title">Primary outputs</div>
+          <div class="artifact-rows">
+            {% for item in submission.result_artifacts.primary %}
+            <article class="artifact-row">
+              <div class="artifact-meta">
+                <div class="artifact-name wrap">{{ item.label }}</div>
+                <div class="artifact-subline">
+                  <span class="artifact-type-badge">{{ item.type }}</span>
+                </div>
+              </div>
+              <div class="artifact-actions">
+                <a class="button secondary artifact-action" href="{{ item.url }}" target="_blank" rel="noreferrer">Open</a>
+                <button
+                  type="button"
+                  class="button secondary artifact-action"
+                  onclick="const value=this.dataset.copy||''; const done=() => { this.textContent='Copied'; setTimeout(() => this.textContent='Copy URL', 1200); }; if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(value).then(done).catch(() => { const el=document.createElement('textarea'); el.value=value; el.setAttribute('readonly',''); el.style.position='absolute'; el.style.left='-9999px'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); done(); }); } else { const el=document.createElement('textarea'); el.value=value; el.setAttribute('readonly',''); el.style.position='absolute'; el.style.left='-9999px'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); done(); }"
+                  data-copy="{{ item.url }}"
+                >
+                  Copy URL
+                </button>
+              </div>
+            </article>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+        {% if submission.result_artifacts.secondary %}
+        <details class="artifact-detail">
+          <summary>Other artifacts ({{ submission.result_artifacts.secondary|length }})</summary>
+          <div class="artifact-rows">
+            {% for item in submission.result_artifacts.secondary %}
+            <article class="artifact-row artifact-row-secondary">
+              <div class="artifact-meta">
+                <div class="artifact-name wrap">{{ item.label }}</div>
+                <div class="artifact-subline">
+                  <span class="artifact-type-badge">{{ item.type }}</span>
+                </div>
+              </div>
+              <div class="artifact-actions">
+                <a class="button secondary artifact-action" href="{{ item.url }}" target="_blank" rel="noreferrer">Open</a>
+                <button
+                  type="button"
+                  class="button secondary artifact-action"
+                  onclick="const value=this.dataset.copy||''; const done=() => { this.textContent='Copied'; setTimeout(() => this.textContent='Copy URL', 1200); }; if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(value).then(done).catch(() => { const el=document.createElement('textarea'); el.value=value; el.setAttribute('readonly',''); el.style.position='absolute'; el.style.left='-9999px'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); done(); }); } else { const el=document.createElement('textarea'); el.value=value; el.setAttribute('readonly',''); el.style.position='absolute'; el.style.left='-9999px'; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el); done(); }"
+                  data-copy="{{ item.url }}"
+                >
+                  Copy URL
+                </button>
+              </div>
+            </article>
+            {% endfor %}
+          </div>
+        </details>
+        {% endif %}
+        {% else %}
+        {% if submission.status in ["queued", "running", "blocked"] %}
+        <p class="muted">No result artifacts yet. This submission has not reached a completed terminal state.</p>
+        {% else %}
+        <p class="muted">No result artifacts were reported for this submission.</p>
+        {% endif %}
+        {% endif %}
+      </div>
+    </section>
+  </div>
+
+  <div id="tab-logs" class="tab-panel" role="tabpanel" aria-labelledby="tab-button-logs" hidden>
+    {% include 'logs_panel.html' %}
   </div>
 </section>
 
-{% include 'logs_panel.html' %}
+<script>
+  (() => {
+    const buttons = Array.from(document.querySelectorAll('.tab-button'));
+    const panels = Array.from(document.querySelectorAll('.tab-panel'));
+    if (!buttons.length || !panels.length) return;
+    const activate = (targetId) => {
+      buttons.forEach((button) => {
+        const active = button.dataset.tabTarget === targetId;
+        button.classList.toggle('is-active', active);
+        button.setAttribute('aria-selected', active ? 'true' : 'false');
+      });
+      panels.forEach((panel) => {
+        const active = panel.id === targetId;
+        panel.classList.toggle('is-active', active);
+        panel.hidden = !active;
+      });
+    };
+    buttons.forEach((button) => {
+      button.addEventListener('click', () => activate(button.dataset.tabTarget));
+    });
+    const hashTarget = window.location.hash.replace('#', '');
+    if (hashTarget && panels.some((panel) => panel.id === hashTarget)) {
+      activate(hashTarget);
+    }
+  })();
+</script>
 {% endblock %}
