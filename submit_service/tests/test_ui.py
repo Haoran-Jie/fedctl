@@ -266,7 +266,7 @@ def test_ui_detail_renders_structured_args_env_and_jobs(
     assert "Original submit request" in detail.text
     assert "fedctl submit run ../quickstart-pytorch --exp mnist-20250125" in detail.text
     assert "Internal runner args" in detail.text
-    assert "FEDCTL_ENDPOINT" in detail.text
+    assert "Resolved project root" in detail.text
     assert "Job IDs" in detail.text
     assert "job-superlink" in detail.text
 

@@ -542,7 +542,6 @@ def _submission_detail_view(record: dict[str, Any], role: str) -> dict[str, Any]
     if not isinstance(result_artifacts, list):
         result_artifacts = []
     args = record.get("args") if isinstance(record.get("args"), list) else []
-    env = record.get("env") if isinstance(record.get("env"), dict) else {}
     submit_request = (
         record.get("submit_request") if isinstance(record.get("submit_request"), dict) else {}
     )
@@ -564,8 +563,6 @@ def _submission_detail_view(record: dict[str, Any], role: str) -> dict[str, Any]
         "submit_request_view": _submit_request_view(submit_request),
         "args": args,
         "args_view": [_arg_view(arg, idx) for idx, arg in enumerate(args, start=1)],
-        "env": env,
-        "env_items": _env_items_view(env),
         "jobs": jobs,
         "job_entries": _job_entries_view(jobs),
         "result_location": record.get("result_location") or "-",
@@ -580,49 +577,61 @@ def _submission_detail_view(record: dict[str, Any], role: str) -> dict[str, Any]
 def _submit_request_view(submit_request: dict[str, Any]) -> dict[str, Any]:
     command_preview = submit_request.get("command_preview")
     options = submit_request.get("options") if isinstance(submit_request.get("options"), dict) else {}
-    items: list[dict[str, str]] = []
-    preferred_order = [
-        "path",
+    summary_order = [
         "experiment",
+        "num_supernodes",
+        "priority",
+        "federation",
         "image",
         "submit_image",
+    ]
+    detail_order = [
         "artifact_store",
-        "num_supernodes",
-        "federation",
         "timeout",
-        "priority",
         "stream",
         "destroy",
         "auto_supernodes",
         "allow_oversubscribe",
+        "push",
         "platform",
         "context",
         "repo_config",
-        "push",
         "verbose",
         "supernodes",
         "net",
     ]
-    seen: set[str] = set()
-    for key in preferred_order + sorted(str(k) for k in options.keys()):
-        if key in seen or key not in options:
-            continue
-        seen.add(key)
-        value = options[key]
-        if isinstance(value, list):
-            rendered = ", ".join(str(item) for item in value) or "-"
-        elif isinstance(value, bool):
-            rendered = "true" if value else "false"
-        else:
-            rendered = str(value)
-        items.append({"label": key.replace("_", " "), "value": rendered})
+    summary_items = _request_items(options, summary_order)
+    detail_items = _request_items(options, detail_order)
     return {
         "path_input": submit_request.get("path_input") or "",
         "project_root": submit_request.get("project_root") or "",
         "cwd": submit_request.get("cwd") or "",
         "command_preview": command_preview if isinstance(command_preview, str) else "",
-        "options": items,
+        "summary_items": summary_items,
+        "detail_items": detail_items,
     }
+
+
+def _request_items(options: dict[str, Any], order: list[str]) -> list[dict[str, str]]:
+    items: list[dict[str, str]] = []
+    for key in order:
+        if key not in options:
+            continue
+        items.append(
+            {
+                "label": key.replace("_", " "),
+                "value": _request_value(options[key]),
+            }
+        )
+    return items
+
+
+def _request_value(value: Any) -> str:
+    if isinstance(value, list):
+        return ", ".join(str(item) for item in value) or "-"
+    if isinstance(value, bool):
+        return "yes" if value else "no"
+    return str(value)
 
 
 def _node_view(node: dict[str, Any]) -> dict[str, Any]:
@@ -655,10 +664,6 @@ def _arg_view(arg: Any, index: int) -> dict[str, Any]:
     if raw.startswith("-") and len(raw) > 1:
         return {"index": index, "kind": "switch", "name": raw, "value": "", "raw": raw}
     return {"index": index, "kind": "value", "name": raw, "value": "", "raw": raw}
-
-
-def _env_items_view(env: dict[str, Any]) -> list[dict[str, str]]:
-    return [{"key": str(key), "value": str(env[key])} for key in sorted(env)]
 
 
 def _job_entries_view(jobs: dict[str, Any]) -> list[dict[str, Any]]:

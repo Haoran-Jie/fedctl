@@ -89,63 +89,71 @@
   {% endif %}
 </section>
 
-<section class="panel two-col">
-  <div class="section-block">
-    <h2>Original submit request</h2>
-    {% if submission.submit_request_view.command_preview %}
-    <div class="command-preview-card">
+<section class="panel">
+  <div class="section-head">
+    <div class="section-copy">
+      <h2>Original submit request</h2>
+      <p class="muted">This is the reconstructed user-facing <code>fedctl submit run</code> request, not the internal runner invocation.</p>
+    </div>
+  </div>
+  {% if submission.submit_request_view.command_preview %}
+  <div class="command-preview-card">
+    <div class="command-preview-head">
       <span class="mapping-label">Command</span>
-      <pre><code>{{ submission.submit_request_view.command_preview }}</code></pre>
+      <button
+        type="button"
+        class="button secondary copy-button"
+        onclick="navigator.clipboard && navigator.clipboard.writeText(this.dataset.copy)"
+        data-copy="{{ submission.submit_request_view.command_preview }}"
+      >
+        Copy
+      </button>
     </div>
-    <dl class="structured-pairs submit-request-meta">
-      {% if submission.submit_request_view.path_input %}
-      <div>
-        <dt>Path input</dt>
-        <dd class="wrap"><code>{{ submission.submit_request_view.path_input }}</code></dd>
-      </div>
-      {% endif %}
-      {% if submission.submit_request_view.project_root %}
-      <div>
-        <dt>Resolved project root</dt>
-        <dd class="wrap"><code>{{ submission.submit_request_view.project_root }}</code></dd>
-      </div>
-      {% endif %}
-      {% if submission.submit_request_view.cwd %}
-      <div>
-        <dt>Working directory</dt>
-        <dd class="wrap"><code>{{ submission.submit_request_view.cwd }}</code></dd>
-      </div>
-      {% endif %}
-    </dl>
-    {% if submission.submit_request_view.options %}
-    <div class="request-option-grid">
-      {% for item in submission.submit_request_view.options %}
-      <div class="request-option-card">
-        <span>{{ item.label }}</span>
-        <strong class="wrap">{{ item.value }}</strong>
-      </div>
-      {% endfor %}
+    <div class="command-preview-scroll"><code>{{ submission.submit_request_view.command_preview }}</code></div>
+  </div>
+  {% if submission.submit_request_view.summary_items %}
+  <div class="request-summary-grid">
+    {% for item in submission.submit_request_view.summary_items %}
+    <div class="request-summary-card">
+      <span>{{ item.label }}</span>
+      <strong class="wrap">{{ item.value }}</strong>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  <div class="request-origin-grid">
+    {% if submission.submit_request_view.path_input %}
+    <div class="request-origin-item">
+      <span>Path input</span>
+      <code class="wrap">{{ submission.submit_request_view.path_input }}</code>
     </div>
     {% endif %}
-    {% else %}
-    <p class="muted">Original submit request metadata was not recorded for this submission.</p>
+    {% if submission.submit_request_view.project_root %}
+    <div class="request-origin-item">
+      <span>Resolved project root</span>
+      <code class="wrap">{{ submission.submit_request_view.project_root }}</code>
+    </div>
+    {% endif %}
+    {% if submission.submit_request_view.cwd %}
+    <div class="request-origin-item">
+      <span>Working directory</span>
+      <code class="wrap">{{ submission.submit_request_view.cwd }}</code>
+    </div>
     {% endif %}
   </div>
-  <div class="section-block">
-    <h2>Runner env</h2>
-    {% if submission.env_items %}
-    <dl class="structured-pairs">
-      {% for item in submission.env_items %}
-      <div>
-        <dt><code>{{ item.key }}</code></dt>
-        <dd class="wrap"><code>{{ item.value }}</code></dd>
-      </div>
-      {% endfor %}
-    </dl>
-    {% else %}
-    <p class="muted">No runner env recorded.</p>
-    {% endif %}
-  </div>
+  {% if submission.submit_request_view.detail_items %}
+  <dl class="request-option-list">
+    {% for item in submission.submit_request_view.detail_items %}
+    <div>
+      <dt>{{ item.label }}</dt>
+      <dd class="wrap">{{ item.value }}</dd>
+    </div>
+    {% endfor %}
+  </dl>
+  {% endif %}
+  {% else %}
+  <p class="muted">Original submit request metadata was not recorded for this submission.</p>
+  {% endif %}
 </section>
 
 <section class="panel">
