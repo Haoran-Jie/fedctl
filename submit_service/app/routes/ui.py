@@ -637,9 +637,12 @@ def _request_value(value: Any) -> str:
 def _link_entry_view(value: Any) -> dict[str, str] | None:
     if not isinstance(value, str) or not value or value == "-":
         return None
+    label = _artifact_name_from_url(value) or value
     return {
         "url": value,
-        "label": _artifact_name_from_url(value) or value,
+        "label": label,
+        "type": _artifact_type(label),
+        "signed": "yes" if _is_presigned_url(value) else "no",
     }
 
 
@@ -662,12 +665,13 @@ def _artifact_view(item: Any, index: int) -> dict[str, str]:
         "label": label,
         "url": url,
         "type": artifact_type,
+        "signed": "yes" if _is_presigned_url(url) else "no",
         "priority": "primary" if _is_primary_artifact(label) else "secondary",
     }
 
 
 def _artifact_name_from_url(url: str) -> str:
-    trimmed = url.rstrip("/")
+    trimmed = url.split("?", 1)[0].rstrip("/")
     if not trimmed:
         return ""
     name = trimmed.rsplit("/", 1)[-1]
@@ -703,6 +707,11 @@ def _is_primary_artifact(name: str) -> bool:
         "output",
     )
     return any(marker in lower for marker in primary_markers)
+
+
+def _is_presigned_url(url: str) -> bool:
+    lower = url.lower()
+    return "x-amz-signature=" in lower or "x-amz-algorithm=" in lower
 
 
 def _node_view(node: dict[str, Any]) -> dict[str, Any]:

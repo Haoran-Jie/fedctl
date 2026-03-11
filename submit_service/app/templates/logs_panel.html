@@ -10,7 +10,7 @@
       <span class="log-source log-source-{{ logs_source or 'unknown' }}">{{ logs_source or 'unresolved' }}</span>
     </div>
   </div>
-  <form method="get" action="/ui/submissions/{{ submission.id }}#logs-panel" class="grid-form logs-form log-controls">
+  <form method="get" action="/ui/submissions/{{ submission.id }}#tab-logs" class="grid-form logs-form log-controls">
     <input type="hidden" name="return_to" value="{{ return_to }}">
     <label>Job
       <select name="job">

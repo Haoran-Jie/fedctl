@@ -83,6 +83,12 @@
           <div class="execution-link-card">
             <span>Artifact URL</span>
             <div class="execution-link-name wrap">{{ submission.artifact_url.label }}</div>
+            <div class="execution-link-meta">
+              <span class="artifact-type-badge">{{ submission.artifact_url.type }}</span>
+              {% if submission.artifact_url.signed == 'yes' %}
+              <span class="artifact-state-badge">signed</span>
+              {% endif %}
+            </div>
             <div class="execution-link-actions">
               <a class="button secondary artifact-action" href="{{ submission.artifact_url.url }}" target="_blank" rel="noreferrer">Open</a>
               <button
@@ -100,6 +106,12 @@
           <div class="execution-link-card">
             <span>Result location</span>
             <div class="execution-link-name wrap">{{ submission.result_location.label }}</div>
+            <div class="execution-link-meta">
+              <span class="artifact-type-badge">{{ submission.result_location.type }}</span>
+              {% if submission.result_location.signed == 'yes' %}
+              <span class="artifact-state-badge">signed</span>
+              {% endif %}
+            </div>
             <div class="execution-link-actions">
               <a class="button secondary artifact-action" href="{{ submission.result_location.url }}" target="_blank" rel="noreferrer">Open</a>
               <button
@@ -212,37 +224,6 @@
       <p class="muted">Original submit request metadata was not recorded for this submission.</p>
       {% endif %}
 
-      <section class="tab-subsection">
-        <div class="section-head">
-          <div class="section-copy">
-            <h2>Internal runner args</h2>
-            <p class="muted">These are the derived arguments passed to the submit runner container, not the original CLI invocation.</p>
-          </div>
-        </div>
-        {% if submission.args_view %}
-        <details class="runner-detail">
-          <summary>Show internal runner args</summary>
-          <div class="args-grid">
-            {% for arg in submission.args_view %}
-            <div class="arg-card">
-              <div class="arg-head">
-                <span class="arg-index">{{ arg.index }}</span>
-                <span class="arg-kind">{{ arg.kind }}</span>
-              </div>
-              <div class="arg-line">
-                <span class="arg-name">{{ arg.name }}</span>
-                {% if arg.value %}
-                <code class="arg-value">{{ arg.value }}</code>
-                {% endif %}
-              </div>
-            </div>
-            {% endfor %}
-          </div>
-        </details>
-        {% else %}
-        <p class="muted">No runner args recorded.</p>
-        {% endif %}
-      </section>
     </section>
   </div>
 
@@ -323,6 +304,9 @@
                 <div class="artifact-name wrap">{{ item.label }}</div>
                 <div class="artifact-subline">
                   <span class="artifact-type-badge">{{ item.type }}</span>
+                  {% if item.signed == 'yes' %}
+                  <span class="artifact-state-badge">signed</span>
+                  {% endif %}
                 </div>
               </div>
               <div class="artifact-actions">
@@ -351,6 +335,9 @@
                 <div class="artifact-name wrap">{{ item.label }}</div>
                 <div class="artifact-subline">
                   <span class="artifact-type-badge">{{ item.type }}</span>
+                  {% if item.signed == 'yes' %}
+                  <span class="artifact-state-badge">signed</span>
+                  {% endif %}
                 </div>
               </div>
               <div class="artifact-actions">
@@ -390,7 +377,7 @@
     const buttons = Array.from(document.querySelectorAll('.tab-button'));
     const panels = Array.from(document.querySelectorAll('.tab-panel'));
     if (!buttons.length || !panels.length) return;
-    const activate = (targetId) => {
+    const activate = (targetId, updateHash = true) => {
       buttons.forEach((button) => {
         const active = button.dataset.tabTarget === targetId;
         button.classList.toggle('is-active', active);
@@ -401,13 +388,16 @@
         panel.classList.toggle('is-active', active);
         panel.hidden = !active;
       });
+      if (updateHash) {
+        window.history.replaceState(null, '', `#${targetId}`);
+      }
     };
     buttons.forEach((button) => {
       button.addEventListener('click', () => activate(button.dataset.tabTarget));
     });
     const hashTarget = window.location.hash.replace('#', '');
     if (hashTarget && panels.some((panel) => panel.id === hashTarget)) {
-      activate(hashTarget);
+      activate(hashTarget, false);
     }
   })();
 </script>
