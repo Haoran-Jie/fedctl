@@ -525,62 +525,128 @@ th { font-size: 0.9rem; color: var(--muted); }
 .wrap { overflow-wrap: anywhere; word-break: break-word; }
 .artifact-list { margin: 0; padding-left: 1.2rem; }
 .artifact-list li { margin-bottom: 0.45rem; line-height: 1.45; }
-.command-preview-card {
-  padding: 0.9rem 1rem;
-  border: 1px solid rgba(29, 111, 95, 0.14);
-  border-radius: 16px;
-  background: linear-gradient(180deg, rgba(29, 111, 95, 0.06), #f6fbfa);
-  margin-bottom: 0.85rem;
+.terminal-card {
+  margin-bottom: 0.95rem;
+  border: 1px solid rgba(20, 28, 38, 0.16);
+  border-radius: 18px;
+  background: linear-gradient(180deg, #1d2632, #131a23);
+  box-shadow: 0 18px 34px rgba(16, 28, 41, 0.16);
+  overflow: hidden;
 }
-.command-preview-head {
+.terminal-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+  padding: 0.75rem 0.9rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
-.command-preview-scroll {
-  margin-top: 0.45rem;
-  padding: 0.7rem 0.8rem;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.88);
-  border: 1px solid rgba(29, 111, 95, 0.1);
+.terminal-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+}
+.terminal-control {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 999px;
+  display: inline-block;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+.terminal-control-close {
+  background: #ff5f57;
+}
+.terminal-control-min {
+  background: #febc2e;
+}
+.terminal-control-max {
+  background: #28c840;
+}
+.terminal-title {
+  flex: 1;
+  color: rgba(232, 238, 245, 0.82);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.terminal-body {
+  padding: 1rem 1.05rem 1.1rem;
   overflow-x: auto;
 }
-.command-preview-scroll code {
-  display: block;
+.terminal-body pre {
+  margin: 0;
   min-width: max-content;
-  font-size: 0.88rem;
-  line-height: 1.45;
+  white-space: pre-wrap;
+}
+.terminal-body code {
+  display: block;
+  color: #edf4fb;
+  font-size: 0.96rem;
+  line-height: 1.55;
+}
+.terminal-prompt {
+  color: #4fd1c5;
+  font-weight: 700;
 }
 .copy-button {
   min-height: auto;
-  padding: 0.45rem 0.72rem;
-  font-size: 0.82rem;
+  padding: 0.42rem 0.72rem;
+  font-size: 0.78rem;
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+  color: #f4f8fb;
+}
+.copy-button:hover {
+  background: rgba(255, 255, 255, 0.12);
 }
 .request-summary-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 0.55rem;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.6rem;
   margin-bottom: 0.85rem;
 }
 .request-summary-card {
-  padding: 0.7rem 0.8rem;
-  border: 1px solid rgba(214, 207, 191, 0.95);
+  padding: 0.72rem 0.8rem;
+  border: 1px solid rgba(29, 111, 95, 0.12);
   border-radius: 12px;
-  background: #f2f7f8;
+  background: linear-gradient(180deg, rgba(29, 111, 95, 0.05), rgba(255, 255, 255, 0.88));
 }
 .request-summary-card span {
   display: block;
   color: var(--muted);
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.22rem;
 }
 .request-summary-card strong {
   display: block;
   font-size: 0.92rem;
   line-height: 1.35;
+}
+.request-context-detail {
+  border: 1px solid rgba(29, 111, 95, 0.12);
+  border-radius: 16px;
+  background: #f7fbfb;
+  padding: 0.2rem 0.3rem 0.3rem;
+}
+.request-context-detail summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 0.7rem 0.8rem;
+  color: var(--accent-dark);
+  font-weight: 700;
+}
+.request-context-detail summary::-webkit-details-marker {
+  display: none;
+}
+.request-context-detail[open] summary {
+  margin-bottom: 0.15rem;
+}
+.request-context-content {
+  padding: 0.05rem 0.2rem 0.2rem;
 }
 .request-origin-grid {
   display: grid;
@@ -590,7 +656,7 @@ th { font-size: 0.9rem; color: var(--muted); }
 }
 .request-origin-item {
   padding: 0.8rem 0.9rem;
-  border: 1px solid rgba(214, 207, 191, 0.95);
+  border: 1px solid rgba(29, 111, 95, 0.1);
   border-radius: 14px;
   background: #f2f7f8;
 }
@@ -619,7 +685,7 @@ th { font-size: 0.9rem; color: var(--muted); }
   gap: 0.5rem;
   align-items: start;
   padding: 0.55rem 0.7rem;
-  border: 1px solid rgba(214, 207, 191, 0.95);
+  border: 1px solid rgba(29, 111, 95, 0.1);
   border-radius: 12px;
   background: #f2f7f8;
 }

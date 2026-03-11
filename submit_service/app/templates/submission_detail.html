@@ -97,19 +97,26 @@
     </div>
   </div>
   {% if submission.submit_request_view.command_preview %}
-  <div class="command-preview-card">
-    <div class="command-preview-head">
-      <span class="mapping-label">Command</span>
+  <div class="terminal-card">
+    <div class="terminal-bar">
+      <div class="terminal-controls" aria-hidden="true">
+        <span class="terminal-control terminal-control-close"></span>
+        <span class="terminal-control terminal-control-min"></span>
+        <span class="terminal-control terminal-control-max"></span>
+      </div>
+      <span class="terminal-title">fedctl submit run</span>
       <button
         type="button"
         class="button secondary copy-button"
-        onclick="navigator.clipboard && navigator.clipboard.writeText(this.dataset.copy)"
+        onclick="if (navigator.clipboard) { navigator.clipboard.writeText(this.dataset.copy); this.textContent='Copied'; setTimeout(() => this.textContent='Copy', 1200); }"
         data-copy="{{ submission.submit_request_view.command_preview }}"
       >
         Copy
       </button>
     </div>
-    <div class="command-preview-scroll"><code>{{ submission.submit_request_view.command_preview }}</code></div>
+    <div class="terminal-body">
+      <pre><code><span class="terminal-prompt">$</span> {{ submission.submit_request_view.command_preview }}</code></pre>
+    </div>
   </div>
   {% if submission.submit_request_view.summary_items %}
   <div class="request-summary-grid">
@@ -121,36 +128,41 @@
     {% endfor %}
   </div>
   {% endif %}
-  <div class="request-origin-grid">
-    {% if submission.submit_request_view.path_input %}
-    <div class="request-origin-item">
-      <span>Path input</span>
-      <code class="wrap">{{ submission.submit_request_view.path_input }}</code>
+  <details class="request-context-detail">
+    <summary>Request context</summary>
+    <div class="request-context-content">
+      <div class="request-origin-grid">
+        {% if submission.submit_request_view.path_input %}
+        <div class="request-origin-item">
+          <span>Path input</span>
+          <code class="wrap">{{ submission.submit_request_view.path_input }}</code>
+        </div>
+        {% endif %}
+        {% if submission.submit_request_view.project_root %}
+        <div class="request-origin-item">
+          <span>Resolved project root</span>
+          <code class="wrap">{{ submission.submit_request_view.project_root }}</code>
+        </div>
+        {% endif %}
+        {% if submission.submit_request_view.cwd %}
+        <div class="request-origin-item">
+          <span>Working directory</span>
+          <code class="wrap">{{ submission.submit_request_view.cwd }}</code>
+        </div>
+        {% endif %}
+      </div>
+      {% if submission.submit_request_view.detail_items %}
+      <dl class="request-option-list">
+        {% for item in submission.submit_request_view.detail_items %}
+        <div>
+          <dt>{{ item.label }}</dt>
+          <dd class="wrap">{{ item.value }}</dd>
+        </div>
+        {% endfor %}
+      </dl>
+      {% endif %}
     </div>
-    {% endif %}
-    {% if submission.submit_request_view.project_root %}
-    <div class="request-origin-item">
-      <span>Resolved project root</span>
-      <code class="wrap">{{ submission.submit_request_view.project_root }}</code>
-    </div>
-    {% endif %}
-    {% if submission.submit_request_view.cwd %}
-    <div class="request-origin-item">
-      <span>Working directory</span>
-      <code class="wrap">{{ submission.submit_request_view.cwd }}</code>
-    </div>
-    {% endif %}
-  </div>
-  {% if submission.submit_request_view.detail_items %}
-  <dl class="request-option-list">
-    {% for item in submission.submit_request_view.detail_items %}
-    <div>
-      <dt>{{ item.label }}</dt>
-      <dd class="wrap">{{ item.value }}</dd>
-    </div>
-    {% endfor %}
-  </dl>
-  {% endif %}
+  </details>
   {% else %}
   <p class="muted">Original submit request metadata was not recorded for this submission.</p>
   {% endif %}
