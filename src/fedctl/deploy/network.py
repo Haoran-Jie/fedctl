@@ -20,6 +20,7 @@ class NetAssignment:
 class NetworkPlan:
     scope: str
     default_profile: str
+    interface: str
     profiles: dict[str, dict[str, float | int]]
     ingress_profiles: dict[str, dict[str, float | int]]
     egress_profiles: dict[str, dict[str, float | int]]
@@ -104,6 +105,7 @@ def plan_network(
     assignments: Iterable[NetAssignment],
     placements: list[object],
     default_profile: str | None,
+    interface: str | None = None,
     profiles: dict[str, dict[str, float | int]] | None,
     ingress_profiles: dict[str, dict[str, float | int]] | None = None,
     egress_profiles: dict[str, dict[str, float | int]] | None = None,
@@ -112,6 +114,9 @@ def plan_network(
     scope_value = (scope or "allocation").strip() or "allocation"
     if scope_value not in {"allocation", "node"}:
         raise ValueError(f"Invalid network scope: {scope_value}")
+    interface_value = (interface or "eth0").strip() or "eth0"
+    if interface_value not in {"eth0", "wlan0", "auto"}:
+        raise ValueError(f"Invalid network interface: {interface_value}")
 
     default_name = (default_profile or "none").strip() or "none"
     profile_defs = _normalize_profiles(profiles)
@@ -125,6 +130,7 @@ def plan_network(
         return NetworkPlan(
             scope=scope_value,
             default_profile=default_name,
+            interface=interface_value,
             profiles=profile_defs,
             ingress_profiles=ingress_defs,
             egress_profiles=egress_defs,
@@ -185,6 +191,7 @@ def plan_network(
     return NetworkPlan(
         scope=scope_value,
         default_profile=default_name,
+        interface=interface_value,
         profiles=profile_defs,
         ingress_profiles=ingress_defs,
         egress_profiles=egress_defs,

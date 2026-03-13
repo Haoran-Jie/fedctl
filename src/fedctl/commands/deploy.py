@@ -46,6 +46,7 @@ class _RepoDeployConfig:
     network_ingress_profiles: dict[str, object]
     network_egress_profiles: dict[str, object]
     network_default: str | None
+    network_interface: str | None
     network_scope: str | None
     network_image: str | None
     network_apply: dict[str, object]
@@ -102,6 +103,7 @@ def run_deploy(
     repo_network_ingress_profiles = repo_defaults.network_ingress_profiles
     repo_network_egress_profiles = repo_defaults.network_egress_profiles
     repo_network_default = repo_defaults.network_default
+    repo_network_interface = repo_defaults.network_interface
     repo_network_scope = repo_defaults.network_scope
     repo_network_image = repo_defaults.network_image
     repo_network_apply = repo_defaults.network_apply
@@ -180,6 +182,7 @@ def run_deploy(
                 repo_network_ingress_profiles=repo_network_ingress_profiles,
                 repo_network_egress_profiles=repo_network_egress_profiles,
                 repo_network_default=repo_network_default,
+                repo_network_interface=repo_network_interface,
                 repo_network_scope=repo_network_scope,
             )
         except ValueError as exc:
@@ -263,6 +266,7 @@ def run_deploy(
                 repo_network_ingress_profiles=repo_network_ingress_profiles,
                 repo_network_egress_profiles=repo_network_egress_profiles,
                 repo_network_default=repo_network_default,
+                repo_network_interface=repo_network_interface,
                 repo_network_scope=repo_network_scope,
             )
         except ValueError as exc:
@@ -433,6 +437,7 @@ def _repo_deploy_config(repo_cfg: dict[str, object]) -> _RepoDeployConfig:
         network_ingress_profiles=network_ingress_profiles,
         network_egress_profiles=network_egress_profiles,
         network_default=_as_optional_str(network.get("default_profile")),
+        network_interface=_as_optional_str(network.get("interface")),
         network_scope=_as_optional_str(network.get("scope")),
         network_image=_as_optional_str(network.get("image")),
         network_apply=network_apply,
@@ -460,6 +465,7 @@ def _resolve_network_plan(
     repo_network_ingress_profiles: dict[str, object],
     repo_network_egress_profiles: dict[str, object],
     repo_network_default: str | None,
+    repo_network_interface: str | None,
     repo_network_scope: str | None,
 ) -> tuple[NetworkPlan | None, list[SupernodePlacement] | None]:
     net_values = net or []
@@ -495,6 +501,7 @@ def _resolve_network_plan(
         assignments=assignments,
         placements=placements_for_network,
         default_profile=repo_network_default,
+        interface=repo_network_interface,
         profiles=profiles,
         ingress_profiles=ingress_profiles,
         egress_profiles=egress_profiles,
@@ -588,6 +595,7 @@ def _build_manifest(
             network_manifest = SupernodesNetworkManifest(
                 scope=network_plan.scope,
                 default_profile=network_plan.default_profile,
+                interface=network_plan.interface,
                 profiles=network_plan.profiles,
                 assignments=network_plan.assignments,
                 ingress_profiles=network_plan.ingress_profiles,

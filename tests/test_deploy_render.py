@@ -135,3 +135,60 @@ def test_render_deploy_supernodes_netem_task() -> None:
     assert "while [ -z \"$${SUP_LINK_ADDR:-}\" ]" in first_task["Config"]["args"][0]
     assert groups[1]["Tasks"][0]["Name"] == "supernode-rpi-2"
     assert "Env" not in groups[1]["Tasks"][0]
+
+
+def test_render_deploy_netem_uses_configured_interface() -> None:
+    placements = [
+        SupernodePlacement(device_type="rpi", instance_idx=1, node_id=None),
+    ]
+    network_plan = plan_network(
+        assignments=[],
+        placements=placements,
+        default_profile="med",
+        interface="wlan0",
+        profiles={"med": {"delay_ms": 60}},
+    )
+    spec = default_deploy_spec(
+        num_supernodes=1,
+        image="example/superexec:latest",
+        experiment="exp-test",
+        supernodes_by_type={"rpi": 1},
+        allow_oversubscribe=True,
+        placements=placements,
+        network_plan=network_plan,
+        netem_image="example/netem:latest",
+    )
+    rendered = render_deploy(spec)
+    env = rendered.supernodes["Job"]["TaskGroups"][0]["Tasks"][0]["Env"]
+    assert env["NET_IFACE"] == "wlan0"
+    assert env["NET_INGRESS_IFACE"] == "wlan0"
+
+
+def test_render_deploy_netem_allows_auto_interface_selection() -> None:
+    placements = [
+        SupernodePlacement(device_type="rpi", instance_idx=1, node_id=None),
+    ]
+    network_plan = plan_network(
+        assignments=[],
+        placements=placements,
+        default_profile="med",
+        interface="auto",
+        profiles={"med": {"delay_ms": 60}},
+    )
+    spec = default_deploy_spec(
+        num_supernodes=1,
+        image="example/superexec:latest",
+        experiment="exp-test",
+        supernodes_by_type={"rpi": 1},
+        allow_oversubscribe=True,
+        placements=placements,
+        network_plan=network_plan,
+        netem_image="example/netem:latest",
+    )
+    rendered = render_deploy(spec)
+    env = rendered.supernodes["Job"]["TaskGroups"][0]["Tasks"][0]["Env"]
+    assert env["NET_IFACE"] == "auto"
+    assert env["NET_INGRESS_IFACE"] == "auto"
+    cmd = rendered.supernodes["Job"]["TaskGroups"][0]["Tasks"][0]["Config"]["args"][0]
+    assert 'Could not auto-select a netem interface' in cmd
+    assert 'cat /sys/class/net/wlan0/operstate' in cmd

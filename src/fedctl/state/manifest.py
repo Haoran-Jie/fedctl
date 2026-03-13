@@ -61,6 +61,7 @@ class SupernodePlacementManifest:
 class SupernodesNetworkManifest:
     scope: str
     default_profile: str
+    interface: str | None = None
     profiles: dict[str, dict[str, float | int]]
     assignments: dict[str, list[str]]
     ingress_profiles: dict[str, dict[str, float | int]] | None = None
@@ -75,6 +76,8 @@ class SupernodesNetworkManifest:
             "profiles": self.profiles,
             "assignments": self.assignments,
         }
+        if self.interface:
+            data["interface"] = self.interface
         if self.ingress_profiles:
             data["ingress_profiles"] = self.ingress_profiles
         if self.egress_profiles:

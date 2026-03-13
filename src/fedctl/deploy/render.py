@@ -191,8 +191,18 @@ def _supernodes_context(spec: DeploySpec) -> dict[str, Any]:
             egress_data = _profile_data(network_plan, egress_profile, direction="egress")
             ingress_data = _profile_data(network_plan, ingress_profile, direction="ingress")
             if egress_profile != "none" or ingress_profile != "none":
-                netem_env = _netem_env(egress_profile, egress_data)
-                netem_env.update(_netem_ingress_env(ingress_profile, ingress_data))
+                netem_env = _netem_env(
+                    egress_profile,
+                    egress_data,
+                    interface=network_plan.interface,
+                )
+                netem_env.update(
+                    _netem_ingress_env(
+                        ingress_profile,
+                        ingress_data,
+                        interface=network_plan.interface,
+                    )
+                )
                 task_args = [
                     _netem_wrapper_script(
                         _shell_exec_command(["flower-supernode", *args]),
@@ -305,13 +315,16 @@ def _netem_task_for_profile(
 
 
 def _netem_env(
-    profile_name: str, profile_data: dict[str, float | int]
+    profile_name: str,
+    profile_data: dict[str, float | int],
+    *,
+    interface: str = "eth0",
 ) -> dict[str, str]:
     if not profile_data:
-        return {"NET_PROFILE": "none", "NET_IFACE": "eth0"}
+        return {"NET_PROFILE": "none", "NET_IFACE": interface}
     env = {
         "NET_PROFILE": profile_name,
-        "NET_IFACE": "eth0",
+        "NET_IFACE": interface,
     }
     for key, env_key in (
         ("delay_ms", "NET_DELAY_MS"),
@@ -328,14 +341,17 @@ def _netem_env(
 
 
 def _netem_ingress_env(
-    profile_name: str, profile_data: dict[str, float | int]
+    profile_name: str,
+    profile_data: dict[str, float | int],
+    *,
+    interface: str = "eth0",
 ) -> dict[str, str]:
     if not profile_data or profile_name == "none":
         return {}
     env = {
         "NET_INGRESS_PROFILE": profile_name,
         "NET_INGRESS_ENABLED": "1",
-        "NET_INGRESS_IFACE": "eth0",
+        "NET_INGRESS_IFACE": interface,
         "NET_INGRESS_IFB": "ifb0",
     }
     for key, env_key in (
@@ -355,11 +371,28 @@ def _netem_ingress_env(
 def _netem_script() -> str:
     lines = [
         "set -eu",
-        'IFACE=\"$${NET_IFACE:-eth0}\"',
+        'RAW_IFACE=\"$${NET_IFACE:-eth0}\"',
+        'if [ \"$RAW_IFACE\" = \"auto\" ]; then',
+        '  if ip link show eth0 >/dev/null 2>&1 && [ \"$(cat /sys/class/net/eth0/operstate 2>/dev/null || echo down)\" = \"up\" ]; then',
+        '    IFACE=\"eth0\"',
+        '  elif ip link show wlan0 >/dev/null 2>&1 && [ \"$(cat /sys/class/net/wlan0/operstate 2>/dev/null || echo down)\" = \"up\" ]; then',
+        '    IFACE=\"wlan0\"',
+        "  else",
+        '    echo \"Could not auto-select a netem interface\" >&2',
+        "    exit 1",
+        "  fi",
+        "else",
+        '  IFACE=\"$RAW_IFACE\"',
+        "fi",
         'PROFILE=\"$${NET_PROFILE:-none}\"',
         'IN_PROFILE=\"$${NET_INGRESS_PROFILE:-none}\"',
         'IN_ENABLED=\"$${NET_INGRESS_ENABLED:-0}\"',
-        'IN_IFACE=\"$${NET_INGRESS_IFACE:-$${IFACE}}\"',
+        'RAW_IN_IFACE=\"$${NET_INGRESS_IFACE:-}\"',
+        'if [ -z \"$RAW_IN_IFACE\" ] || [ \"$RAW_IN_IFACE\" = \"auto\" ]; then',
+        '  IN_IFACE=\"$IFACE\"',
+        "else",
+        '  IN_IFACE=\"$RAW_IN_IFACE\"',
+        "fi",
         'IN_IFB=\"$${NET_INGRESS_IFB:-ifb0}\"',
         "tc qdisc del dev \"$IFACE\" root 2>/dev/null || true",
         "tc qdisc del dev \"$IN_IFB\" root 2>/dev/null || true",
@@ -416,11 +449,28 @@ def _netem_wrapper_script(
     lines = [
         "set -eu",
         'PATH="/python/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"',
-        'IFACE="$${NET_IFACE:-eth0}"',
+        'RAW_IFACE="$${NET_IFACE:-eth0}"',
+        'if [ \"$RAW_IFACE\" = \"auto\" ]; then',
+        '  if ip link show eth0 >/dev/null 2>&1 && [ \"$(cat /sys/class/net/eth0/operstate 2>/dev/null || echo down)\" = \"up\" ]; then',
+        '    IFACE=\"eth0\"',
+        '  elif ip link show wlan0 >/dev/null 2>&1 && [ \"$(cat /sys/class/net/wlan0/operstate 2>/dev/null || echo down)\" = \"up\" ]; then',
+        '    IFACE=\"wlan0\"',
+        "  else",
+        '    echo \"Could not auto-select a netem interface\" >&2',
+        "    exit 1",
+        "  fi",
+        "else",
+        '  IFACE=\"$RAW_IFACE\"',
+        "fi",
         'PROFILE="$${NET_PROFILE:-none}"',
         'IN_PROFILE="$${NET_INGRESS_PROFILE:-none}"',
         'IN_ENABLED="$${NET_INGRESS_ENABLED:-0}"',
-        'IN_IFACE="$${NET_INGRESS_IFACE:-$${IFACE}}"',
+        'RAW_IN_IFACE="$${NET_INGRESS_IFACE:-}"',
+        'if [ -z \"$RAW_IN_IFACE\" ] || [ \"$RAW_IN_IFACE\" = \"auto\" ]; then',
+        '  IN_IFACE=\"$IFACE\"',
+        "else",
+        '  IN_IFACE=\"$RAW_IN_IFACE\"',
+        "fi",
         'IN_IFB="$${NET_INGRESS_IFB:-ifb0}"',
         "tc qdisc del dev \"$IFACE\" root 2>/dev/null || true",
         "tc qdisc del dev \"$IN_IFB\" root 2>/dev/null || true",
@@ -567,8 +617,20 @@ def _superexec_serverapp_context(spec: DeploySpec) -> dict[str, Any]:
             task_args = [
                 _netem_wrapper_script(_shell_exec_command(["flower-superexec", *args]))
             ]
-            env.update(_netem_env(egress_profile, egress_data))
-            env.update(_netem_ingress_env(ingress_profile, ingress_data))
+            env.update(
+                _netem_env(
+                    egress_profile,
+                    egress_data,
+                    interface=network_plan.interface,
+                )
+            )
+            env.update(
+                _netem_ingress_env(
+                    ingress_profile,
+                    ingress_data,
+                    interface=network_plan.interface,
+                )
+            )
             user = "root"
             cap_add = ["NET_ADMIN"]
         else:
@@ -635,8 +697,20 @@ def _superexec_clientapp_context(
                     wait_timeout_s=60,
                 )
             ]
-            env.update(_netem_env(egress_profile, egress_data))
-            env.update(_netem_ingress_env(ingress_profile, ingress_data))
+            env.update(
+                _netem_env(
+                    egress_profile,
+                    egress_data,
+                    interface=network_plan.interface,
+                )
+            )
+            env.update(
+                _netem_ingress_env(
+                    ingress_profile,
+                    ingress_data,
+                    interface=network_plan.interface,
+                )
+            )
             user = "root"
             cap_add = ["NET_ADMIN"]
         else:
