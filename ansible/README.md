@@ -70,7 +70,7 @@ No playbook changes are needed for role-balanced scaling.
   - `docker_insecure_registries`
 - `group_vars/tailscale_nodes.yml`
   - `tailscale_enabled`
-  - `tailscale_auth_key`
+  - `tailscale_auth_key` (recommended via `TAILSCALE_AUTH_KEY` env var)
   - `tailscale_enable_ssh`
 - `group_vars/submit_service.yml`
   - `submit_repo_url`, `submit_repo_version`
@@ -82,7 +82,9 @@ No playbook changes are needed for role-balanced scaling.
 ## Optional hardening
 
 - Move `submit_tokens` into `group_vars/submit_service.vault.yml` encrypted with `ansible-vault`.
-- Move `tailscale_auth_key` out of `group_vars/tailscale_nodes.yml` if you do not want it stored in plain text.
+- Do not store `tailscale_auth_key` in plain text. The current setup reads it from the control-machine environment:
+  - `export TAILSCALE_AUTH_KEY=tskey-auth-...`
+  - `ansible-playbook -i inventories/prod/hosts.ini site.yml`
 - Submit-service can copy AWS config directly from the Ansible control machine using:
   - `submit_aws_credentials_src`
   - `submit_aws_config_src`

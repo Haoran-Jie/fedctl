@@ -1,5 +1,5 @@
 ---
 tailscale_enabled: true
-tailscale_auth_key: "tskey-auth-k7PGLqZ6a321CNTRL-S9uv8VMwvEV3qB8GZUy8FVq2YJDdeKFr9"
+tailscale_auth_key: "{{ lookup('env', 'TAILSCALE_AUTH_KEY') }}"
 tailscale_hostname: "{{ inventory_hostname }}"
 tailscale_enable_ssh: false

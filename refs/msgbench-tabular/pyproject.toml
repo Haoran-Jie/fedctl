@@ -1,0 +1,41 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "msgbench"
+version = "0.1.0"
+description = "Message-size benchmark app for Flower Deployment Engine"
+license = "Apache-2.0"
+dependencies = [
+    "flwr[simulation]>=1.22.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+
+[tool.flwr.app]
+publisher = "flwrlabs"
+
+[tool.flwr.app.components]
+serverapp = "msgbench.server_app:app"
+clientapp = "msgbench.client_app:app"
+
+[tool.flwr.app.config]
+num-server-rounds = 10
+msgbench-request-bytes = 65536
+msgbench-reply-bytes = 65536
+msgbench-fanout = 2
+msgbench-target-mode = "random"
+msgbench-target-node-ids = ""
+msgbench-timeout-s = 120.0
+
+[tool.flwr.federations]
+default = "remote-deployment"
+
+[tool.flwr.federations.local-simulation]
+options.num-supernodes = 3
+
+[tool.flwr.federations.remote-deployment]
+address = "192.168.1.135:23487"
+insecure = true
