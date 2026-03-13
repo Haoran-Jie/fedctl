@@ -93,6 +93,43 @@
     mode: "0600"
   notify: Restart fedctl-submit
 
+- name: Ensure AWS config directory exists for submit service user
+  ansible.builtin.file:
+    path: "{{ submit_aws_shared_credentials_file | dirname }}"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0700"
+  when:
+    - submit_aws_shared_credentials_file | length > 0
+    - submit_aws_credentials_src | length > 0 or submit_aws_config_src | length > 0
+
+- name: Write AWS credentials file for submit service
+  ansible.builtin.copy:
+    src: "{{ submit_aws_credentials_src }}"
+    dest: "{{ submit_aws_shared_credentials_file }}"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0600"
+  when:
+    - submit_aws_shared_credentials_file | length > 0
+    - submit_aws_credentials_src | length > 0
+  no_log: true
+  notify: Restart fedctl-submit
+
+- name: Write AWS config file for submit service
+  ansible.builtin.copy:
+    src: "{{ submit_aws_config_src }}"
+    dest: "{{ submit_aws_config_file }}"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0600"
+  when:
+    - submit_aws_config_file | length > 0
+    - submit_aws_config_src | length > 0
+  no_log: true
+  notify: Restart fedctl-submit
+
 - name: Write submit service systemd unit
   ansible.builtin.template:
     src: fedctl-submit.service.j2

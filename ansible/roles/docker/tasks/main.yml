@@ -18,6 +18,12 @@
     enabled: true
     state: started
 
+- name: Ensure ssh user is in docker group
+  ansible.builtin.user:
+    name: "{{ ansible_user }}"
+    groups: docker
+    append: true
+
 - name: Check existing daemon.json
   ansible.builtin.stat:
     path: /etc/docker/daemon.json

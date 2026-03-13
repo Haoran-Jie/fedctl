@@ -1,0 +1,5 @@
+---
+registry_container_name: "registry"
+registry_image: "registry:2"
+registry_port: 5000
+registry_data_dir: "/opt/registry/data"

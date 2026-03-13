@@ -1,0 +1,50 @@
+---
+- name: Ensure registry data directory exists
+  ansible.builtin.file:
+    path: "{{ registry_data_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Check existing registry container
+  ansible.builtin.command: "docker inspect {{ registry_container_name }}"
+  register: registry_inspect
+  changed_when: false
+  failed_when: false
+
+- name: Parse existing registry container details
+  ansible.builtin.set_fact:
+    registry_container_details: "{{ (registry_inspect.stdout | from_json)[0] }}"
+  when: registry_inspect.rc == 0
+
+- name: Pull registry image
+  ansible.builtin.command: "docker pull {{ registry_image }}"
+  register: registry_pull
+  changed_when: "'Downloaded newer image' in registry_pull.stdout or 'Status: Downloaded newer image' in registry_pull.stdout"
+
+- name: Ensure registry restart policy is always
+  ansible.builtin.command: "docker update --restart always {{ registry_container_name }}"
+  when:
+    - registry_inspect.rc == 0
+    - registry_container_details.HostConfig.RestartPolicy.Name != 'always'
+  register: registry_update
+  changed_when: "'registry' in registry_update.stdout"
+
+- name: Ensure existing registry container is running
+  ansible.builtin.command: "docker start {{ registry_container_name }}"
+  when:
+    - registry_inspect.rc == 0
+    - not registry_container_details.State.Running
+  register: registry_start
+  changed_when: "'{{ registry_container_name }}' in registry_start.stdout"
+
+- name: Create registry container when absent
+  ansible.builtin.command: >-
+    docker run -d
+    --name {{ registry_container_name }}
+    --restart always
+    -p {{ registry_port }}:5000
+    -v {{ registry_data_dir }}:/var/lib/registry
+    {{ registry_image }}
+  when: registry_inspect.rc != 0

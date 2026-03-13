@@ -17,6 +17,8 @@ submit_aws_shared_credentials_file: ""
 submit_aws_config_file: ""
 submit_aws_profile: ""
 submit_aws_region: ""
+submit_aws_credentials_src: ""
+submit_aws_config_src: ""
 submit_tokens: []
 submit_repo_config_path: "/etc/fedctl/cluster-fedctl.yaml"
 submit_legacy_repo_config_path: "{{ submit_repo_dir }}/.fedctl/fedctl.yaml"

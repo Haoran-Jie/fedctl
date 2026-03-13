@@ -11,3 +11,20 @@
       - unzip
     state: present
     update_cache: true
+
+- name: Set system hostname from inventory
+  ansible.builtin.hostname:
+    name: "{{ inventory_hostname }}"
+
+- name: Ensure localhost hostname mapping exists
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: '^127\\.0\\.1\\.1\\s+'
+    line: "127.0.1.1 {{ inventory_hostname }}"
+    state: present
+
+- name: Ensure systemd-timesyncd is enabled and running
+  ansible.builtin.systemd:
+    name: systemd-timesyncd
+    enabled: true
+    state: started
