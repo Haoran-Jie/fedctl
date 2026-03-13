@@ -12,3 +12,4 @@ rendered/
 .fedctl/
 results/
 submit_service/state/*.db
+ansible/group_vars/tailscale_nodes.local.yml

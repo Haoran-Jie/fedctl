@@ -27,6 +27,7 @@ deploy:
   network:
     image: "jiahborcn/netem:latest"
     default_profile: none
+    interface: eth0
     apply:
       superexec_serverapp: false
       superexec_clientapp: false
