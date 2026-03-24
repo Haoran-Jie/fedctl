@@ -1703,9 +1703,9 @@ th { font-size: 0.9rem; color: var(--muted); }
   gap: 0.9rem;
   margin-bottom: 1.2rem;
 }
-.class-summary-grid {
+.role-summary-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 0.9rem;
   margin-bottom: 1.2rem;
 }
@@ -1728,60 +1728,78 @@ th { font-size: 0.9rem; color: var(--muted); }
   margin-top: 0.35rem;
   font-size: 1.7rem;
 }
-.class-summary-card {
+.role-summary-card {
   background: rgba(248, 252, 252, 0.94);
   border: 1px solid rgba(214, 207, 191, 0.95);
   border-radius: 18px;
-  padding: 1rem 1.05rem;
+  padding: 1rem 1.05rem 1.05rem;
   box-shadow: 0 6px 18px rgba(36, 64, 73, 0.08);
 }
-.class-summary-head {
+.role-summary-head {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
 }
-.class-summary-head span {
+.role-summary-copy {
+  min-width: 0;
+}
+.role-summary-label {
+  display: block;
   color: var(--muted);
   font-size: 0.82rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
-.class-summary-head strong {
-  font-size: 1.8rem;
+.role-summary-total {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 2rem;
   line-height: 1;
 }
-.class-summary-metrics {
+.role-summary-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  padding: 0.34rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(18, 51, 63, 0.08);
+  color: var(--accent-dark);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.role-summary-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.7rem;
   margin-top: 0.95rem;
 }
-.class-summary-metric {
+.role-summary-stat {
   display: grid;
   gap: 0.18rem;
   padding: 0.7rem 0.75rem;
   border-radius: 14px;
   background: rgba(18, 51, 63, 0.04);
 }
-.class-summary-label {
+.role-summary-stat-label {
   color: var(--muted);
   font-size: 0.74rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
-.class-summary-value {
+.role-summary-stat-value {
   display: block;
   font-size: 1.05rem;
   font-weight: 700;
 }
-.class-summary-link {
+.role-summary-link {
   border-color: rgba(61, 120, 183, 0.22);
 }
-.class-summary-submit {
+.role-summary-submit {
   border-color: rgba(29, 111, 95, 0.24);
 }
-.class-summary-node {
+.role-summary-node {
   border-color: rgba(176, 110, 36, 0.24);
 }
 .quick-command {
@@ -1855,32 +1873,60 @@ th { font-size: 0.9rem; color: var(--muted); }
 .node-details-cell {
   min-width: 11rem;
 }
+.node-details {
+  min-width: 0;
+}
 .node-details summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
   cursor: pointer;
   color: var(--accent-dark);
   font-weight: 700;
+  list-style: none;
+}
+.node-details summary::-webkit-details-marker {
+  display: none;
+}
+.node-details summary::before {
+  content: "▸";
+  font-size: 0.82rem;
+  transition: transform 180ms ease;
 }
 .node-details[open] summary {
   margin-bottom: 0.65rem;
 }
-.node-detail-list {
+.node-details[open] summary::before {
+  transform: rotate(90deg);
+}
+.node-detail-grid {
   display: grid;
   gap: 0.55rem;
-  margin: 0;
+  padding: 0.15rem 0 0;
 }
-.node-detail-list > div {
+.node-detail-row {
   display: grid;
-  gap: 0.15rem;
+  grid-template-columns: minmax(4.5rem, 5.5rem) minmax(0, 1fr);
+  gap: 0.65rem;
+  align-items: start;
+  padding: 0.4rem 0;
+  border-top: 1px solid rgba(200, 214, 216, 0.72);
 }
-.node-detail-list dt {
+.node-detail-row:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+.node-detail-key {
   color: var(--muted);
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
+  font-weight: 700;
 }
-.node-detail-list dd {
-  margin: 0;
+.node-detail-value {
   font-size: 0.92rem;
+  line-height: 1.45;
+  font-weight: 600;
 }
 .toast-stack {
   position: fixed;

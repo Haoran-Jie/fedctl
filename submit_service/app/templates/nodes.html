@@ -35,25 +35,28 @@
   </article>
 </section>
 
-<section class="class-summary-grid">
+<section class="role-summary-grid">
   {% for summary in class_summaries %}
-  <article class="class-summary-card class-summary-{{ summary.key }}">
-    <div class="class-summary-head">
-      <span>{{ summary.label }}</span>
-      <strong>{{ summary.total }}</strong>
+  <article class="role-summary-card role-summary-{{ summary.key }}">
+    <div class="role-summary-head">
+      <div class="role-summary-copy">
+        <span class="role-summary-label">{{ summary.label }}</span>
+        <strong class="role-summary-total">{{ summary.total }}</strong>
+      </div>
+      <span class="role-summary-chip">{{ summary.total }} node{% if summary.total != 1 %}s{% endif %}</span>
     </div>
-    <div class="class-summary-metrics">
-      <div class="class-summary-metric">
-        <span class="class-summary-label">Ready</span>
-        <strong class="class-summary-value">{{ summary.ready }}</strong>
+    <div class="role-summary-stats">
+      <div class="role-summary-stat">
+        <span class="role-summary-stat-label">Ready</span>
+        <strong class="role-summary-stat-value">{{ summary.ready }}</strong>
       </div>
-      <div class="class-summary-metric">
-        <span class="class-summary-label">Busy</span>
-        <strong class="class-summary-value">{{ summary.busy }}</strong>
+      <div class="role-summary-stat">
+        <span class="role-summary-stat-label">Busy</span>
+        <strong class="role-summary-stat-value">{{ summary.busy }}</strong>
       </div>
-      <div class="class-summary-metric">
-        <span class="class-summary-label">Down</span>
-        <strong class="class-summary-value">{{ summary.down }}</strong>
+      <div class="role-summary-stat">
+        <span class="role-summary-stat-label">Down</span>
+        <strong class="role-summary-stat-value">{{ summary.down }}</strong>
       </div>
     </div>
   </article>
@@ -112,28 +115,28 @@
             <td class="node-details-cell">
               <details class="node-details">
                 <summary>Inspect</summary>
-                <dl class="node-detail-list">
-                  <div>
-                    <dt>ID</dt>
-                    <dd class="wrap">{{ node.id }}</dd>
+                <div class="node-detail-grid">
+                  <div class="node-detail-row">
+                    <span class="node-detail-key">ID</span>
+                    <span class="node-detail-value wrap">{{ node.id }}</span>
                   </div>
-                  <div>
-                    <dt>Class</dt>
-                    <dd>{{ node.node_class }}</dd>
+                  <div class="node-detail-row">
+                    <span class="node-detail-key">Class</span>
+                    <span class="node-detail-value">{{ node.node_class }}</span>
                   </div>
-                  <div>
-                    <dt>Device</dt>
-                    <dd>{{ node.device_type }}</dd>
+                  <div class="node-detail-row">
+                    <span class="node-detail-key">Device</span>
+                    <span class="node-detail-value">{{ node.device_type }}</span>
                   </div>
-                  <div>
-                    <dt>Status</dt>
-                    <dd>{{ node.status }}</dd>
+                  <div class="node-detail-row">
+                    <span class="node-detail-key">Status</span>
+                    <span class="node-detail-value">{{ node.status }}</span>
                   </div>
-                  <div>
-                    <dt>Allocations</dt>
-                    <dd>{{ node.alloc_summary }}</dd>
+                  <div class="node-detail-row">
+                    <span class="node-detail-key">Allocations</span>
+                    <span class="node-detail-value">{{ node.alloc_summary }}</span>
                   </div>
-                </dl>
+                </div>
               </details>
             </td>
           </tr>
