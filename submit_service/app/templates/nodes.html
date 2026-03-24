@@ -42,20 +42,20 @@
       <span>{{ summary.label }}</span>
       <strong>{{ summary.total }}</strong>
     </div>
-    <dl class="class-summary-metrics">
-      <div>
-        <dt>Ready</dt>
-        <dd>{{ summary.ready }}</dd>
+    <div class="class-summary-metrics">
+      <div class="class-summary-metric">
+        <span class="class-summary-label">Ready</span>
+        <strong class="class-summary-value">{{ summary.ready }}</strong>
       </div>
-      <div>
-        <dt>Busy</dt>
-        <dd>{{ summary.busy }}</dd>
+      <div class="class-summary-metric">
+        <span class="class-summary-label">Busy</span>
+        <strong class="class-summary-value">{{ summary.busy }}</strong>
       </div>
-      <div>
-        <dt>Down</dt>
-        <dd>{{ summary.down }}</dd>
+      <div class="class-summary-metric">
+        <span class="class-summary-label">Down</span>
+        <strong class="class-summary-value">{{ summary.down }}</strong>
       </div>
-    </dl>
+    </div>
   </article>
   {% endfor %}
 </section>

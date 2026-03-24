@@ -1755,20 +1755,23 @@ th { font-size: 0.9rem; color: var(--muted); }
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.7rem;
-  margin: 0.95rem 0 0;
+  margin-top: 0.95rem;
 }
-.class-summary-metrics > div {
+.class-summary-metric {
   display: grid;
   gap: 0.18rem;
+  padding: 0.7rem 0.75rem;
+  border-radius: 14px;
+  background: rgba(18, 51, 63, 0.04);
 }
-.class-summary-metrics dt {
+.class-summary-label {
   color: var(--muted);
   font-size: 0.74rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
-.class-summary-metrics dd {
-  margin: 0;
+.class-summary-value {
+  display: block;
   font-size: 1.05rem;
   font-weight: 700;
 }
