@@ -4,10 +4,10 @@ nomad_version: "1.11.1"
 nomad_datacenter: "dc1"
 nomad_data_dir: "/opt/nomad/data"
 nomad_bind_addr: "0.0.0.0"
-nomad_advertise_ip: "{{ ansible_host }}"
+nomad_advertise_ip: "{{ cluster_node_ip | default(ansible_host) }}"
 
 # Cluster control-plane addressing derived from inventory.
-cluster_nomad_server_host: "{{ hostvars[groups['nomad_servers'][0]].ansible_host }}"
+cluster_nomad_server_host: "{{ hostvars[groups['nomad_servers'][0]].cluster_node_ip | default(hostvars[groups['nomad_servers'][0]].ansible_host) }}"
 cluster_registry_hostport: "{{ cluster_nomad_server_host }}:5000"
 
 # Keep list in sync with your server quorum.

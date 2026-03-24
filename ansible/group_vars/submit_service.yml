@@ -23,7 +23,7 @@ submit_legacy_repo_config_path: "/opt/fedctl/.fedctl/fedctl.yaml"
 submit_cluster_repo_config:
   deploy:
     supernodes:
-      rpi: 2
+      rpi5: 2
       jetson: 2
     placement:
       allow_oversubscribe: true
@@ -33,7 +33,7 @@ submit_cluster_repo_config:
         default:
           cpu: 500
           mem: 512
-        rpi:
+        rpi5:
           cpu: 500
           mem: 512
         jetson:

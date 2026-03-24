@@ -105,10 +105,10 @@ def test_render_deploy_superexec_jobs() -> None:
 
 def test_render_deploy_supernodes_netem_task() -> None:
     placements = [
-        SupernodePlacement(device_type="rpi", instance_idx=1, node_id=None),
-        SupernodePlacement(device_type="rpi", instance_idx=2, node_id=None),
+        SupernodePlacement(device_type="rpi5", instance_idx=1, node_id=None),
+        SupernodePlacement(device_type="rpi5", instance_idx=2, node_id=None),
     ]
-    assignments = parse_net_assignments(["rpi[1]=med"])
+    assignments = parse_net_assignments(["rpi5[1]=med"])
     network_plan = plan_network(
         assignments=assignments,
         placements=placements,
@@ -119,7 +119,7 @@ def test_render_deploy_supernodes_netem_task() -> None:
         num_supernodes=2,
         image="example/superexec:latest",
         experiment="exp-test",
-        supernodes_by_type={"rpi": 2},
+        supernodes_by_type={"rpi5": 2},
         allow_oversubscribe=True,
         placements=placements,
         network_plan=network_plan,
@@ -128,18 +128,18 @@ def test_render_deploy_supernodes_netem_task() -> None:
     rendered = render_deploy(spec)
     groups = rendered.supernodes["Job"]["TaskGroups"]
     first_task = groups[0]["Tasks"][0]
-    assert first_task["Name"] == "supernode-rpi-1"
+    assert first_task["Name"] == "supernode-rpi5-1"
     assert first_task["Config"]["entrypoint"] == ["/bin/sh", "-lc"]
     assert first_task["Config"]["cap_add"] == ["NET_ADMIN"]
     assert first_task["Env"]["NET_PROFILE"] == "med"
     assert "while [ -z \"$${SUP_LINK_ADDR:-}\" ]" in first_task["Config"]["args"][0]
-    assert groups[1]["Tasks"][0]["Name"] == "supernode-rpi-2"
+    assert groups[1]["Tasks"][0]["Name"] == "supernode-rpi5-2"
     assert "Env" not in groups[1]["Tasks"][0]
 
 
 def test_render_deploy_netem_uses_configured_interface() -> None:
     placements = [
-        SupernodePlacement(device_type="rpi", instance_idx=1, node_id=None),
+        SupernodePlacement(device_type="rpi5", instance_idx=1, node_id=None),
     ]
     network_plan = plan_network(
         assignments=[],
@@ -152,7 +152,7 @@ def test_render_deploy_netem_uses_configured_interface() -> None:
         num_supernodes=1,
         image="example/superexec:latest",
         experiment="exp-test",
-        supernodes_by_type={"rpi": 1},
+        supernodes_by_type={"rpi5": 1},
         allow_oversubscribe=True,
         placements=placements,
         network_plan=network_plan,
@@ -166,7 +166,7 @@ def test_render_deploy_netem_uses_configured_interface() -> None:
 
 def test_render_deploy_netem_allows_auto_interface_selection() -> None:
     placements = [
-        SupernodePlacement(device_type="rpi", instance_idx=1, node_id=None),
+        SupernodePlacement(device_type="rpi5", instance_idx=1, node_id=None),
     ]
     network_plan = plan_network(
         assignments=[],
@@ -179,7 +179,7 @@ def test_render_deploy_netem_allows_auto_interface_selection() -> None:
         num_supernodes=1,
         image="example/superexec:latest",
         experiment="exp-test",
-        supernodes_by_type={"rpi": 1},
+        supernodes_by_type={"rpi5": 1},
         allow_oversubscribe=True,
         placements=placements,
         network_plan=network_plan,

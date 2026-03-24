@@ -14,7 +14,7 @@ _DEFAULT_REPO_CONFIG_TEXT = """# Default fedctl repo config.
 
 deploy:
   supernodes:
-    rpi: 2
+    rpi5: 2
     jetson: 2
   placement:
     allow_oversubscribe: true
@@ -22,7 +22,7 @@ deploy:
   resources:
     supernode:
       default: { cpu: 500, mem: 512 }
-      rpi: { cpu: 500, mem: 512 }
+      rpi5: { cpu: 500, mem: 512 }
       jetson: { cpu: 1000, mem: 1024 }
   network:
     image: "jiahborcn/netem:latest"

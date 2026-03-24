@@ -11,7 +11,14 @@ This directory automates your hardware deployment so you can scale from 4 RPis t
 - `1` supernode client (`rpi5-004`)
 - additional commented `rpi5-005` to `rpi5-024` entries for later scale-out
 
-If your IPs differ, edit `ansible_host` values.
+If your IPs differ, edit inventory host vars.
+
+- `ansible_host`: how Ansible/SSH reaches the node
+- `cluster_node_ip`: the cluster LAN IP that Nomad and the local registry should advertise/use
+
+When you are remote and connecting over Tailscale, set:
+- `ansible_host=<tailscale-ip>`
+- `cluster_node_ip=<local 192.168.x.x IP>`
 
 ## What this playbook manages
 
