@@ -858,6 +858,7 @@ def _runner_args(
     destroy: bool,
 ) -> list[str]:
     project_dir = project_dir_name or "."
+    use_typed_supernodes = bool(supernodes)
     args = [
         "-m",
         "fedctl.submit.runner",
@@ -869,13 +870,13 @@ def _runner_args(
         exp_name,
         "--flwr-version",
         flwr_version,
-        "--num-supernodes",
-        str(num_supernodes),
         "--timeout",
         str(timeout_seconds),
         "--federation",
         federation,
     ]
+    if not use_typed_supernodes:
+        args.extend(["--num-supernodes", str(num_supernodes)])
     if image:
         args.extend(["--image", image])
     if no_cache:
@@ -963,11 +964,11 @@ def _original_submit_request(
     priority: int,
 ) -> dict[str, object]:
     cwd = Path.cwd()
+    use_typed_supernodes = bool(supernodes)
     options: dict[str, object] = {
         "path": path,
         "experiment": experiment,
         "flwr_version": flwr_version,
-        "num_supernodes": num_supernodes,
         "federation": federation,
         "timeout": timeout_seconds,
         "priority": priority,
@@ -975,6 +976,8 @@ def _original_submit_request(
         "stream": stream,
         "auto_supernodes": auto_supernodes,
     }
+    if not use_typed_supernodes:
+        options["num_supernodes"] = num_supernodes
     if image:
         options["image"] = image
     if no_cache:

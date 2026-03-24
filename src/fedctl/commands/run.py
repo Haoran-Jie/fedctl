@@ -135,6 +135,8 @@ def run_run(
             console.print(f"[red]✗ Build error:[/red] {exc}")
             return 1
 
+    deploy_num_supernodes = None if supernodes else num_supernodes
+
     _print_step(3, 5, "Deploy to Nomad")
     resolved_repo_config = _resolve_run_repo_config(
         repo_config=repo_config,
@@ -144,7 +146,7 @@ def run_run(
         dry_run=False,
         out=None,
         fmt="json",
-        num_supernodes=num_supernodes,
+        num_supernodes=deploy_num_supernodes,
         supernodes=supernodes,
         net=net,
         allow_oversubscribe=allow_oversubscribe,
