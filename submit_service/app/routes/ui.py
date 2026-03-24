@@ -416,6 +416,7 @@ def nodes_page(
         if search_query and not _node_matches_query(view, search_query):
             continue
         filtered.append(view)
+    filtered.sort(key=_node_sort_key)
     return _render(
         request,
         "nodes.html",
@@ -765,6 +766,14 @@ def _is_primary_artifact(name: str) -> bool:
 def _is_presigned_url(url: str) -> bool:
     lower = url.lower()
     return "x-amz-signature=" in lower or "x-amz-algorithm=" in lower
+
+
+def _node_sort_key(node: dict[str, Any]) -> tuple[int, str, str]:
+    class_order = {"link": 0, "submit": 1, "node": 2}
+    node_class = str(node.get("node_class") or "").strip().lower()
+    name = str(node.get("name") or "").strip().lower()
+    node_id = str(node.get("id") or "").strip().lower()
+    return (class_order.get(node_class, 99), name, node_id)
 
 
 def _node_view(node: dict[str, Any]) -> dict[str, Any]:
