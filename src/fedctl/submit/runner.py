@@ -609,7 +609,7 @@ class _LogArchiver:
                 except Exception as exc:
                     logger.info("log archiver: allocations unavailable job=%s err=%s", job_id, exc)
                     continue
-                alloc = _latest_alloc(allocs)
+                alloc = _latest_alloc_for_task(allocs, task)
                 if not alloc:
                     continue
                 alloc_id = alloc.get("ID")
@@ -773,6 +773,42 @@ def _latest_alloc(allocs: object) -> dict[str, object] | None:
         return None
     candidates.sort(key=_alloc_sort_key, reverse=True)
     return candidates[0]
+
+
+def _latest_alloc_for_task(allocs: object, task: str) -> dict[str, object] | None:
+    alloc = _latest_matching_alloc(allocs, task)
+    if alloc is not None:
+        return alloc
+    return _latest_alloc(allocs)
+
+
+def _latest_matching_alloc(allocs: object, task: str) -> dict[str, object] | None:
+    if not isinstance(allocs, list) or not allocs:
+        return None
+    candidates = [
+        alloc
+        for alloc in allocs
+        if isinstance(alloc, dict) and _alloc_has_task(alloc, task)
+    ]
+    if not candidates:
+        return None
+    candidates.sort(key=_alloc_sort_key, reverse=True)
+    return candidates[0]
+
+
+def _alloc_has_task(alloc: dict[str, object], task: str) -> bool:
+    task_states = alloc.get("TaskStates")
+    if isinstance(task_states, dict) and task in task_states:
+        return True
+    task_resources = alloc.get("TaskResources")
+    if isinstance(task_resources, dict) and task in task_resources:
+        return True
+    allocated_resources = alloc.get("AllocatedResources")
+    if isinstance(allocated_resources, dict):
+        tasks = allocated_resources.get("Tasks")
+        if isinstance(tasks, dict) and task in tasks:
+            return True
+    return False
 
 
 def _alloc_sort_key(alloc: dict[str, object]) -> int:

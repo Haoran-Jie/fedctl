@@ -264,3 +264,65 @@ def test_logs_falls_back_to_archived_when_nomad_unavailable(
     )
     assert superlink_logs.status_code == 200
     assert superlink_logs.text == "archived superlink stderr"
+
+
+def test_logs_use_index_to_resolve_supernode_task_and_matching_alloc(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = _make_client(tmp_path, monkeypatch)
+    storage = client.app.state.storage
+    submission_id = client.post("/v1/submissions", json=_payload()).json()["submission_id"]
+    storage.update_submission(
+        submission_id,
+        {
+            "jobs": {
+                "supernodes": {
+                    "job_id": "job-supernodes",
+                    "tasks": ["supernode-rpi4-1", "supernode-rpi5-1"],
+                }
+            }
+        },
+    )
+    client.app.state.cfg.nomad_endpoint = "http://nomad.example:4646"
+
+    class FakeNomadClient:
+        def __init__(self, *args, **kwargs):
+            self.calls: list[tuple[str, str]] = []
+
+        def job_allocations(self, job_id: str):
+            assert job_id == "job-supernodes"
+            return [
+                {
+                    "ID": "alloc-newer-wrong-task",
+                    "ModifyTime": 20,
+                    "TaskStates": {"supernode-rpi4-1": {}},
+                },
+                {
+                    "ID": "alloc-older-correct-task",
+                    "ModifyTime": 10,
+                    "TaskStates": {"supernode-rpi5-1": {}},
+                },
+            ]
+
+        def alloc_logs(self, alloc_id: str, task: str, *, stderr: bool = True, follow: bool = False):
+            assert alloc_id == "alloc-older-correct-task"
+            assert task == "supernode-rpi5-1"
+            assert stderr is True
+            assert follow is False
+            return "live supernode stderr"
+
+        def close(self) -> None:
+            return None
+
+    monkeypatch.setattr(
+        "submit_service.app.submissions_service.NomadClient",
+        FakeNomadClient,
+    )
+
+    response = client.get(
+        f"/v1/submissions/{submission_id}/logs",
+        params={"job": "supernodes", "index": 2},
+    )
+
+    assert response.status_code == 200
+    assert response.text == "live supernode stderr"

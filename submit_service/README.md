@@ -174,6 +174,14 @@ When submit-runner cleanup destroys Nomad jobs, live allocation logs disappear. 
 now reports a pre-destroy log archive to submit-service, and `GET /v1/submissions/{id}/logs`
 falls back to archived logs if live Nomad logs are unavailable.
 
+For grouped jobs:
+- `job=supernodes`: select one supernode by `task` or by `index`
+- `job=superexec_clientapps`: select one clientapp job by `index`
+
+When live Nomad logs are available, submit-service resolves the stored job mapping first,
+then picks the newest allocation that actually contains the requested task. Archived logs
+remain the post-cleanup source of truth.
+
 ### Example request
 
 ```bash

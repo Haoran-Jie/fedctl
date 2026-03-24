@@ -210,7 +210,7 @@ def resolve_submission_logs_detail(
     )
     try:
         allocs = client.job_allocations(nomad_job_id)
-        alloc = latest_alloc(allocs)
+        alloc = latest_alloc_for_task(allocs, resolved_task)
         if not alloc:
             if archived is not None:
                 return ResolvedLogs(content=archived, source="archived")
@@ -300,6 +300,42 @@ def latest_alloc(allocs: object) -> dict[str, Any] | None:
 
 
 
+def latest_alloc_for_task(allocs: object, task: str) -> dict[str, Any] | None:
+    alloc = latest_matching_alloc(allocs, task)
+    if alloc is not None:
+        return alloc
+    return latest_alloc(allocs)
+
+
+def latest_matching_alloc(allocs: object, task: str) -> dict[str, Any] | None:
+    if not isinstance(allocs, list) or not allocs:
+        return None
+    candidates = [
+        alloc
+        for alloc in allocs
+        if isinstance(alloc, dict) and alloc_has_task(alloc, task)
+    ]
+    if not candidates:
+        return None
+    candidates.sort(key=alloc_sort_key, reverse=True)
+    return candidates[0]
+
+
+def alloc_has_task(alloc: dict[str, Any], task: str) -> bool:
+    task_states = alloc.get("TaskStates")
+    if isinstance(task_states, dict) and task in task_states:
+        return True
+    task_resources = alloc.get("TaskResources")
+    if isinstance(task_resources, dict) and task in task_resources:
+        return True
+    allocated_resources = alloc.get("AllocatedResources")
+    if isinstance(allocated_resources, dict):
+        tasks = allocated_resources.get("Tasks")
+        if isinstance(tasks, dict) and task in tasks:
+            return True
+    return False
+
+
 def alloc_sort_key(alloc: dict[str, Any]) -> int:
     for key in ("ModifyTime", "CreateTime"):
         value = alloc.get(key)
@@ -347,12 +383,16 @@ def resolve_nomad_job(
     tasks = info.get("tasks") if isinstance(info.get("tasks"), list) else None
     if tasks:
         clean = [t for t in tasks if isinstance(t, str)]
+        if not clean:
+            raise HTTPException(status_code=404, detail=f"No tasks for: {job}")
+        if index > len(clean):
+            raise HTTPException(
+                status_code=404,
+                detail=f"Task index out of range for {job}: {index}",
+            )
         if len(clean) == 1:
             return job_id, clean[0]
-        raise HTTPException(
-            status_code=400,
-            detail=f"Multiple tasks for {job}; specify task. Options: {clean}",
-        )
+        return job_id, clean[index - 1]
 
     return job_id, job_id
 

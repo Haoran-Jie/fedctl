@@ -291,7 +291,7 @@ def submit_logs(
         help=(
             "Nomad task name within the job. Examples: submit, superlink, "
             "superexec-serverapp, supernode-1, supernode-rpi-1. "
-            "Required for job=supernodes."
+            "For job=supernodes, you can use either --task or --index."
         ),
     ),
     index: int = typer.Option(
@@ -299,8 +299,8 @@ def submit_logs(
         "--index",
         min=1,
         help=(
-            "Job index for multi-job groups (e.g., superexec_clientapps). "
-            "Example: --job superexec_clientapps --index 2"
+            "Job/task index for grouped jobs (e.g., supernodes, superexec_clientapps). "
+            "Example: --job supernodes --index 2"
         ),
     ),
     stderr: bool = typer.Option(False, "--stderr/--stdout", help="Show stderr or stdout."),
@@ -312,6 +312,7 @@ def submit_logs(
       fedctl submit logs <id>
       fedctl submit logs <id> --job superlink
       fedctl submit logs <id> --job supernodes --task supernode-1
+      fedctl submit logs <id> --job supernodes --index 2
       fedctl submit logs <id> --job superexec_clientapps --index 2
     """
     from fedctl.commands.submit import run_submit_logs

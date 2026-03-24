@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fedctl.submit.runner import _LogArchiver, _truncate_log_text
+from fedctl.submit.runner import _LogArchiver, _latest_alloc_for_task, _truncate_log_text
 
 
 def test_log_archiver_builds_targets_for_default_topology() -> None:
@@ -35,3 +35,23 @@ def test_truncate_log_text_keeps_head_and_tail() -> None:
     assert "log truncated for archive size" in truncated
     assert truncated.startswith("A" * 20)
     assert truncated.endswith("B" * 20)
+
+
+def test_latest_alloc_for_task_prefers_matching_alloc() -> None:
+    allocs = [
+        {
+            "ID": "alloc-newer-wrong-task",
+            "ModifyTime": 20,
+            "TaskStates": {"supernode-rpi5-2": {}},
+        },
+        {
+            "ID": "alloc-older-correct-task",
+            "ModifyTime": 10,
+            "AllocatedResources": {"Tasks": {"supernode-rpi5-1": {}}},
+        },
+    ]
+
+    alloc = _latest_alloc_for_task(allocs, "supernode-rpi5-1")
+
+    assert alloc is not None
+    assert alloc["ID"] == "alloc-older-correct-task"

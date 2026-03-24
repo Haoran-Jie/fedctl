@@ -191,8 +191,8 @@ Fetch logs for a submitted job.
 
 Flags:
 - `--job <name>`: One of `submit`, `superlink`, `supernodes`, `superexec_serverapp`, `superexec_clientapps`.
-- `--task <name>`: Task name inside job (required for `supernodes`).
-- `--index <n>`: Job index (for clientapp multi-job).
+- `--task <name>`: Task name inside job.
+- `--index <n>`: Index for grouped jobs. Use this for `superexec_clientapps`, and optionally for `supernodes`.
 - `--stderr / --stdout`: Select stream.
 - `--follow`: Stream logs.
 
@@ -200,6 +200,7 @@ Examples:
 ```bash
 fedctl submit logs <id>
 fedctl submit logs <id> --job supernodes --task supernode-1
+fedctl submit logs <id> --job supernodes --index 2
 fedctl submit logs <id> --job superexec_clientapps --index 2
 ```
 

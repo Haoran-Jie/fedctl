@@ -89,10 +89,11 @@ _HELP_COMMANDS = [
         "examples": [
             "fedctl submit logs sub-20260227182713-5413",
             "fedctl submit logs sub-20260227182713-5413 --job superlink --stderr",
+            "fedctl submit logs sub-20260227182713-5413 --job supernodes --index 2",
             "fedctl submit logs sub-20260227182713-5413 --job superexec_clientapps --index 2 --stdout",
         ],
         "notes": [
-            "Use --job supernodes with --task to target a specific supernode task.",
+            "Use --job supernodes with either --task or --index to target one supernode task.",
             "When Nomad allocations are gone, the service falls back to archived logs if available.",
         ],
     },

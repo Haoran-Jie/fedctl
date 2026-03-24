@@ -96,6 +96,15 @@ Common `--job` values:
 - `superexec_serverapp`
 - `superexec_clientapps`
 
+Selection rules:
+- `submit`, `superlink`, `superexec_serverapp`: usually no `--index` needed
+- `supernodes`: use either `--task` or `--index`
+- `superexec_clientapps`: use `--index`
+
+When submit-service is configured, it is the preferred retrieval path:
+- live logs come from the mapped Nomad job/allocation
+- archived logs are used automatically after Nomad cleanup
+
 ### `fedctl submit ls`
 
 List submissions.
