@@ -35,6 +35,31 @@
   </article>
 </section>
 
+<section class="class-summary-grid">
+  {% for summary in class_summaries %}
+  <article class="class-summary-card class-summary-{{ summary.key }}">
+    <div class="class-summary-head">
+      <span>{{ summary.label }}</span>
+      <strong>{{ summary.total }}</strong>
+    </div>
+    <dl class="class-summary-metrics">
+      <div>
+        <dt>Ready</dt>
+        <dd>{{ summary.ready }}</dd>
+      </div>
+      <div>
+        <dt>Busy</dt>
+        <dd>{{ summary.busy }}</dd>
+      </div>
+      <div>
+        <dt>Down</dt>
+        <dd>{{ summary.down }}</dd>
+      </div>
+    </dl>
+  </article>
+  {% endfor %}
+</section>
+
 <section class="panel dashboard-panel" data-sticky-panel>
   <div class="section-head sticky-shell" data-sticky-shell>
     <div class="section-copy">
@@ -52,32 +77,72 @@
   <div class="alert error">{{ error }}</div>
   {% endif %}
   {% if nodes %}
-  <table class="data-table">
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>ID</th>
-        <th>Status</th>
-        <th>Node class</th>
-        <th>Device type</th>
-        <th>Alloc count</th>
-        <th>Alloc summary</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for node in nodes %}
-      <tr>
-        <td>{{ node.name }}</td>
-        <td class="wrap">{{ node.id }}</td>
-        <td>{% set status = node.status %}{% include '_status_badge.html' %}</td>
-        <td>{{ node.node_class }}</td>
-        <td>{{ node.device_type }}</td>
-        <td>{{ node.alloc_count }}</td>
-        <td class="wrap">{{ node.alloc_summary }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div class="node-groups">
+    {% for group in class_groups %}
+    <section class="node-group">
+      <div class="node-group-head">
+        <div>
+          <h3>{{ group.label }}</h3>
+          <p class="muted">Sorted by name, with live Nomad status and allocation pressure.</p>
+        </div>
+        <span class="node-group-count">{{ group.nodes | length }} node{% if group.nodes | length != 1 %}s{% endif %}</span>
+      </div>
+      <table class="data-table node-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Status</th>
+            <th>Device type</th>
+            <th>Alloc count</th>
+            <th>Alloc summary</th>
+            <th>Details</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for node in group.nodes %}
+          <tr>
+            <td>
+              <div class="node-name">{{ node.name }}</div>
+              <div class="table-subtext">{{ node.node_class }}</div>
+            </td>
+            <td>{% set status = node.status %}{% include '_status_badge.html' %}</td>
+            <td><span class="node-device-pill">{{ node.device_type }}</span></td>
+            <td>{{ node.alloc_count }}</td>
+            <td class="wrap">{{ node.alloc_summary }}</td>
+            <td class="node-details-cell">
+              <details class="node-details">
+                <summary>Inspect</summary>
+                <dl class="node-detail-list">
+                  <div>
+                    <dt>ID</dt>
+                    <dd class="wrap">{{ node.id }}</dd>
+                  </div>
+                  <div>
+                    <dt>Class</dt>
+                    <dd>{{ node.node_class }}</dd>
+                  </div>
+                  <div>
+                    <dt>Device</dt>
+                    <dd>{{ node.device_type }}</dd>
+                  </div>
+                  <div>
+                    <dt>Status</dt>
+                    <dd>{{ node.status }}</dd>
+                  </div>
+                  <div>
+                    <dt>Allocations</dt>
+                    <dd>{{ node.alloc_summary }}</dd>
+                  </div>
+                </dl>
+              </details>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+    {% endfor %}
+  </div>
   {% else %}
   <p class="muted">No nodes matched the current search.</p>
   {% endif %}

@@ -1703,6 +1703,12 @@ th { font-size: 0.9rem; color: var(--muted); }
   gap: 0.9rem;
   margin-bottom: 1.2rem;
 }
+.class-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 0.9rem;
+  margin-bottom: 1.2rem;
+}
 .stat-card {
   background: rgba(248, 252, 252, 0.92);
   border: 1px solid rgba(214, 207, 191, 0.95);
@@ -1721,6 +1727,59 @@ th { font-size: 0.9rem; color: var(--muted); }
   display: block;
   margin-top: 0.35rem;
   font-size: 1.7rem;
+}
+.class-summary-card {
+  background: rgba(248, 252, 252, 0.94);
+  border: 1px solid rgba(214, 207, 191, 0.95);
+  border-radius: 18px;
+  padding: 1rem 1.05rem;
+  box-shadow: 0 6px 18px rgba(36, 64, 73, 0.08);
+}
+.class-summary-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.class-summary-head span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.class-summary-head strong {
+  font-size: 1.8rem;
+  line-height: 1;
+}
+.class-summary-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.7rem;
+  margin: 0.95rem 0 0;
+}
+.class-summary-metrics > div {
+  display: grid;
+  gap: 0.18rem;
+}
+.class-summary-metrics dt {
+  color: var(--muted);
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.class-summary-metrics dd {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+.class-summary-link {
+  border-color: rgba(61, 120, 183, 0.22);
+}
+.class-summary-submit {
+  border-color: rgba(29, 111, 95, 0.24);
+}
+.class-summary-node {
+  border-color: rgba(176, 110, 36, 0.24);
 }
 .quick-command {
   min-width: 18rem;
@@ -1741,6 +1800,84 @@ th { font-size: 0.9rem; color: var(--muted); }
   border-radius: 14px;
   background: #eef5f6;
   border: 1px solid var(--line);
+}
+.node-groups {
+  display: grid;
+  gap: 1.1rem;
+}
+.node-group {
+  border-top: 1px solid rgba(214, 207, 191, 0.9);
+  padding-top: 1rem;
+}
+.node-group:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+.node-group-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.7rem;
+}
+.node-group-head h3 {
+  margin: 0 0 0.2rem;
+  font-size: 1.08rem;
+}
+.node-group-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 5.5rem;
+  padding: 0.34rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(29, 111, 95, 0.09);
+  color: var(--accent-dark);
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+.node-name {
+  font-weight: 700;
+}
+.node-device-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.24rem 0.58rem;
+  border-radius: 999px;
+  background: rgba(18, 51, 63, 0.08);
+  color: var(--text);
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+.node-details-cell {
+  min-width: 11rem;
+}
+.node-details summary {
+  cursor: pointer;
+  color: var(--accent-dark);
+  font-weight: 700;
+}
+.node-details[open] summary {
+  margin-bottom: 0.65rem;
+}
+.node-detail-list {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+}
+.node-detail-list > div {
+  display: grid;
+  gap: 0.15rem;
+}
+.node-detail-list dt {
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.node-detail-list dd {
+  margin: 0;
+  font-size: 0.92rem;
 }
 .toast-stack {
   position: fixed;

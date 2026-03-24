@@ -417,11 +417,15 @@ def nodes_page(
             continue
         filtered.append(view)
     filtered.sort(key=_node_sort_key)
+    class_groups = _group_nodes_by_class(filtered)
+    class_summaries = _summarize_nodes_by_class(filtered)
     return _render(
         request,
         "nodes.html",
         {
             "nodes": filtered,
+            "class_groups": class_groups,
+            "class_summaries": class_summaries,
             "filters": {"q": search_query},
             "error": None,
             "quick_command": _inventory_command(),
@@ -774,6 +778,71 @@ def _node_sort_key(node: dict[str, Any]) -> tuple[int, str, str]:
     name = str(node.get("name") or "").strip().lower()
     node_id = str(node.get("id") or "").strip().lower()
     return (class_order.get(node_class, 99), name, node_id)
+
+
+def _node_status_bucket(node: dict[str, Any]) -> str:
+    status = str(node.get("status") or "").strip().lower()
+    alloc_count = int(node.get("alloc_count") or 0)
+    if status not in {"ready", "up"}:
+        return "down"
+    if alloc_count > 0:
+        return "busy"
+    return "ready"
+
+
+def _group_nodes_by_class(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    labels = {"link": "Link nodes", "submit": "Submit nodes", "node": "Worker nodes"}
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for node in nodes:
+        key = str(node.get("node_class") or "-").strip().lower() or "-"
+        grouped.setdefault(key, []).append(node)
+    ordered: list[dict[str, Any]] = []
+    for key in ("link", "submit", "node"):
+        items = grouped.pop(key, [])
+        if items:
+            ordered.append({"key": key, "label": labels[key], "nodes": items})
+    for key in sorted(grouped):
+        items = grouped[key]
+        if items:
+            ordered.append({"key": key, "label": f"{key.title()} nodes", "nodes": items})
+    return ordered
+
+
+def _summarize_nodes_by_class(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    labels = {"link": "Link", "submit": "Submit", "node": "Worker"}
+    summary_map: dict[str, dict[str, Any]] = {}
+    for key in ("link", "submit", "node"):
+        summary_map[key] = {
+            "key": key,
+            "label": labels[key],
+            "total": 0,
+            "ready": 0,
+            "busy": 0,
+            "down": 0,
+        }
+    for node in nodes:
+        key = str(node.get("node_class") or "-").strip().lower() or "-"
+        entry = summary_map.setdefault(
+            key,
+            {
+                "key": key,
+                "label": key.title() if key != "-" else "Other",
+                "total": 0,
+                "ready": 0,
+                "busy": 0,
+                "down": 0,
+            },
+        )
+        entry["total"] += 1
+        bucket = _node_status_bucket(node)
+        entry[bucket] += 1
+    ordered = [summary_map[key] for key in ("link", "submit", "node")]
+    ordered.extend(
+        summary_map[key]
+        for key in sorted(summary_map)
+        if key not in {"link", "submit", "node"} and summary_map[key]["total"] > 0
+    )
+    return ordered
 
 
 def _node_view(node: dict[str, Any]) -> dict[str, Any]:
