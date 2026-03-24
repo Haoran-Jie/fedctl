@@ -182,6 +182,13 @@ def resolve_submission_logs_detail(
         index=index,
         stderr=stderr,
     )
+    archived_issue = archived_log_issue(
+        record=record,
+        job=job,
+        task=task,
+        index=index,
+        stderr=stderr,
+    )
     resolve_error: HTTPException | None = None
     nomad_job_id: str | None = None
     resolved_task = task or "submit"
@@ -193,12 +200,16 @@ def resolve_submission_logs_detail(
     if not nomad_job_id:
         if archived is not None:
             return ResolvedLogs(content=archived, source="archived")
+        if archived_issue is not None:
+            raise HTTPException(status_code=404, detail=f"Archived log unavailable: {archived_issue}")
         if resolve_error is not None:
             raise resolve_error
         raise HTTPException(status_code=409, detail="Submission not running in Nomad")
     if not cfg.nomad_endpoint:
         if archived is not None:
             return ResolvedLogs(content=archived, source="archived")
+        if archived_issue is not None:
+            raise HTTPException(status_code=404, detail=f"Archived log unavailable: {archived_issue}")
         raise HTTPException(status_code=500, detail="Nomad endpoint not configured")
 
     client = NomadClient(
@@ -214,11 +225,15 @@ def resolve_submission_logs_detail(
         if not alloc:
             if archived is not None:
                 return ResolvedLogs(content=archived, source="archived")
+            if archived_issue is not None:
+                raise HTTPException(status_code=404, detail=f"Archived log unavailable: {archived_issue}")
             raise HTTPException(status_code=404, detail="No allocations found")
         alloc_id = alloc.get("ID")
         if not isinstance(alloc_id, str):
             if archived is not None:
                 return ResolvedLogs(content=archived, source="archived")
+            if archived_issue is not None:
+                raise HTTPException(status_code=404, detail=f"Archived log unavailable: {archived_issue}")
             raise HTTPException(status_code=404, detail="Allocation ID missing")
         return ResolvedLogs(
             content=client.alloc_logs(alloc_id, resolved_task, stderr=stderr, follow=follow),
@@ -227,6 +242,8 @@ def resolve_submission_logs_detail(
     except NomadError as exc:
         if archived is not None:
             return ResolvedLogs(content=archived, source="archived")
+        if archived_issue is not None:
+            raise HTTPException(status_code=404, detail=f"Archived log unavailable: {archived_issue}")
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     finally:
         client.close()
@@ -406,12 +423,73 @@ def archived_log_text(
     index: int,
     stderr: bool,
 ) -> str | None:
+    candidates = matching_archive_entries(
+        record=record,
+        job=job,
+        index=index,
+        stderr=stderr,
+        field="content",
+    )
+    if not candidates:
+        return None
+    if task:
+        for entry in candidates:
+            if archive_task(entry) == task:
+                return entry["content"]
+        return None
+    if len(candidates) == 1:
+        return candidates[0]["content"]
+    unique_tasks = {archive_task(entry) for entry in candidates}
+    if len(unique_tasks) == 1:
+        return candidates[0]["content"]
+    return None
+
+
+
+def archived_log_issue(
+    *,
+    record: dict[str, Any],
+    job: str,
+    task: str | None,
+    index: int,
+    stderr: bool,
+) -> str | None:
+    candidates = matching_archive_entries(
+        record=record,
+        job=job,
+        index=index,
+        stderr=stderr,
+        field="error",
+    )
+    if not candidates:
+        return None
+    if task:
+        for entry in candidates:
+            if archive_task(entry) == task:
+                return archive_error(entry)
+        return None
+    if len(candidates) == 1:
+        return archive_error(candidates[0])
+    unique_tasks = {archive_task(entry) for entry in candidates}
+    if len(unique_tasks) == 1:
+        return archive_error(candidates[0])
+    return None
+
+
+def matching_archive_entries(
+    *,
+    record: dict[str, Any],
+    job: str,
+    index: int,
+    stderr: bool,
+    field: str,
+) -> list[dict[str, Any]]:
     archive = record.get("logs_archive")
     if not isinstance(archive, dict):
-        return None
+        return []
     raw_entries = archive.get("entries")
     if not isinstance(raw_entries, list):
-        return None
+        return []
     candidates: list[dict[str, Any]] = []
     for entry in raw_entries:
         if not isinstance(entry, dict):
@@ -431,28 +509,22 @@ def archived_log_text(
             continue
         if bool(entry.get("stderr")) != stderr:
             continue
-        if not isinstance(entry.get("content"), str):
+        if field == "content" and not isinstance(entry.get("content"), str):
+            continue
+        if field == "error" and not isinstance(entry.get("error"), str):
             continue
         candidates.append(entry)
-    if not candidates:
-        return None
-    if task:
-        for entry in candidates:
-            if archive_task(entry) == task:
-                return entry["content"]
-        return None
-    if len(candidates) == 1:
-        return candidates[0]["content"]
-    unique_tasks = {archive_task(entry) for entry in candidates}
-    if len(unique_tasks) == 1:
-        return candidates[0]["content"]
-    return None
-
+    return candidates
 
 
 def archive_task(entry: dict[str, Any]) -> str | None:
     task = entry.get("task")
     return task if isinstance(task, str) else None
+
+
+def archive_error(entry: dict[str, Any]) -> str | None:
+    error = entry.get("error")
+    return error if isinstance(error, str) else None
 
 
 

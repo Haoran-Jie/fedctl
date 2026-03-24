@@ -608,12 +608,33 @@ class _LogArchiver:
                     allocs = client.job_allocations(job_id)
                 except Exception as exc:
                     logger.info("log archiver: allocations unavailable job=%s err=%s", job_id, exc)
+                    entries.extend(
+                        _archive_error_entries(
+                            target=target,
+                            job_id=job_id,
+                            error=f"allocations unavailable: {exc}",
+                        )
+                    )
                     continue
                 alloc = _latest_alloc_for_task(allocs, task)
                 if not alloc:
+                    entries.extend(
+                        _archive_error_entries(
+                            target=target,
+                            job_id=job_id,
+                            error="no matching allocation found",
+                        )
+                    )
                     continue
                 alloc_id = alloc.get("ID")
                 if not isinstance(alloc_id, str):
+                    entries.extend(
+                        _archive_error_entries(
+                            target=target,
+                            job_id=job_id,
+                            error="allocation ID missing",
+                        )
+                    )
                     continue
                 for stderr in (False, True):
                     try:
@@ -631,17 +652,24 @@ class _LogArchiver:
                             stderr,
                             exc,
                         )
+                        entries.append(
+                            _archive_log_entry(
+                                target=target,
+                                job_id=job_id,
+                                stderr=stderr,
+                                alloc_id=alloc_id,
+                                error=f"alloc logs unavailable: {exc}",
+                            )
+                        )
                         continue
                     entries.append(
-                        {
-                            "job": target["job"],
-                            "index": target["index"],
-                            "job_id": job_id,
-                            "task": task,
-                            "alloc_id": alloc_id,
-                            "stderr": stderr,
-                            "content": _truncate_log_text(log_text),
-                        }
+                        _archive_log_entry(
+                            target=target,
+                            job_id=job_id,
+                            stderr=stderr,
+                            alloc_id=alloc_id,
+                            content=_truncate_log_text(log_text),
+                        )
                     )
         finally:
             client.close()
@@ -773,6 +801,43 @@ def _latest_alloc(allocs: object) -> dict[str, object] | None:
         return None
     candidates.sort(key=_alloc_sort_key, reverse=True)
     return candidates[0]
+
+
+def _archive_error_entries(
+    *,
+    target: dict[str, object],
+    job_id: str,
+    error: str,
+) -> list[dict[str, object]]:
+    return [
+        _archive_log_entry(target=target, job_id=job_id, stderr=False, error=error),
+        _archive_log_entry(target=target, job_id=job_id, stderr=True, error=error),
+    ]
+
+
+def _archive_log_entry(
+    *,
+    target: dict[str, object],
+    job_id: str,
+    stderr: bool,
+    alloc_id: str | None = None,
+    content: str | None = None,
+    error: str | None = None,
+) -> dict[str, object]:
+    entry: dict[str, object] = {
+        "job": target["job"],
+        "index": target["index"],
+        "job_id": job_id,
+        "task": target["task"],
+        "stderr": stderr,
+    }
+    if alloc_id is not None:
+        entry["alloc_id"] = alloc_id
+    if content is not None:
+        entry["content"] = content
+    if error is not None:
+        entry["error"] = error
+    return entry
 
 
 def _latest_alloc_for_task(allocs: object, task: str) -> dict[str, object] | None:

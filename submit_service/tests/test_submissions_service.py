@@ -9,6 +9,7 @@ import pytest
 from fastapi import HTTPException
 
 from submit_service.app.submissions_service import (
+    archived_log_issue,
     latest_alloc_for_task,
     resolve_nomad_job,
 )
@@ -65,3 +66,29 @@ def test_latest_alloc_for_task_prefers_matching_allocation() -> None:
 
     assert alloc is not None
     assert alloc["ID"] == "alloc-older-correct-task"
+
+
+def test_archived_log_issue_returns_matching_error_by_index() -> None:
+    record = {
+        "logs_archive": {
+            "entries": [
+                {
+                    "job": "supernodes",
+                    "index": 1,
+                    "task": "supernode-1",
+                    "stderr": True,
+                    "error": "alloc logs unavailable: task not found",
+                }
+            ]
+        }
+    }
+
+    issue = archived_log_issue(
+        record=record,
+        job="supernodes",
+        task=None,
+        index=1,
+        stderr=True,
+    )
+
+    assert issue == "alloc logs unavailable: task not found"
