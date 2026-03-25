@@ -1,0 +1,10 @@
+experiment_id,dataset,partition,method,seed,supernodes,net_profile,net_assignments,notes
+net-fmnist-none-full-s1,fashion-mnist,iid,fedavg-full,1,"rpi4=6;rpi5=22",none,"rpi4[*]=none,rpi5[*]=none",network-core
+net-fmnist-none-small-s1,fashion-mnist,iid,fedavg-small,1,"rpi4=6;rpi5=22",none,"rpi4[*]=none,rpi5[*]=none",network-core
+net-fmnist-none-hetero-s1,fashion-mnist,iid,heterofl,1,"rpi4=6;rpi5=22",none,"rpi4[*]=none,rpi5[*]=none",network-core
+net-fmnist-med-full-s1,fashion-mnist,iid,fedavg-full,1,"rpi4=6;rpi5=22",med,"rpi4[*]=med,rpi5[*]=med",network-core
+net-fmnist-med-small-s1,fashion-mnist,iid,fedavg-small,1,"rpi4=6;rpi5=22",med,"rpi4[*]=med,rpi5[*]=med",network-core
+net-fmnist-med-hetero-s1,fashion-mnist,iid,heterofl,1,"rpi4=6;rpi5=22",med,"rpi4[*]=med,rpi5[*]=med",network-core
+net-fmnist-asym-full-s1,fashion-mnist,iid,fedavg-full,1,"rpi4=6;rpi5=22",asym,"rpi4[*]=(asym_up,asym_down),rpi5[*]=(med,mild)",network-core
+net-fmnist-asym-small-s1,fashion-mnist,iid,fedavg-small,1,"rpi4=6;rpi5=22",asym,"rpi4[*]=(asym_up,asym_down),rpi5[*]=(med,mild)",network-core
+net-fmnist-asym-hetero-s1,fashion-mnist,iid,heterofl,1,"rpi4=6;rpi5=22",asym,"rpi4[*]=(asym_up,asym_down),rpi5[*]=(med,mild)",network-core

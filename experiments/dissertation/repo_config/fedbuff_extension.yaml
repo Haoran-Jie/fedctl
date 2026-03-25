@@ -1,0 +1,39 @@
+deploy:
+  supernodes:
+    rpi4: 6
+    rpi5: 22
+  placement:
+    allow_oversubscribe: false
+    spread_across_hosts: true
+  resources:
+    supernode:
+      default: { cpu: 500, mem: 512 }
+      rpi4: { cpu: 500, mem: 512 }
+      rpi5: { cpu: 500, mem: 512 }
+  network:
+    image: "jiahborcn/netem:latest"
+    default_profile: none
+    interface: eth0
+    apply:
+      superexec_serverapp: false
+      superexec_clientapp: false
+    profiles:
+      none: {}
+      med: { delay_ms: 60, jitter_ms: 10, loss_pct: 1.0, rate_mbit: 50, rate_latency_ms: 50, rate_burst_kbit: 256 }
+      asym_up: { delay_ms: 120, jitter_ms: 20, loss_pct: 1.0, rate_mbit: 20, rate_latency_ms: 50, rate_burst_kbit: 256 }
+      asym_down: { delay_ms: 30, jitter_ms: 5, loss_pct: 0.5, rate_mbit: 80, rate_latency_ms: 50, rate_burst_kbit: 256 }
+
+submit:
+  endpoint: "http://REPLACE_SUBMIT_SERVICE_HOST:8080"
+  token: "REPLACE_SUBMIT_TOKEN"
+  user: "REPLACE_SUBMIT_USER"
+  image: "REPLACE_REGISTRY/fedctl-submit:latest"
+  artifact_store: "s3+presign://fedctl-submits/fedctl-submits"
+
+submit-service:
+  endpoint: "http://127.0.0.1:8080"
+  nomad_endpoint: "http://REPLACE_NOMAD_HOST:4646"
+  dispatch_mode: "queue"
+  image_registry: "REPLACE_REGISTRY"
+
+image_registry: "REPLACE_REGISTRY"
