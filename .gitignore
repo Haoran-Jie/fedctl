@@ -14,3 +14,5 @@ results/
 submit_service/state/*.db
 ansible/group_vars/tailscale_nodes.local.yml
 writeup/
+refs/heterofl/
+refs/heterofl_fedctl/data/
