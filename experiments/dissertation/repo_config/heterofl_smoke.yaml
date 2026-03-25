@@ -1,0 +1,30 @@
+deploy:
+  supernodes:
+    rpi4: 2
+    rpi5: 2
+  placement:
+    allow_oversubscribe: false
+    spread_across_hosts: true
+  resources:
+    supernode:
+      default: { cpu: 500, mem: 512 }
+      rpi4: { cpu: 500, mem: 512 }
+      rpi5: { cpu: 500, mem: 512 }
+  network:
+    image: "jiahborcn/netem:latest"
+    default_profile: none
+    interface: eth0
+    apply:
+      superexec_serverapp: false
+      superexec_clientapp: false
+    profiles:
+      none: {}
+
+submit:
+  image: "192.168.8.101:5000/fedctl-submit:latest"
+  artifact_store: "s3+presign://fedctl-submits/fedctl-submits"
+  endpoint: "http://10.100.2.142:8080"
+  token: "flwruser1"
+  user: "samuel"
+
+image_registry: "192.168.8.101:5000"

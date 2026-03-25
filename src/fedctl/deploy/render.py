@@ -605,7 +605,7 @@ def _superexec_serverapp_context(spec: DeploySpec) -> dict[str, Any]:
 
     entrypoint = ["/bin/sh", "-lc"]
     task_args = [_shell_exec_command(["flower-superexec", *args], include_path=True)]
-    env: dict[str, str] = {}
+    env: dict[str, str] = {"FEDCTL_EXPERIMENT": spec.experiment}
     user = spec.superexec.user
     network_plan = spec.supernodes.network
     if network_plan is not None and spec.superexec.netem_serverapp:
@@ -681,7 +681,14 @@ def _superexec_clientapp_context(
             timeout_s=60,
         )
     ]
-    env: dict[str, str] = {}
+    env: dict[str, str] = {
+        "FEDCTL_EXPERIMENT": spec.experiment,
+        "FEDCTL_INSTANCE_IDX": str(placement.instance_idx),
+    }
+    if placement.device_type:
+        env["FEDCTL_DEVICE_TYPE"] = placement.device_type
+    if placement.node_id:
+        env["FEDCTL_NOMAD_NODE_ID"] = placement.node_id
     user = spec.superexec.user
     network_plan = spec.supernodes.network
     if network_plan is not None and spec.superexec.netem_clientapp:

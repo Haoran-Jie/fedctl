@@ -7,6 +7,8 @@ This directory turns the dissertation experiment plan into concrete `fedctl` art
 - `repo_config/`: YAML repo-config fragments to pass via `--repo-config`
 - `matrices/`: CSV matrices describing the intended run set
 - `commands.md`: concrete command templates for the main experiment families
+- `heterofl_implementation_notes.md`: app-side contract for the first fixed-rate HeteroFL implementation
+- `modern_flower_heterofl_strategy.md`: modern Flower strategy/client skeleton for implementing fixed-rate HeteroFL
 
 ## Usage model
 
