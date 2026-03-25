@@ -57,7 +57,7 @@ code, pre, input, select, button { font-family: "SFMono-Regular", Menlo, monospa
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.12rem;
 }
 .brand {
   display: inline-flex;
@@ -68,15 +68,16 @@ code, pre, input, select, button { font-family: "SFMono-Regular", Menlo, monospa
 }
 .brand-logo {
   display: block;
-  width: auto;
-  max-width: min(280px, 42vw);
-  height: 2rem;
+  width: 1.05rem;
+  height: 1.05rem;
+  max-width: none;
   object-fit: contain;
 }
 .subtitle {
   margin: 0;
   color: var(--muted);
-  font-size: 0.95rem;
+  font-size: 0.82rem;
+  line-height: 1.2;
 }
 .nav { display: flex; align-items: center; gap: 0.8rem; }
 .nav-link {
