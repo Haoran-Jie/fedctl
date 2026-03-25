@@ -72,7 +72,6 @@ code, pre, input, select, button { font-family: "SFMono-Regular", Menlo, monospa
   font-size: 1.55rem;
   line-height: 1;
   font-weight: 700;
-  letter-spacing: 0.06em;
   text-transform: lowercase;
   color: var(--accent-dark);
   text-rendering: geometricPrecision;
