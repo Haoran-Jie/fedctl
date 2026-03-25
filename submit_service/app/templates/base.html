@@ -4,13 +4,20 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}fedctl submit service{% endblock %}</title>
-    <link rel="icon" type="image/png" href="{{ request.url_for('ui-static', path='flwr.png') }}">
+    <link rel="icon" type="image/png" href="{{ request.url_for('ui-static', path='fedctl-story.png') }}">
     <link rel="stylesheet" href="{{ request.url_for('ui-static', path='style.css') }}">
   </head>
   <body>
     <header class="topbar">
       <div class="brand-wrap">
-        <a class="brand" href="/ui/submissions">fedctl submit service</a>
+        <a class="brand" href="/ui/submissions" aria-label="fedctl submit service home">
+          <img
+            class="brand-logo"
+            src="{{ request.url_for('ui-static', path='fedctl-horizontal.png') }}"
+            alt="fedctl"
+          >
+        </a>
+        <p class="subtitle">submit service</p>
       </div>
       {% if principal %}
       <nav class="nav">

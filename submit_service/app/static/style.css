@@ -53,9 +53,31 @@ code, pre, input, select, button { font-family: "SFMono-Regular", Menlo, monospa
     0 12px 30px rgba(26, 46, 58, 0.1);
   z-index: 12;
 }
-.brand-wrap { min-width: 0; }
-.brand { color: var(--text); text-decoration: none; font-size: 1.3rem; font-weight: 700; letter-spacing: 0.01em; }
-.subtitle { margin: 0.2rem 0 0; color: var(--muted); font-size: 0.95rem; }
+.brand-wrap {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.brand {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  color: var(--text);
+  text-decoration: none;
+}
+.brand-logo {
+  display: block;
+  width: auto;
+  max-width: min(280px, 42vw);
+  height: 2rem;
+  object-fit: contain;
+}
+.subtitle {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
 .nav { display: flex; align-items: center; gap: 0.8rem; }
 .nav-link {
   color: var(--accent-dark);
