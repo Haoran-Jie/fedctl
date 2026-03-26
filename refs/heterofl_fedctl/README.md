@@ -13,7 +13,7 @@ but to port the core HeteroFL ideas into the current Flower framework.
 
 - modern Flower app structure
 - fixed-rate client model selection
-- one width-scaled CNN for Fashion-MNIST
+- one tiny width-scaled MLP for Fashion-MNIST
 - server-side parameter slicing
 - masked aggregation back into the global model
 
@@ -49,17 +49,17 @@ Two manual overrides remain available for debugging:
 
 ## First milestone
 
-Run a smoke test with:
+Run a first realistic cluster check with:
 
 - dataset: Fashion-MNIST
 - partitioning: IID
 - model rates:
   - slow tier: 0.5
   - fast tier: 1.0
-- 3 to 5 rounds
+- 3 rounds
 
-The goal of the first milestone is correctness of slicing and aggregation, not
-final benchmark quality.
+The goal of the first milestone is correctness plus a modest amount of actual
+heterogeneous training, not final benchmark quality.
 
 ## Recommended first commands
 

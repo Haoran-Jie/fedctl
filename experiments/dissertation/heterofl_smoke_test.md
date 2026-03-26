@@ -12,6 +12,7 @@ Validate four things:
 3. the Flower `ServerApp` discovers `Flower node_id -> device_type` via `query`
 4. sampled `rpi4` clients train with `model_rate=0.5` and sampled `rpi5` clients
    train with `model_rate=1.0`
+5. the tiny MLP workload completes multiple rounds on both device tiers
 
 ## Project
 

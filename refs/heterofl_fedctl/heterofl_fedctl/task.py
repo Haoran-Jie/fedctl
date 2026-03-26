@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import contextlib
+import io
 import os
 import time
 from functools import lru_cache
@@ -83,12 +85,15 @@ def _ensure_fashion_mnist_downloaded(transform: transforms.Compose) -> None:
 
     try:
         if not _fashion_mnist_exists():
-            datasets.FashionMNIST(
-                root=DATA_ROOT, train=True, download=True, transform=transform
-            )
-            datasets.FashionMNIST(
-                root=DATA_ROOT, train=False, download=True, transform=transform
-            )
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(
+                io.StringIO()
+            ):
+                datasets.FashionMNIST(
+                    root=DATA_ROOT, train=True, download=True, transform=transform
+                )
+                datasets.FashionMNIST(
+                    root=DATA_ROOT, train=False, download=True, transform=transform
+                )
     finally:
         try:
             DOWNLOAD_LOCK.unlink()
