@@ -9,7 +9,6 @@ description = "Fixed-rate HeteroFL prototype for fedctl on modern Flower"
 license = "Apache-2.0"
 dependencies = [
     "flwr[simulation]>=1.26.0",
-    "flwr-datasets[vision]>=0.5.0",
     "torch>=2.2.0",
     "torchvision>=0.17.0",
 ]

@@ -189,7 +189,8 @@ def train(
         epoch_start = time.perf_counter()
         epoch_loss = 0.0
         epoch_steps = 0
-        for images, labels in trainloader:
+        for batch_idx, (images, labels) in enumerate(trainloader, start=1):
+            batch_start = time.perf_counter()
             images = images.to(device)
             labels = labels.to(device)
             optimizer.zero_grad()
@@ -202,6 +203,12 @@ def train(
             steps += 1
             epoch_loss += loss_value
             epoch_steps += 1
+            print(
+                f"{log_prefix or '[heterofl]'} train:batch_done "
+                f"epoch={epoch + 1}/{epochs} batch={batch_idx}/{len(trainloader)} "
+                f"loss={loss_value:.6f} elapsed_s={time.perf_counter() - batch_start:.2f}",
+                flush=True,
+            )
         print(
             f"{log_prefix or '[heterofl]'} train:epoch_done "
             f"epoch={epoch + 1}/{epochs} avg_loss={epoch_loss / max(epoch_steps, 1):.6f} "
