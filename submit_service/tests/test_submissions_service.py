@@ -15,7 +15,27 @@ from submit_service.app.submissions_service import (
 )
 
 
-def test_resolve_nomad_job_uses_index_for_multi_task_job() -> None:
+def test_resolve_nomad_job_uses_explicit_targets_by_index() -> None:
+    record = {
+        "jobs": {
+            "supernodes": {
+                "job_id": "job-supernodes",
+                "tasks": ["supernode-rpi4-1", "supernode-rpi5-1"],
+                "targets": [
+                    {"index": 1, "job_id": "job-supernodes", "task": "supernode-rpi4-1"},
+                    {"index": 2, "job_id": "job-supernodes", "task": "supernode-rpi5-1"},
+                ],
+            }
+        }
+    }
+
+    job_id, task = resolve_nomad_job(record, "supernodes", None, 2)
+
+    assert job_id == "job-supernodes"
+    assert task == "supernode-rpi5-1"
+
+
+def test_resolve_nomad_job_uses_index_for_multi_task_job_legacy_shape() -> None:
     record = {
         "jobs": {
             "supernodes": {
@@ -46,6 +66,25 @@ def test_resolve_nomad_job_rejects_out_of_range_task_index() -> None:
 
     assert exc.value.status_code == 404
     assert exc.value.detail == "Task index out of range for supernodes: 2"
+
+
+def test_resolve_nomad_job_rejects_unknown_task_when_targets_present() -> None:
+    record = {
+        "jobs": {
+            "supernodes": {
+                "job_id": "job-supernodes",
+                "targets": [
+                    {"index": 1, "job_id": "job-supernodes", "task": "supernode-rpi4-1"},
+                ],
+            }
+        }
+    }
+
+    with pytest.raises(HTTPException) as exc:
+        resolve_nomad_job(record, "supernodes", "supernode-rpi5-1", 1)
+
+    assert exc.value.status_code == 404
+    assert exc.value.detail == "Task not found for supernodes: supernode-rpi5-1"
 
 
 def test_latest_alloc_for_task_prefers_matching_allocation() -> None:

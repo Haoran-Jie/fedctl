@@ -279,6 +279,10 @@ def test_logs_use_index_to_resolve_supernode_task_and_matching_alloc(
                 "supernodes": {
                     "job_id": "job-supernodes",
                     "tasks": ["supernode-rpi4-1", "supernode-rpi5-1"],
+                    "targets": [
+                        {"index": 1, "job_id": "job-supernodes", "task": "supernode-rpi4-1"},
+                        {"index": 2, "job_id": "job-supernodes", "task": "supernode-rpi5-1"},
+                    ],
                 }
             }
         },

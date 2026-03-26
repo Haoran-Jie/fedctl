@@ -291,21 +291,54 @@ def _build_jobs_report(
         )
         for p in placements
     ]
+    superlink_job = naming.job_superlink(experiment)
+    supernodes_job = naming.job_supernodes(experiment)
+    serverapp_job = naming.job_superexec_serverapp(experiment)
     return {
         "superlink": {
-            "job_id": naming.job_superlink(experiment),
-            "task": naming.job_superlink(experiment),
+            "job_id": superlink_job,
+            "task": superlink_job,
+            "targets": [
+                {
+                    "index": 1,
+                    "job_id": superlink_job,
+                    "task": superlink_job,
+                }
+            ],
         },
         "supernodes": {
-            "job_id": naming.job_supernodes(experiment),
+            "job_id": supernodes_job,
             "tasks": tasks,
+            "targets": [
+                {
+                    "index": idx,
+                    "job_id": supernodes_job,
+                    "task": task,
+                }
+                for idx, task in enumerate(tasks, start=1)
+            ],
         },
         "superexec_serverapp": {
-            "job_id": naming.job_superexec_serverapp(experiment),
-            "task": naming.job_superexec_serverapp(experiment),
+            "job_id": serverapp_job,
+            "task": serverapp_job,
+            "targets": [
+                {
+                    "index": 1,
+                    "job_id": serverapp_job,
+                    "task": serverapp_job,
+                }
+            ],
         },
         "superexec_clientapps": {
             "job_ids": clientapps,
+            "targets": [
+                {
+                    "index": idx,
+                    "job_id": job_id,
+                    "task": job_id,
+                }
+                for idx, job_id in enumerate(clientapps, start=1)
+            ],
         },
     }
 
@@ -692,61 +725,29 @@ class _LogArchiver:
                 "task": "submit",
             }
         ]
-        superlink = jobs.get("superlink")
-        if isinstance(superlink, dict):
-            job_id = superlink.get("job_id")
-            task = superlink.get("task")
-            if isinstance(job_id, str) and isinstance(task, str):
+        for job_name in ("superlink", "supernodes", "superexec_serverapp", "superexec_clientapps"):
+            info = jobs.get(job_name)
+            if not isinstance(info, dict):
+                continue
+            raw_targets = info.get("targets")
+            if not isinstance(raw_targets, list):
+                continue
+            for target in raw_targets:
+                if not isinstance(target, dict):
+                    continue
+                job_id = target.get("job_id")
+                task = target.get("task")
+                index = target.get("index")
+                if not isinstance(job_id, str) or not isinstance(task, str) or not isinstance(index, int):
+                    continue
                 targets.append(
                     {
-                        "job": "superlink",
-                        "index": 1,
+                        "job": job_name,
+                        "index": index,
                         "job_id": job_id,
                         "task": task,
                     }
                 )
-        supernodes = jobs.get("supernodes")
-        if isinstance(supernodes, dict):
-            job_id = supernodes.get("job_id")
-            tasks = supernodes.get("tasks")
-            if isinstance(job_id, str) and isinstance(tasks, list):
-                clean_tasks = [task for task in tasks if isinstance(task, str)]
-                for idx, task in enumerate(clean_tasks, start=1):
-                    targets.append(
-                        {
-                            "job": "supernodes",
-                            "index": idx,
-                            "job_id": job_id,
-                            "task": task,
-                        }
-                    )
-        serverapp = jobs.get("superexec_serverapp")
-        if isinstance(serverapp, dict):
-            job_id = serverapp.get("job_id")
-            task = serverapp.get("task")
-            if isinstance(job_id, str) and isinstance(task, str):
-                targets.append(
-                    {
-                        "job": "superexec_serverapp",
-                        "index": 1,
-                        "job_id": job_id,
-                        "task": task,
-                    }
-                )
-        clientapps = jobs.get("superexec_clientapps")
-        if isinstance(clientapps, dict):
-            job_ids = clientapps.get("job_ids")
-            if isinstance(job_ids, list):
-                clean_job_ids = [job_id for job_id in job_ids if isinstance(job_id, str)]
-                for idx, job_id in enumerate(clean_job_ids, start=1):
-                    targets.append(
-                        {
-                            "job": "superexec_clientapps",
-                            "index": idx,
-                            "job_id": job_id,
-                            "task": job_id,
-                        }
-                    )
         return targets
 
 

@@ -391,6 +391,21 @@ def resolve_nomad_job(
     if not job_id:
         raise HTTPException(status_code=404, detail=f"Job ID missing for: {job}")
 
+    targets = _clean_log_targets(info.get("targets"))
+    if targets:
+        if task:
+            for target_entry in targets:
+                if target_entry["task"] == task:
+                    return target_entry["job_id"], target_entry["task"]
+            raise HTTPException(status_code=404, detail=f"Task not found for {job}: {task}")
+        for target_entry in targets:
+            if target_entry["index"] == index:
+                return target_entry["job_id"], target_entry["task"]
+        raise HTTPException(
+            status_code=404,
+            detail=f"Job index out of range for {job}: {index}",
+        )
+
     if task:
         return job_id, task
 
@@ -412,6 +427,25 @@ def resolve_nomad_job(
         return job_id, clean[index - 1]
 
     return job_id, job_id
+
+
+def _clean_log_targets(raw_targets: Any) -> list[dict[str, Any]]:
+    if not isinstance(raw_targets, list):
+        return []
+    targets: list[dict[str, Any]] = []
+    for entry in raw_targets:
+        if not isinstance(entry, dict):
+            continue
+        index = entry.get("index")
+        job_id = entry.get("job_id")
+        task = entry.get("task")
+        if not isinstance(index, int) or isinstance(index, bool):
+            continue
+        if not isinstance(job_id, str) or not isinstance(task, str):
+            continue
+        targets.append({"index": index, "job_id": job_id, "task": task})
+    targets.sort(key=lambda item: item["index"])
+    return targets
 
 
 

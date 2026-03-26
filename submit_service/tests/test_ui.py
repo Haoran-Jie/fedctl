@@ -284,6 +284,7 @@ def test_ui_detail_shows_archived_logs(tmp_path, monkeypatch: pytest.MonkeyPatch
     assert 'data-logs-endpoint="/ui/submissions/' in detail.text
     assert "Follow" in detail.text
     assert "Latest" in detail.text
+    assert 'name="task"' not in detail.text
 
 
 def test_ui_nodes_search_filters_inventory(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
