@@ -151,7 +151,14 @@ class Dispatcher:
             )
             try:
                 allocs = client.job_allocations(nomad_job_id)
-            except NomadError:
+            except NomadError as exc:
+                if _nomad_error_status(exc) == 404:
+                    self._storage.set_status(
+                        submission["id"],
+                        "failed",
+                        finished_at=utcnow(),
+                        error_message="Nomad job missing",
+                    )
                 continue
             finally:
                 client.close()
@@ -284,6 +291,18 @@ def _parse_dt(value: object) -> datetime | None:
     if parsed.tzinfo is None:
         return parsed.replace(tzinfo=timezone.utc)
     return parsed.astimezone(timezone.utc)
+
+
+def _nomad_error_status(exc: NomadError) -> int | None:
+    message = str(exc)
+    prefix = "Nomad error "
+    if not message.startswith(prefix):
+        return None
+    status_text, _, _ = message[len(prefix) :].partition(":")
+    try:
+        return int(status_text)
+    except ValueError:
+        return None
 
 
 def _select_report_token(cfg: SubmitConfig) -> str | None:

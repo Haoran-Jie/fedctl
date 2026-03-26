@@ -179,3 +179,58 @@ def test_dispatcher_autopurges_completed_jobs_after_delay(tmp_path, monkeypatch)
     assert calls == [("sub-completed", True)]
     updated = storage.get_submission("sub-completed")
     assert updated.get("nomad_job_id") is None
+
+
+def test_dispatcher_marks_running_submission_failed_when_nomad_job_missing(
+    tmp_path, monkeypatch
+) -> None:
+    db_path = tmp_path / "submit.db"
+    storage = Storage(StorageConfig(db_url=f"sqlite:///{db_path}"))
+    storage.init_db()
+    _create_submission(
+        storage,
+        submission_id="sub-running-missing",
+        status="running",
+        created_at="2026-01-01T00:00:00+00:00",
+        priority=50,
+    )
+    storage.update_submission(
+        "sub-running-missing",
+        {
+            "nomad_job_id": "sub-running-missing",
+            "started_at": dispatcher_mod.utcnow().isoformat(),
+            "namespace": "default",
+        },
+    )
+
+    class FakeNomadClient:
+        def __init__(self, *args, **kwargs):
+            return None
+
+        def job_allocations(self, job_id: str):
+            raise dispatcher_mod.NomadError("Nomad error 404: job not found")
+
+        def close(self):
+            return None
+
+    monkeypatch.setattr(dispatcher_mod, "NomadClient", FakeNomadClient)
+    monkeypatch.setattr(dispatcher_mod, "_inventory_snapshot", lambda inventory: ([], None))
+    monkeypatch.setattr(
+        dispatcher_mod,
+        "_capacity_allows",
+        lambda submission, free_nodes, inventory_error: (True, None),
+    )
+
+    cfg = _cfg(db_path)
+    cfg = SubmitConfig(
+        **{
+            **cfg.__dict__,
+            "nomad_endpoint": "http://nomad.example:4646",
+        }
+    )
+    dispatcher = dispatcher_mod.Dispatcher(storage, cfg)
+    dispatcher.run_once()
+
+    updated = storage.get_submission("sub-running-missing")
+    assert updated["status"] == "failed"
+    assert updated["error_message"] == "Nomad job missing"
