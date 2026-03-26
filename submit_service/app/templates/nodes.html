@@ -97,6 +97,7 @@
             <th>Status</th>
             <th>Device type</th>
             <th>Alloc count</th>
+            <th>Running jobs</th>
             <th>Alloc summary</th>
             <th>Details</th>
           </tr>
@@ -111,6 +112,7 @@
             <td>{% set status = node.status %}{% include '_status_badge.html' %}</td>
             <td><span class="node-device-pill">{{ node.device_type }}</span></td>
             <td>{{ node.alloc_count }}</td>
+            <td>{{ node.running_job_count }}</td>
             <td class="wrap">{{ node.alloc_summary }}</td>
             <td class="node-details-cell">
               <details class="node-details">
@@ -135,6 +137,10 @@
                   <div class="node-detail-row">
                     <span class="node-detail-key">Allocations</span>
                     <span class="node-detail-value">{{ node.alloc_summary }}</span>
+                  </div>
+                  <div class="node-detail-row">
+                    <span class="node-detail-key">Running jobs</span>
+                    <span class="node-detail-value wrap">{{ node.running_jobs }}</span>
                   </div>
                 </div>
               </details>

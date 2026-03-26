@@ -173,7 +173,14 @@ def test_ui_admin_can_view_nodes_and_all_submissions(tmp_path, monkeypatch: pyte
                         "status": "ready",
                         "node_class": "submit",
                         "device_type": "rpi",
-                        "allocations": [],
+                        "allocations": {
+                            "count": 2,
+                            "running_jobs": ["job-a"],
+                            "items": [
+                                {"id": "alloc-1", "job_id": "job-a"},
+                                {"id": "alloc-2", "job_id": "job-b"},
+                            ],
+                        },
                     }
                 ]
             )
@@ -193,6 +200,9 @@ def test_ui_admin_can_view_nodes_and_all_submissions(tmp_path, monkeypatch: pyte
     assert "Nodes" in nodes.text
     assert "data-sticky-panel" in nodes.text
     assert "data-sticky-shell" in nodes.text
+    assert ">2</td>" in nodes.text
+    assert ">1</td>" in nodes.text
+    assert "job-a, job-b" in nodes.text
 
 
 def test_ui_stats_are_based_on_all_visible_submissions_not_active_filter(
@@ -301,7 +311,7 @@ def test_ui_nodes_search_filters_inventory(tmp_path, monkeypatch: pytest.MonkeyP
                         "status": "ready",
                         "node_class": "submit",
                         "device_type": "rpi",
-                        "allocations": [],
+                        "allocations": {"count": 0, "running_jobs": [], "items": []},
                     },
                     {
                         "name": "jetson4",
@@ -309,7 +319,7 @@ def test_ui_nodes_search_filters_inventory(tmp_path, monkeypatch: pytest.MonkeyP
                         "status": "ready",
                         "node_class": "gpu",
                         "device_type": "jetson",
-                        "allocations": [],
+                        "allocations": {"count": 1, "running_jobs": ["job-c"], "items": []},
                     },
                 ]
             )
