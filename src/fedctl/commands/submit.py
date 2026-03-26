@@ -31,7 +31,6 @@ from fedctl.submit.artifact import ArtifactUploadError, upload_artifact
 from fedctl.submit.client import SubmitServiceClient, SubmitServiceError
 from fedctl.submit.render import SubmitJobSpec, render_submit_job
 from fedctl.deploy.spec import normalize_experiment_name
-from fedctl.build.tagging import default_image_tag
 from fedctl.state.errors import StateError
 from fedctl.state.submissions import (
     SubmissionRecord,
@@ -146,19 +145,13 @@ def run_submit(
         target_registry=internal_registry,
     )
 
-    resolved_superexec_image = image
-    if not resolved_superexec_image:
-        project_name_for_tag = project_name or "project"
-        resolved_superexec_image = default_image_tag(
-            project_name_for_tag,
-            repo_root=info.root,
-            registry=external_registry,
+    resolved_superexec_image = None
+    if image:
+        resolved_superexec_image = rewrite_image_registry(
+            image,
+            source_registry=external_registry,
+            target_registry=internal_registry,
         )
-    resolved_superexec_image = rewrite_image_registry(
-        resolved_superexec_image,
-        source_registry=external_registry,
-        target_registry=internal_registry,
-    )
 
     repo_cfg_path = repo_resolution.path
 
