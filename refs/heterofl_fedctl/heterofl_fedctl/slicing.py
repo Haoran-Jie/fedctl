@@ -7,9 +7,6 @@ from collections import OrderedDict
 
 import torch
 
-FINAL_CLASSIFIER_WEIGHT = "classifier.2.weight"
-FINAL_CLASSIFIER_BIAS = "classifier.2.bias"
-
 
 ParamIndex = dict[str, torch.Tensor | tuple[torch.Tensor, torch.Tensor]]
 
@@ -25,12 +22,14 @@ def build_param_indices_for_rate(
     if scale <= 0:
         raise ValueError("model_rate must be positive")
 
+    final_classifier_weight, final_classifier_bias = _final_classifier_keys(global_state)
+
     param_idx: ParamIndex = OrderedDict()
     prev_output_idx: torch.Tensor | None = None
     prev_full_output_size: int | None = None
 
     for key, value in global_state.items():
-        if key == FINAL_CLASSIFIER_WEIGHT:
+        if key == final_classifier_weight:
             assert prev_output_idx is not None
             assert prev_full_output_size is not None
             input_idx = _expand_flatten_indices(prev_output_idx, value.size(1), prev_full_output_size)
@@ -40,7 +39,7 @@ def build_param_indices_for_rate(
             prev_full_output_size = value.size(0)
             continue
 
-        if key == FINAL_CLASSIFIER_BIAS:
+        if key == final_classifier_bias:
             param_idx[key] = torch.arange(value.size(0), device=value.device)
             prev_output_idx = param_idx[key]
             prev_full_output_size = value.size(0)
@@ -175,3 +174,19 @@ def _expand_flatten_indices(
         for ch in channel_idx
     ]
     return torch.cat(expanded, dim=0) if expanded else torch.empty(0, dtype=torch.long, device=channel_idx.device)
+
+
+def _final_classifier_keys(
+    global_state: OrderedDict[str, torch.Tensor],
+) -> tuple[str, str]:
+    final_weight: str | None = None
+    for key, value in global_state.items():
+        if key.endswith("weight") and value.ndim > 1:
+            final_weight = key
+    if final_weight is None:
+        raise ValueError("Could not identify final classifier weight in state_dict.")
+
+    final_bias = final_weight[:-6] + "bias"
+    if final_bias not in global_state:
+        raise ValueError(f"Could not identify final classifier bias for {final_weight}.")
+    return final_weight, final_bias
