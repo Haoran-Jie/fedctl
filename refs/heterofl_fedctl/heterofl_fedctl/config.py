@@ -19,6 +19,12 @@ def get_int(run_config: Mapping[str, object], key: str) -> int:
 
 
 
+def get_optional_int(run_config: Mapping[str, object], key: str) -> int | None:
+    value = run_config.get(key)
+    return None if value is None else int(value)
+
+
+
 def get_float(run_config: Mapping[str, object], key: str) -> float:
     return float(_get_required(run_config, key))
 

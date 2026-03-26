@@ -10,7 +10,6 @@ from typing import Tuple
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.utils.data import DataLoader, Subset
 from torchvision import datasets, transforms
 
@@ -18,43 +17,28 @@ DATA_ROOT = Path(__file__).resolve().parent.parent / "data"
 DOWNLOAD_LOCK = DATA_ROOT / ".fashion-mnist.lock"
 
 
-class HeteroCNN(nn.Module):
-    """A simple width-scaled CNN for Fashion-MNIST."""
+class HeteroMLP(nn.Module):
+    """A tiny width-scaled MLP for Fashion-MNIST."""
 
-    def __init__(self, width1: int, width2: int, hidden: int, num_classes: int = 10):
+    def __init__(self, hidden: int, num_classes: int = 10):
         super().__init__()
-        self.features = nn.Sequential(
-            nn.Conv2d(1, width1, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(2),
-            nn.Conv2d(width1, width2, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(2),
-        )
         self.classifier = nn.Sequential(
-            nn.Linear(width2 * 7 * 7, hidden),
+            nn.Flatten(),
+            nn.Linear(28 * 28, hidden),
             nn.ReLU(inplace=True),
             nn.Linear(hidden, num_classes),
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.features(x)
-        x = torch.flatten(x, start_dim=1)
         return self.classifier(x)
 
 
-
-def _scaled_channels(model_rate: float) -> tuple[int, int, int]:
-    width1 = max(8, int(round(32 * model_rate)))
-    width2 = max(16, int(round(64 * model_rate)))
-    hidden = max(32, int(round(128 * model_rate)))
-    return width1, width2, hidden
+def _scaled_hidden(model_rate: float) -> int:
+    return max(16, int(round(128 * model_rate)))
 
 
-
-def build_model_for_rate(model_rate: float) -> HeteroCNN:
-    width1, width2, hidden = _scaled_channels(model_rate)
-    return HeteroCNN(width1=width1, width2=width2, hidden=hidden)
+def build_model_for_rate(model_rate: float) -> HeteroMLP:
+    return HeteroMLP(hidden=_scaled_hidden(model_rate))
 
 
 

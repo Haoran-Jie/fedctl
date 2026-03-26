@@ -13,6 +13,7 @@ from .config import (
     device_rate_map,
     get_float,
     get_int,
+    get_optional_int,
     get_str,
     resolve_device_type_for_context,
     resolve_instance_idx,
@@ -66,6 +67,13 @@ def _resolve_model_rate(msg: Message, context: Context) -> float:
     return float(device_rate_map(context.run_config).get(device_type, get_float(context.run_config, "default-model-rate")))
 
 
+def _resolve_batch_size(context: Context, device_type: str) -> int:
+    specific = get_optional_int(context.run_config, f"{device_type}-batch-size")
+    if specific is not None and specific > 0:
+        return specific
+    return get_int(context.run_config, "batch-size")
+
+
 @app.query()
 def query_app(msg: Message, context: Context) -> Message:
     reply = RecordDict(
@@ -98,7 +106,7 @@ def train_app(msg: Message, context: Context) -> Message:
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     partition_id = int(context.node_config["partition-id"])
     num_partitions = int(context.node_config["num-partitions"])
-    batch_size = get_int(context.run_config, "batch-size")
+    batch_size = _resolve_batch_size(context, device_type)
     partitioning = get_str(context.run_config, "partitioning")
     max_train_examples = _max_examples_for_device(
         context,
@@ -170,7 +178,7 @@ def evaluate_app(msg: Message, context: Context) -> Message:
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     partition_id = int(context.node_config["partition-id"])
     num_partitions = int(context.node_config["num-partitions"])
-    batch_size = get_int(context.run_config, "batch-size")
+    batch_size = _resolve_batch_size(context, device_type)
     partitioning = get_str(context.run_config, "partitioning")
     max_train_examples = _max_examples_for_device(
         context,
