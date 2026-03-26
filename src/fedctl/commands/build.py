@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import tempfile
 from pathlib import Path
 
@@ -24,6 +25,11 @@ from fedctl.config.repo import get_image_registry, resolve_repo_config
 console = Console()
 
 
+def _env_image_registry() -> str | None:
+    value = os.environ.get("FEDCTL_IMAGE_REGISTRY", "").strip()
+    return value.rstrip("/") if value else None
+
+
 def build_and_record(
     *,
     path: str = ".",
@@ -45,7 +51,7 @@ def build_and_record(
         include_project_local=True,
         include_profile=True,
     ).data
-    registry = get_image_registry(repo_cfg)
+    registry = _env_image_registry() or get_image_registry(repo_cfg)
     image_tag = image or default_image_tag(
         info.project_name, repo_root=info.root, registry=registry
     )

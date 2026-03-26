@@ -30,3 +30,12 @@ def test_runner_env_excludes_docker_credentials(monkeypatch) -> None:
     assert "DOCKERHUB_USERNAME" not in env
     assert "DOCKERHUB_TOKEN" not in env
     assert "DOCKER_REGISTRY" not in env
+
+
+def test_runner_env_includes_internal_image_registry() -> None:
+    env = _runner_env(
+        _effective_config(),
+        image_registry="128.232.61.111:5000",
+    )
+
+    assert env["FEDCTL_IMAGE_REGISTRY"] == "128.232.61.111:5000"

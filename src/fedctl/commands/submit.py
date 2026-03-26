@@ -243,7 +243,11 @@ def run_submit(
                         verbose=verbose,
                         destroy=destroy,
                     ),
-                    "env": _runner_env(eff, result_store=resolved_artifact_store),
+                    "env": _runner_env(
+                        eff,
+                        result_store=resolved_artifact_store,
+                        image_registry=internal_registry,
+                    ),
                     "priority": priority or 50,
                     "namespace": eff.namespace,
                 }
@@ -283,7 +287,11 @@ def run_submit(
                 verbose=verbose,
                 destroy=destroy,
             ),
-            env=_runner_env(eff, result_store=resolved_artifact_store),
+            env=_runner_env(
+                eff,
+                result_store=resolved_artifact_store,
+                image_registry=internal_registry,
+            ),
             priority=priority or 50,
             artifact_dest="/local/project",
             work_dir="/local/project",
@@ -915,7 +923,12 @@ def _runner_args(
     return args
 
 
-def _runner_env(eff: object, *, result_store: str | None = None) -> dict[str, str]:
+def _runner_env(
+    eff: object,
+    *,
+    result_store: str | None = None,
+    image_registry: str | None = None,
+) -> dict[str, str]:
     env: dict[str, str] = {}
     endpoint = getattr(eff, "endpoint", None)
     namespace = getattr(eff, "namespace", None)
@@ -931,6 +944,8 @@ def _runner_env(eff: object, *, result_store: str | None = None) -> dict[str, st
         env["NOMAD_TOKEN"] = str(token)
     if result_store:
         env["FEDCTL_RESULT_STORE"] = str(result_store)
+    if image_registry:
+        env["FEDCTL_IMAGE_REGISTRY"] = str(image_registry)
     for key in (
         "AWS_ACCESS_KEY_ID",
         "AWS_SECRET_ACCESS_KEY",

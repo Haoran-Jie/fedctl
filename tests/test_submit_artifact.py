@@ -360,3 +360,4 @@ def test_run_submit_rewrites_explicit_superexec_image_to_internal_registry(
         payload["submit_request"]["options"]["image"]
         == "192.168.8.101:5000/demo-project-superexec:test123"
     )
+    assert payload["env"]["FEDCTL_IMAGE_REGISTRY"] == "192.168.8.101:5000"
