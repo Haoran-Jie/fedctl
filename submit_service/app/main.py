@@ -61,7 +61,7 @@ def create_app() -> FastAPI:
 
     @app.on_event("startup")
     def _start_dispatcher() -> None:
-        if cfg.dispatch_mode == "queue":
+        if cfg.dispatch_mode == "queue" or cfg.nomad_endpoint:
             app.state.dispatcher.start()
 
     @app.on_event("shutdown")

@@ -266,6 +266,39 @@ def test_logs_falls_back_to_archived_when_nomad_unavailable(
     assert superlink_logs.text == "archived superlink stderr"
 
 
+def test_create_app_starts_dispatcher_for_immediate_mode_with_nomad(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import submit_service.app.main as main_mod
+
+    starts: list[str] = []
+    stops: list[str] = []
+
+    class FakeDispatcher:
+        def __init__(self, storage, cfg):
+            self.storage = storage
+            self.cfg = cfg
+
+        def start(self) -> None:
+            starts.append("start")
+
+        def stop(self) -> None:
+            stops.append("stop")
+
+    monkeypatch.setenv("SUBMIT_REPO_CONFIG", str(tmp_path / "missing-fedctl.yaml"))
+    monkeypatch.setenv("SUBMIT_DB_URL", f"sqlite:///{tmp_path / 'submit.db'}")
+    monkeypatch.setenv("FEDCTL_SUBMIT_ALLOW_UNAUTH", "true")
+    monkeypatch.setenv("SUBMIT_DISPATCH_MODE", "immediate")
+    monkeypatch.setenv("SUBMIT_NOMAD_ENDPOINT", "http://nomad.example:4646")
+    monkeypatch.setattr(main_mod, "Dispatcher", FakeDispatcher)
+
+    with TestClient(main_mod.create_app()):
+        pass
+
+    assert starts == ["start"]
+    assert stops == ["stop"]
+
+
 def test_logs_use_index_to_resolve_supernode_task_and_matching_alloc(
     tmp_path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
