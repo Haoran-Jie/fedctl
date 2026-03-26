@@ -18,8 +18,10 @@ def build_image(
     cmd = ["docker", "build", "-t", image, "-f", str(dockerfile_path)]
     if no_cache:
         cmd.append("--no-cache")
-    if quiet:
-        cmd.append("--quiet")
+    # Avoid docker's quiet mode here. On the Raspberry Pi submit nodes we have
+    # repeatedly seen `docker build --quiet` hang after the inner RUN step
+    # completed, which breaks both `fedctl build` and `fedctl submit run`.
+    # Keeping stdout attached is noisier but reliable.
     if platform:
         cmd.extend(["--platform", platform])
     cmd.append(str(context_dir))
