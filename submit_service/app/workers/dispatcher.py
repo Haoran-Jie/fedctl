@@ -151,6 +151,18 @@ class Dispatcher:
             )
             try:
                 allocs = client.job_allocations(nomad_job_id)
+                if not allocs:
+                    try:
+                        client.job(nomad_job_id)
+                    except NomadError as exc:
+                        if _nomad_error_status(exc) == 404:
+                            self._storage.set_status(
+                                submission["id"],
+                                "failed",
+                                finished_at=utcnow(),
+                                error_message="Nomad job missing",
+                            )
+                    continue
             except NomadError as exc:
                 if _nomad_error_status(exc) == 404:
                     self._storage.set_status(
