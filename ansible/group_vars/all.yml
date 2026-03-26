@@ -9,6 +9,7 @@ nomad_advertise_ip: "{{ cluster_node_ip | default(ansible_host) }}"
 # Cluster control-plane addressing derived from inventory.
 cluster_nomad_server_host: "{{ hostvars[groups['nomad_servers'][0]].cluster_node_ip | default(hostvars[groups['nomad_servers'][0]].ansible_host) }}"
 cluster_registry_hostport: "{{ cluster_nomad_server_host }}:5000"
+cluster_registry_tailscale_hostport: "{{ hostvars[groups['registry_hosts'][0]].ansible_host }}:5000"
 
 # Keep list in sync with your server quorum.
 nomad_server_rpc_endpoints:
@@ -17,9 +18,10 @@ nomad_server_rpc_endpoints:
 # Docker registry config used by all Nomad clients.
 docker_insecure_registries:
   - "{{ cluster_registry_hostport }}"
+  - "{{ cluster_registry_tailscale_hostport }}"
 
-# Provisioning network preference. Current hardware uses Ethernet for PoE only,
-# while Wi-Fi provides upstream connectivity, so prefer Wi-Fi routes by default.
-network_prefer_wifi: true
-network_wifi_route_metric: 100
-network_eth_route_metric: 700
+# Provisioning network preference. Campus Ethernet is now the intended primary
+# path, so disable the legacy Wi-Fi-first tuning in the common role.
+network_prefer_wifi: false
+network_wifi_route_metric: 700
+network_eth_route_metric: 50

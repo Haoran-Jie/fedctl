@@ -3,7 +3,13 @@ from __future__ import annotations
 from pathlib import Path
 
 from fedctl.config.io import ensure_config_exists, load_raw_toml, save_raw_toml
-from fedctl.config.repo import resolve_repo_config, resolve_repo_config_path
+from fedctl.config.repo import (
+    get_cluster_image_registry,
+    get_image_registry,
+    resolve_repo_config,
+    resolve_repo_config_path,
+    rewrite_image_registry,
+)
 
 
 def _use_tmp_xdg(monkeypatch, tmp_path: Path) -> None:
@@ -95,3 +101,34 @@ def test_explicit_missing_repo_config_disables_fallback(
     )
     assert resolved.path is None
     assert resolved.data == {}
+
+
+def test_cluster_image_registry_prefers_submit_service_section() -> None:
+    repo_cfg = {
+        "image_registry": "100.108.13.23:5000",
+        "submit-service": {"image_registry": "192.168.8.101:5000"},
+    }
+
+    assert get_image_registry(repo_cfg) == "100.108.13.23:5000"
+    assert get_cluster_image_registry(repo_cfg) == "192.168.8.101:5000"
+
+
+def test_rewrite_image_registry_only_rewrites_matching_source() -> None:
+    image = "100.108.13.23:5000/demo-superexec:abc123"
+
+    assert (
+        rewrite_image_registry(
+            image,
+            source_registry="100.108.13.23:5000",
+            target_registry="192.168.8.101:5000",
+        )
+        == "192.168.8.101:5000/demo-superexec:abc123"
+    )
+    assert (
+        rewrite_image_registry(
+            "docker.io/library/python:3.12",
+            source_registry="100.108.13.23:5000",
+            target_registry="192.168.8.101:5000",
+        )
+        == "docker.io/library/python:3.12"
+    )

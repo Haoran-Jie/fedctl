@@ -8,13 +8,14 @@ from fedctl.deploy.errors import DeployError
 from fedctl.deploy.resolve import resolve_superlink_address
 from fedctl.nomad.client import NomadClient
 from fedctl.nomad.errors import NomadConnectionError, NomadHTTPError, NomadTLSError
-from fedctl.project.pyproject_patch import patch_remote_deployment
+from fedctl.project.flwr_config import resolve_flwr_home, write_superlink_connection
 from fedctl.util.console import console
 
 def run_configure(
     *,
     path: str = ".",
     namespace: str | None = None,
+    flwr_home: str | None = None,
     backup: bool = True,
     show_next: bool = True,
     experiment: str | None = None,
@@ -23,6 +24,8 @@ def run_configure(
     token: str | None = None,
 ) -> int:
     cfg = load_config()
+    project_path = Path(path)
+    project_root = project_path if project_path.is_dir() else project_path.parent
     try:
         eff = get_effective_config(
             cfg,
@@ -42,13 +45,25 @@ def run_configure(
             namespace=eff.namespace or "default",
             experiment=experiment,
         )
-        patched_path = patch_remote_deployment(
-            Path(path), address=addr, insecure=True, backup=backup
+        resolved_flwr_home = resolve_flwr_home(
+            project_root=project_root,
+            flwr_home=flwr_home,
         )
-        console.print(f"[green]✓ Updated[/green] {patched_path}")
+        config_path = write_superlink_connection(
+            flwr_home=resolved_flwr_home,
+            name="remote-deployment",
+            address=addr,
+            insecure=True,
+            backup=backup,
+            default_connection="remote-deployment",
+        )
+        console.print(f"[green]✓ Updated Flower config:[/green] {config_path}")
+        console.print(f"[green]✓ FLWR_HOME:[/green] {resolved_flwr_home}")
         if show_next:
             console.print(
-                f"Next step:\n  flwr run {patched_path} remote-deployment --stream"
+                "Next step:\n"
+                f"  FLWR_HOME={resolved_flwr_home} flwr run {project_root} "
+                "remote-deployment --stream"
             )
         return 0
 

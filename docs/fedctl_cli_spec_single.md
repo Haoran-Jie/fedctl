@@ -135,6 +135,9 @@ fedctl profile rm oldlab
 ### `fedctl submit run [PATH]`
 Submit a project for queued execution via the submit service.
 
+Use this for the normal remote cluster workflow from the laptop.
+`fedctl run` is the direct Nomad path and is not the same thing.
+
 Flags:
 - `--flwr-version <ver>`: Flower version for the SuperExec image. Default `1.25.0`.
 - `--image <name>`: SuperExec image tag override.
@@ -379,6 +382,10 @@ fedctl configure . --exp exp1 --namespace alice
 
 ### `fedctl run [PATH]`
 End-to-end: inspect → build → deploy → configure → `flwr run`.
+
+This is the direct Nomad workflow. It does not go through the submit service.
+For the normal queued remote workflow from the laptop, use `fedctl submit run`
+instead.
 
 Flags:
 - `--flwr-version <ver>`: Flower version embedded into the generated Dockerfile. Default `1.25.0`.

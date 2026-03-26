@@ -21,10 +21,13 @@ deploy:
       none: {}
 
 submit:
-  image: "192.168.8.101:5000/fedctl-submit:latest"
+  image: "100.82.158.122:5000/fedctl-submit:latest"
   artifact_store: "s3+presign://fedctl-submits/fedctl-submits"
-  endpoint: "http://10.100.2.142:8080"
+  endpoint: "http://100.82.158.122:8080"
   token: "flwruser1"
   user: "samuel"
 
-image_registry: "192.168.8.101:5000"
+submit-service:
+  image_registry: "128.232.61.111:5000"
+
+image_registry: "100.82.158.122:5000"

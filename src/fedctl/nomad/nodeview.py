@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import re
 from typing import Any, Iterable, Optional
+
+_DEVICE_NAME_RE = re.compile(r"^(rpi\d+)(?:[-_].*)?$", re.IGNORECASE)
 
 
 def _first_value(node: dict, keys: Iterable[str]) -> Optional[str]:
@@ -25,7 +28,16 @@ def extract_device(node: dict) -> Optional[str]:
 
 
 def extract_device_type(node: dict) -> Optional[str]:
-    return extract_from_meta_or_attr(node, "device_type")
+    value = extract_from_meta_or_attr(node, "device_type")
+    if value:
+        return value
+
+    name = node.get("Name")
+    if isinstance(name, str):
+        match = _DEVICE_NAME_RE.match(name.strip())
+        if match:
+            return match.group(1).lower()
+    return None
 
 
 def extract_gpu(node: dict) -> Optional[str]:

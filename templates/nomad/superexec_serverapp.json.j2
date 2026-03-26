@@ -5,6 +5,7 @@
     "Namespace": "{{ namespace }}",
     "Type": "service",
     "Datacenters": {{ datacenters | tojson }},
+    "Update": {{ update | tojson }},
     "TaskGroups": [
       {
         "Name": "{{ job_name }}",

@@ -43,10 +43,20 @@ Note:
 
 ## Remote smoke test with `fedctl`
 
+Use `fedctl submit run` here, not `fedctl run`.
+
+Reason:
+
+- `fedctl submit run` is the queued remote workflow from the laptop
+- it uploads the project archive, submits through the submit service, and lets
+  the submit-runner execute `fedctl run` inside the cluster
+- `fedctl run` from the laptop is the direct Nomad path and bypasses the submit
+  service
+
 Run this from the repository root:
 
 ```bash
-fedctl run refs/heterofl_fedctl \
+fedctl submit run refs/heterofl_fedctl \
   --repo-config experiments/dissertation/repo_config/heterofl_smoke.yaml \
   --exp heterofl-smoke-4nodes \
   --supernodes rpi4=2 \

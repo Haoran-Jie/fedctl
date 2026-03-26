@@ -59,6 +59,14 @@ Behavior summary:
 3. Create project archive.
 4. Upload archive to artifact store.
 5. Submit a submit-runner Nomad job through submit-service, or directly to Nomad if service is unavailable.
+6. The submit-runner then executes the deployment/run flow inside the cluster.
+
+Important distinction:
+- `fedctl submit run` is the normal queued remote workflow from the laptop.
+- `fedctl run` is the direct Nomad workflow and bypasses the submit service.
+- In the submit-service path, the submit-runner eventually calls the equivalent
+  of `fedctl run` inside the cluster after the project artifact has been
+  uploaded and scheduled.
 
 ### `fedctl submit status <submission_id>`
 

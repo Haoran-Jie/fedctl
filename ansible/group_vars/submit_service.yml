@@ -17,7 +17,7 @@ submit_aws_credentials_src: "{{ lookup('env', 'HOME') }}/.aws/credentials"
 submit_aws_config_src: "{{ lookup('env', 'HOME') }}/.aws/config"
 submit_aws_profile: "default"
 submit_aws_region: "eu-north-1"
-submit_service_public_endpoint: "http://10.100.2.142:8080"
+submit_service_public_endpoint: "http://{{ hostvars[groups['submit_service'][0]].ansible_host }}:8080"
 submit_repo_config_path: "/etc/fedctl/cluster-fedctl.yaml"
 submit_legacy_repo_config_path: "/opt/fedctl/.fedctl/fedctl.yaml"
 submit_cluster_repo_config:

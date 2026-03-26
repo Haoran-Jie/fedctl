@@ -17,8 +17,10 @@ import httpx
 from fedctl.config.io import load_config
 from fedctl.config.merge import get_effective_config
 from fedctl.config.repo import (
+    get_cluster_image_registry,
     parse_submit_repo_config,
     get_image_registry,
+    rewrite_image_registry,
     resolve_repo_config,
 )
 from fedctl.nomad.client import NomadClient
@@ -121,6 +123,9 @@ def run_submit(
         _print_ok(f"Submission ID: {submission_id}")
 
     submit_cfg = parse_submit_repo_config(repo_cfg)
+    external_registry = get_image_registry(repo_cfg)
+    internal_registry = get_cluster_image_registry(repo_cfg)
+
     resolved_image = submit_image or submit_cfg.image
     resolved_artifact_store = artifact_store or submit_cfg.artifact_store
     presign_endpoint = (
@@ -135,16 +140,25 @@ def run_submit(
             "[red]✗ Missing artifact store.[/red] Use --artifact-store or repo config."
         )
         return 1
+    resolved_image = rewrite_image_registry(
+        resolved_image,
+        source_registry=external_registry,
+        target_registry=internal_registry,
+    )
 
     resolved_superexec_image = image
     if not resolved_superexec_image:
-        registry = get_image_registry(repo_cfg)
         project_name_for_tag = project_name or "project"
         resolved_superexec_image = default_image_tag(
             project_name_for_tag,
             repo_root=info.root,
-            registry=registry,
+            registry=external_registry,
         )
+    resolved_superexec_image = rewrite_image_registry(
+        resolved_superexec_image,
+        source_registry=external_registry,
+        target_registry=internal_registry,
+    )
 
     repo_cfg_path = repo_resolution.path
 

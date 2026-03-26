@@ -16,6 +16,7 @@ import logging
 from fedctl.commands.run import run_run
 from fedctl.deploy import naming
 from fedctl.deploy.plan import parse_supernodes
+from fedctl.constants import DEFAULT_FLWR_VERSION
 from fedctl.nomad.client import NomadClient
 from fedctl.submit.artifact import upload_artifact, ArtifactUploadError
 from fedctl.util.console import console
@@ -34,7 +35,7 @@ def main(argv: list[str] | None = None) -> int:
         help="Expected project directory name inside the workspace",
     )
     parser.add_argument("--exp", dest="experiment")
-    parser.add_argument("--flwr-version", default="1.25.0")
+    parser.add_argument("--flwr-version", default=DEFAULT_FLWR_VERSION)
     parser.add_argument("--image")
     parser.add_argument("--no-cache", action="store_true")
     parser.add_argument("--platform")

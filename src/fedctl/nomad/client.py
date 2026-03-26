@@ -93,8 +93,22 @@ class NomadClient:
             raise NomadHTTPError(500, "Unexpected response for agent self")
         return data
 
-    def nodes(self) -> Any:
-        return self._get("/v1/nodes")
+    def nodes(self, *, detailed: bool = False) -> Any:
+        nodes = self._get("/v1/nodes")
+        if not detailed or not isinstance(nodes, list):
+            return nodes
+
+        detailed_nodes: list[Any] = []
+        for node in nodes:
+            if not isinstance(node, dict):
+                detailed_nodes.append(node)
+                continue
+            node_id = node.get("ID")
+            if not isinstance(node_id, str) or not node_id:
+                detailed_nodes.append(node)
+                continue
+            detailed_nodes.append(self._get(f"/v1/node/{node_id}"))
+        return detailed_nodes
 
     def submit_job(self, job: Dict[str, Any]) -> Any:
         return self._post("/v1/jobs", job)

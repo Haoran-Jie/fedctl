@@ -78,7 +78,7 @@ def run_address(
 
 def _format_toml(address: str) -> str:
     return (
-        "[tool.flwr.federations.remote-deployment]\n"
+        "[superlink.remote-deployment]\n"
         f'address = "{address}"\n'
         "insecure = true\n"
     )

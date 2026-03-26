@@ -101,12 +101,61 @@ def parse_submit_repo_config(repo_cfg: dict[str, Any]) -> SubmitRepoConfig:
 def get_image_registry(repo_cfg: dict[str, Any]) -> str | None:
     value = repo_cfg.get("image_registry")
     if isinstance(value, str) and value.strip():
-        return value.strip().rstrip("/")
+        return _normalize_registry(value)
     build_cfg = repo_cfg.get("build", {})
     if isinstance(build_cfg, dict):
         value = build_cfg.get("image_registry")
         if isinstance(value, str) and value.strip():
-            return value.strip().rstrip("/")
+            return _normalize_registry(value)
+    return None
+
+
+def get_cluster_image_registry(repo_cfg: dict[str, Any]) -> str | None:
+    submit_service_cfg = repo_cfg.get("submit-service", {})
+    if isinstance(submit_service_cfg, dict):
+        value = submit_service_cfg.get("image_registry")
+        if isinstance(value, str) and value.strip():
+            return _normalize_registry(value)
+    return get_image_registry(repo_cfg)
+
+
+def rewrite_image_registry(
+    image: str,
+    *,
+    source_registry: str | None = None,
+    target_registry: str | None = None,
+) -> str:
+    image = image.strip()
+    target = _normalize_registry(target_registry)
+    if not image or not target:
+        return image
+
+    current_registry, remainder = _split_image_reference(image)
+    if current_registry is None:
+        return image
+    if current_registry == target:
+        return image
+
+    source = _normalize_registry(source_registry)
+    if source and current_registry != source:
+        return image
+
+    return f"{target}/{remainder}"
+
+
+def _normalize_registry(value: str | None) -> str | None:
+    if not isinstance(value, str):
+        return None
+    stripped = value.strip().rstrip("/")
+    return stripped or None
+
+
+def _split_image_reference(image: str) -> tuple[str | None, str]:
+    first, sep, remainder = image.partition("/")
+    if not sep:
+        return None, image
+    if "." in first or ":" in first or first == "localhost":
+        return first, remainder
     return None
 
 

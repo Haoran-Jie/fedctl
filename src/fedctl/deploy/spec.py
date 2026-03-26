@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from fedctl.constants import DEFAULT_FLWR_VERSION
+
 from .network import NetworkPlan
 from .plan import SupernodePlacement
 
@@ -58,6 +60,7 @@ def default_deploy_spec(
     num_supernodes: int = 2,
     *,
     image: str,
+    flwr_version: str = DEFAULT_FLWR_VERSION,
     namespace: str = "default",
     experiment: str,
     supernodes_by_type: dict[str, int] | None = None,
@@ -75,7 +78,7 @@ def default_deploy_spec(
         datacenter="dc1",
         namespace=namespace,
         experiment=experiment,
-        flwr_version="1.25.0",
+        flwr_version=flwr_version,
         insecure=True,
         superlink=SuperLinkSpec(),
         supernodes=SuperNodesSpec(

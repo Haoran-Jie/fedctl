@@ -1,0 +1,121 @@
+---
+- name: Configure campus Ethernet static IPv4 on Raspberry Pis
+  hosts: all
+  become: true
+  gather_facts: false
+  vars_files:
+    - vars/campus_ethernet.yml
+  vars:
+    campus_eth_ip: "{{ campus_eth_ipv4_map.get(inventory_hostname) }}"
+  tasks:
+    - name: Ensure nmcli is available
+      ansible.builtin.command:
+        argv:
+          - nmcli
+          - --version
+      register: campus_nmcli
+      changed_when: false
+      when: campus_eth_ip is not none
+
+    - name: Fail when no campus Ethernet IP is assigned for host
+      ansible.builtin.assert:
+        that:
+          - campus_eth_ip is not none
+        fail_msg: "No campus Ethernet IP mapping defined for {{ inventory_hostname }}"
+      when: campus_eth_ip is not none
+
+    - name: Check Ethernet carrier state
+      ansible.builtin.command:
+        argv:
+          - cat
+          - "/sys/class/net/{{ campus_eth_interface }}/carrier"
+      register: campus_eth_carrier
+      changed_when: false
+      failed_when: false
+      when: campus_eth_ip is not none
+
+    - name: Configure campus Ethernet static profile
+      ansible.builtin.command:
+        argv:
+          - nmcli
+          - connection
+          - modify
+          - "{{ campus_eth_connection }}"
+          - ipv4.method
+          - manual
+          - ipv4.addresses
+          - "{{ campus_eth_ip }}/{{ campus_eth_prefix }}"
+          - ipv4.gateway
+          - "{{ campus_eth_gateway }}"
+          - ipv4.dns
+          - "{{ campus_eth_dns | join(' ') }}"
+          - ipv4.route-metric
+          - >-
+            {{
+              (
+                campus_eth_route_metric
+                if (campus_eth_carrier.stdout | trim) == '1'
+                else campus_eth_fallback_route_metric
+              ) | string
+            }}
+      changed_when: true
+      when: campus_eth_ip is not none
+
+    - name: Bring campus Ethernet profile up
+      ansible.builtin.command:
+        argv:
+          - nmcli
+          - connection
+          - up
+          - "{{ campus_eth_connection }}"
+      register: campus_eth_up
+      changed_when: >-
+        'successfully activated' in (campus_eth_up.stdout | lower)
+        or 'successfully activated' in (campus_eth_up.stderr | lower)
+      when: campus_eth_ip is not none
+
+    - name: Reset SSH control connection after Ethernet preference switch
+      ansible.builtin.meta: reset_connection
+      when:
+        - campus_eth_ip is not none
+        - (campus_eth_carrier.stdout | trim) == '1'
+
+    - name: Wait for host to come back after Ethernet preference switch
+      ansible.builtin.wait_for_connection:
+        timeout: 45
+        sleep: 2
+      when: campus_eth_ip is not none
+
+    - name: Verify Ethernet IPv4 address
+      ansible.builtin.command:
+        argv:
+          - ip
+          - -4
+          - -br
+          - addr
+          - show
+          - "{{ campus_eth_interface }}"
+      register: campus_eth_addr
+      changed_when: false
+      when: campus_eth_ip is not none
+
+    - name: Verify campus gateway reachability via Ethernet
+      ansible.builtin.command:
+        argv:
+          - ping
+          - -I
+          - "{{ campus_eth_interface }}"
+          - -c
+          - "3"
+          - "{{ campus_eth_gateway }}"
+      register: campus_eth_ping
+      changed_when: false
+      when: campus_eth_ip is not none
+
+    - name: Show resulting Ethernet state
+      ansible.builtin.debug:
+        msg:
+          - "carrier={{ campus_eth_carrier.stdout | trim | default('unknown') }}"
+          - "{{ campus_eth_addr.stdout }}"
+          - "{{ campus_eth_ping.stdout_lines[-2] | default('') }}"
+      when: campus_eth_ip is not none

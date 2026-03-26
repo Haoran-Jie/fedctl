@@ -25,7 +25,7 @@ serverapp = "heterofl_fedctl.server_app:app"
 clientapp = "heterofl_fedctl.client_app:app"
 
 [tool.flwr.app.config]
-num-server-rounds = 3
+num-server-rounds = 1
 fraction-train = 1.0
 fraction-evaluate = 0.5
 min-available-nodes = 4
@@ -33,13 +33,17 @@ min-train-nodes = 4
 min-evaluate-nodes = 2
 local-epochs = 1
 learning-rate = 0.05
-batch-size = 32
+batch-size = 128
 dataset-name = "fashion-mnist"
 partitioning = "iid"
 global-model-rate = 1.0
 default-model-rate = 1.0
 rpi4-model-rate = 0.5
 rpi5-model-rate = 1.0
+rpi4-max-train-examples = 2048
+rpi4-max-test-examples = 512
+rpi5-max-train-examples = 4096
+rpi5-max-test-examples = 1024
 capability-discovery-timeout-s = 120.0
 heterofl-node-device-types = ""
 heterofl-node-rates = ""

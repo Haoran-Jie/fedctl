@@ -34,6 +34,6 @@ submit-service:
   endpoint: "http://127.0.0.1:8080"
   nomad_endpoint: "http://REPLACE_NOMAD_HOST:4646"
   dispatch_mode: "queue"
-  image_registry: "REPLACE_REGISTRY"
+  image_registry: "REPLACE_INTERNAL_REGISTRY"
 
-image_registry: "REPLACE_REGISTRY"
+image_registry: "REPLACE_EXTERNAL_REGISTRY"

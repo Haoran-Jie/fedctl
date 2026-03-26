@@ -7,6 +7,7 @@ from rich import print
 from rich.table import Table
 from typer.core import TyperGroup
 
+from fedctl.constants import DEFAULT_FLWR_VERSION
 from fedctl.config.io import load_config, load_raw_toml, save_raw_toml
 from fedctl.config.merge import get_effective_config
 
@@ -199,7 +200,7 @@ def submit(
 @submit_app.command("run")
 def submit_run(
     path: str = typer.Argument(".", help="Path to a Flower project (dir or pyproject.toml)."),
-    flwr_version: str = typer.Option("1.25.0", "--flwr-version"),
+    flwr_version: str = typer.Option(DEFAULT_FLWR_VERSION, "--flwr-version"),
     image: str | None = typer.Option(None, "--image"),
     no_cache: bool = typer.Option(False, "--no-cache"),
     platform: str | None = typer.Option(None, "--platform"),
@@ -468,6 +469,7 @@ def deploy(
     ),
     repo_config: str | None = typer.Option(None, "--repo-config"),
     image: str | None = typer.Option(None, "--image"),
+    flwr_version: str = typer.Option(DEFAULT_FLWR_VERSION, "--flwr-version"),
     exp: str | None = typer.Option(None, "--exp"),
     timeout: int = typer.Option(120, "--timeout"),
     no_wait: bool = typer.Option(False, "--no-wait"),
@@ -486,6 +488,7 @@ def deploy(
             allow_oversubscribe=allow_oversubscribe,
             repo_config=repo_config,
             image=image,
+            flwr_version=flwr_version,
             experiment=exp,
             timeout_seconds=timeout,
             no_wait=no_wait,
@@ -496,7 +499,7 @@ def deploy(
 @app.command()
 def build(
     path: str = typer.Argument(".", help="Path to a Flower project (dir or pyproject.toml)."),
-    flwr_version: str = typer.Option("1.25.0", "--flwr-version"),
+    flwr_version: str = typer.Option(DEFAULT_FLWR_VERSION, "--flwr-version"),
     image: str | None = typer.Option(None, "--image"),
     no_cache: bool = typer.Option(False, "--no-cache"),
     platform: str | None = typer.Option(None, "--platform"),
@@ -540,15 +543,17 @@ def address(
 @app.command(hidden=True)
 def configure(
     path: str = typer.Argument(".", help="Path to a Flower project (dir or pyproject.toml)."),
+    flwr_home: str | None = typer.Option(None, "--flwr-home"),
     exp: str | None = typer.Option(None, "--exp"),
     backup: bool = typer.Option(True, "--backup/--no-backup"),
 ) -> None:
-    """Patch pyproject.toml with the resolved federation address."""
+    """Write Flower connection config with the resolved federation address."""
     from fedctl.commands.configure import run_configure
 
     raise SystemExit(
         run_configure(
             path=path,
+            flwr_home=flwr_home,
             backup=backup,
             experiment=exp,
         )
@@ -558,7 +563,7 @@ def configure(
 @app.command()
 def run(
     path: str = typer.Argument(".", help="Path to a Flower project (dir or pyproject.toml)."),
-    flwr_version: str = typer.Option("1.25.0", "--flwr-version"),
+    flwr_version: str = typer.Option(DEFAULT_FLWR_VERSION, "--flwr-version"),
     image: str | None = typer.Option(None, "--image"),
     no_cache: bool = typer.Option(False, "--no-cache"),
     platform: str | None = typer.Option(None, "--platform"),

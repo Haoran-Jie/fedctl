@@ -70,11 +70,11 @@ cd /Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Comp
 uv run flwr run . local-simulation
 ```
 
-Remote smoke test via `fedctl`:
+Remote smoke test via `fedctl submit run`:
 
 ```bash
 cd /Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl
-fedctl run refs/heterofl_fedctl \
+fedctl submit run refs/heterofl_fedctl \
   --repo-config experiments/dissertation/repo_config/heterofl_smoke.yaml \
   --exp heterofl-smoke-4nodes \
   --supernodes rpi4=2 \
@@ -82,6 +82,9 @@ fedctl run refs/heterofl_fedctl \
   --stream \
   --no-destroy
 ```
+
+Use `fedctl run` only for the direct Nomad path. For the normal queued remote
+cluster workflow from the laptop, use `fedctl submit run`.
 
 Detailed notes:
 

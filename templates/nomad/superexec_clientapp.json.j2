@@ -5,17 +5,12 @@
     "Namespace": "{{ namespace }}",
     "Type": "service",
     "Datacenters": {{ datacenters | tojson }},
+    "Update": {{ update | tojson }},
     "TaskGroups": [
       {
         "Name": "{{ job_name }}",
         "Count": 1,
-        "Constraints": [
-          {
-            "LTarget": "${node.class}",
-            "Operand": "=",
-            "RTarget": "{{ node_class }}"
-          }
-        ],
+        "Constraints": {{ constraints | tojson }},
         "Tasks": [
           {
             "Name": "{{ job_name }}",

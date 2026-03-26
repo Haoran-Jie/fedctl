@@ -91,6 +91,7 @@ def _superlink_context(spec: DeploySpec) -> dict[str, Any]:
         "job_name": naming.job_superlink(spec.experiment),
         "datacenters": [spec.datacenter],
         "namespace": spec.namespace,
+        "update": _job_update_stanza(),
         "node_class": spec.superlink.node_class,
         "image": f"flwr/superlink:{spec.flwr_version}",
         "ports": ["serverappio", "fleet", "control"],
@@ -157,7 +158,7 @@ def _supernodes_context(spec: DeploySpec) -> dict[str, Any]:
         if device_type:
             constraints.append(
                 {
-                    "LTarget": "${node.meta.device_type}",
+                    "LTarget": "${meta.device_type}",
                     "Operand": "=",
                     "RTarget": device_type,
                 }
@@ -259,6 +260,7 @@ def _supernodes_context(spec: DeploySpec) -> dict[str, Any]:
         "job_name": naming.job_supernodes(spec.experiment),
         "datacenters": [spec.datacenter],
         "namespace": spec.namespace,
+        "update": _job_update_stanza(),
         "node_class": spec.supernodes.node_class,
         "task_groups": task_groups,
     }
@@ -597,15 +599,16 @@ def _superexec_serverapp_context(spec: DeploySpec) -> dict[str, Any]:
         "serverapp",
         "--appio-api-address",
         "$${SERVERAPP_IO}",
-        "--flwr-dir",
-        spec.superexec.flwr_dir,
     ]
     if not spec.insecure:
         args = [arg for arg in args if arg != "--insecure"]
 
     entrypoint = ["/bin/sh", "-lc"]
     task_args = [_shell_exec_command(["flower-superexec", *args], include_path=True)]
-    env: dict[str, str] = {"FEDCTL_EXPERIMENT": spec.experiment}
+    env: dict[str, str] = {
+        "FEDCTL_EXPERIMENT": spec.experiment,
+        "FLWR_HOME": spec.superexec.flwr_dir,
+    }
     user = spec.superexec.user
     network_plan = spec.supernodes.network
     if network_plan is not None and spec.superexec.netem_serverapp:
@@ -642,6 +645,7 @@ def _superexec_serverapp_context(spec: DeploySpec) -> dict[str, Any]:
         "job_name": naming.job_superexec_serverapp(spec.experiment),
         "datacenters": [spec.datacenter],
         "namespace": spec.namespace,
+        "update": _job_update_stanza(),
         "node_class": spec.superexec.node_class_link,
         "image": spec.superexec.image,
         "entrypoint": entrypoint,
@@ -667,8 +671,6 @@ def _superexec_clientapp_context(
         "clientapp",
         "--appio-api-address",
         "$${CLIENT_IO}",
-        "--flwr-dir",
-        spec.superexec.flwr_dir,
     ]
     if not spec.insecure:
         args = [arg for arg in args if arg != "--insecure"]
@@ -684,6 +686,7 @@ def _superexec_clientapp_context(
     env: dict[str, str] = {
         "FEDCTL_EXPERIMENT": spec.experiment,
         "FEDCTL_INSTANCE_IDX": str(placement.instance_idx),
+        "FLWR_HOME": spec.superexec.flwr_dir,
     }
     if placement.device_type:
         env["FEDCTL_DEVICE_TYPE"] = placement.device_type
@@ -725,6 +728,30 @@ def _superexec_clientapp_context(
     else:
         cap_add = None
 
+    constraints = [
+        {
+            "LTarget": "${node.class}",
+            "Operand": "=",
+            "RTarget": spec.superexec.node_class_node,
+        }
+    ]
+    if placement.node_id:
+        constraints.append(
+            {
+                "LTarget": "${node.unique.id}",
+                "Operand": "=",
+                "RTarget": placement.node_id,
+            }
+        )
+    elif placement.device_type:
+        constraints.append(
+            {
+                "LTarget": "${meta.device_type}",
+                "Operand": "=",
+                "RTarget": placement.device_type,
+            }
+        )
+
     return {
         "job_name": naming.job_superexec_clientapp(
             spec.experiment,
@@ -733,7 +760,8 @@ def _superexec_clientapp_context(
         ),
         "datacenters": [spec.datacenter],
         "namespace": spec.namespace,
-        "node_class": spec.superexec.node_class_node,
+        "update": _job_update_stanza(),
+        "constraints": constraints,
         "image": spec.superexec.image,
         "entrypoint": entrypoint,
         "args": task_args,
@@ -759,6 +787,17 @@ def _nomad_service_env(service_name: str, var_name: str) -> str:
         f'{var_name}="{{{{ .Address }}}}:{{{{ .Port }}}}"\n'
         "{{ end }}\n"
     )
+
+
+def _job_update_stanza() -> dict[str, Any]:
+    return {
+        "MaxParallel": 1,
+        "HealthCheck": "task_states",
+        "MinHealthyTime": 10_000_000_000,
+        "HealthyDeadline": 900_000_000_000,
+        "ProgressDeadline": 1_200_000_000_000,
+        "AutoRevert": False,
+    }
 
 
 def _validate_jobs(

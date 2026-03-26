@@ -65,6 +65,7 @@
   when:
     - network_prefer_wifi | bool
     - common_nmcli.rc == 0
+    - common_wifi_conn.stdout | length > 0
     - common_eth_conn.stdout | length > 0
 
 - name: Bring Wi-Fi connection back up after metric change
@@ -92,6 +93,7 @@
   when:
     - network_prefer_wifi | bool
     - common_nmcli.rc == 0
+    - common_wifi_conn.stdout | length > 0
     - common_eth_conn.stdout | length > 0
 
 - name: Ensure systemd-timesyncd is enabled and running

@@ -17,6 +17,7 @@ from fedctl.build.state import (
     write_project_build,
 )
 from fedctl.build.tagging import default_image_tag
+from fedctl.constants import DEFAULT_FLWR_VERSION
 from fedctl.project.errors import ProjectError
 from fedctl.config.repo import get_image_registry, resolve_repo_config
 
@@ -26,7 +27,7 @@ console = Console()
 def build_and_record(
     *,
     path: str = ".",
-    flwr_version: str = "1.25.0",
+    flwr_version: str = DEFAULT_FLWR_VERSION,
     image: str | None = None,
     no_cache: bool = False,
     platform: str | None = None,
@@ -82,7 +83,7 @@ def build_and_record(
 def run_build(
     *,
     path: str = ".",
-    flwr_version: str = "1.25.0",
+    flwr_version: str = DEFAULT_FLWR_VERSION,
     image: str | None = None,
     no_cache: bool = False,
     platform: str | None = None,

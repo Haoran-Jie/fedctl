@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Iterable
 
+from fedctl.nomad.nodeview import extract_device_type
+
 
 @dataclass(frozen=True)
 class SupernodePlacement:
@@ -77,8 +79,7 @@ def _nodes_by_type(nodes: list[dict[str, Any]], device_type: str) -> list[str]:
     for node in nodes:
         if not isinstance(node, dict):
             continue
-        meta = node.get("Meta", {}) if isinstance(node.get("Meta"), dict) else {}
-        if str(meta.get("device_type", "")) != device_type:
+        if extract_device_type(node) != device_type:
             continue
         node_id = node.get("ID")
         if isinstance(node_id, str):

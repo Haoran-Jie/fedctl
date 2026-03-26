@@ -38,19 +38,19 @@ deploy:
       high: { delay_ms: 120, jitter_ms: 25, loss_pct: 2.5, rate_mbit: 20, rate_latency_ms: 50, rate_burst_kbit: 256 }
 
 submit:
-  image: "192.168.8.101:5000/fedctl-submit:latest"
+  image: "100.82.158.122:5000/fedctl-submit:latest"
   artifact_store: "s3+presign://fedctl-submits/fedctl-submits"
-  endpoint: "http://10.100.2.142:8080"
+  endpoint: "http://100.82.158.122:8080"
   token: "flwruser1"
   user: "DEFAULT_USER"
 
 submit-service:
   endpoint: "http://127.0.0.1:8080"
-  nomad_endpoint: "http://192.168.8.101:4646"
+  nomad_endpoint: "http://128.232.61.111:4646"
   dispatch_mode: "queue"
-  image_registry: "192.168.8.101:5000"
+  image_registry: "128.232.61.111:5000"
 
-image_registry: "192.168.8.101:5000"
+image_registry: "100.82.158.122:5000"
 """
 
 

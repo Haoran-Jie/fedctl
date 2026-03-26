@@ -5,11 +5,11 @@ This directory automates your hardware deployment so you can scale from 4 RPis t
 ## Topology encoded in inventory
 
 `inventories/prod/hosts.ini` currently models:
-- `1` Nomad server + submit service + registry (`rpi5-001`)
-- `1` submit client (`rpi5-002`)
-- `1` superlink client (`rpi5-003`)
-- `1` supernode client (`rpi5-004`)
-- additional commented `rpi5-005` to `rpi5-024` entries for later scale-out
+- `1` Nomad server + submit service + registry (`rpi5-005`)
+- `2` submit clients (`rpi5-006` to `rpi5-007`)
+- `3` superlink clients (`rpi5-008` to `rpi5-010`)
+- `14` rpi5 supernode clients (`rpi5-011` to `rpi5-024`)
+- `6` rpi4 supernode clients (`rpi4-001` to `rpi4-006`)
 
 If your IPs differ, edit inventory host vars.
 
@@ -55,7 +55,7 @@ If your sudo does not require a password, omit `--ask-become-pass`.
 
 Run in slices first:
 ```bash
-ansible-playbook -i inventories/prod/hosts.ini site.yml --limit rpi5-001 --ask-become-pass
+ansible-playbook -i inventories/prod/hosts.ini site.yml --limit rpi5-005 --ask-become-pass
 ansible-playbook -i inventories/prod/hosts.ini site.yml --limit nomad_submit_clients --ask-become-pass
 ansible-playbook -i inventories/prod/hosts.ini site.yml --limit nomad_superlink_clients --ask-become-pass
 ansible-playbook -i inventories/prod/hosts.ini site.yml --limit nomad_supernode_clients --ask-become-pass
@@ -108,7 +108,7 @@ No playbook changes are needed for role-balanced scaling.
 
 ## Image seeding after registry recovery
 
-If `rpi5-001` is freshly reflashed, the local registry comes back empty even though the registry service is recreated. Seed the submit runner image from the control machine with:
+If `rpi5-005` is freshly reflashed, the local registry comes back empty even though the registry service is recreated. Seed the submit runner image from the control machine with:
 
 ```bash
 cd ansible

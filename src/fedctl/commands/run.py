@@ -10,6 +10,7 @@ from fedctl.commands.build import build_and_record
 from fedctl.commands.configure import run_configure
 from fedctl.commands.deploy import run_deploy
 from fedctl.commands.destroy import run_destroy
+from fedctl.constants import DEFAULT_FLWR_VERSION
 from fedctl.project.errors import ProjectError
 from datetime import datetime, timezone
 
@@ -19,6 +20,7 @@ from fedctl.build.state import load_project_build
 from fedctl.build.build import image_exists, pull_image
 from fedctl.build.errors import BuildError
 from fedctl.config.repo import resolve_repo_config_path
+from fedctl.project.flwr_config import resolve_flwr_home
 from fedctl.util.console import console
 
 
@@ -35,7 +37,7 @@ def _print_ok(message: str) -> None:
 def run_run(
     *,
     path: str = ".",
-    flwr_version: str = "1.25.0",
+    flwr_version: str = DEFAULT_FLWR_VERSION,
     image: str | None = None,
     no_cache: bool = False,
     platform: str | None = None,
@@ -78,62 +80,81 @@ def run_run(
     )
     _print_ok(f"Experiment: {exp_name}")
 
-    _print_step(2, 5, "Build SuperExec image")
     image_tag = None
-    reuse_allowed = not no_cache and image is None and context is None
-    pull_cached = os.environ.get("FEDCTL_PULL_CACHED_IMAGE", "").strip().lower() in {
-        "1",
-        "true",
-        "yes",
-        "on",
-    }
-    if reuse_allowed:
-        try:
-            cached = load_project_build(info.root)
-            if cached.flwr_version != flwr_version:
-                console.print(
-                    f"[yellow]Note:[/yellow] Cached image flwr_version "
-                    f"{cached.flwr_version} does not match {flwr_version}."
-                )
-            else:
-                if image_exists(cached.image):
-                    image_tag = cached.image
-                    _print_ok(f"Reusing cached image: {image_tag}")
-                elif pull_cached:
+    if image:
+        _print_step(2, 5, "Select SuperExec image")
+        ignored_flags: list[str] = []
+        if no_cache:
+            ignored_flags.append("--no-cache")
+        if platform:
+            ignored_flags.append("--platform")
+        if context:
+            ignored_flags.append("--context")
+        if push:
+            ignored_flags.append("--push")
+        if ignored_flags:
+            console.print(
+                "[yellow]Note:[/yellow] Ignoring build flags when reusing "
+                f"explicit image: {', '.join(ignored_flags)}"
+            )
+        image_tag = image
+        _print_ok(f"Using provided image: {image_tag}")
+    else:
+        _print_step(2, 5, "Build SuperExec image")
+        reuse_allowed = not no_cache and context is None
+        pull_cached = os.environ.get("FEDCTL_PULL_CACHED_IMAGE", "").strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+        if reuse_allowed:
+            try:
+                cached = load_project_build(info.root)
+                if cached.flwr_version != flwr_version:
                     console.print(
-                        f"[yellow]Note:[/yellow] Cached image not local, attempting pull: {cached.image}"
+                        f"[yellow]Note:[/yellow] Cached image flwr_version "
+                        f"{cached.flwr_version} does not match {flwr_version}."
                     )
-                    if pull_image(cached.image) and image_exists(cached.image):
+                else:
+                    if image_exists(cached.image):
                         image_tag = cached.image
-                        _print_ok(f"Pulled cached image: {image_tag}")
+                        _print_ok(f"Reusing cached image: {image_tag}")
+                    elif pull_cached:
+                        console.print(
+                            f"[yellow]Note:[/yellow] Cached image not local, attempting pull: {cached.image}"
+                        )
+                        if pull_image(cached.image) and image_exists(cached.image):
+                            image_tag = cached.image
+                            _print_ok(f"Pulled cached image: {image_tag}")
+                        else:
+                            console.print(
+                                f"[yellow]Note:[/yellow] Failed to pull cached image {cached.image}."
+                            )
                     else:
                         console.print(
-                            f"[yellow]Note:[/yellow] Failed to pull cached image {cached.image}."
+                            f"[yellow]Note:[/yellow] Cached image not found locally. "
+                            f"Set FEDCTL_PULL_CACHED_IMAGE=1 to pull {cached.image}."
                         )
-                else:
-                    console.print(
-                        f"[yellow]Note:[/yellow] Cached image not found locally. "
-                        f"Set FEDCTL_PULL_CACHED_IMAGE=1 to pull {cached.image}."
-                    )
-        except BuildError:
-            pass
+            except BuildError:
+                pass
 
-    if not image_tag:
-        try:
-            image_tag = build_and_record(
-                path=str(info.root),
-                flwr_version=flwr_version,
-                image=image,
-                no_cache=no_cache,
-                platform=platform,
-                context=context,
-                push=push,
-                verbose=verbose,
-            )
-            _print_ok(f"Built image: {image_tag}")
-        except BuildError as exc:
-            console.print(f"[red]✗ Build error:[/red] {exc}")
-            return 1
+        if not image_tag:
+            try:
+                image_tag = build_and_record(
+                    path=str(info.root),
+                    flwr_version=flwr_version,
+                    image=image,
+                    no_cache=no_cache,
+                    platform=platform,
+                    context=context,
+                    push=push,
+                    verbose=verbose,
+                )
+                _print_ok(f"Built image: {image_tag}")
+            except BuildError as exc:
+                console.print(f"[red]✗ Build error:[/red] {exc}")
+                return 1
 
     deploy_num_supernodes = None if supernodes else num_supernodes
 
@@ -152,6 +173,7 @@ def run_run(
         allow_oversubscribe=allow_oversubscribe,
         repo_config=resolved_repo_config,
         image=image_tag,
+        flwr_version=flwr_version,
         experiment=exp_name,
         timeout_seconds=timeout_seconds,
         no_wait=no_wait,
@@ -163,7 +185,7 @@ def run_run(
     if deploy_status != 0:
         return deploy_status
 
-    _print_step(4, 5, "Configure project federation")
+    _print_step(4, 5, "Configure Flower connection")
     configure_status = run_configure(
         path=str(info.root),
         namespace=namespace,
@@ -181,9 +203,11 @@ def run_run(
     cmd = ["flwr", "run", str(info.root), federation]
     if stream:
         cmd.append("--stream")
+    env = os.environ.copy()
+    env["FLWR_HOME"] = str(resolve_flwr_home(project_root=info.root))
 
     try:
-        result = subprocess.run(cmd, check=False)
+        result = subprocess.run(cmd, check=False, env=env)
         return_code = result.returncode
     except KeyboardInterrupt:
         console.print("[yellow]Interrupted.[/yellow] Attempting cleanup...")

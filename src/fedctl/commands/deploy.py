@@ -5,7 +5,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from fedctl.config.io import load_config
-from fedctl.config.repo import get_image_registry, resolve_repo_config
+from fedctl.config.repo import (
+    get_cluster_image_registry,
+    get_image_registry,
+    rewrite_image_registry,
+    resolve_repo_config,
+)
 from fedctl.config.merge import get_effective_config
 from fedctl.build.errors import BuildError
 from fedctl.build.build import build_image, image_exists
@@ -14,6 +19,7 @@ from fedctl.build.dockerfile import render_supernode_dockerfile
 from fedctl.build.tagging import supernode_netem_image_tag
 import tempfile
 from fedctl.build.state import load_latest_build
+from fedctl.constants import DEFAULT_FLWR_VERSION
 from fedctl.deploy import naming
 from fedctl.deploy.errors import DeployError
 from fedctl.deploy.render import RenderedJobs, render_deploy
@@ -63,6 +69,7 @@ def run_deploy(
     allow_oversubscribe: bool | None = None,
     repo_config: str | None = None,
     image: str | None = None,
+    flwr_version: str = DEFAULT_FLWR_VERSION,
     experiment: str | None = None,
     timeout_seconds: int = 120,
     no_wait: bool = False,
@@ -96,6 +103,13 @@ def run_deploy(
         profile_name=profile,
         include_profile=True,
     ).data
+    external_registry = get_image_registry(repo_cfg)
+    internal_registry = get_cluster_image_registry(repo_cfg)
+    cluster_image = rewrite_image_registry(
+        image,
+        source_registry=external_registry,
+        target_registry=internal_registry,
+    )
     repo_defaults = _repo_deploy_config(repo_cfg)
     repo_supernodes = repo_defaults.supernodes
     repo_supernode_resources = repo_defaults.supernode_resources
@@ -190,7 +204,8 @@ def run_deploy(
             return 1
         spec = default_deploy_spec(
             num_supernodes=num_supernodes,
-            image=image,
+            image=cluster_image,
+            flwr_version=flwr_version,
             namespace=namespace or "default",
             experiment=exp_name,
             supernodes_by_type=supernodes_by_type,
@@ -245,7 +260,7 @@ def run_deploy(
 
         placements = None
         if supernodes_by_type:
-            nodes = None if allow_oversubscribe else client.nodes()
+            nodes = None if allow_oversubscribe else client.nodes(detailed=True)
             try:
                 placements = plan_supernodes(
                     counts=supernodes_by_type,
@@ -280,7 +295,6 @@ def run_deploy(
             placements = network_placements
 
         supernode_image = None
-        registry = get_image_registry(repo_cfg)
         if network_plan is not None:
             has_profiles = any(
                 isinstance(values, dict) and values
@@ -291,18 +305,19 @@ def run_deploy(
                 )
             )
             if has_profiles:
-                flwr_version = "1.25.0"
-                supernode_image = supernode_netem_image_tag(flwr_version, registry=registry)
-                if not image_exists(supernode_image):
+                supernode_image_external = supernode_netem_image_tag(
+                    flwr_version, registry=external_registry
+                )
+                if not image_exists(supernode_image_external):
                     console.print(
-                        f"[blue]Building supernode netem image:[/blue] {supernode_image}"
+                        f"[blue]Building supernode netem image:[/blue] {supernode_image_external}"
                     )
                     dockerfile = render_supernode_dockerfile(flwr_version)
                     with tempfile.TemporaryDirectory() as tmp_dir:
                         dockerfile_path = Path(tmp_dir) / "Dockerfile"
                         dockerfile_path.write_text(dockerfile, encoding="utf-8")
                         build_image(
-                            image=supernode_image,
+                            image=supernode_image_external,
                             dockerfile_path=dockerfile_path,
                             context_dir=Path(tmp_dir),
                             no_cache=False,
@@ -311,16 +326,23 @@ def run_deploy(
                         )
                 else:
                     console.print(
-                        f"[green]✓ Using cached supernode netem image:[/green] {supernode_image}"
+                        "[green]✓ Using cached supernode netem image:[/green] "
+                        f"{supernode_image_external}"
                     )
-                if registry:
+                if external_registry:
                     console.print(
-                        f"Pushing supernode netem image: {supernode_image}"
+                        f"Pushing supernode netem image: {supernode_image_external}"
                     )
-                    push_image(supernode_image)
+                    push_image(supernode_image_external)
                     console.print(
-                        f"[green]✓ Pushed supernode netem image:[/green] {supernode_image}"
+                        "[green]✓ Pushed supernode netem image:[/green] "
+                        f"{supernode_image_external}"
                     )
+                supernode_image = rewrite_image_registry(
+                    supernode_image_external,
+                    source_registry=external_registry,
+                    target_registry=internal_registry,
+                )
         if network_plan is not None and not has_profiles:
             console.print(
                 "[yellow]Note:[/yellow] Network profiles are empty; netem will be disabled."
@@ -328,7 +350,8 @@ def run_deploy(
 
         spec = default_deploy_spec(
             num_supernodes=num_supernodes,
-            image=image,
+            image=cluster_image,
+            flwr_version=flwr_version,
             namespace=eff.namespace,
             experiment=exp_name,
             supernodes_by_type=supernodes_by_type,

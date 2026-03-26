@@ -132,6 +132,8 @@ def load_data(
     batch_size: int,
     *,
     partitioning: str = "iid",
+    max_train_examples: int | None = None,
+    max_test_examples: int | None = None,
 ) -> tuple[DataLoader, DataLoader]:
     if partitioning != "iid":
         raise NotImplementedError(
@@ -141,6 +143,10 @@ def load_data(
     trainset, testset = _datasets()
     train_indices = _iid_partition_indices(len(trainset), partition_id, num_partitions)
     test_indices = _iid_partition_indices(len(testset), partition_id, num_partitions)
+    if max_train_examples is not None:
+        train_indices = train_indices[: max(max_train_examples, 0)]
+    if max_test_examples is not None:
+        test_indices = test_indices[: max(max_test_examples, 0)]
 
     trainloader = DataLoader(
         Subset(trainset, train_indices),
@@ -164,14 +170,25 @@ def load_centralized_test_dataset(batch_size: int = 256) -> DataLoader:
 
 
 
-def train(model: nn.Module, trainloader: DataLoader, epochs: int, lr: float, device: torch.device) -> float:
+def train(
+    model: nn.Module,
+    trainloader: DataLoader,
+    epochs: int,
+    lr: float,
+    device: torch.device,
+    *,
+    log_prefix: str | None = None,
+) -> float:
     model.to(device)
     criterion = nn.CrossEntropyLoss().to(device)
     optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9)
     model.train()
     running_loss = 0.0
     steps = 0
-    for _ in range(epochs):
+    for epoch in range(epochs):
+        epoch_start = time.perf_counter()
+        epoch_loss = 0.0
+        epoch_steps = 0
         for images, labels in trainloader:
             images = images.to(device)
             labels = labels.to(device)
@@ -180,8 +197,17 @@ def train(model: nn.Module, trainloader: DataLoader, epochs: int, lr: float, dev
             loss = criterion(logits, labels)
             loss.backward()
             optimizer.step()
-            running_loss += float(loss.item())
+            loss_value = float(loss.item())
+            running_loss += loss_value
             steps += 1
+            epoch_loss += loss_value
+            epoch_steps += 1
+        print(
+            f"{log_prefix or '[heterofl]'} train:epoch_done "
+            f"epoch={epoch + 1}/{epochs} avg_loss={epoch_loss / max(epoch_steps, 1):.6f} "
+            f"steps={epoch_steps} elapsed_s={time.perf_counter() - epoch_start:.2f}",
+            flush=True,
+        )
     return running_loss / max(steps, 1)
 
 
