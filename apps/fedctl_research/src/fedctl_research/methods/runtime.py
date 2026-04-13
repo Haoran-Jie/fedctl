@@ -597,36 +597,62 @@ def discover_node_capabilities(grid: Grid, context: Context) -> tuple[dict[int, 
             raise RuntimeError("Timed out waiting for enough nodes to perform capability discovery.")
         time.sleep(1.0)
 
-    messages = [
-        Message(
-            content=RecordDict({"capability-request": ConfigRecord({"request": "device-type"})}),
-            message_type=MessageType.QUERY,
-            dst_node_id=node_id,
-            group_id="capability-discovery",
-        )
-        for node_id in all_node_ids
-    ]
-    replies = list(grid.send_and_receive(messages, timeout=timeout_s))
-    log(INFO, "capability discovery: sent=%s replies=%s", len(messages), len(replies))
-
     discovered: dict[int, str] = {}
     partition_ids: dict[int, int] = {}
-    for reply in replies:
-        if reply.has_error():
-            log(INFO, "capability discovery: node=%s error=%s", reply.metadata.src_node_id, reply.error)
-            continue
-        capabilities = reply.content.get("capabilities")
-        if not isinstance(capabilities, ConfigRecord):
-            log(INFO, "capability discovery: node=%s missing capabilities record", reply.metadata.src_node_id)
-            continue
-        src_node_id = reply.metadata.src_node_id
-        device_type = capabilities.get("device-type")
-        partition_id = capabilities.get("partition-id")
-        log(INFO, "capability discovery: node=%s device_type=%s capabilities=%s", src_node_id, device_type, dict(capabilities))
-        if isinstance(device_type, str) and device_type:
-            discovered[src_node_id] = device_type
-        if partition_id is not None and str(partition_id).strip():
-            partition_ids[src_node_id] = int(str(partition_id))
+    pending_node_ids = set(all_node_ids)
+    request_template = RecordDict({"capability-request": ConfigRecord({"request": "device-type"})})
+    while pending_node_ids:
+        elapsed = time.monotonic() - started
+        if elapsed >= timeout_s:
+            break
+        request_timeout = max(1.0, min(10.0, timeout_s - elapsed))
+        messages = [
+            Message(
+                content=request_template,
+                message_type=MessageType.QUERY,
+                dst_node_id=node_id,
+                group_id="capability-discovery",
+            )
+            for node_id in sorted(pending_node_ids)
+        ]
+        replies = list(grid.send_and_receive(messages, timeout=request_timeout))
+        log(
+            INFO,
+            "capability discovery: sent=%s replies=%s pending=%s",
+            len(messages),
+            len(replies),
+            len(pending_node_ids),
+        )
+
+        responded_node_ids: set[int] = set()
+        for reply in replies:
+            if reply.has_error():
+                log(INFO, "capability discovery: node=%s error=%s", reply.metadata.src_node_id, reply.error)
+                continue
+            capabilities = reply.content.get("capabilities")
+            if not isinstance(capabilities, ConfigRecord):
+                log(INFO, "capability discovery: node=%s missing capabilities record", reply.metadata.src_node_id)
+                continue
+            src_node_id = reply.metadata.src_node_id
+            device_type = capabilities.get("device-type")
+            partition_id = capabilities.get("partition-id")
+            log(INFO, "capability discovery: node=%s device_type=%s capabilities=%s", src_node_id, device_type, dict(capabilities))
+            if isinstance(device_type, str) and device_type:
+                discovered[src_node_id] = device_type
+            if partition_id is not None and str(partition_id).strip():
+                partition_ids[src_node_id] = int(str(partition_id))
+            responded_node_ids.add(src_node_id)
+
+        pending_node_ids.difference_update(responded_node_ids)
+        if pending_node_ids:
+            log(INFO, "capability discovery: retrying pending nodes=%s", sorted(pending_node_ids))
+            time.sleep(1.0)
+
+    if pending_node_ids:
+        raise RuntimeError(
+            "Timed out waiting for capability discovery replies from nodes: "
+            f"{sorted(pending_node_ids)}"
+        )
 
     discovered.update(parse_node_device_type_map(context.run_config.get("heterofl-node-device-types", "")))
     log(INFO, "capability discovery: final node->device map=%s", discovered)

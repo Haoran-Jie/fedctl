@@ -11,25 +11,12 @@
     submit_runner_build_platform: "linux/arm64"
     submit_runner_image_seed_force: false
   tasks:
-    - name: Ensure submit repository base directory exists on registry host
-      ansible.builtin.file:
-        path: "{{ submit_repo_dir }}"
-        state: directory
-        owner: "{{ ansible_user }}"
-        group: "{{ ansible_user }}"
-        mode: "0755"
-
-    - name: Stage local submit workspace on registry host
-      ansible.builtin.copy:
-        src: "{{ playbook_dir | dirname }}/{{ item }}"
-        dest: "{{ submit_repo_dir }}/{{ item }}"
-        owner: "{{ ansible_user }}"
-        group: "{{ ansible_user }}"
-        mode: preserve
-      loop:
-        - pyproject.toml
-        - src
-        - templates
+    - name: Ensure submit repository is checked out on registry host
+      ansible.builtin.git:
+        repo: "{{ submit_repo_url }}"
+        dest: "{{ submit_repo_dir }}"
+        version: "{{ submit_repo_version }}"
+        update: true
       become: false
 
     - name: Check submit runner image manifest in local registry

@@ -700,5 +700,6 @@
 - [x] Find the supported command to rebuild/push fedctl-submit image
 - [x] Give exact retry steps and verification commands
 - [x] Move seed-image build/push onto the registry host so HTTP registry pushes do not depend on the control machine Docker daemon
-- [x] Stage the current local workspace onto the registry host so the rebuilt submit image includes unpushed fixes
+- [x] Revert the seed-image staging path now that the fix is committed and pushed; use a fast git checkout on the registry host instead
+- [x] Make capability discovery retry missing nodes so exact fixed allocations can survive a single slow reply
 - [ ] Accept OCI index manifests in seed_images registry probes
