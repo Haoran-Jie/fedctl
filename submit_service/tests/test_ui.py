@@ -302,7 +302,7 @@ def test_ui_detail_shows_archived_logs(tmp_path, monkeypatch: pytest.MonkeyPatch
     assert "Copy link" not in detail.text
     assert 'data-logs-endpoint="/ui/submissions/' in detail.text
     assert "Follow" in detail.text
-    assert "Latest" in detail.text
+    assert "Latest" not in detail.text
     assert 'name="task"' not in detail.text
 
     stderr_detail = client.get(f"/ui/submissions/{submission_id}?stderr=true")

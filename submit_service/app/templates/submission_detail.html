@@ -407,7 +407,6 @@
     const logsWrapState = logsPanel.querySelector('[data-log-wrap-state]');
     const wrapToggle = logsPanel.querySelector('[data-log-wrap-toggle]');
     const followToggle = logsPanel.querySelector('[data-log-follow-toggle]');
-    const latestButton = logsPanel.querySelector('[data-log-jump]');
     const copyLogsButton = logsPanel.querySelector('[data-log-copy]');
     const lineCountNode = logsPanel.querySelector('[data-log-line-count]');
     const matchCountNode = logsPanel.querySelector('[data-log-match-count]');
@@ -568,7 +567,6 @@
     followToggle.addEventListener('click', () => {
       setFollowState(!followEnabled);
     });
-    latestButton?.addEventListener('click', jumpToLatest);
     logsForm.addEventListener('submit', () => {
       logsFilterState.value = logsFilterInput.value.trim();
       logsWrapState.value = logsBox.dataset.logWrap === 'off' ? 'off' : 'on';
