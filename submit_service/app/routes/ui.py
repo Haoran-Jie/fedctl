@@ -267,7 +267,7 @@ def submission_detail_page(
     job: str = Query("submit"),
     task: str | None = Query(None),
     index: int = Query(1, ge=1),
-    stderr: bool = Query(True),
+    stderr: bool = Query(False),
 ) -> HTMLResponse | RedirectResponse:
     principal = current_ui_principal(request)
     if principal is None:
@@ -347,7 +347,7 @@ def submission_logs_panel(
     job: str = Query("submit"),
     task: str | None = Query(None),
     index: int = Query(1, ge=1),
-    stderr: bool = Query(True),
+    stderr: bool = Query(False),
 ) -> HTMLResponse | RedirectResponse:
     principal = current_ui_principal(request)
     if principal is None:

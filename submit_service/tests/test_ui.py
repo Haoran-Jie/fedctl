@@ -275,6 +275,13 @@ def test_ui_detail_shows_archived_logs(tmp_path, monkeypatch: pytest.MonkeyPatch
                         "job": "submit",
                         "index": 1,
                         "task": "submit",
+                        "stderr": False,
+                        "content": "archived submit stdout",
+                    },
+                    {
+                        "job": "submit",
+                        "index": 1,
+                        "task": "submit",
                         "stderr": True,
                         "content": "archived submit stderr",
                     }
@@ -287,7 +294,9 @@ def test_ui_detail_shows_archived_logs(tmp_path, monkeypatch: pytest.MonkeyPatch
     _login(client, "tok-alice")
     detail = client.get(f"/ui/submissions/{submission_id}")
     assert detail.status_code == 200
-    assert "archived submit stderr" in detail.text
+    assert "archived submit stdout" in detail.text
+    assert "archived submit stderr" not in detail.text
+    assert '<option value="false" selected>stdout</option>' in detail.text
     assert 'data-log-filter' in detail.text
     assert "Copy logs" in detail.text
     assert "Copy link" not in detail.text
@@ -295,6 +304,11 @@ def test_ui_detail_shows_archived_logs(tmp_path, monkeypatch: pytest.MonkeyPatch
     assert "Follow" in detail.text
     assert "Latest" in detail.text
     assert 'name="task"' not in detail.text
+
+    stderr_detail = client.get(f"/ui/submissions/{submission_id}?stderr=true")
+    assert stderr_detail.status_code == 200
+    assert "archived submit stderr" in stderr_detail.text
+    assert '<option value="true" selected>stderr</option>' in stderr_detail.text
 
 
 def test_ui_nodes_search_filters_inventory(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
