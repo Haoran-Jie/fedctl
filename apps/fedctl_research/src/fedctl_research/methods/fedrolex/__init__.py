@@ -13,6 +13,7 @@ from fedctl_research.config import (
     get_model_split_mode,
     get_optional_float,
     get_optional_str,
+    parse_device_type_allocations,
     parse_partition_rate_map,
     parse_node_rate_map,
     resolve_device_type_for_context,
@@ -72,6 +73,9 @@ def run_server(grid: Grid, context: Context) -> None:
             partition_id_by_node_id={},
             dynamic_levels=get_model_rate_levels(context.run_config),
             dynamic_proportions=get_model_rate_proportions(context.run_config),
+            device_type_allocations=parse_device_type_allocations(
+                context.run_config.get("heterofl-device-type-allocations", "")
+            ),
             seed=context.run_config.get("seed"),
         ),
         global_model_rate=get_float(context.run_config, "global-model-rate"),

@@ -227,6 +227,55 @@ def parse_partition_rate_map(value: str | object) -> dict[int, float]:
     return mapping
 
 
+def parse_device_type_allocations(
+    value: str | object,
+) -> dict[str, tuple[tuple[float, int], ...]]:
+    if value is None:
+        return {}
+    raw = str(value).strip()
+    if not raw:
+        return {}
+
+    allocations: dict[str, tuple[tuple[float, int], ...]] = {}
+    for device_chunk in raw.split(";"):
+        device_entry = device_chunk.strip()
+        if not device_entry:
+            continue
+        if ":" not in device_entry:
+            raise ValueError(
+                "Invalid heterofl-device-type-allocations entry. "
+                "Expected '<device_type>:<rate>@<count>,<rate>@<count>'"
+            )
+        device_type, allocation_raw = device_entry.split(":", 1)
+        parsed_allocations: list[tuple[float, int]] = []
+        for rate_chunk in allocation_raw.split(","):
+            rate_entry = rate_chunk.strip()
+            if not rate_entry:
+                continue
+            if "@" not in rate_entry:
+                raise ValueError(
+                    "Invalid heterofl-device-type-allocations allocation. "
+                    "Expected '<rate>@<count>'"
+                )
+            rate_str, count_str = rate_entry.split("@", 1)
+            rate = float(rate_str.strip())
+            count = int(count_str.strip())
+            if rate <= 0:
+                raise ValueError("heterofl-device-type-allocations rates must be positive")
+            if count <= 0:
+                raise ValueError("heterofl-device-type-allocations counts must be positive")
+            parsed_allocations.append((rate, count))
+        normalized_device_type = device_type.strip()
+        if not normalized_device_type:
+            raise ValueError("heterofl-device-type-allocations device type cannot be empty")
+        if not parsed_allocations:
+            raise ValueError(
+                "heterofl-device-type-allocations device buckets must define at least one rate"
+            )
+        allocations[normalized_device_type] = tuple(parsed_allocations)
+    return allocations
+
+
 def parse_node_device_type_map(value: str | object) -> dict[int, str]:
     if value is None:
         return {}

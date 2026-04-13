@@ -20,6 +20,7 @@ class ResultArtifactLogger:
         self.base_dir = base_dir
         self._paths = {
             "client_update": base_dir / "client_update_events.jsonl",
+            "client_eval": base_dir / "client_eval_events.jsonl",
             "server_step": base_dir / "server_step_events.jsonl",
             "evaluation": base_dir / "evaluation_events.jsonl",
             "submodel_evaluation": base_dir / "submodel_evaluation_events.jsonl",
@@ -33,6 +34,9 @@ class ResultArtifactLogger:
 
     def log_client_update_event(self, payload: Mapping[str, Any]) -> None:
         self._append("client_update", payload)
+
+    def log_client_eval_event(self, payload: Mapping[str, Any]) -> None:
+        self._append("client_eval", payload)
 
     def log_server_step_event(self, payload: Mapping[str, Any]) -> None:
         self._append("server_step", payload)

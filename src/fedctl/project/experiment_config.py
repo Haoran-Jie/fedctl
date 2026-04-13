@@ -50,6 +50,7 @@ _SECTION_KEY_MAP: dict[str, dict[str, str]] = {
         "heterofl-node-device-types": "heterofl-node-device-types",
         "heterofl-node-rates": "heterofl-node-rates",
         "heterofl-partition-rates": "heterofl-partition-rates",
+        "heterofl-device-type-allocations": "heterofl-device-type-allocations",
     },
     "fedrolex": {
         "roll-mode": "fedrolex-roll-mode",

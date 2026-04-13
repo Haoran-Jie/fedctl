@@ -266,6 +266,25 @@ class SyncLoggingMixin:
         )
         self.experiment_logger.log_client_eval_metrics(server_round, eval_metrics)
         self.experiment_logger.log_system_metrics(server_round, system_metrics)
+        if self.artifact_logger is not None:
+            for message in valid_replies:
+                metrics_record = message.content.get("metrics")
+                if metrics_record is None:
+                    continue
+                self.artifact_logger.log_client_eval_event(
+                    {
+                        "server_step": server_round,
+                        "node_id": message.metadata.src_node_id,
+                        "device_type": self.device_type_by_node_id.get(message.metadata.src_node_id, "unknown"),
+                        "model_rate": float(self.global_model_rate),
+                        "eval_acc": float(metrics_record.get("eval-acc", 0.0)),
+                        "eval_loss": float(metrics_record.get("eval-loss", 0.0)),
+                        "eval_duration_s": float(metrics_record.get("eval-duration-s", 0.0)),
+                        "num_examples": int(
+                            metrics_record.get("eval-num-examples", metrics_record.get("num-examples", 0))
+                        ),
+                    }
+                )
         return metrics
 
 

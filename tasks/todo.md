@@ -1,4 +1,69 @@
 
+# Per-Client Eval Metrics Plan
+
+- [x] Add a structured per-client evaluation event stream instead of only aggregated round-level client-eval metrics.
+- [x] Log per-client eval accuracy/loss/duration/examples for synchronous strategies.
+- [x] Add targeted regression coverage and run the available verification commands.
+
+## Review
+
+- Added a new artifact stream `client_eval_events.jsonl` in `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/apps/fedctl_research/src/fedctl_research/result_artifacts.py`.
+- Wired per-client evaluation logging into:
+  - `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/apps/fedctl_research/src/fedctl_research/methods/fedavg/strategy.py`
+  - `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/apps/fedctl_research/src/fedctl_research/methods/heterofl/strategy.py`
+- Each client-eval event now records:
+  - `server_step`
+  - `node_id`
+  - `device_type`
+  - `model_rate`
+  - `eval_acc`
+  - `eval_loss`
+  - `eval_duration_s`
+  - `num_examples`
+- This means the repo now has both:
+  - aggregated client-eval metrics in W&B/system logs
+  - per-client client-eval metrics in structured artifacts
+- Verification:
+  - `./.venv/bin/python -m py_compile apps/fedctl_research/src/fedctl_research/result_artifacts.py apps/fedctl_research/src/fedctl_research/methods/fedavg/strategy.py apps/fedctl_research/src/fedctl_research/methods/heterofl/strategy.py tests/test_dissertation_app.py`
+  - passed
+  - `./.venv/bin/pytest tests/test_dissertation_app.py -q`
+  - skipped in this local environment because `.venv` does not currently provide `torch`
+
+# Server Eval Timing Instrumentation Plan
+
+- [x] Add explicit `system/round-server-eval-duration-s` logging in the shared server-evaluation path.
+- [x] Include the same timing in the structured evaluation artifact payload.
+- [x] Add a targeted regression test for the new metric and run the available verification commands.
+
+## Review
+
+- Added `system/round-server-eval-duration-s` in `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/apps/fedctl_research/src/fedctl_research/methods/runtime.py` inside `central_evaluate_fn(...)`, so the metric is logged consistently for all methods that use the shared centralized server evaluation path.
+- Added `round_server_eval_duration_s` to the structured evaluation artifact payload in the same shared runtime hook, so the timing is available both in W&B/system metrics and in `evaluation_events.jsonl`.
+- Added a focused regression in `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/tests/test_dissertation_app.py` asserting that centralized evaluation logs the new timing into both the system metrics and artifact payload.
+- Verification:
+  - `./.venv/bin/python -m py_compile apps/fedctl_research/src/fedctl_research/methods/runtime.py tests/test_dissertation_app.py`
+  - passed
+  - `./.venv/bin/pytest tests/test_dissertation_app.py -q`
+  - skipped in this local environment because `torch` is unavailable in `.venv`, so the new test could not execute here
+
+# Singleton A Calibration Plan
+
+- [x] Create a separate tuned singleton-`a` calibration config without overwriting the original interpolation baseline.
+- [x] Apply the requested hyperparameter changes: `20` rounds, `3` local epochs, `0.05` learning rate.
+- [x] Verify the new config file and provide the exact launch command.
+
+## Review
+
+- Added a separate calibration config at `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/apps/fedctl_research/experiment_configs/compute_heterogeneity/ablations/capacity_design/fixed_pair_interpolation/cifar10_cnn/a_calibration/heterofl.toml` so the original singleton-`a` baseline remains unchanged.
+- Applied the requested hyperparameter changes only in that new config:
+  - `num-server-rounds = 20`
+  - `local-epochs = 3`
+  - `learning-rate = 0.05`
+- Marked the run distinctly in W&B with a calibration-specific group and tags to avoid mixing it with the original interpolation baseline.
+- Verification:
+  - `./.venv/bin/pytest tests/test_experiment_config.py -q`
+  - result: `10 passed`
+
 # AE interpolation review
 
 - [x] Collect the completed `a_e` run set (`e`, `p001`-`p009`) from W&B and/or submit records.
@@ -581,3 +646,59 @@
     - `server_step_events.jsonl` for round-level cost
     - `submodel_evaluation_events.jsonl` and W&B summary metrics for final width-specific evaluation
 - [ ] Let the patched `uniform_five_levels` single-seed pilot complete and aggregate the final per-rate/global summary table
+# Compute-Main CIFAR-10 20-Node Recalibration
+
+- [x] Add typed device-bucket allocation support for heterogeneous methods via `heterofl-device-type-allocations`.
+- [x] Reconfigure compute-main CIFAR-10 experiment configs to `20` nodes, `4` levels, `local-epochs = 3`, and `learning-rate = 0.05`.
+- [x] Reconfigure the live compute-main repo preset to `10 x rpi4` and `10 x rpi5`.
+- [x] Update the experiment plan and evaluation writeup so the documented compute-main headline setup matches the new `20`-node story.
+- [x] Add targeted test coverage for typed bucket allocation parsing and assignment precedence, then run the available verification commands.
+
+## Review
+
+- Added a first-class `heterofl-device-type-allocations` run-config key across the shared config, experiment-config normalization, and Flower app manifest. The new surface allows deterministic exact allocations inside each device bucket rather than only one fallback rate per device type.
+- Extended `ModelRateAssigner` so fixed-mode precedence is now:
+  - explicit node rate
+  - explicit raw partition rate
+  - typed device-bucket allocation
+  - device fallback rate
+  - default rate
+- Wired the typed partition plan already produced by capability discovery into the assigner through `HeteroFLStrategy`, so `heterofl`, `fedrolex`, and `fiarse` can all realize exact fixed `5/5` splits on `10 x rpi4 + 10 x rpi5`.
+- Reconfigured `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/apps/fedctl_research/experiment_configs/compute_heterogeneity/main/cifar10_cnn/`:
+  - `min-available-nodes = min-train-nodes = min-evaluate-nodes = 20`
+  - `local-epochs = 3`
+  - `learning-rate = 0.05`
+  - `model-rate-levels = [1.0, 0.5, 0.25, 0.125]`
+  - `model-rate-proportions = [0.25, 0.25, 0.25, 0.25]`
+  - natural IID caps updated to `2500/500`
+- Configured the heterogeneous methods to use:
+  - `heterofl-device-type-allocations = "rpi4:0.125@5,0.25@5;rpi5:0.5@5,1.0@5"`
+  - `default-model-rate = 0.125`
+- Updated the live preset files:
+  - `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/.fedctl/main_compute_heterogeneity.yaml`
+  - `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/apps/fedctl_research/repo_configs/compute_heterogeneity/main/none.yaml`
+  so they now request `10 x rpi4` and `10 x rpi5`.
+- Updated the narrative in:
+  - `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/docs/experiment_plan.md`
+  - `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/writeup/4_evaluation.tex`
+  - `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/writeup/Appendix_HeteroFL_Configuration.tex`
+  so the compute-main CIFAR-10 headline setup now describes the new `20`-node four-level hardware-constrained story.
+- Verification:
+  - `./.venv/bin/python -m py_compile apps/fedctl_research/src/fedctl_research/config.py apps/fedctl_research/src/fedctl_research/methods/assignment.py apps/fedctl_research/src/fedctl_research/methods/heterofl/__init__.py apps/fedctl_research/src/fedctl_research/methods/fedrolex/__init__.py apps/fedctl_research/src/fedctl_research/methods/fiarse/__init__.py apps/fedctl_research/src/fedctl_research/methods/heterofl/strategy.py src/fedctl/project/experiment_config.py tests/test_experiment_config.py tests/test_dissertation_app.py`
+  - passed
+  - `./.venv/bin/pytest tests/test_experiment_config.py -q`
+  - result: `10 passed`
+  - `./.venv/bin/pytest tests/test_dissertation_app.py -q`
+  - skipped in this environment because `.venv` does not currently provide `torch`
+- Fixed a deploy-planner regression in `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/src/fedctl/deploy/plan.py`: non-oversubscribed placement used a 1-based `instance_idx` to index a 0-based `available` node list, which caused `IndexError` exactly when requested supernode count matched the live inventory.
+- Added focused regression coverage in `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/tests/test_network.py` proving `plan_supernodes(...)` now consumes all available nodes without skipping the first and crashing on the last.
+## Current task
+- [ ] Verify why submit-runner still uses stale planner code
+- [ ] Find the supported command to rebuild/push fedctl-submit image
+- [ ] Give exact retry steps and verification commands
+- [x] Verify why submit-runner still uses stale planner code
+- [x] Find the supported command to rebuild/push fedctl-submit image
+- [x] Give exact retry steps and verification commands
+- [x] Move seed-image build/push onto the registry host so HTTP registry pushes do not depend on the control machine Docker daemon
+- [x] Stage the current local workspace onto the registry host so the rebuilt submit image includes unpushed fixes
+- [ ] Accept OCI index manifests in seed_images registry probes

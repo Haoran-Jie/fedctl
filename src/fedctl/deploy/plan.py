@@ -68,7 +68,7 @@ def plan_supernodes(
                 SupernodePlacement(
                     device_type=device_type,
                     instance_idx=idx,
-                    node_id=available[idx],
+                    node_id=available[idx - 1],
                 )
             )
     return placements

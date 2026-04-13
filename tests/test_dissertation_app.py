@@ -25,6 +25,7 @@ from flwr.app import ArrayRecord, ConfigRecord, Message, MetricRecord, RecordDic
 from flwr.app.metadata import Metadata  # noqa: E402
 
 from fedctl_research.costs import build_model_catalog, get_model_costs  # noqa: E402
+from fedctl_research.config import parse_device_type_allocations  # noqa: E402
 from fedctl_research.methods.assignment import ModelRateAssigner  # noqa: E402
 from fedctl_research.methods.fedavg.strategy import FedAvgBaseline  # noqa: E402
 from fedctl_research.methods.fedavgm.strategy import FedAvgMStrategy  # noqa: E402
@@ -44,6 +45,7 @@ from fedctl_research.methods.registry import resolve_method  # noqa: E402
 from fedctl_research.methods.runtime import (  # noqa: E402
     build_partition_request,
     build_typed_partition_plan,
+    central_evaluate_fn,
 )
 from fedctl_research.partitioning import (  # noqa: E402
     BalancedLabelSkewPartitioner,
@@ -81,13 +83,21 @@ class _Logger:
 class _ArtifactLogger:
     def __init__(self) -> None:
         self.client_updates: list[dict[str, float | int | str]] = []
+        self.client_evals: list[dict[str, float | int | str]] = []
         self.server_steps: list[dict[str, float | int | str]] = []
+        self.evaluations: list[dict[str, float | int | str]] = []
 
     def log_client_update_event(self, payload) -> None:
         self.client_updates.append(dict(payload))
 
+    def log_client_eval_event(self, payload) -> None:
+        self.client_evals.append(dict(payload))
+
     def log_server_step_event(self, payload) -> None:
         self.server_steps.append(dict(payload))
+
+    def log_evaluation_event(self, payload) -> None:
+        self.evaluations.append(dict(payload))
 
 
 def _make_message(
@@ -675,6 +685,19 @@ def test_dynamic_model_rate_assignment_is_deterministic() -> None:
     assert set(first.values()).issubset({1.0, 0.5, 0.25})
 
 
+def test_parse_device_type_allocations_reads_exact_bucket_counts() -> None:
+    parsed = parse_device_type_allocations("rpi4:0.125@5,0.25@5;rpi5:0.5@5,1.0@5")
+    assert parsed == {
+        "rpi4": ((0.125, 5), (0.25, 5)),
+        "rpi5": ((0.5, 5), (1.0, 5)),
+    }
+
+
+def test_parse_device_type_allocations_rejects_malformed_entries() -> None:
+    with pytest.raises(ValueError, match="heterofl-device-type-allocations"):
+        parse_device_type_allocations("rpi4:0.25,0.125@5")
+
+
 def test_fixed_model_rate_assignment_preserves_precedence() -> None:
     assigner = ModelRateAssigner(
         mode="fix",
@@ -686,6 +709,7 @@ def test_fixed_model_rate_assignment_preserves_precedence() -> None:
         partition_id_by_node_id={},
         dynamic_levels=(1.0,),
         dynamic_proportions=(1.0,),
+        device_type_allocations={},
         seed=1337,
     )
     assigned = assigner.assign_for_round([1, 2, 3], server_round=1)
@@ -695,31 +719,123 @@ def test_fixed_model_rate_assignment_preserves_precedence() -> None:
 def test_fixed_model_rate_assignment_eval_rates_follow_actual_fixed_pool() -> None:
     assigner = ModelRateAssigner(
         mode="fix",
-        default_model_rate=0.25,
+        default_model_rate=0.125,
         explicit_rate_by_node_id={},
         explicit_rate_by_partition_id={},
         rate_by_device_type={"rpi4": 0.25, "rpi5": 1.0},
-        device_type_by_node_id={1: "rpi4", 2: "rpi5"},
+        device_type_by_node_id={11: "rpi4", 12: "rpi4", 21: "rpi5", 22: "rpi5"},
         partition_id_by_node_id={},
         dynamic_levels=(1.0, 0.5, 0.25, 0.125, 0.0625),
         dynamic_proportions=(0.2, 0.2, 0.2, 0.2, 0.2),
+        device_type_allocations={
+            "rpi4": ((0.125, 5), (0.25, 5)),
+            "rpi5": ((0.5, 5), (1.0, 5)),
+        },
         seed=1337,
     )
-    assert assigner.eval_rates(global_model_rate=1.0) == (0.25, 1.0)
+    assigner.set_typed_partition_plan(
+        {
+            11: {"partition-device-type": "rpi4", "typed-partition-idx": 0, "typed-partition-count": 10},
+            12: {"partition-device-type": "rpi4", "typed-partition-idx": 7, "typed-partition-count": 10},
+            21: {"partition-device-type": "rpi5", "typed-partition-idx": 0, "typed-partition-count": 10},
+            22: {"partition-device-type": "rpi5", "typed-partition-idx": 7, "typed-partition-count": 10},
+        }
+    )
+    assert assigner.eval_rates(global_model_rate=1.0) == (0.125, 0.25, 0.5, 1.0)
+
+
+def test_fixed_model_rate_assignment_applies_exact_typed_device_buckets() -> None:
+    assigner = ModelRateAssigner(
+        mode="fix",
+        default_model_rate=0.125,
+        explicit_rate_by_node_id={},
+        explicit_rate_by_partition_id={},
+        rate_by_device_type={"rpi4": 0.25, "rpi5": 1.0},
+        device_type_by_node_id={
+            **{node_id: "rpi4" for node_id in range(10)},
+            **{node_id: "rpi5" for node_id in range(10, 20)},
+        },
+        partition_id_by_node_id={},
+        dynamic_levels=(1.0, 0.5, 0.25, 0.125),
+        dynamic_proportions=(0.25, 0.25, 0.25, 0.25),
+        device_type_allocations={
+            "rpi4": ((0.125, 5), (0.25, 5)),
+            "rpi5": ((0.5, 5), (1.0, 5)),
+        },
+        seed=1337,
+    )
+    assigner.set_typed_partition_plan(
+        {
+            **{
+                node_id: {
+                    "partition-device-type": "rpi4",
+                    "typed-partition-idx": node_id,
+                    "typed-partition-count": 10,
+                }
+                for node_id in range(10)
+            },
+            **{
+                node_id: {
+                    "partition-device-type": "rpi5",
+                    "typed-partition-idx": node_id - 10,
+                    "typed-partition-count": 10,
+                }
+                for node_id in range(10, 20)
+            },
+        }
+    )
+    assigned = assigner.assign_for_round(list(range(20)), server_round=1)
+    assert sum(rate == 0.125 for rate in assigned.values()) == 5
+    assert sum(rate == 0.25 for rate in assigned.values()) == 5
+    assert sum(rate == 0.5 for rate in assigned.values()) == 5
+    assert sum(rate == 1.0 for rate in assigned.values()) == 5
+    assert all(assigned[node_id] in {0.125, 0.25} for node_id in range(10))
+    assert all(assigned[node_id] in {0.5, 1.0} for node_id in range(10, 20))
+
+
+def test_fixed_model_rate_assignment_rejects_bucket_count_mismatches() -> None:
+    assigner = ModelRateAssigner(
+        mode="fix",
+        default_model_rate=0.125,
+        explicit_rate_by_node_id={},
+        explicit_rate_by_partition_id={},
+        rate_by_device_type={"rpi4": 0.25, "rpi5": 1.0},
+        device_type_by_node_id={1: "rpi4"},
+        partition_id_by_node_id={},
+        dynamic_levels=(1.0, 0.5, 0.25, 0.125),
+        dynamic_proportions=(0.25, 0.25, 0.25, 0.25),
+        device_type_allocations={"rpi4": ((0.125, 5), (0.25, 5))},
+        seed=1337,
+    )
+    assigner.set_typed_partition_plan(
+        {
+            1: {
+                "partition-device-type": "rpi4",
+                "typed-partition-idx": 0,
+                "typed-partition-count": 8,
+            }
+        }
+    )
+    with pytest.raises(ValueError, match="expects 10 typed partitions"):
+        assigner.assign_for_round([1], server_round=1)
 
 
 def test_heterofl_submodel_eval_rates_use_assigner_rates_in_fixed_mode() -> None:
     strategy = HeteroFLStrategy(
         rate_assigner=ModelRateAssigner(
             mode="fix",
-            default_model_rate=0.25,
+            default_model_rate=0.125,
             explicit_rate_by_node_id={},
             explicit_rate_by_partition_id={},
             rate_by_device_type={"rpi4": 0.25, "rpi5": 1.0},
-            device_type_by_node_id={1: "rpi4", 2: "rpi5"},
+            device_type_by_node_id={11: "rpi4", 12: "rpi4", 21: "rpi5", 22: "rpi5"},
             partition_id_by_node_id={},
             dynamic_levels=(1.0, 0.5, 0.25, 0.125, 0.0625),
             dynamic_proportions=(0.2, 0.2, 0.2, 0.2, 0.2),
+            device_type_allocations={
+                "rpi4": ((0.125, 5), (0.25, 5)),
+                "rpi5": ((0.5, 5), (1.0, 5)),
+            },
         ),
         global_model_rate=1.0,
         min_available_nodes=1,
@@ -728,7 +844,15 @@ def test_heterofl_submodel_eval_rates_use_assigner_rates_in_fixed_mode() -> None
         fraction_train=1.0,
         fraction_evaluate=1.0,
     )
-    assert strategy.submodel_eval_rates() == (0.25, 1.0)
+    strategy.set_node_partition_plan(
+        {
+            11: {"partition-device-type": "rpi4", "typed-partition-idx": 0, "typed-partition-count": 10},
+            12: {"partition-device-type": "rpi4", "typed-partition-idx": 7, "typed-partition-count": 10},
+            21: {"partition-device-type": "rpi5", "typed-partition-idx": 0, "typed-partition-count": 10},
+            22: {"partition-device-type": "rpi5", "typed-partition-idx": 7, "typed-partition-count": 10},
+        }
+    )
+    assert strategy.submodel_eval_rates() == (0.125, 0.25, 0.5, 1.0)
 
 
 def test_fixed_model_rate_assignment_can_follow_partition_ids() -> None:
@@ -742,6 +866,7 @@ def test_fixed_model_rate_assignment_can_follow_partition_ids() -> None:
         partition_id_by_node_id={10: 0, 11: 1, 12: 2},
         dynamic_levels=(1.0, 0.5, 0.25, 0.125, 0.0625),
         dynamic_proportions=(0.2, 0.2, 0.2, 0.2, 0.2),
+        device_type_allocations={},
         seed=1337,
     )
     assigned = assigner.assign_for_round([10, 11, 12, 13], server_round=1)
@@ -1149,6 +1274,102 @@ def test_masked_cross_entropy_auto_only_enables_for_balanced_label_skew() -> Non
     assert should_use_masked_cross_entropy("auto", partitioning="label-skew-balanced") is True
     assert should_use_masked_cross_entropy("auto", partitioning="iid") is False
     assert should_use_masked_cross_entropy("auto", partitioning="dirichlet") is False
+
+
+def test_central_evaluate_logs_server_eval_duration(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _FakeTask:
+        name = "fake_task"
+
+        def build_model_for_rate(self, model_rate: float, *, global_model_rate: float = 1.0):
+            return object()
+
+        def load_model_state(self, model, state_dict) -> None:
+            return None
+
+        def load_centralized_test_dataset(self, batch_size: int = 256, *, seed: int | None = None):
+            return ["fake_loader"]
+
+        def test(self, model, testloader, device: str):
+            return 0.25, 0.75
+
+    monkeypatch.setattr("fedctl_research.methods.runtime.resolve_task", lambda _name: _FakeTask())
+    logger = _Logger()
+    artifact_logger = _ArtifactLogger()
+    context = SimpleNamespace(run_config={"task": "fake_task", "global-model-rate": 1.0}, node_config={})
+    arrays = ArrayRecord(OrderedDict({"w": torch.tensor([1.0])}))
+    evaluate = central_evaluate_fn(
+        context,
+        method_label="fedavg",
+        experiment_logger=logger,
+        artifact_logger=artifact_logger,
+        progress_provider=lambda: {"client_trips_total": 5},
+        num_server_rounds=1,
+    )
+
+    result = evaluate(1, arrays)
+
+    assert result is not None
+    assert logger.system_calls
+    _, system_metrics = logger.system_calls[-1]
+    assert "round-server-eval-duration-s" in system_metrics
+    assert system_metrics["round-server-eval-duration-s"] >= 0.0
+    assert artifact_logger.evaluations
+    assert "round_server_eval_duration_s" in artifact_logger.evaluations[-1]
+
+
+def test_sync_strategy_logs_per_client_eval_events() -> None:
+    task = resolve_task("fashion_mnist_cnn")
+    strategy = FedAvgBaseline(
+        fraction_train=1.0,
+        fraction_evaluate=1.0,
+        min_train_nodes=2,
+        min_evaluate_nodes=2,
+        min_available_nodes=2,
+        evaluate_fn=None,
+        initial_arrays=ArrayRecord(task.build_model_for_rate(1.0).state_dict()),
+        experiment_logger=_Logger(),
+        artifact_logger=_ArtifactLogger(),
+        task_name="fashion_mnist_cnn",
+        global_model_rate=1.0,
+    )
+    strategy.set_node_capabilities({1: "rpi5", 2: "rpi4"})
+    strategy._round_sampled_nodes = 2
+    strategy._round_started_at = time.perf_counter()
+    replies = [
+        _make_message(
+            node_id=1,
+            group_id="eval",
+            metrics={
+                "eval-acc": 0.8,
+                "eval-loss": 0.5,
+                "eval-duration-s": 1.2,
+                "eval-num-examples": 100,
+                "num-examples": 100,
+            },
+            message_type="evaluate",
+        ),
+        _make_message(
+            node_id=2,
+            group_id="eval",
+            metrics={
+                "eval-acc": 0.6,
+                "eval-loss": 0.7,
+                "eval-duration-s": 1.5,
+                "eval-num-examples": 120,
+                "num-examples": 120,
+            },
+            message_type="evaluate",
+        ),
+    ]
+
+    strategy.aggregate_evaluate(server_round=1, replies=replies)
+
+    assert len(strategy.artifact_logger.client_evals) == 2
+    first = strategy.artifact_logger.client_evals[0]
+    assert first["server_step"] == 1
+    assert first["node_id"] == 1
+    assert first["device_type"] == "rpi5"
+    assert first["eval_acc"] == pytest.approx(0.8)
 
 
 def test_derive_seed_is_stable_and_partition_specific() -> None:

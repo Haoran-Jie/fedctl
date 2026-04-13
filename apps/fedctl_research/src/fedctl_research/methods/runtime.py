@@ -387,6 +387,7 @@ def central_evaluate_fn(
     )
 
     def evaluate(server_round: int, arrays: ArrayRecord) -> MetricRecord | None:
+        eval_started_at = time.perf_counter()
         global_model_rate = get_float(context.run_config, "global-model-rate")
         model = task.build_model_for_rate(
             global_model_rate,
@@ -394,6 +395,7 @@ def central_evaluate_fn(
         )
         task.load_model_state(model, arrays.to_torch_state_dict())
         loss, accuracy = task.test(model, testloader, device="cpu")
+        eval_duration_s = time.perf_counter() - eval_started_at
         metrics = MetricRecord(
             {
                 "eval-loss": float(loss),
@@ -403,11 +405,16 @@ def central_evaluate_fn(
         )
         if experiment_logger is not None:
             experiment_logger.log_server_eval_metrics(server_round, metrics)
+            experiment_logger.log_system_metrics(
+                server_round,
+                {"round-server-eval-duration-s": float(eval_duration_s)},
+            )
         if artifact_logger is not None:
             payload: dict[str, int | float | str] = {
                 "server_step": int(server_round),
                 "eval_loss": float(loss),
                 "eval_acc": float(accuracy),
+                "round_server_eval_duration_s": float(eval_duration_s),
             }
             if progress_provider is not None:
                 payload.update(progress_provider())

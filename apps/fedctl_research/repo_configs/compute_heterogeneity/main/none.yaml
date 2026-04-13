@@ -1,7 +1,7 @@
 deploy:
   supernodes:
-    rpi4: 6
-    rpi5: 6
+    rpi4: 10
+    rpi5: 10
   superexec:
     env:
       WANDB_API_KEY: "REPLACE_WANDB_API_KEY"

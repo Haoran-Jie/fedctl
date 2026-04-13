@@ -6,17 +6,41 @@
     submit_runner_image_name: "fedctl-submit"
     submit_runner_image_tag: "latest"
     submit_runner_image_ref: "{{ cluster_registry_hostport }}/{{ submit_runner_image_name }}:{{ submit_runner_image_tag }}"
-    submit_runner_dockerfile: "{{ playbook_dir | dirname }}/templates/submit/Dockerfile.submit-runner"
-    submit_runner_build_context: "{{ playbook_dir | dirname }}"
+    submit_runner_dockerfile: "{{ submit_repo_dir }}/templates/submit/Dockerfile.submit-runner"
+    submit_runner_build_context: "{{ submit_repo_dir }}"
     submit_runner_build_platform: "linux/arm64"
     submit_runner_image_seed_force: false
   tasks:
+    - name: Ensure submit repository base directory exists on registry host
+      ansible.builtin.file:
+        path: "{{ submit_repo_dir }}"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0755"
+
+    - name: Stage local submit workspace on registry host
+      ansible.builtin.copy:
+        src: "{{ playbook_dir | dirname }}/{{ item }}"
+        dest: "{{ submit_repo_dir }}/{{ item }}"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: preserve
+      loop:
+        - pyproject.toml
+        - src
+        - templates
+      become: false
+
     - name: Check submit runner image manifest in local registry
       ansible.builtin.uri:
         url: "http://{{ cluster_registry_hostport }}/v2/{{ submit_runner_image_name }}/manifests/{{ submit_runner_image_tag }}"
         method: GET
         headers:
-          Accept: "application/vnd.docker.distribution.manifest.v2+json"
+          Accept: >-
+            application/vnd.docker.distribution.manifest.v2+json,
+            application/vnd.docker.distribution.manifest.list.v2+json,
+            application/vnd.oci.image.index.v1+json
         status_code:
           - 200
           - 404
@@ -33,7 +57,6 @@
         -t {{ submit_runner_image_ref }}
         --push
         {{ submit_runner_build_context }}
-      delegate_to: localhost
       become: false
       run_once: true
       when: submit_runner_manifest.status == 404 or submit_runner_image_seed_force | bool
@@ -43,7 +66,10 @@
         url: "http://{{ cluster_registry_hostport }}/v2/{{ submit_runner_image_name }}/manifests/{{ submit_runner_image_tag }}"
         method: GET
         headers:
-          Accept: "application/vnd.docker.distribution.manifest.v2+json"
+          Accept: >-
+            application/vnd.docker.distribution.manifest.v2+json,
+            application/vnd.docker.distribution.manifest.list.v2+json,
+            application/vnd.oci.image.index.v1+json
         status_code: 200
       delegate_to: localhost
       become: false

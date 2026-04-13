@@ -116,7 +116,8 @@ ANSIBLE_LOCAL_TEMP=/tmp/ansible-local ANSIBLE_SSH_CONTROL_PATH_DIR=/tmp/ansible-
 
 This playbook:
 - checks whether the local registry already has `fedctl-submit:latest`
-- builds from `templates/submit/Dockerfile.submit-runner` on the control machine only if missing
+- stages the local submit workspace onto the registry host
+- builds from `templates/submit/Dockerfile.submit-runner` on the registry host only if missing
 - pushes the image to the local registry
 
 To force a rebuild:

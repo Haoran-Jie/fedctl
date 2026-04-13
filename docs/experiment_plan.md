@@ -15,18 +15,13 @@ The headline studies are the main story. Method-specific supporting studies then
 
 ## Headline cluster assumptions
 
-The main studies target a balanced `12`-node mixed-hardware pool:
+The headline studies now use two live rack profiles rather than one universal pool:
 
-- `6 x rpi4`
-- `6 x rpi5`
+- compute-main `cifar10_cnn`: `10 x rpi4` + `10 x rpi5`
+- remaining headline studies: balanced `6 x rpi4` + `6 x rpi5`
 
 Shared headline settings:
 
-- `local-epochs = 1`
-- `learning-rate = 0.01`
-- `min-available-nodes = 12`
-- `min-train-nodes = 12`
-- `min-evaluate-nodes = 12`
 - `fraction-train = 1.0`
 - `fraction-evaluate = 1.0`
 
@@ -35,16 +30,16 @@ Device settings:
 - `rpi4`: `batch-size = 8`
 - `rpi5`: `batch-size = 32`
 
-Natural equal-split dataset caps for the `12`-way IID headline studies:
+Natural equal-split dataset caps for the live IID headline studies:
 
-- `fashion_mnist_cnn`: `max-train-examples = 5000`, `max-test-examples = 834`
-- `cifar10_cnn`: `max-train-examples = 4167`, `max-test-examples = 834`
+- `fashion_mnist_cnn` on the `12`-node rack: `max-train-examples = 5000`, `max-test-examples = 834`
+- compute-main `cifar10_cnn` on the `20`-node rack: `max-train-examples = 2500`, `max-test-examples = 500`
 
 Headline schedules:
 
 - **Compute main**
   - `fashion_mnist_cnn`: `15` rounds
-  - `cifar10_cnn`: `20` rounds
+  - `cifar10_cnn`: `20` rounds, `local-epochs = 3`, `learning-rate = 0.05`
 - **Network main**
   - synchronous baselines: `15/20` rounds
   - buffered async methods: `15/20` server steps
@@ -110,6 +105,18 @@ The paper reports:
 - a five-level capacity family
 - non-IID robustness families for Fashion-MNIST and CIFAR-10
 - submodel evaluation support in the runtime/artifact layer
+
+**Current compute-main CIFAR-10 headline allocation**
+
+The official compute-main `cifar10_cnn` study now uses a hardware-constrained fixed four-level split on `20` nodes:
+
+- `10 x rpi4`, `10 x rpi5`
+- `model-rate-levels = [1.0, 0.5, 0.25, 0.125]`
+- deterministic exact assignment:
+  - `rpi4`: `5 x 0.125`, `5 x 0.25`
+  - `rpi5`: `5 x 0.5`, `5 x 1.0`
+
+This replaces the earlier `12`-node two-level device-default setup for the CIFAR-10 compute-main headline study.
 
 **What is missing**
 

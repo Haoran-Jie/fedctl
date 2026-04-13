@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from fedctl.deploy.network import assignment_key, parse_net_assignments, plan_network
-from fedctl.deploy.plan import SupernodePlacement
+from fedctl.deploy.plan import SupernodePlacement, plan_supernodes
 
 
 def test_plan_network_typed_assignments() -> None:
@@ -58,3 +58,19 @@ def test_plan_network_supports_tuple_assignment_for_untyped_supernodes() -> None
     assert plan.assignments[untyped_key] == ["med", "high"]
     assert plan.ingress_assignments[untyped_key] == ["med", "low"]
     assert plan.egress_assignments[untyped_key] == ["med", "high"]
+
+
+def test_plan_supernodes_uses_all_available_nodes_without_off_by_one() -> None:
+    nodes = [
+        {"ID": "node-a", "Name": "rpi4-001"},
+        {"ID": "node-b", "Name": "rpi4-002"},
+    ]
+    placements = plan_supernodes(
+        counts={"rpi4": 2},
+        allow_oversubscribe=False,
+        nodes=nodes,
+    )
+    assert placements == [
+        SupernodePlacement(device_type="rpi4", instance_idx=1, node_id="node-a"),
+        SupernodePlacement(device_type="rpi4", instance_idx=2, node_id="node-b"),
+    ]
