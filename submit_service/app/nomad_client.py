@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import json
 from typing import Any, Dict
 
 import httpx
@@ -73,15 +74,7 @@ class NomadClient:
             "follow": "true" if follow else "false",
         }
         data = self._get(f"/v1/client/fs/logs/{alloc_id}", params=params)
-        if isinstance(data, dict):
-            raw = data.get("Data")
-            if isinstance(raw, str):
-                try:
-                    return base64.b64decode(raw).decode("utf-8", errors="replace")
-                except (ValueError, OSError):
-                    return raw
-            return str(data)
-        return data if isinstance(data, str) else str(data)
+        return _decode_alloc_logs_response(data)
 
     def _get(self, path: str, params: Dict[str, str] | None = None) -> Any:
         return self._request("GET", path, params=params)
@@ -112,3 +105,21 @@ class NomadClient:
             except ValueError:
                 return resp.text
         return resp.text
+
+
+def _decode_alloc_logs_response(data: Any) -> str:
+    payload = data
+    if isinstance(data, str):
+        try:
+            payload = json.loads(data)
+        except ValueError:
+            return data
+    if isinstance(payload, dict):
+        raw = payload.get("Data")
+        if isinstance(raw, str):
+            try:
+                return base64.b64decode(raw).decode("utf-8", errors="replace")
+            except (ValueError, OSError):
+                return raw
+        return str(payload)
+    return payload if isinstance(payload, str) else str(payload)
