@@ -102,6 +102,7 @@ class Dispatcher:
             self._stop.wait(self._cfg.dispatch_interval)
 
     def run_once(self) -> None:
+        self._reconcile_running()
         queued = self._storage.list_dispatch_candidates(
             limit=50,
             statuses=["queued", "blocked"],
@@ -109,9 +110,27 @@ class Dispatcher:
         )
         inventory_nodes, inventory_error = _inventory_snapshot(self._inventory)
         free_nodes = _node_free_resources(inventory_nodes) if inventory_nodes else []
+        running = self._storage.list_submissions(limit=200, statuses=["running"])
+        for submission in running:
+            reserved, reason = _reserve_submission_capacity(
+                submission,
+                free_nodes,
+                inventory_error,
+            )
+            if not reserved:
+                logger.warning(
+                    "active submission capacity reservation incomplete: submission=%s reason=%s",
+                    submission.get("id"),
+                    reason,
+                )
         for submission in queued:
             status = submission.get("status")
-            ok, reason = _capacity_allows(submission, free_nodes, inventory_error)
+            candidate_nodes = [dict(node) for node in free_nodes]
+            ok, reason = _reserve_submission_capacity(
+                submission,
+                candidate_nodes,
+                inventory_error,
+            )
             if not ok:
                 if status != "blocked" or submission.get("blocked_reason") != reason:
                     self._storage.update_submission(
@@ -128,8 +147,9 @@ class Dispatcher:
                     submission["id"],
                     {"status": "queued", "blocked_reason": None, "error_message": None},
                 )
-            dispatch_submission(self._storage, submission, self._cfg)
-        self._reconcile_running()
+            result = dispatch_submission(self._storage, submission, self._cfg)
+            if result.submitted:
+                free_nodes = candidate_nodes
         self._purge_completed_jobs()
 
     def _reconcile_running(self) -> None:
@@ -346,8 +366,26 @@ def _capacity_allows(
     free_nodes: list[dict[str, Any]],
     inventory_error: str | None,
 ) -> tuple[bool, str | None]:
+    candidate_nodes = [dict(node) for node in free_nodes]
+    return _reserve_submission_capacity(submission, candidate_nodes, inventory_error)
+
+
+def _reserve_submission_capacity(
+    submission: dict[str, Any],
+    free_nodes: list[dict[str, Any]],
+    inventory_error: str | None,
+) -> tuple[bool, str | None]:
     if inventory_error:
         return False, inventory_error
+    for req in _submission_requirements(submission):
+        ok, reason = _check_requirement(free_nodes, req)
+        if not ok:
+            return False, reason
+
+    return True, None
+
+
+def _submission_requirements(submission: dict[str, Any]) -> list[dict[str, Any]]:
     args = submission.get("args") or []
     if not isinstance(args, list):
         args = []
@@ -373,11 +411,11 @@ def _capacity_allows(
             res = resources.get(device_type, default_res)
             requirements.append(
                 {
-                    "name": f"supernode:{device_type}",
+                    "name": f"node-bundle:{device_type}",
                     "node_class": "node",
                     "device_type": device_type,
-                    "cpu": res.get("cpu", 500),
-                    "mem": res.get("mem", 512),
+                    "cpu": res.get("cpu", 500) + 1000,
+                    "mem": res.get("mem", 512) + 1024,
                     "count": count,
                     "strict": not allow_oversubscribe,
                 }
@@ -386,26 +424,13 @@ def _capacity_allows(
         res = default_res
         requirements.append(
             {
-                "name": "supernode",
+                "name": "node-bundle",
                 "node_class": "node",
                 "device_type": None,
-                "cpu": res.get("cpu", 500),
-                "mem": res.get("mem", 512),
+                "cpu": res.get("cpu", 500) + 1000,
+                "mem": res.get("mem", 512) + 1024,
                 "count": total_supernodes,
                 "strict": not allow_oversubscribe,
-            }
-        )
-
-    if total_supernodes > 0:
-        requirements.append(
-            {
-                "name": "superexec-clientapp",
-                "node_class": "node",
-                "device_type": None,
-                "cpu": 1000,
-                "mem": 1024,
-                "count": total_supernodes,
-                "strict": False,
             }
         )
 
@@ -442,13 +467,7 @@ def _capacity_allows(
             "strict": False,
         }
     )
-
-    for req in requirements:
-        ok, reason = _check_requirement(free_nodes, req)
-        if not ok:
-            return False, reason
-
-    return True, None
+    return requirements
 
 
 def _check_requirement(

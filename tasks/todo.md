@@ -1,4 +1,38 @@
 
+# Submit Queue Reservation Plan
+
+- [x] Inspect the submit-service dispatcher and confirm where queue admission decisions are made.
+- [x] Reserve node capacity for active `running` submissions before dispatching queued work.
+- [x] Reconcile running submissions before queue dispatch so completed jobs release reservations immediately.
+- [x] Add targeted dispatcher tests for block-while-running and release-after-completion behavior.
+- [x] Verify the dispatcher module and tests locally.
+
+## Review
+
+- Updated `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/submit_service/app/workers/dispatcher.py` so `run_once()` now reconciles `running` submissions first, then reserves capacity for all active submissions before it evaluates queued or blocked candidates.
+- The queue gate now treats each requested compute node as a bundled reservation for `supernode + superexec-clientapp` on the corresponding device type. That matches the intended submission-side semantics: once a 20-node experiment is dispatched, those 20 nodes stay busy in the queue until the submission is marked completed/failed/cancelled.
+- Added focused coverage in `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/submit_service/tests/test_dispatcher.py` for:
+  - a queued 20-node submission being blocked while a running 20-node submission already holds the same `rpi4/rpi5` capacity
+  - the blocked submission dispatching once the earlier submission is completed
+- Verification:
+  - `python -m py_compile submit_service/app/workers/dispatcher.py submit_service/tests/test_dispatcher.py`
+  - `./.venv/bin/pytest submit_service/tests/test_dispatcher.py -q`
+  - result: `6 passed`
+
+# Capability Discovery Revert Plan
+
+- [x] Restore the one-shot capability discovery path in `runtime.py`.
+- [x] Record the correction in `tasks/lessons.md`.
+- [x] Verify the reverted code compiles cleanly.
+
+## Review
+
+- Reverted the retry loop in `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/apps/fedctl_research/src/fedctl_research/methods/runtime.py` so capability discovery now sends one query batch to all discovered nodes and processes the replies once, matching the previous behavior.
+- This keeps the typed device allocation work intact; only the discovery retry behavior was removed.
+- Verification:
+  - `python -m py_compile apps/fedctl_research/src/fedctl_research/methods/runtime.py`
+  - passed
+
 # Per-Client Eval Metrics Plan
 
 - [x] Add a structured per-client evaluation event stream instead of only aggregated round-level client-eval metrics.

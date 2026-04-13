@@ -40,6 +40,7 @@ def _create_submission(
     status: str,
     created_at: str,
     priority: int | None,
+    args: list[str] | None = None,
 ) -> None:
     storage.create_submission(
         {
@@ -55,7 +56,7 @@ def _create_submission(
             "artifact_url": "s3://bucket/proj.tar.gz",
             "submit_image": "example/submit:latest",
             "node_class": "submit",
-            "args": ["-m", "fedctl.submit.runner"],
+            "args": args or ["-m", "fedctl.submit.runner"],
             "env": {},
             "priority": priority,
             "logs_location": None,
@@ -66,6 +67,81 @@ def _create_submission(
             "namespace": "default",
         }
     )
+
+
+def _inventory_nodes() -> list[dict[str, object]]:
+    nodes: list[dict[str, object]] = []
+    for idx in range(10):
+        nodes.append(
+            {
+                "id": f"rpi4-{idx}",
+                "status": "ready",
+                "node_class": "node",
+                "device_type": "rpi4",
+                "resources": {
+                    "total_cpu": 2000,
+                    "total_mem": 2048,
+                    "used_cpu": 0,
+                    "used_mem": 0,
+                },
+            }
+        )
+    for idx in range(10):
+        nodes.append(
+            {
+                "id": f"rpi5-{idx}",
+                "status": "ready",
+                "node_class": "node",
+                "device_type": "rpi5",
+                "resources": {
+                    "total_cpu": 2000,
+                    "total_mem": 2048,
+                    "used_cpu": 0,
+                    "used_mem": 0,
+                },
+            }
+        )
+    nodes.append(
+        {
+            "id": "link-0",
+            "status": "ready",
+            "node_class": "link",
+            "device_type": None,
+            "resources": {
+                "total_cpu": 4000,
+                "total_mem": 4096,
+                "used_cpu": 0,
+                "used_mem": 0,
+            },
+        }
+    )
+    nodes.append(
+        {
+            "id": "submit-0",
+            "status": "ready",
+            "node_class": "submit",
+            "device_type": None,
+            "resources": {
+                "total_cpu": 4000,
+                "total_mem": 4096,
+                "used_cpu": 0,
+                "used_mem": 0,
+            },
+        }
+    )
+    return nodes
+
+
+def _typed_supernode_args() -> list[str]:
+    return [
+        "-m",
+        "fedctl.submit.runner",
+        "--supernodes",
+        "rpi4=10",
+        "--supernodes",
+        "rpi5=10",
+        "--no-allow-oversubscribe",
+    ]
 
 
 def test_dispatcher_respects_priority_and_age_order(tmp_path, monkeypatch) -> None:
@@ -105,7 +181,7 @@ def test_dispatcher_respects_priority_and_age_order(tmp_path, monkeypatch) -> No
     monkeypatch.setattr(dispatcher_mod, "_inventory_snapshot", lambda inventory: ([], None))
     monkeypatch.setattr(
         dispatcher_mod,
-        "_capacity_allows",
+        "_reserve_submission_capacity",
         lambda submission, free_nodes, inventory_error: (True, None),
     )
 
@@ -121,6 +197,104 @@ def test_dispatcher_respects_priority_and_age_order(tmp_path, monkeypatch) -> No
     dispatcher.run_once()
 
     assert dispatched_ids == ["sub-high", "sub-default-old", "sub-default-new", "sub-low"]
+
+
+def test_dispatcher_blocks_when_running_submission_already_reserves_all_nodes(
+    tmp_path, monkeypatch
+) -> None:
+    db_path = tmp_path / "submit.db"
+    storage = Storage(StorageConfig(db_url=f"sqlite:///{db_path}"))
+    storage.init_db()
+
+    _create_submission(
+        storage,
+        submission_id="sub-running",
+        status="running",
+        created_at="2026-01-01T00:00:00+00:00",
+        priority=50,
+        args=_typed_supernode_args(),
+    )
+    _create_submission(
+        storage,
+        submission_id="sub-queued",
+        status="queued",
+        created_at="2026-01-01T00:00:01+00:00",
+        priority=50,
+        args=_typed_supernode_args(),
+    )
+
+    monkeypatch.setattr(
+        dispatcher_mod,
+        "_inventory_snapshot",
+        lambda inventory: (_inventory_nodes(), None),
+    )
+
+    dispatched_ids: list[str] = []
+
+    def fake_dispatch(storage_obj, submission, cfg):
+        dispatched_ids.append(submission["id"])
+        return dispatcher_mod.DispatchResult(submitted=True)
+
+    monkeypatch.setattr(dispatcher_mod, "dispatch_submission", fake_dispatch)
+
+    dispatcher = dispatcher_mod.Dispatcher(storage, _cfg(db_path))
+    dispatcher.run_once()
+
+    assert dispatched_ids == []
+    updated = storage.get_submission("sub-queued")
+    assert updated["status"] == "blocked"
+    assert updated["blocked_reason"] == "node-bundle:rpi4: need 10, have 0"
+
+
+def test_dispatcher_releases_queue_once_previous_submission_completed(
+    tmp_path, monkeypatch
+) -> None:
+    db_path = tmp_path / "submit.db"
+    storage = Storage(StorageConfig(db_url=f"sqlite:///{db_path}"))
+    storage.init_db()
+
+    _create_submission(
+        storage,
+        submission_id="sub-completed",
+        status="completed",
+        created_at="2026-01-01T00:00:00+00:00",
+        priority=50,
+        args=_typed_supernode_args(),
+    )
+    _create_submission(
+        storage,
+        submission_id="sub-queued",
+        status="blocked",
+        created_at="2026-01-01T00:00:01+00:00",
+        priority=50,
+        args=_typed_supernode_args(),
+    )
+    storage.update_submission(
+        "sub-queued",
+        {"blocked_reason": "node-bundle:rpi4: need 10, have 0"},
+    )
+
+    monkeypatch.setattr(
+        dispatcher_mod,
+        "_inventory_snapshot",
+        lambda inventory: (_inventory_nodes(), None),
+    )
+
+    dispatched_ids: list[str] = []
+
+    def fake_dispatch(storage_obj, submission, cfg):
+        dispatched_ids.append(submission["id"])
+        return dispatcher_mod.DispatchResult(submitted=True)
+
+    monkeypatch.setattr(dispatcher_mod, "dispatch_submission", fake_dispatch)
+
+    dispatcher = dispatcher_mod.Dispatcher(storage, _cfg(db_path))
+    dispatcher.run_once()
+
+    assert dispatched_ids == ["sub-queued"]
+    updated = storage.get_submission("sub-queued")
+    assert updated["status"] == "queued"
+    assert updated["blocked_reason"] is None
 
 
 def test_dispatcher_autopurges_completed_jobs_after_delay(tmp_path, monkeypatch) -> None:
@@ -161,7 +335,7 @@ def test_dispatcher_autopurges_completed_jobs_after_delay(tmp_path, monkeypatch)
     monkeypatch.setattr(dispatcher_mod, "_inventory_snapshot", lambda inventory: ([], None))
     monkeypatch.setattr(
         dispatcher_mod,
-        "_capacity_allows",
+        "_reserve_submission_capacity",
         lambda submission, free_nodes, inventory_error: (True, None),
     )
 
@@ -217,7 +391,7 @@ def test_dispatcher_marks_running_submission_failed_when_nomad_job_missing(
     monkeypatch.setattr(dispatcher_mod, "_inventory_snapshot", lambda inventory: ([], None))
     monkeypatch.setattr(
         dispatcher_mod,
-        "_capacity_allows",
+        "_reserve_submission_capacity",
         lambda submission, free_nodes, inventory_error: (True, None),
     )
 
@@ -275,7 +449,7 @@ def test_dispatcher_marks_running_submission_failed_when_allocs_empty_and_job_mi
     monkeypatch.setattr(dispatcher_mod, "_inventory_snapshot", lambda inventory: ([], None))
     monkeypatch.setattr(
         dispatcher_mod,
-        "_capacity_allows",
+        "_reserve_submission_capacity",
         lambda submission, free_nodes, inventory_error: (True, None),
     )
 
