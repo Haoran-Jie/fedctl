@@ -103,6 +103,24 @@ def test_render_deploy_superexec_jobs() -> None:
     assert "FEDCTL_WAIT_CLIENT_IO_TIMEOUT_S" in client_cfg["args"][0]
 
 
+def test_render_deploy_superexec_jobs_include_custom_env() -> None:
+    spec = default_deploy_spec(
+        num_supernodes=1,
+        image="example/superexec:latest",
+        experiment="exp-test",
+        superexec_env={"WANDB_PROJECT": "fedctl", "WANDB_ENTITY": "samueljie"},
+    )
+    rendered = render_deploy(spec)
+
+    server_env = rendered.superexec_serverapp["Job"]["TaskGroups"][0]["Tasks"][0]["Env"]
+    client_env = rendered.superexec_clientapps[0]["Job"]["TaskGroups"][0]["Tasks"][0]["Env"]
+
+    assert server_env["WANDB_PROJECT"] == "fedctl"
+    assert server_env["WANDB_ENTITY"] == "samueljie"
+    assert client_env["WANDB_PROJECT"] == "fedctl"
+    assert client_env["WANDB_ENTITY"] == "samueljie"
+
+
 def test_render_deploy_supernodes_netem_task() -> None:
     placements = [
         SupernodePlacement(device_type="rpi5", instance_idx=1, node_id=None),
@@ -192,3 +210,42 @@ def test_render_deploy_netem_allows_auto_interface_selection() -> None:
     cmd = rendered.supernodes["Job"]["TaskGroups"][0]["Tasks"][0]["Config"]["args"][0]
     assert 'Could not auto-select a netem interface' in cmd
     assert 'cat /sys/class/net/wlan0/operstate' in cmd
+
+
+def test_nomad_service_names_stay_within_length_limit_for_long_experiment_names() -> None:
+    exp = "smoke-fedavg-fmnist-mlp-debug-seed1337"
+
+    service_names = [
+        naming.service_superlink_serverappio(exp),
+        naming.service_superlink_fleet(exp),
+        naming.service_superlink_control(exp),
+        naming.service_supernode_clientappio(exp, 1, "rpi4"),
+    ]
+
+    assert all(len(name) <= 63 for name in service_names)
+    assert naming.service_supernode_clientappio(exp, 1, "rpi4").endswith(
+        "-supernode-rpi4-1-clientappio"
+    )
+    assert naming.service_superlink_serverappio(exp).endswith("-superlink-serverappio")
+    assert len(set(service_names)) == len(service_names)
+
+
+def test_render_deploy_long_experiment_uses_length_safe_service_names() -> None:
+    exp = "smoke-fedavg-fmnist-mlp-debug-seed1337"
+    spec = default_deploy_spec(
+        num_supernodes=2,
+        image="example/superexec:latest",
+        experiment=exp,
+        supernodes_by_type={"rpi4": 1, "rpi5": 1},
+    )
+
+    rendered = render_deploy(spec)
+
+    superlink_services = rendered.superlink["Job"]["TaskGroups"][0]["Services"]
+    supernode_services = [
+        group["Tasks"][0]["Services"][0]
+        for group in rendered.supernodes["Job"]["TaskGroups"]
+    ]
+
+    all_names = [svc["Name"] for svc in superlink_services + supernode_services]
+    assert all(len(name) <= 63 for name in all_names)

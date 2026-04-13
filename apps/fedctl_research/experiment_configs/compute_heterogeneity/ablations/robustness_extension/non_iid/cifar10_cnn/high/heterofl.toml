@@ -1,0 +1,50 @@
+[experiment]
+method = "heterofl"
+task = "cifar10_cnn"
+seeds = [1337, 1338, 1339]
+
+[server]
+num-server-rounds = 3
+fraction-train = 1.0
+fraction-evaluate = 1.0
+min-available-nodes = 4
+min-train-nodes = 4
+min-evaluate-nodes = 4
+capability-discovery-timeout-s = 120.0
+
+[client]
+local-epochs = 1
+learning-rate = 0.01
+batch-size = 32
+
+[data]
+partitioning = "label-skew-balanced"
+partitioning-num-labels = 2
+partitioning-dirichlet-alpha = 0.1
+masked-cross-entropy = "auto"
+
+[model]
+global-model-rate = 1.0
+default-model-rate = 0.25
+
+[capacity]
+model-split-mode = "dynamic"
+model-rate-levels = [1.0, 0.5, 0.25, 0.125, 0.0625]
+model-rate-proportions = [0.2, 0.2, 0.2, 0.2, 0.2]
+
+[wandb]
+enabled = true
+group = "ablation-non_iid-high-cifar10_cnn"
+tags = ["ablation", "non_iid", "high", "cifar10_cnn", "heterofl"]
+
+[devices.rpi4]
+model-rate = 0.25
+batch-size = 8
+max-train-examples = 2048
+max-test-examples = 512
+
+[devices.rpi5]
+model-rate = 1.0
+batch-size = 32
+max-train-examples = 8192
+max-test-examples = 2048

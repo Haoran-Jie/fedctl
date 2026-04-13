@@ -1,0 +1,2 @@
+"""Generic Flower app entrypoints."""
+

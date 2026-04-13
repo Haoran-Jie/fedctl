@@ -1,0 +1,84 @@
+[build-system]
+requires = ["setuptools>=65", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fedctl-research"
+version = "0.1.0"
+description = "FedCTL research Flower app with shared methods and tasks"
+license = "Apache-2.0"
+requires-python = ">=3.11"
+dependencies = [
+    "flwr[simulation]>=1.26.0",
+    "torch>=2.2.0",
+    "torchvision>=0.17.0",
+    "wandb>=0.17.0",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.flwr.app]
+publisher = "local"
+
+[tool.flwr.app.components]
+serverapp = "fedctl_research.app.server_app:app"
+clientapp = "fedctl_research.app.client_app:app"
+
+[tool.flwr.app.config]
+method = "heterofl"
+task = "fashion_mnist_mlp"
+num-server-rounds = 3
+fraction-train = 1.0
+fraction-evaluate = 1.0
+min-available-nodes = 4
+min-train-nodes = 4
+min-evaluate-nodes = 4
+local-epochs = 1
+learning-rate = 0.01
+batch-size = 32
+rpi4-batch-size = 8
+rpi5-batch-size = 32
+partitioning = "iid"
+partitioning-num-labels = 2
+partitioning-dirichlet-alpha = 0.1
+masked-cross-entropy = "auto"
+global-model-rate = 1.0
+default-model-rate = 0.25
+rpi4-model-rate = 0.25
+rpi5-model-rate = 1.0
+model-split-mode = "fix"
+model-rate-levels = "1.0,0.5,0.25,0.125,0.0625"
+model-rate-proportions = "0.2,0.2,0.2,0.2,0.2"
+rpi4-max-train-examples = 2048
+rpi4-max-test-examples = 512
+rpi5-max-train-examples = 8192
+rpi5-max-test-examples = 2048
+capability-discovery-timeout-s = 120.0
+heterofl-node-device-types = ""
+heterofl-node-rates = ""
+heterofl-partition-rates = ""
+fedrolex-roll-mode = "paper"
+fedrolex-overlap = ""
+fiarse-selection-mode = "structured-magnitude"
+fiarse-threshold-mode = "global"
+fedavgm-server-momentum = 0.9
+fedbuff-buffer-size = 10
+fedbuff-train-concurrency = 4
+fedbuff-poll-interval-s = 1.0
+fedbuff-num-server-steps = 3
+fedbuff-evaluate-every-steps = 1
+fedbuff-staleness-weighting = "polynomial"
+fedbuff-staleness-alpha = 0.5
+client-eval-enabled = true
+final-client-eval-enabled = false
+seed = 1337
+wandb-enabled = false
+wandb-project = ""
+wandb-entity = ""
+wandb-group = ""
+wandb-tags = ""
+wandb-mode = ""

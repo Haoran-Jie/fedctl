@@ -1,3 +1,36 @@
+
+# AE interpolation review
+
+- [x] Collect the completed `a_e` run set (`e`, `p001`-`p009`) from W&B and/or submit records.
+- [x] Build a compact table with final global accuracy/loss and confirm run completion state.
+- [x] Check whether the `a_e` interpolation trend is monotonic or at least directionally increasing as expected.
+- [x] Recommend the next experiment step based on the observed curve and paper-faithful plan.
+
+## Review
+
+- Pulled the completed `a_e` interpolation slice from W&B for:
+  - `e`
+  - `p001` through `p009`
+- All ten runs are in `finished` state with final round `20`.
+- Final global server accuracy/loss table:
+  - `e`: `0.4870`, `1.3933`
+  - `p001`: `0.5422`, `1.3381`
+  - `p002`: `0.6362`, `1.0175`
+  - `p003`: `0.6585`, `0.9661`
+  - `p004`: `0.6685`, `0.9342`
+  - `p005`: `0.6722`, `0.9251`
+  - `p006`: `0.6733`, `0.9194`
+  - `p007`: `0.6748`, `0.9163`
+  - `p008`: `0.6757`, `0.9100`
+  - `p009`: `0.6785`, `0.9059`
+- The global `a_e` interpolation curve is strictly monotonic increasing across all ten points. This is stronger than the minimum expected outcome; it means the first paper-faithful interpolation slice behaves exactly in the intended direction on the cluster.
+- Runtime was stable across the mixed points (`~1443s` to `~1491s`), while singleton `e` was much faster (`~635s`), which is consistent with the reduced model size.
+- The extracted `e`-submodel accuracy decreases as the proportion of `a` clients increases (`0.4870` at singleton `e` down to `0.3326` at `p009`), which is expected because the final global model is being optimized more heavily toward the full-width side of the pair.
+- Recommended next step:
+  - run singleton `a` to anchor the upper endpoint explicitly
+  - then move to the next main-text interpolation families `b_e`, `c_e`, and `d_e`
+  - defer the remaining appendix-only pairs until those headline supporting curves are validated
+
 # Submit Log Default Stream Plan
 
 - [x] Inspect why the submission log page defaults to the submit job stderr stream.

@@ -42,6 +42,7 @@ class SuperExecSpec:
     node_class_node: str = "node"
     netem_serverapp: bool = True
     netem_clientapp: bool = True
+    env: dict[str, str] | None = None
 
 
 @dataclass(frozen=True)
@@ -73,6 +74,7 @@ def default_deploy_spec(
     default_resources: dict[str, int] | None = None,
     netem_serverapp: bool = True,
     netem_clientapp: bool = True,
+    superexec_env: dict[str, str] | None = None,
 ) -> DeploySpec:
     return DeploySpec(
         datacenter="dc1",
@@ -96,6 +98,7 @@ def default_deploy_spec(
             image=image,
             netem_serverapp=netem_serverapp,
             netem_clientapp=netem_clientapp,
+            env=superexec_env,
         ),
     )
 

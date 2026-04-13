@@ -609,6 +609,8 @@ def _superexec_serverapp_context(spec: DeploySpec) -> dict[str, Any]:
         "FEDCTL_EXPERIMENT": spec.experiment,
         "FLWR_HOME": spec.superexec.flwr_dir,
     }
+    if spec.superexec.env:
+        env.update(spec.superexec.env)
     user = spec.superexec.user
     network_plan = spec.supernodes.network
     if network_plan is not None and spec.superexec.netem_serverapp:
@@ -688,6 +690,8 @@ def _superexec_clientapp_context(
         "FEDCTL_INSTANCE_IDX": str(placement.instance_idx),
         "FLWR_HOME": spec.superexec.flwr_dir,
     }
+    if spec.superexec.env:
+        env.update(spec.superexec.env)
     if placement.device_type:
         env["FEDCTL_DEVICE_TYPE"] = placement.device_type
     if placement.node_id:

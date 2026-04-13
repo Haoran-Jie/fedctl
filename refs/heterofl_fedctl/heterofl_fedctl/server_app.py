@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import time
+from logging import INFO
 
 from flwr.app import ArrayRecord, ConfigRecord, Context, Message, MessageType, MetricRecord, RecordDict
+from flwr.common.logger import log
 from flwr.serverapp import Grid, ServerApp
 
 from .config import (
@@ -65,16 +67,35 @@ def _discover_node_device_types(grid: Grid, context: Context) -> dict[int, str]:
         for node_id in all_node_ids
     ]
     replies = list(grid.send_and_receive(messages, timeout=timeout_s))
+    log(INFO, "capability discovery: sent=%s replies=%s", len(messages), len(replies))
 
     discovered: dict[int, str] = {}
     for reply in replies:
         if reply.has_error():
+            log(
+                INFO,
+                "capability discovery: node=%s error=%s",
+                reply.metadata.src_node_id,
+                reply.error,
+            )
             continue
         capabilities = reply.content.get("capabilities")
         if not isinstance(capabilities, ConfigRecord):
+            log(
+                INFO,
+                "capability discovery: node=%s missing capabilities record",
+                reply.metadata.src_node_id,
+            )
             continue
         src_node_id = reply.metadata.src_node_id
         device_type = capabilities.get("device-type")
+        log(
+            INFO,
+            "capability discovery: node=%s device_type=%s capabilities=%s",
+            src_node_id,
+            device_type,
+            dict(capabilities),
+        )
         if isinstance(device_type, str) and device_type:
             discovered[src_node_id] = device_type
 
@@ -82,6 +103,7 @@ def _discover_node_device_types(grid: Grid, context: Context) -> dict[int, str]:
     discovered.update(
         parse_node_device_type_map(context.run_config.get("heterofl-node-device-types", ""))
     )
+    log(INFO, "capability discovery: final node->device map=%s", discovered)
     return discovered
 
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+from contextlib import contextmanager
 from pathlib import Path
 
 from typing import Callable
@@ -19,6 +20,11 @@ from fedctl.project.flwr_inspect import inspect_flwr_project
 from fedctl.build.state import load_project_build
 from fedctl.build.build import image_exists, pull_image
 from fedctl.build.errors import BuildError
+from fedctl.project.experiment_config import (
+    extract_seed_sweep,
+    materialize_run_config,
+    resolve_experiment_config,
+)
 from fedctl.config.repo import resolve_repo_config_path
 from fedctl.project.flwr_config import resolve_flwr_home
 from fedctl.util.console import console
@@ -37,6 +43,9 @@ def _print_ok(message: str) -> None:
 def run_run(
     *,
     path: str = ".",
+    experiment_config: str | None = None,
+    run_config_overrides: list[str] | None = None,
+    seed: int | None = None,
     flwr_version: str = DEFAULT_FLWR_VERSION,
     image: str | None = None,
     no_cache: bool = False,
@@ -79,6 +88,47 @@ def run_run(
         experiment or f"{project_name}-{_timestamp_compact()}"
     )
     _print_ok(f"Experiment: {exp_name}")
+    if seed is None:
+        try:
+            seed_sweep = extract_seed_sweep(info.root, experiment_config)
+        except ProjectError as exc:
+            console.print(f"[red]✗ Experiment config error:[/red] {exc}")
+            return 1
+        if seed_sweep:
+            return _run_seed_sweep(
+                seed_sweep=seed_sweep,
+                base_experiment=exp_name,
+                path=path,
+                experiment_config=experiment_config,
+                flwr_version=flwr_version,
+                image=image,
+                no_cache=no_cache,
+                platform=platform,
+                context=context,
+                push=push,
+                num_supernodes=num_supernodes,
+                auto_supernodes=auto_supernodes,
+                supernodes=supernodes,
+                net=net,
+                allow_oversubscribe=allow_oversubscribe,
+                repo_config=repo_config,
+                timeout_seconds=timeout_seconds,
+                no_wait=no_wait,
+                namespace=namespace,
+                profile=profile,
+                endpoint=endpoint,
+                token=token,
+                federation=federation,
+                stream=stream,
+                verbose=verbose,
+                pre_cleanup=pre_cleanup,
+                destroy=destroy,
+            )
+    try:
+        resolved_experiment_config = resolve_experiment_config(info.root, experiment_config)
+    except ProjectError as exc:
+        console.print(f"[red]✗ Experiment config error:[/red] {exc}")
+        return 1
 
     image_tag = None
     if image:
@@ -163,25 +213,31 @@ def run_run(
         repo_config=repo_config,
         project_root=info.root,
     )
-    deploy_status = run_deploy(
-        dry_run=False,
-        out=None,
-        fmt="json",
-        num_supernodes=deploy_num_supernodes,
-        supernodes=supernodes,
-        net=net,
-        allow_oversubscribe=allow_oversubscribe,
+    with _temporary_run_tracking_env(
+        experiment_config=(
+            resolved_experiment_config.runner_path if resolved_experiment_config else None
+        ),
         repo_config=resolved_repo_config,
-        image=image_tag,
-        flwr_version=flwr_version,
-        experiment=exp_name,
-        timeout_seconds=timeout_seconds,
-        no_wait=no_wait,
-        profile=profile,
-        endpoint=endpoint,
-        namespace=namespace,
-        token=token,
-    )
+    ):
+        deploy_status = run_deploy(
+            dry_run=False,
+            out=None,
+            fmt="json",
+            num_supernodes=deploy_num_supernodes,
+            supernodes=supernodes,
+            net=net,
+            allow_oversubscribe=allow_oversubscribe,
+            repo_config=resolved_repo_config,
+            image=image_tag,
+            flwr_version=flwr_version,
+            experiment=exp_name,
+            timeout_seconds=timeout_seconds,
+            no_wait=no_wait,
+            profile=profile,
+            endpoint=endpoint,
+            namespace=namespace,
+            token=token,
+        )
     if deploy_status != 0:
         return deploy_status
 
@@ -201,10 +257,29 @@ def run_run(
 
     _print_step(5, 5, "Run Flower")
     cmd = ["flwr", "run", str(info.root), federation]
+    merged_overrides = _build_run_config_overrides(
+        run_config_overrides=run_config_overrides,
+        seed=seed,
+    )
+    resolved_run_config = materialize_run_config(
+        base_path=resolved_experiment_config.resolved_path if resolved_experiment_config else None,
+        run_config_overrides=merged_overrides,
+    )
+    if resolved_run_config:
+        cmd.extend(["--run-config", str(resolved_run_config)])
+    else:
+        for override in merged_overrides:
+            cmd.extend(["--run-config", override])
     if stream:
         cmd.append("--stream")
     env = os.environ.copy()
     env["FLWR_HOME"] = str(resolve_flwr_home(project_root=info.root))
+    src_dir = info.root / "src"
+    if src_dir.is_dir():
+        existing_pythonpath = env.get("PYTHONPATH", "")
+        env["PYTHONPATH"] = (
+            f"{src_dir}{os.pathsep}{existing_pythonpath}" if existing_pythonpath else str(src_dir)
+        )
 
     try:
         result = subprocess.run(cmd, check=False, env=env)
@@ -245,6 +320,33 @@ def _timestamp_compact() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
 
 
+def _timestamp_iso() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+@contextmanager
+def _temporary_run_tracking_env(
+    *, experiment_config: str | None, repo_config: str | None
+):
+    updates = {
+        "FEDCTL_ATTEMPT_STARTED_AT": os.environ.get("FEDCTL_ATTEMPT_STARTED_AT", _timestamp_iso()),
+    }
+    if experiment_config:
+        updates["FEDCTL_EXPERIMENT_CONFIG"] = experiment_config
+    if repo_config:
+        updates["FEDCTL_REPO_CONFIG_LABEL"] = Path(repo_config).stem.replace("_", "-")
+    previous = {key: os.environ.get(key) for key in updates}
+    os.environ.update(updates)
+    try:
+        yield
+    finally:
+        for key, old_value in previous.items():
+            if old_value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = old_value
+
+
 def _resolve_run_repo_config(*, repo_config: str | None, project_root: Path) -> str | None:
     if repo_config:
         return repo_config
@@ -253,3 +355,87 @@ def _resolve_run_repo_config(*, repo_config: str | None, project_root: Path) -> 
         include_project_local=True,
     )
     return str(path) if path else None
+
+
+def _build_run_config_overrides(
+    *,
+    run_config_overrides: list[str] | None,
+    seed: int | None,
+) -> list[str]:
+    overrides = list(run_config_overrides or [])
+    if seed is not None:
+        overrides.append(f"seed={seed}")
+    return overrides
+
+
+def _run_seed_sweep(
+    *,
+    seed_sweep: tuple[int, ...],
+    base_experiment: str,
+    path: str,
+    experiment_config: str | None,
+    flwr_version: str,
+    image: str | None,
+    no_cache: bool,
+    platform: str | None,
+    context: str | None,
+    push: bool,
+    num_supernodes: int,
+    auto_supernodes: bool,
+    supernodes: list[str] | None,
+    net: list[str] | None,
+    allow_oversubscribe: bool | None,
+    repo_config: str | None,
+    timeout_seconds: int,
+    no_wait: bool,
+    namespace: str | None,
+    profile: str | None,
+    endpoint: str | None,
+    token: str | None,
+    federation: str,
+    stream: bool,
+    verbose: bool,
+    pre_cleanup: Callable[[], None] | None,
+    destroy: bool,
+) -> int:
+    console.print(f"[cyan]Detected seed sweep:[/cyan] {', '.join(str(seed) for seed in seed_sweep)}")
+    failures = 0
+    for sweep_seed in seed_sweep:
+        child_experiment = normalize_experiment_name(f"{base_experiment}-seed{sweep_seed}")
+        console.print()
+        console.print(
+            f"[bold cyan]Seed[/bold cyan] [bold]-[/bold] {sweep_seed} -> {child_experiment}"
+        )
+        status = run_run(
+            path=path,
+            experiment_config=experiment_config,
+            run_config_overrides=None,
+            seed=sweep_seed,
+            flwr_version=flwr_version,
+            image=image,
+            no_cache=no_cache,
+            platform=platform,
+            context=context,
+            push=push,
+            num_supernodes=num_supernodes,
+            auto_supernodes=auto_supernodes,
+            supernodes=supernodes,
+            net=net,
+            allow_oversubscribe=allow_oversubscribe,
+            repo_config=repo_config,
+            experiment=child_experiment,
+            timeout_seconds=timeout_seconds,
+            no_wait=no_wait,
+            namespace=namespace,
+            profile=profile,
+            endpoint=endpoint,
+            token=token,
+            federation=federation,
+            stream=stream,
+            verbose=verbose,
+            pre_cleanup=pre_cleanup,
+            destroy=destroy,
+        )
+        if status != 0:
+            failures += 1
+    return 0 if failures == 0 else 1

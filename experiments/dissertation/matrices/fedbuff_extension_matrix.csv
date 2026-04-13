@@ -1,7 +1,0 @@
-experiment_id,dataset,partition,method,seed,supernodes,net_profile,net_assignments,notes
-fedbuff-fmnist-none-sync-s1,fashion-mnist,iid,fedavg-full,1,"rpi4=6;rpi5=22",none,"rpi4[*]=none,rpi5[*]=none",extension
-fedbuff-fmnist-none-hetero-s1,fashion-mnist,iid,heterofl,1,"rpi4=6;rpi5=22",none,"rpi4[*]=none,rpi5[*]=none",extension
-fedbuff-fmnist-none-buffered-s1,fashion-mnist,iid,fedbuff-style,1,"rpi4=6;rpi5=22",none,"rpi4[*]=none,rpi5[*]=none",extension
-fedbuff-fmnist-asym-sync-s1,fashion-mnist,iid,fedavg-full,1,"rpi4=6;rpi5=22",asym,"rpi4[*]=(asym_up,asym_down),rpi5[*]=(med,mild)",extension
-fedbuff-fmnist-asym-hetero-s1,fashion-mnist,iid,heterofl,1,"rpi4=6;rpi5=22",asym,"rpi4[*]=(asym_up,asym_down),rpi5[*]=(med,mild)",extension
-fedbuff-fmnist-asym-buffered-s1,fashion-mnist,iid,fedbuff-style,1,"rpi4=6;rpi5=22",asym,"rpi4[*]=(asym_up,asym_down),rpi5[*]=(med,mild)",extension

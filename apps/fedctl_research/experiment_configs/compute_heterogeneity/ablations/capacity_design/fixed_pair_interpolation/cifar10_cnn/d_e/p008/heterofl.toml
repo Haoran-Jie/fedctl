@@ -1,0 +1,51 @@
+[experiment]
+method = "heterofl"
+task = "cifar10_cnn"
+seeds = [1337, 1338, 1339]
+
+[server]
+num-server-rounds = 20
+fraction-train = 1.0
+fraction-evaluate = 1.0
+min-available-nodes = 10
+min-train-nodes = 10
+min-evaluate-nodes = 10
+capability-discovery-timeout-s = 120.0
+
+[client]
+local-epochs = 1
+learning-rate = 0.01
+batch-size = 32
+
+[data]
+partitioning = "iid"
+partitioning-num-labels = 2
+partitioning-dirichlet-alpha = 0.1
+masked-cross-entropy = "auto"
+
+[model]
+global-model-rate = 0.125
+default-model-rate = 0.0625
+
+[capacity]
+model-split-mode = "fix"
+model-rate-levels = [0.125, 0.0625]
+model-rate-proportions = [0.8, 0.2]
+heterofl-partition-rates = "0:0.125,1:0.125,2:0.125,3:0.125,4:0.125,5:0.125,6:0.125,7:0.125,8:0.0625,9:0.0625"
+
+[wandb]
+enabled = true
+group = "ablation-fixed_pair_interpolation-cifar10_cnn"
+tags = ["ablation", "fixed_pair_interpolation", "cifar10_cnn", "heterofl", "pair_d_e", "mix_08_02"]
+
+[devices.rpi4]
+model-rate = 0.0625
+batch-size = 8
+max-train-examples = 4167
+max-test-examples = 834
+
+[devices.rpi5]
+model-rate = 0.0625
+batch-size = 32
+max-train-examples = 4167
+max-test-examples = 834

@@ -16,6 +16,15 @@ deploy:
   supernodes:
     rpi5: 2
     jetson: 2
+  superexec:
+    # Optional env vars injected into SuperExec server/client containers.
+    # Use this for remote experiment auth/config such as W&B.
+    env: {}
+    # Example:
+    # env:
+    #   WANDB_PROJECT: "fedctl"
+    #   WANDB_ENTITY: "your-wandb-entity"
+    #   WANDB_API_KEY: "set-a-real-key-here"
   placement:
     allow_oversubscribe: true
     spread_across_hosts: true

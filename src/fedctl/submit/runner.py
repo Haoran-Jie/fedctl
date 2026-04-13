@@ -35,6 +35,13 @@ def main(argv: list[str] | None = None) -> int:
         help="Expected project directory name inside the workspace",
     )
     parser.add_argument("--exp", dest="experiment")
+    parser.add_argument(
+        "--experiment-config",
+        default=None,
+        help="Path to a Flower run-config TOML, relative to the extracted project if needed",
+    )
+    parser.add_argument("--run-config-override", action="append")
+    parser.add_argument("--seed", type=int, default=None)
     parser.add_argument("--flwr-version", default=DEFAULT_FLWR_VERSION)
     parser.add_argument("--image")
     parser.add_argument("--no-cache", action="store_true")
@@ -68,6 +75,8 @@ def main(argv: list[str] | None = None) -> int:
     submit_service_endpoint = os.environ.get("SUBMIT_SERVICE_ENDPOINT")
     submit_service_token = os.environ.get("SUBMIT_SERVICE_TOKEN")
     result_store = os.environ.get("FEDCTL_RESULT_STORE")
+    if submission_id:
+        os.environ["FEDCTL_SUBMISSION_ID"] = submission_id
 
     # _print_docker_info()
     project_path = _resolve_project_path(Path(args.path), args.project_dir)
@@ -108,6 +117,9 @@ def main(argv: list[str] | None = None) -> int:
 
     exit_code = run_run(
         path=str(project_path),
+        experiment_config=args.experiment_config,
+        run_config_overrides=args.run_config_override,
+        seed=args.seed,
         flwr_version=args.flwr_version,
         image=args.image,
         no_cache=args.no_cache,
@@ -939,7 +951,7 @@ def _iter_files_recursive(
 
 def _is_result_file(name: str) -> bool:
     lowered = name.lower()
-    for ext in (".pt", ".pth", ".ckpt", ".bin", ".tar", ".zip", ".json"):
+    for ext in (".pt", ".pth", ".ckpt", ".bin", ".tar", ".zip", ".json", ".jsonl"):
         if lowered.endswith(ext):
             return True
     return False

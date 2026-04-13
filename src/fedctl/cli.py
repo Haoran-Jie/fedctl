@@ -200,6 +200,9 @@ def submit(
 @submit_app.command("run")
 def submit_run(
     path: str = typer.Argument(".", help="Path to a Flower project (dir or pyproject.toml)."),
+    experiment_config: str | None = typer.Option(None, "--experiment-config"),
+    run_config_override: list[str] = typer.Option(None, "--run-config-override"),
+    seed: int | None = typer.Option(None, "--seed"),
     flwr_version: str = typer.Option(DEFAULT_FLWR_VERSION, "--flwr-version"),
     image: str | None = typer.Option(None, "--image"),
     no_cache: bool = typer.Option(False, "--no-cache"),
@@ -230,6 +233,9 @@ def submit_run(
     raise SystemExit(
         run_submit(
             path=path,
+            experiment_config=experiment_config,
+            run_config_overrides=run_config_override,
+            seed=seed,
             flwr_version=flwr_version,
             image=image,
             no_cache=no_cache,
@@ -563,6 +569,9 @@ def configure(
 @app.command()
 def run(
     path: str = typer.Argument(".", help="Path to a Flower project (dir or pyproject.toml)."),
+    experiment_config: str | None = typer.Option(None, "--experiment-config"),
+    run_config_override: list[str] = typer.Option(None, "--run-config-override"),
+    seed: int | None = typer.Option(None, "--seed"),
     flwr_version: str = typer.Option(DEFAULT_FLWR_VERSION, "--flwr-version"),
     image: str | None = typer.Option(None, "--image"),
     no_cache: bool = typer.Option(False, "--no-cache"),
@@ -591,6 +600,9 @@ def run(
     raise SystemExit(
         run_run(
             path=path,
+            experiment_config=experiment_config,
+            run_config_overrides=run_config_override,
+            seed=seed,
             flwr_version=flwr_version,
             image=image,
             no_cache=no_cache,

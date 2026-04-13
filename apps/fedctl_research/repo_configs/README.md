@@ -1,0 +1,31 @@
+# Research App Repo Configs
+
+These YAML files are the deployment-side presets used with:
+
+- `fedctl run apps/fedctl_research ...`
+- `fedctl submit run apps/fedctl_research ...`
+
+They are intentionally checked in as reusable templates, not machine-specific copies.
+Replace the submit/image-registry/W&B placeholders with the values for the cluster you are targeting.
+
+## Families
+
+- `smoke/compute_heterogeneity.yaml`: 4-node smoke validation paired with `experiment_configs/smoke/compute_heterogeneity/`.
+- `smoke/network_heterogeneity.yaml`: 4-node smoke validation paired with `experiment_configs/smoke/network_heterogeneity/`.
+- `compute_heterogeneity/main/none.yaml`: 4-node mixed `rpi4`/`rpi5` runs paired with `experiment_configs/compute_heterogeneity/main/`, with no netem sidecar.
+- `network_heterogeneity/main/none.yaml`: 4-node asynchronous main-study profile paired with `experiment_configs/network_heterogeneity/main/`.
+- `network_heterogeneity/ablations/deployment_stressors/*.yaml`: named network impairment presets for the async stressor studies.
+- `network_heterogeneity/ablations/scale_concurrency/scale_async/*.yaml`: larger-cluster deployment profiles paired with `experiment_configs/network_heterogeneity/ablations/scale_concurrency/scale_async/`.
+
+## Placeholder fields
+
+Replace these before running against a real cluster:
+
+- `REPLACE_WANDB_API_KEY`
+- `REPLACE_SUBMIT_ENDPOINT`
+- `REPLACE_SUBMIT_TOKEN`
+- `REPLACE_SUBMIT_USER`
+- `REPLACE_SUBMIT_IMAGE`
+- `REPLACE_ARTIFACT_STORE`
+- `REPLACE_CLUSTER_IMAGE_REGISTRY`
+- `REPLACE_LAPTOP_IMAGE_REGISTRY`

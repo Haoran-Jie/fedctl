@@ -1,0 +1,1170 @@
+
+\documentclass{article} % For LaTeX2e
+\usepackage{iclr2021_conference,times}
+
+% Optional math commands from https://github.com/goodfeli/dlbook_notation.
+%%%%% NEW MATH DEFINITIONS %%%%%
+
+\usepackage{amsmath,amsfonts,bm}
+
+% Mark sections of captions for referring to divisions of figures
+\newcommand{\figleft}{{\em (Left)}}
+\newcommand{\figcenter}{{\em (Center)}}
+\newcommand{\figright}{{\em (Right)}}
+\newcommand{\figtop}{{\em (Top)}}
+\newcommand{\figbottom}{{\em (Bottom)}}
+\newcommand{\captiona}{{\em (a)}}
+\newcommand{\captionb}{{\em (b)}}
+\newcommand{\captionc}{{\em (c)}}
+\newcommand{\captiond}{{\em (d)}}
+
+% Highlight a newly defined term
+\newcommand{\newterm}[1]{{\bf #1}}
+
+
+% Figure reference, lower-case.
+\def\figref#1{figure~\ref{#1}}
+% Figure reference, capital. For start of sentence
+\def\Figref#1{Figure~\ref{#1}}
+\def\twofigref#1#2{figures \ref{#1} and \ref{#2}}
+\def\quadfigref#1#2#3#4{figures \ref{#1}, \ref{#2}, \ref{#3} and \ref{#4}}
+% Section reference, lower-case.
+\def\secref#1{section~\ref{#1}}
+% Section reference, capital.
+\def\Secref#1{Section~\ref{#1}}
+% Reference to two sections.
+\def\twosecrefs#1#2{sections \ref{#1} and \ref{#2}}
+% Reference to three sections.
+\def\secrefs#1#2#3{sections \ref{#1}, \ref{#2} and \ref{#3}}
+% Reference to an equation, lower-case.
+\def\eqref#1{equation~\ref{#1}}
+% Reference to an equation, upper case
+\def\Eqref#1{Equation~\ref{#1}}
+% A raw reference to an equation---avoid using if possible
+\def\plaineqref#1{\ref{#1}}
+% Reference to a chapter, lower-case.
+\def\chapref#1{chapter~\ref{#1}}
+% Reference to an equation, upper case.
+\def\Chapref#1{Chapter~\ref{#1}}
+% Reference to a range of chapters
+\def\rangechapref#1#2{chapters\ref{#1}--\ref{#2}}
+% Reference to an algorithm, lower-case.
+\def\algref#1{algorithm~\ref{#1}}
+% Reference to an algorithm, upper case.
+\def\Algref#1{Algorithm~\ref{#1}}
+\def\twoalgref#1#2{algorithms \ref{#1} and \ref{#2}}
+\def\Twoalgref#1#2{Algorithms \ref{#1} and \ref{#2}}
+% Reference to a part, lower case
+\def\partref#1{part~\ref{#1}}
+% Reference to a part, upper case
+\def\Partref#1{Part~\ref{#1}}
+\def\twopartref#1#2{parts \ref{#1} and \ref{#2}}
+
+\def\ceil#1{\lceil #1 \rceil}
+\def\floor#1{\lfloor #1 \rfloor}
+\def\1{\bm{1}}
+\newcommand{\train}{\mathcal{D}}
+\newcommand{\valid}{\mathcal{D_{\mathrm{valid}}}}
+\newcommand{\test}{\mathcal{D_{\mathrm{test}}}}
+
+\def\eps{{\epsilon}}
+
+
+% Random variables
+\def\reta{{\textnormal{$\eta$}}}
+\def\ra{{\textnormal{a}}}
+\def\rb{{\textnormal{b}}}
+\def\rc{{\textnormal{c}}}
+\def\rd{{\textnormal{d}}}
+\def\re{{\textnormal{e}}}
+\def\rf{{\textnormal{f}}}
+\def\rg{{\textnormal{g}}}
+\def\rh{{\textnormal{h}}}
+\def\ri{{\textnormal{i}}}
+\def\rj{{\textnormal{j}}}
+\def\rk{{\textnormal{k}}}
+\def\rl{{\textnormal{l}}}
+% rm is already a command, just don't name any random variables m
+\def\rn{{\textnormal{n}}}
+\def\ro{{\textnormal{o}}}
+\def\rp{{\textnormal{p}}}
+\def\rq{{\textnormal{q}}}
+\def\rr{{\textnormal{r}}}
+\def\rs{{\textnormal{s}}}
+\def\rt{{\textnormal{t}}}
+\def\ru{{\textnormal{u}}}
+\def\rv{{\textnormal{v}}}
+\def\rw{{\textnormal{w}}}
+\def\rx{{\textnormal{x}}}
+\def\ry{{\textnormal{y}}}
+\def\rz{{\textnormal{z}}}
+
+% Random vectors
+\def\rvepsilon{{\mathbf{\epsilon}}}
+\def\rvtheta{{\mathbf{\theta}}}
+\def\rva{{\mathbf{a}}}
+\def\rvb{{\mathbf{b}}}
+\def\rvc{{\mathbf{c}}}
+\def\rvd{{\mathbf{d}}}
+\def\rve{{\mathbf{e}}}
+\def\rvf{{\mathbf{f}}}
+\def\rvg{{\mathbf{g}}}
+\def\rvh{{\mathbf{h}}}
+\def\rvu{{\mathbf{i}}}
+\def\rvj{{\mathbf{j}}}
+\def\rvk{{\mathbf{k}}}
+\def\rvl{{\mathbf{l}}}
+\def\rvm{{\mathbf{m}}}
+\def\rvn{{\mathbf{n}}}
+\def\rvo{{\mathbf{o}}}
+\def\rvp{{\mathbf{p}}}
+\def\rvq{{\mathbf{q}}}
+\def\rvr{{\mathbf{r}}}
+\def\rvs{{\mathbf{s}}}
+\def\rvt{{\mathbf{t}}}
+\def\rvu{{\mathbf{u}}}
+\def\rvv{{\mathbf{v}}}
+\def\rvw{{\mathbf{w}}}
+\def\rvx{{\mathbf{x}}}
+\def\rvy{{\mathbf{y}}}
+\def\rvz{{\mathbf{z}}}
+
+% Elements of random vectors
+\def\erva{{\textnormal{a}}}
+\def\ervb{{\textnormal{b}}}
+\def\ervc{{\textnormal{c}}}
+\def\ervd{{\textnormal{d}}}
+\def\erve{{\textnormal{e}}}
+\def\ervf{{\textnormal{f}}}
+\def\ervg{{\textnormal{g}}}
+\def\ervh{{\textnormal{h}}}
+\def\ervi{{\textnormal{i}}}
+\def\ervj{{\textnormal{j}}}
+\def\ervk{{\textnormal{k}}}
+\def\ervl{{\textnormal{l}}}
+\def\ervm{{\textnormal{m}}}
+\def\ervn{{\textnormal{n}}}
+\def\ervo{{\textnormal{o}}}
+\def\ervp{{\textnormal{p}}}
+\def\ervq{{\textnormal{q}}}
+\def\ervr{{\textnormal{r}}}
+\def\ervs{{\textnormal{s}}}
+\def\ervt{{\textnormal{t}}}
+\def\ervu{{\textnormal{u}}}
+\def\ervv{{\textnormal{v}}}
+\def\ervw{{\textnormal{w}}}
+\def\ervx{{\textnormal{x}}}
+\def\ervy{{\textnormal{y}}}
+\def\ervz{{\textnormal{z}}}
+
+% Random matrices
+\def\rmA{{\mathbf{A}}}
+\def\rmB{{\mathbf{B}}}
+\def\rmC{{\mathbf{C}}}
+\def\rmD{{\mathbf{D}}}
+\def\rmE{{\mathbf{E}}}
+\def\rmF{{\mathbf{F}}}
+\def\rmG{{\mathbf{G}}}
+\def\rmH{{\mathbf{H}}}
+\def\rmI{{\mathbf{I}}}
+\def\rmJ{{\mathbf{J}}}
+\def\rmK{{\mathbf{K}}}
+\def\rmL{{\mathbf{L}}}
+\def\rmM{{\mathbf{M}}}
+\def\rmN{{\mathbf{N}}}
+\def\rmO{{\mathbf{O}}}
+\def\rmP{{\mathbf{P}}}
+\def\rmQ{{\mathbf{Q}}}
+\def\rmR{{\mathbf{R}}}
+\def\rmS{{\mathbf{S}}}
+\def\rmT{{\mathbf{T}}}
+\def\rmU{{\mathbf{U}}}
+\def\rmV{{\mathbf{V}}}
+\def\rmW{{\mathbf{W}}}
+\def\rmX{{\mathbf{X}}}
+\def\rmY{{\mathbf{Y}}}
+\def\rmZ{{\mathbf{Z}}}
+
+% Elements of random matrices
+\def\ermA{{\textnormal{A}}}
+\def\ermB{{\textnormal{B}}}
+\def\ermC{{\textnormal{C}}}
+\def\ermD{{\textnormal{D}}}
+\def\ermE{{\textnormal{E}}}
+\def\ermF{{\textnormal{F}}}
+\def\ermG{{\textnormal{G}}}
+\def\ermH{{\textnormal{H}}}
+\def\ermI{{\textnormal{I}}}
+\def\ermJ{{\textnormal{J}}}
+\def\ermK{{\textnormal{K}}}
+\def\ermL{{\textnormal{L}}}
+\def\ermM{{\textnormal{M}}}
+\def\ermN{{\textnormal{N}}}
+\def\ermO{{\textnormal{O}}}
+\def\ermP{{\textnormal{P}}}
+\def\ermQ{{\textnormal{Q}}}
+\def\ermR{{\textnormal{R}}}
+\def\ermS{{\textnormal{S}}}
+\def\ermT{{\textnormal{T}}}
+\def\ermU{{\textnormal{U}}}
+\def\ermV{{\textnormal{V}}}
+\def\ermW{{\textnormal{W}}}
+\def\ermX{{\textnormal{X}}}
+\def\ermY{{\textnormal{Y}}}
+\def\ermZ{{\textnormal{Z}}}
+
+% Vectors
+\def\vzero{{\bm{0}}}
+\def\vone{{\bm{1}}}
+\def\vmu{{\bm{\mu}}}
+\def\vtheta{{\bm{\theta}}}
+\def\va{{\bm{a}}}
+\def\vb{{\bm{b}}}
+\def\vc{{\bm{c}}}
+\def\vd{{\bm{d}}}
+\def\ve{{\bm{e}}}
+\def\vf{{\bm{f}}}
+\def\vg{{\bm{g}}}
+\def\vh{{\bm{h}}}
+\def\vi{{\bm{i}}}
+\def\vj{{\bm{j}}}
+\def\vk{{\bm{k}}}
+\def\vl{{\bm{l}}}
+\def\vm{{\bm{m}}}
+\def\vn{{\bm{n}}}
+\def\vo{{\bm{o}}}
+\def\vp{{\bm{p}}}
+\def\vq{{\bm{q}}}
+\def\vr{{\bm{r}}}
+\def\vs{{\bm{s}}}
+\def\vt{{\bm{t}}}
+\def\vu{{\bm{u}}}
+\def\vv{{\bm{v}}}
+\def\vw{{\bm{w}}}
+\def\vx{{\bm{x}}}
+\def\vy{{\bm{y}}}
+\def\vz{{\bm{z}}}
+
+% Elements of vectors
+\def\evalpha{{\alpha}}
+\def\evbeta{{\beta}}
+\def\evepsilon{{\epsilon}}
+\def\evlambda{{\lambda}}
+\def\evomega{{\omega}}
+\def\evmu{{\mu}}
+\def\evpsi{{\psi}}
+\def\evsigma{{\sigma}}
+\def\evtheta{{\theta}}
+\def\eva{{a}}
+\def\evb{{b}}
+\def\evc{{c}}
+\def\evd{{d}}
+\def\eve{{e}}
+\def\evf{{f}}
+\def\evg{{g}}
+\def\evh{{h}}
+\def\evi{{i}}
+\def\evj{{j}}
+\def\evk{{k}}
+\def\evl{{l}}
+\def\evm{{m}}
+\def\evn{{n}}
+\def\evo{{o}}
+\def\evp{{p}}
+\def\evq{{q}}
+\def\evr{{r}}
+\def\evs{{s}}
+\def\evt{{t}}
+\def\evu{{u}}
+\def\evv{{v}}
+\def\evw{{w}}
+\def\evx{{x}}
+\def\evy{{y}}
+\def\evz{{z}}
+
+% Matrix
+\def\mA{{\bm{A}}}
+\def\mB{{\bm{B}}}
+\def\mC{{\bm{C}}}
+\def\mD{{\bm{D}}}
+\def\mE{{\bm{E}}}
+\def\mF{{\bm{F}}}
+\def\mG{{\bm{G}}}
+\def\mH{{\bm{H}}}
+\def\mI{{\bm{I}}}
+\def\mJ{{\bm{J}}}
+\def\mK{{\bm{K}}}
+\def\mL{{\bm{L}}}
+\def\mM{{\bm{M}}}
+\def\mN{{\bm{N}}}
+\def\mO{{\bm{O}}}
+\def\mP{{\bm{P}}}
+\def\mQ{{\bm{Q}}}
+\def\mR{{\bm{R}}}
+\def\mS{{\bm{S}}}
+\def\mT{{\bm{T}}}
+\def\mU{{\bm{U}}}
+\def\mV{{\bm{V}}}
+\def\mW{{\bm{W}}}
+\def\mX{{\bm{X}}}
+\def\mY{{\bm{Y}}}
+\def\mZ{{\bm{Z}}}
+\def\mBeta{{\bm{\beta}}}
+\def\mPhi{{\bm{\Phi}}}
+\def\mLambda{{\bm{\Lambda}}}
+\def\mSigma{{\bm{\Sigma}}}
+
+% Tensor
+\DeclareMathAlphabet{\mathsfit}{\encodingdefault}{\sfdefault}{m}{sl}
+\SetMathAlphabet{\mathsfit}{bold}{\encodingdefault}{\sfdefault}{bx}{n}
+\newcommand{\tens}[1]{\bm{\mathsfit{#1}}}
+\def\tA{{\tens{A}}}
+\def\tB{{\tens{B}}}
+\def\tC{{\tens{C}}}
+\def\tD{{\tens{D}}}
+\def\tE{{\tens{E}}}
+\def\tF{{\tens{F}}}
+\def\tG{{\tens{G}}}
+\def\tH{{\tens{H}}}
+\def\tI{{\tens{I}}}
+\def\tJ{{\tens{J}}}
+\def\tK{{\tens{K}}}
+\def\tL{{\tens{L}}}
+\def\tM{{\tens{M}}}
+\def\tN{{\tens{N}}}
+\def\tO{{\tens{O}}}
+\def\tP{{\tens{P}}}
+\def\tQ{{\tens{Q}}}
+\def\tR{{\tens{R}}}
+\def\tS{{\tens{S}}}
+\def\tT{{\tens{T}}}
+\def\tU{{\tens{U}}}
+\def\tV{{\tens{V}}}
+\def\tW{{\tens{W}}}
+\def\tX{{\tens{X}}}
+\def\tY{{\tens{Y}}}
+\def\tZ{{\tens{Z}}}
+
+
+% Graph
+\def\gA{{\mathcal{A}}}
+\def\gB{{\mathcal{B}}}
+\def\gC{{\mathcal{C}}}
+\def\gD{{\mathcal{D}}}
+\def\gE{{\mathcal{E}}}
+\def\gF{{\mathcal{F}}}
+\def\gG{{\mathcal{G}}}
+\def\gH{{\mathcal{H}}}
+\def\gI{{\mathcal{I}}}
+\def\gJ{{\mathcal{J}}}
+\def\gK{{\mathcal{K}}}
+\def\gL{{\mathcal{L}}}
+\def\gM{{\mathcal{M}}}
+\def\gN{{\mathcal{N}}}
+\def\gO{{\mathcal{O}}}
+\def\gP{{\mathcal{P}}}
+\def\gQ{{\mathcal{Q}}}
+\def\gR{{\mathcal{R}}}
+\def\gS{{\mathcal{S}}}
+\def\gT{{\mathcal{T}}}
+\def\gU{{\mathcal{U}}}
+\def\gV{{\mathcal{V}}}
+\def\gW{{\mathcal{W}}}
+\def\gX{{\mathcal{X}}}
+\def\gY{{\mathcal{Y}}}
+\def\gZ{{\mathcal{Z}}}
+
+% Sets
+\def\sA{{\mathbb{A}}}
+\def\sB{{\mathbb{B}}}
+\def\sC{{\mathbb{C}}}
+\def\sD{{\mathbb{D}}}
+% Don't use a set called E, because this would be the same as our symbol
+% for expectation.
+\def\sF{{\mathbb{F}}}
+\def\sG{{\mathbb{G}}}
+\def\sH{{\mathbb{H}}}
+\def\sI{{\mathbb{I}}}
+\def\sJ{{\mathbb{J}}}
+\def\sK{{\mathbb{K}}}
+\def\sL{{\mathbb{L}}}
+\def\sM{{\mathbb{M}}}
+\def\sN{{\mathbb{N}}}
+\def\sO{{\mathbb{O}}}
+\def\sP{{\mathbb{P}}}
+\def\sQ{{\mathbb{Q}}}
+\def\sR{{\mathbb{R}}}
+\def\sS{{\mathbb{S}}}
+\def\sT{{\mathbb{T}}}
+\def\sU{{\mathbb{U}}}
+\def\sV{{\mathbb{V}}}
+\def\sW{{\mathbb{W}}}
+\def\sX{{\mathbb{X}}}
+\def\sY{{\mathbb{Y}}}
+\def\sZ{{\mathbb{Z}}}
+
+% Entries of a matrix
+\def\emLambda{{\Lambda}}
+\def\emA{{A}}
+\def\emB{{B}}
+\def\emC{{C}}
+\def\emD{{D}}
+\def\emE{{E}}
+\def\emF{{F}}
+\def\emG{{G}}
+\def\emH{{H}}
+\def\emI{{I}}
+\def\emJ{{J}}
+\def\emK{{K}}
+\def\emL{{L}}
+\def\emM{{M}}
+\def\emN{{N}}
+\def\emO{{O}}
+\def\emP{{P}}
+\def\emQ{{Q}}
+\def\emR{{R}}
+\def\emS{{S}}
+\def\emT{{T}}
+\def\emU{{U}}
+\def\emV{{V}}
+\def\emW{{W}}
+\def\emX{{X}}
+\def\emY{{Y}}
+\def\emZ{{Z}}
+\def\emSigma{{\Sigma}}
+
+% entries of a tensor
+% Same font as tensor, without \bm wrapper
+\newcommand{\etens}[1]{\mathsfit{#1}}
+\def\etLambda{{\etens{\Lambda}}}
+\def\etA{{\etens{A}}}
+\def\etB{{\etens{B}}}
+\def\etC{{\etens{C}}}
+\def\etD{{\etens{D}}}
+\def\etE{{\etens{E}}}
+\def\etF{{\etens{F}}}
+\def\etG{{\etens{G}}}
+\def\etH{{\etens{H}}}
+\def\etI{{\etens{I}}}
+\def\etJ{{\etens{J}}}
+\def\etK{{\etens{K}}}
+\def\etL{{\etens{L}}}
+\def\etM{{\etens{M}}}
+\def\etN{{\etens{N}}}
+\def\etO{{\etens{O}}}
+\def\etP{{\etens{P}}}
+\def\etQ{{\etens{Q}}}
+\def\etR{{\etens{R}}}
+\def\etS{{\etens{S}}}
+\def\etT{{\etens{T}}}
+\def\etU{{\etens{U}}}
+\def\etV{{\etens{V}}}
+\def\etW{{\etens{W}}}
+\def\etX{{\etens{X}}}
+\def\etY{{\etens{Y}}}
+\def\etZ{{\etens{Z}}}
+
+% The true underlying data generating distribution
+\newcommand{\pdata}{p_{\rm{data}}}
+% The empirical distribution defined by the training set
+\newcommand{\ptrain}{\hat{p}_{\rm{data}}}
+\newcommand{\Ptrain}{\hat{P}_{\rm{data}}}
+% The model distribution
+\newcommand{\pmodel}{p_{\rm{model}}}
+\newcommand{\Pmodel}{P_{\rm{model}}}
+\newcommand{\ptildemodel}{\tilde{p}_{\rm{model}}}
+% Stochastic autoencoder distributions
+\newcommand{\pencode}{p_{\rm{encoder}}}
+\newcommand{\pdecode}{p_{\rm{decoder}}}
+\newcommand{\precons}{p_{\rm{reconstruct}}}
+
+\newcommand{\laplace}{\mathrm{Laplace}} % Laplace distribution
+
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\Ls}{\mathcal{L}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\emp}{\tilde{p}}
+\newcommand{\lr}{\alpha}
+\newcommand{\reg}{\lambda}
+\newcommand{\rect}{\mathrm{rectifier}}
+\newcommand{\softmax}{\mathrm{softmax}}
+\newcommand{\sigmoid}{\sigma}
+\newcommand{\softplus}{\zeta}
+\newcommand{\KL}{D_{\mathrm{KL}}}
+\newcommand{\Var}{\mathrm{Var}}
+\newcommand{\standarderror}{\mathrm{SE}}
+\newcommand{\Cov}{\mathrm{Cov}}
+% Wolfram Mathworld says $L^2$ is for function spaces and $\ell^2$ is for vectors
+% But then they seem to use $L^2$ for vectors throughout the site, and so does
+% wikipedia.
+\newcommand{\normlzero}{L^0}
+\newcommand{\normlone}{L^1}
+\newcommand{\normltwo}{L^2}
+\newcommand{\normlp}{L^p}
+\newcommand{\normmax}{L^\infty}
+
+\newcommand{\parents}{Pa} % See usage in notation.tex. Chosen to match Daphne's book.
+
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+
+\DeclareMathOperator{\sign}{sign}
+\DeclareMathOperator{\Tr}{Tr}
+\let\ab\allowbreak
+
+
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{graphicx} 
+\usepackage[ruled,vlined]{algorithm2e}
+\usepackage{booktabs}
+\usepackage{multirow}
+
+\usepackage{color,soul}
+\sethlcolor{cyan}
+\usepackage{pifont}% http://ctan.org/pkg/pifont
+\newcommand{\cmark}{\ding{51}}%
+\newcommand{\xmark}{\ding{55}}%
+
+\title{HeteroFL: Computation and Communication Efficient Federated Learning for Heterogeneous Clients}
+
+% Authors must not appear in the submitted version. They should be hidden
+% as long as the \iclrfinalcopy macro remains commented out below.
+% Non-anonymous submissions will be rejected without review.
+
+\author{Enmao Diao \\
+Department of Electrical and Computer Engineering\\
+Duke University\\
+Durhm, NC 27705, USA \\
+\texttt{enmao.diao@duke.edu} \\
+\And
+Jie Ding \\
+School of Statistics \\
+University of Minnesota-Twin Cities \\
+Minneapolis, MN 55455, USA\\
+\texttt{dingj@umn.edu} \\
+\AND
+Vahid Tarokh \\
+Department of Electrical and Computer Engineering\\
+Duke University\\
+Durhm, NC 27705, USA \\
+\texttt{vahid.tarokh@duke.edu}
+}
+
+% The \author macro works with any number of authors. There are two commands
+% used to separate the names and addresses of multiple authors: \And and \AND.
+%
+% Using \And between authors leaves it to \LaTeX{} to determine where to break
+% the lines. Using \AND forces a linebreak at that point. So, if \LaTeX{}
+% puts 3 of 4 authors names on the first line, and the last on the second
+% line, try using \AND instead of \And before the third author name.
+
+\newcommand{\fix}{\marginpar{FIX}}
+\newcommand{\new}{\marginpar{NEW}}
+\SetKwInput{Input}{Input}
+\SetKwProg{kwSystem}{System executes}{:}{}
+% \SetKwInput{kwSystem}{System executes}
+\SetKwProg{kwClient}{ClientUpdate}{:}{}
+\iclrfinalcopy % Uncomment for camera-ready version, but NOT for submission.
+\begin{document}
+
+
+\maketitle
+
+\begin{abstract}
+Federated Learning (FL) is a method of training machine learning models on private data distributed over a large number of possibly heterogeneous clients such as mobile phones and IoT devices. In this work, we propose a new federated learning framework named \textit{HeteroFL} to address heterogeneous clients equipped with very different computation and communication capabilities. Our solution can enable the training of heterogeneous local models with varying computation complexities and still produce a single global inference model. For the first time, our method challenges the underlying assumption of existing work that local models have to share the same architecture as the global model. We demonstrate several strategies to enhance FL training and conduct extensive empirical evaluations, including five computation complexity levels of three model architecture on three datasets. We show that adaptively distributing subnetworks according to clients' capabilities is both computation and communication efficient. Our code is available \href{https://github.com/dem123456789/HeteroFL-Computation-and-Communication-Efficient-Federated-Learning-for-Heterogeneous-Clients}{\textcolor{blue}{here}}.
+
+\end{abstract}
+
+\section{Introduction}
+Mobile devices and the Internet of Things (IoT) devices are becoming the primary computing resource for billions of users worldwide \citep{lim2020federated}. These devices generate a significant amount of data that can be used to improve numerous existing applications \citep{hard2018federated}. From the privacy and economic point of view, due to these devices' growing computational capabilities, it becomes increasingly attractive to store data and train models locally. Federated learning (FL) \citep{konevcny2016federated, mcmahan2017communication} is a distributed machine learning framework that enables a number of clients to produce a global inference model without sharing local data by aggregating locally trained model parameters. A widely accepted assumption is that local models have to share the same architecture as the global model \citep{li2020federated} to produce a single global inference model. With this underlying assumption, we have to limit the global model complexity for the most indigent client to train its data. In practice, the computation and communication capabilities of each client may vary significantly and even dynamically. It is crucial to address heterogeneous clients equipped with very different computation and communication capabilities.
+
+In this work, we propose a new federated learning framework called \textit{HeteroFL} to train heterogeneous local models with varying computation complexities and still produce a single global inference model. This \textbf{model heterogeneity} differs significantly from the classical distributed machine learning framework where local data are trained with the same model architecture \citep{li2020federated, ben2019demystifying}. It is natural to adaptively distribute subnetworks according to clients' capabilities. However, to stably aggregate heterogeneous local models to a single global model under various heterogeneous settings is not apparent. Addressing these issues is thus a key component of our work. 
+Our main contributions of this work are three-fold.
+\begin{itemize}
+\item 
+We identify the possibility of model heterogeneity and propose an easy-to-implement framework \textit{HeteroFL} that can train heterogeneous local models and aggregate them stably and effectively into a single global inference model. Our approach outperforms state-of-the-art results without introducing additional computation overhead.
+
+\item 
+Our proposed solution addresses various heterogeneous settings where different proportions of clients have distinct capabilities. Our results demonstrate that even when the model heterogeneity changes dynamically, the learning result from our framework is still stable and effective.
+
+\item We introduce several strategies for improving FL training and demonstrate that our method is robust against the balanced non-IID statistical heterogeneity. Also, the proposed method can reduce the number of communication rounds needed to obtain state-of-the-art results. Experimental studies have been performed to evaluate the proposed approach. 
+
+\end{itemize}
+
+\section{Related Work}
+Federated Learning aims to train massively distributed models at a large scale \citep{bonawitz2019towards}. FedAvg proposed by \citet{mcmahan2017communication} is currently the most widely adopted FL baseline, which reduces communication cost by allowing clients to train multiple iterations locally. Major challenges involved in FL include communication efficiency, system heterogeneity, statistical heterogeneity, and privacy \citep{li2020federated}. To reduce communication costs in FL, some studies propose to use data compression techniques such as quantization and sketching \citep{konevcny2016federated,alistarh2017qsgd,ivkin2019communication}, and some propose to adopt split learning \citep{thapa2020splitfed}. To tackle system heterogeneity,  techniques of asynchronous communication and active sampling of clients have been developed~\citep{bonawitz2019towards, nishio2019client}. Statistical heterogeneity is the major battleground for current FL research. A research trend is to adapt the global model to accommodate personalized local models for non-IID data \citep{liang2020think}, e.g., by integrating FL with other frameworks such as assisted learning~\citep{DingAssist}, meta-learning \citep{jiang2019improving, khodak2019adaptive}, multi-task learning \citep{smith2017federated}, transfer learning \citep{wang2019federated, mansour2020three}, knowledge distillation \citep{li2019fedmd} and lottery ticket hypothesis \citep{li2020lotteryfl}. Nevertheless, these personalization methods often introduce additional computation and communication overhead that may not be necessary. %Additionally, local clients are forced to query from the server for other personalized models when local data distribution varies. 
+Another major concern of FL is data privacy \citep {lyu2020threats}, as model gradient updates can reveal sensitive information \citep{melis2019exploiting} and even local training data \citep{zhu2019deep, zhao2020idlg}. 
+
+To our best knowledge, what we present is the first work that allows local models to have different architectures from the global model. Heterogeneous local models can allow local clients to adaptively contribute to the training of global models. System heterogeneity and communication efficiency can be well addressed by our approach, where local clients can optimize low computation complexity models and therefore communicate a small number of model parameters. To address statistical heterogeneity, we propose a "Masking Trick" for balanced non-IID data partition in classification problems. We also propose a modification of Batch Normalization (BN) \citep{ioffe2015batch} as privacy concern of running estimates hinders the usage of advanced deep learning models.
+
+\section{Heterogeneous Federated Learning}
+
+\subsection{Heterogeneous Models}
+Federated Learning aims to train a global inference model from locally distributed data $\{X_1, \dots, X_m\}$ across $m$ clients. The local models are parameterized by model parameters $\{W_1, \dots, W_m\}$. The server will receive local model parameters and aggregate them into a global model $W_g$ through model averaging. This process iterates multiple communication rounds and can be formulated as $W_g^t = \frac{1}{m}\sum_{i=1}^{m} W_i^t$ at iteration $t$. At the next iteration, $W_g^t$ is transmitted to a subset of local clients and update their local models as $W_i^{t+1} = W_g^t$.
+
+In this work, we focus on the relaxation of the assumption that local models need to share the same architecture as the global model. Since our primary motivation is to reduce the computation and communication complexity of local clients, we consider local models to have similar architecture but can shrink their complexity within the same model class. To simplify global aggregation and local update, it is tempting to propose local model parameters to be a subset of global model parameters $W_i^{t+1} \subseteq W_g^{t}$. However, this raises several new challenges like the optimal way to select subsets of global model parameters, compatibility of the-state-of-art model architecture, and minimum modification from the existing FL framework. We develop Heterogeneous Federated Learning (HeteroFL) to address these issues in the context of deep learning models.
+
+A variety of works show that we can modulate the size of deep neural networks by varying the width and depth of networks \citep{zagoruyko2016wide, tan2019efficientnet}. Because we aim to reduce the computation complexity of local models, we choose to vary the width of hidden channels. In this way, we can significantly reduce the number of local model parameters, while the local and global model architectures are also within the same model class, which stabilizes global model aggregation.
+
+\begin{figure}[t]
+\centering
+ \includegraphics[width=0.7\linewidth]{HeteroFL.pdf}
+ \caption{Global model parameters $W_g$ are distributed to $m=6$ local clients with $p=3$ computation complexity levels.}
+ \label{fig:heterofl}
+\end{figure}
+
+We demonstrate our method of selecting subsets of global model parameters $W_l$ for a single hidden layer parameterized by $W_g \in \mathbf{R}^{d_g \times k_g}$ in Fig.~\ref{fig:heterofl}, where $d_g$ and $k_g$ are the output and input channel size of this layer. It is possible to have multiple computation complexity levels $W_l^p \subset W_l^{p-1} \dots \subset W_l^1$ as illustrated in Fig.~\ref{fig:heterofl}. Let $r$ be the hidden channel shrinkage ratio such that $d_l^p = r^{p-1}d_g$ and $k_l^p = r^{p-1}k_g$. It follows that the size of local model parameters $|W_l^p| = r^{2(p-1)}|W_g|$ and the model shrinkage ratio $R = \frac{|W_l^p|}{|W_g|} = r^{2(p-1)}$. With this construction, we can adaptively allocate subsets of global model parameters according to the corresponding capabilities of local clients. 
+Suppose that number of clients in each computation complexity level is $\{m_1,\dots, m_p\}$. 
+Specifically, we perform global aggregation in the following way.
+% similarly as vanilla FL at iteration $t$ as follows
+\begin{align}
+    W_l^{p} = \frac{1}{m}\sum_{i=1}^{m} W_i^{p}, \quad &W_l^{p-1} \setminus W_l^{p} = \frac{1}{m-m_p} \sum_{i=1}^{m-m_p} W_i^{p-1} \setminus  W_i^{p}, \dots \label{eq:1}\\
+    &W_l^{1} \setminus W_l^{2} = \frac{1}{m-m_{2:p}} \sum_{i=1}^{m-m_{2:p}} W_i^{1} \setminus  W_i^{2} \label{eq:2}\\
+    &W_g = W_l^{1} = W_l^{p} \cup (W_l^{p-1} \setminus  W_l^{p}) \cup \dots \cup (W_l^{1} \setminus  W_l^{2}) \label{eq:3}
+\end{align}
+For notational convenience, we have dropped the iteration index $t$. 
+We denote the $W_i^p$ as a matrix/tensor. The $W^t_g[:d_m,:k_m]$ denotes the upper left submatrix with a size of $d_m \times k_m$. 
+Also, $W^{p-1,t+1}_g \setminus W^{p,t+1}_g$ denotes the set of elements included in $W^{p-1,t+1}_g$ but excluded in $ W^{p,t+1}_g$.
+
+We exemplify the above equations using Fig.~\ref{fig:heterofl}. The first part of Equation~(\ref{eq:1}) shows that the smallest part of model parameters (blue, $p=3$) is aggregated from all the local clients that contain it. In the second part of Equation~(\ref{eq:1}), the set difference between part $p-1$ (orange) and $p$ (blue) of model parameters is aggregated from local clients with computation complexity level smaller than $p-1$. In Equation~(\ref{eq:2}), the red part of model parameters can be similarly aggregated from $m-m_{2:p} = m_1$ clients. In Equation~(\ref{eq:3}), the global model parameters $W_g^t$ is constructed from the union of all disjoint sets of the partition. In summary, each parameter will be averaged from those clients whose allocated parameter matrix contains that parameter. Thus, a model of an intermediate complexity will have parameters fully averaged with all the other larger models but partially with smaller models (according to the corresponding upper left submatrix).
+
+Several works show that wide neural networks can drop a tremendous number of parameters per layer and still produce acceptable results \citep{han2015deep,frankle2018lottery}. The intuition is thus to perform global aggregation across all local models, at least on one subnetwork. To stabilize global model aggregation, we also allocate a fixed subnetwork for every computation complexity level. Our proposed inclusive subsets of global model parameters also guarantee that smaller local models will aggregate with more local models. 
+
+
+Thus, small local models can benefit more from global aggregation by performing less global aggregation for part of larger local model parameters. We empirically found that this approach produces better results than uniformly sampled subnetworks for each client or computation complexity level. 
+
+\subsection{Static Batch Normalization}
+
+After global model parameters are distributed to active local clients,  we can optimize local model parameters with private data. It is well-known that the latest deep learning models usually adopt Batch Normalization (BN) to facilitate and stabilize optimization. However, classical FedAvg and most recent works avoid BN. A major concern of BN is that it requires running estimates of representations at every hidden layer. Uploading these statistics to the server will cause higher communication costs and privacy issues \citet{andreux2020siloed} proposes to track running statistics locally. 
+
+We highlight an adaptation of BN named as \textbf{static Batch Normaliztion} (sBN) for optimizing privacy constrained heterogeneous models. During the training phase, sBN does not track running estimates and simply normalize batch data. We do not track the local running statistics as the size of local models may also vary dynamically. This method is suitable for HeteroFL as every communication round is independent. After the training process finishes, the server sequentially query local clients and cumulatively update global BN statistics. There exist privacy concerns about calculating global statistics cumulatively and we hope to address those issues in the future work. We also empirically found this trick significantly outperforms other forms of normalization methods including the InstanceNorm \citep{ulyanov2016instance}, GroupNorm \citep{wu2018group}, and LayerNorm \citep{ba2016layer} as shown in Table~\ref{tab:ablation_iid} and Table~\ref{tab:ablation_non-iid}.
+
+\subsection{Scaler}
+There still exists another cornerstone of our HeteroFL framework. Because we need to optimize local models for multiple epochs, local model parameters at different computation complexity levels will digress to various scales. This known phenomenon was initially discussed by the dropout \citep{srivastava2014dropout}. To directly use the full model during the inference phase, inverted dropout with dropout rate $q$ scales representations with $\frac{1}{1-q}$ during the training phase. In practice, dropout is usually attached after the activation layer as the selection of subnetworks is performed with masking. Our method directly selects subnetworks from the subsets of global model parameters. Therefore, we append a \textbf{Scaler} module right after the parametric layer and before the sBN and activation layers. The Scaler module scales representations by $\frac{1}{r^{p-1}}$ during the training phase. After the global aggregation, the global model can be directly used for inference without scaling. To further illustrate this point, we include a comprehensive ablation study in Tables ~\ref{tab:ablation_iid} and~\ref{tab:ablation_non-iid}.
+A typical linear hidden layer used in our HeteroFL framework can be formulated as
+\begin{align}
+    y = \phi(\text{sBN}(\text{Scaler}(X_mW_m^p + b_m^p)))
+\end{align}
+where $y$ is the output, $\phi(\cdot)$ denotes a non-linear activation layer, e.g ReLU(), and $W_m^p, b_m^p$ are the weight and bias for local model $m$ at computation complexity level $p$. With all the practical methods mentioned above, we propose the complete pseudo-code for our HeteroFL framework in Algorithm~\ref{alg:heterofl}. The local capabilities information $L_m$ is an abstraction of the computation and communication capabilities of a local client $m$. Once this information is communicated to the server, the server can know the model complexity that should be allocated to the client. We can also optionally update learning rates to facilitate optimization and local capabilities information if changing dynamically.
+
+
+\begin{algorithm}[t]
+\SetAlgoLined
+\DontPrintSemicolon
+\Input{Data $X_i$ distributed on $M$ local clients, the fraction $C$ of active clients per communication round, the number of local epochs $E$, the local minibatch size $B$, the learning rate $\eta$, the global model parameterized by $W_g$, the channel shrinkage ratio $r$, and the number of computation complexity levels $P$.}
+\kwSystem{}{
+Initialize $W_g^0$ and local capabilities information $L_{1:K}$\;
+\For{\textup{each communication round }$t = 0,1,2,\dots$}{
+$M_t \leftarrow \max(C \cdot M, 1)$\;
+$S_t \leftarrow$ random set of $M_t$ clients\;
+\For{\textup{each client }$m \in S_t$\textup{ \textbf{in parallel}}}{
+Determine computation complexity level $p$ based on $L_m$\;
+$r_m \leftarrow r^{(p-1)}$, $d_m \leftarrow r_m d_g$, $k_m \leftarrow r_m k_g$\;
+$W_m^t \leftarrow W_g^t[:d_m, :k_m]$\;
+$W_m^{t+1} \leftarrow$ ClientUpdate$(m, r_m, W_m^{t})$
+}
+\For{\textup{each computation complexity level }$p$}{
+$W_g^{p-1, t+1} \setminus W_g^{p, t+1} \leftarrow \frac{1}{M_t- M_{p:P, t}} \sum_{i=1}^{M_t- M_{p:P, t}} W_{i}^{p-1, t+1} \setminus W_{i}^{p, t+1}$
+}
+$W_g^{t+1} \leftarrow \bigcup_{p=1}^{P} W_g^{p-1, t+1} \setminus W_g^{p, t+1}$\;
+Update $L_{1:K}, \eta$ (Optional)
+}
+Query representation statistics from local clients (Optional)
+}
+\kwClient{\textup{$(m, r_m, W_m)$}}{
+$B_m \leftarrow$ Split local data $X_m$ into batches of size $B$\;
+\For{\textup{each local epoch $e$ from 1 to $E$}}{
+\For{\textup{batch} $b_m \in B_m$}{
+$W_m \leftarrow W_m-\eta \nabla \ell(W_m, r_m; b_m)$\;
+}
+}
+Return $W_m$ to server
+}
+\caption{HeteroFL: Heterogeneous Federated Learning}
+\label{alg:heterofl}
+\end{algorithm}
+
+\section{Experimental Results}
+%Both image classification and language modeling tasks can significantly enhance the usability of mobile devices. 
+We trained over 600 individual models for exploring and demonstrating the effectiveness of our method. We experimented with MNIST and CIFAR10 image classification tasks and the WikiText2 language modeling task~\citep{lecun1998gradient, krizhevsky2009learning, merity2016pointer, devlin2018bert}.
+
+Our experiments are performed with three different models including a CNN for MNIST, a preactivated ResNet (PreResNet18) \citep{he2016identity} for CIFAR10 and a Transformer \citep{vaswani2017attention} for WikiText2. We replace BN in CNN and PreResNet18 with our proposed sBN, and attach the Scaler module after each convolution layer. To study federated optimization, we adopt data partition the same as in \citep{mcmahan2017communication,liang2020think}. We have $100$ clients, and the fraction $C$ of active clients per communication round is $0.1$ throughout our experiments. For IID data partition, we uniformly assign the same number of data examples for each client. For balanced non-IID data partition, we assume that the label distribution is skewed, where clients will only have examples at most from two classes and the number of examples per class is balanced. We note that there exist other kinds of non-IID data partition, e.g., the unbalanced non-IID data partition where clients may hold unbalanced labeled dataset and the feature distribution skew where clients may hold different features. We conduct a masked language modeling task with a 15\% masking rate and uniformly assign balanced data examples for each client. It needs to point out that each client will roughly have 3000 different words in their local dataset, while the total vocabulary size is 33278. The details regarding hyperparameters and model architecture can be found in Table~\ref{tab:hyper} of the Appendix. 
+
+To study the effectiveness of our proposed HeteroFL framework, we construct five different computation complexity levels $\{a,b,c,d,e\}$ with the hidden channel shrinkage ratio $r=0.5$. 
+We have tried various shrinkage ratios, and we found that it is most illustrative to use the discrete complexity levels 0.5, 0.25, 0.125, and 0.0625 (relative to the most complex model).  For example, model `a' has all the model parameters, while models `b' to `e' have the effective shrinkage ratios 0.5, 0.25, 0.125, and 0.0625. We note that the complexity of `e' is close to a logistic regression model. Our experiments indicated that the ratio can be arbitrary between $(0, 1]$ and dynamically change. In practice, using a dictionary of discrete complexity levels are convenient for coordination purposes.
+
+Each local client is assigned an initial computation complexity level. We annotate \textit{Fix} for experiments with a fixed assignment of computation complexity levels, and \textit{Dynamic} for local clients uniformly sampling computation complexity levels at each communication round. We perform distinct experiments for \textit{Fix} and \textit{Dynamic} assignments. All the figures are based on the \textit{Fix} scenario, where we considered models of different sizes, and each client is allocated with a fixed size. All the tables are based on the \textit{Dynamic} scenario, where we randomly vary the allocation of clients' model complexity, and the ratio of the number of weak learners is fixed to 50\%.
+
+The x-axis of figures represents the average model parameters. When 10\% clients use the model 'a' and 90\% use the model 'e', the average number of model parameters is $0.1\times\text{(size of model `a')} + 0.9\times\text{(size of model `e')}$. We interpolate this partition from 10\% to 100\% with step size 10\% to demonstrate the effect of proportionality of clients with various computation complexity levels.
+
+To demonstrate the effect of dynamically varying computation and communication capabilities, we uniformly sample from various combinations of computation complexity levels. For example, model 'a-b-c-d-e' means that we uniformly sample from all possible available levels for every active client at each communication round. We show the number of model parameters, FLOPs, and Space (MB) to indicate the computation and communication requirements of our methods. For example, since we uniformly sample levels, model $a-e$ calculates computational metrics by averaging those of model $a$ and $e$. The ratio is calculated between the number of parameters of a given model with respect to its 100\% global model. 
+
+We compare our results to other baseline methods like Standalone, FedAvg, and LG-FedAvg gathered from \citep{liang2020think}. Standalone means there is no communication between clients and the server. In our experimental studies, we considered more complex models compared with the existing work. In particular, the baseline models in LG-FedAvg used MLP (on MNIST) and CNN (on CIFAR10). In terms of the number of parameters, our models `a-e' (on MNIST) and `b-e' (on CIFAR10) are comparable with those baselines. In terms of the FLOPs, our model `d-e' (on MNIST and CIFAR10) can be compared with those baselines. The single-letter models `a', `b', `c', `d', `e' are our implementations of the FedAvg equipped with the sBN and Masking CrossEntropy. The takeaway of Table~\ref{tab:CIFAR10_main} is that a weak learner that can only train a small model `e' (on CIFAR10)(77.09\%) can boost its performance to `c-e' (86.88\%), `b-e' (89.10\%), or `a-e' (90.29\%), which are close to the scenario where all the learners are strong, namely c(87.55\%),  b(89.82\%), or a(91.99\%). In particular, in `c-e', `b-e', or `a-e', half of the clients are trained with larger models `c', `b', or `a', while the other half are trained with the model `e'. Only the aggregated global models `c', `b', or `a' are used during the testing stage. Although weak clients train smaller models `e', they will test with the largest models `c', `b', or `a' to gain better performance.
+
+
+
+
+% Our method outperforms existing methods from several aspects. First, we can safely adopt more complex backbone deep learning models with sBN. A strong backbone model makes it possible to outperform existing results with even the simplest model $e$. Second, HeteroFL provides much more flexible options for clients with various capabilities to fully exploit their computation power. 
+
+
+% As illustrated in Fig.~\ref{fig:CIFAR10_interp_iid}, the performance of weak clients with smaller models can be boosted by those with larger models. As shown in Table~\ref{tab:CIFAR10_main}, 100\% model $e$ achieves 77.09\% accuracy. By introducing 50\% model $a$, the result can be boosted up to 89\% for \textit{Fix} and 90\% for \textit{Dynamic} assignments. The results show that HeteroFL can boost clients' performance with low computation and communication capabilities by allowing the training of heterogeneous models with larger computation complexities. With our method, \textit{the clients with the lowest capabilities will not be the bottleneck of FL's performance}. Results of MNIST and WikiText2 can be found in appendix in Fig.~\ref{fig:MNIST_interp_iid} and~\ref{fig:WikiText2_interp_iid}. These results also validate our statements. 
+
+\begin{figure}[t]
+\centering
+ \includegraphics[width=1\linewidth]{CIFAR10_interp_iid.pdf}
+ \caption{Interpolation experimental results for CIFAR10 (IID) dataset between global model complexity ((a) a, (b) b, (c) c, (d) d) and various smaller model complexities.}
+ \label{fig:CIFAR10_interp_iid}
+\end{figure}
+
+Full results including other possible combinations can be found in appendix in Table~\ref{tab:MNIST_appendix}-\ref{tab:WikiText2_appendix}. Finally, our method is robust to dynamically varying model complexities. It is worth noting that our method does not incur any additional computation overhead and can be readily adapted to existing applications.
+
+We also perform experiments for balanced non-IID data partition and provide a simple trick to achieve comparable results. As mentioned earlier, most state-of-the-art results ofbalanced non-IID datasets suggest the personalization of local models to achieve better local results \citep{smith2017federated, liang2020think, li2020lotteryfl}. 
+Here, the \textit{Local} results assume that the training data distribution and test data distribution for each local client are the same, and assign zero probability for those classes that are not presented to a client during training. The \textit{Global} results were calculated from the global model applied to the test data directly. The \textit{Local} results were cumulatively averaged from the performance of each data example on each local client. \citet{zhao2018federated} showed that the failure of non-IID FL is related to the weight divergence among local model parameters trained locally for many iterations. The weight divergence mostly occurs in the last classification layer of networks. 
+
+Thus, instead of a full Cross-Entropy Loss for all classes, we are motivated to train each local model only with their corresponding classes. In this way, each local model will train a sub-task given locally available label information. Specifically, we mask out the output of the model before passing it Cross-Entropy Loss, which we named as \textbf{Masked Cross-Entropy Loss}. We experimented with several different ways of masking, we find replacing the last layer outputs that are not associated with local labels with zero achieves both stable and comparable local and global results. When aggregating local model parameters, we do not aggregate the untrained parameters in the last classification layers. Either the server can infer this information implicitly, or the local clients can report which classes they have to the server explicitly.
+We provide a comprehensive ablation study in Tables~\ref{tab:ablation_non-iid}. The results show that Masked Cross-Entropy Loss significantly improve local performance and moderately global performance of balanced non-IID data partition task.
+Since our primary focus is to address model heterogeneity, we leave the analysis of this trick to future work. We show the results of \textit{Fix} experiments in appendix in Fig.~\ref{fig:MNIST_interp_noniid_local}-\ref{fig:CIFAR10_interp_noniid_global}. \textit{Dynamic} non-IID results are also included in Table~\ref{tab:MNIST_main}-\ref{tab:WikiText2_main}. The results show that our method performs comparably to those with personalized local models. Our method is readily adaptable, free of computation overhead, and only rely on the single global model for testing local and global results. It allows local clients to switch to another subtask simply by changing its mask without querying the server for others' personalized models. 
+
+We show the learning curves of 50\% \textit{Fix} and \textit{Dynamic} assignments in appendix in Fig.~\ref{fig:MNIST_lc}-\ref{fig:WikiText2_lc}. The learning curves show that the optimization of HeteroFL for the IID dataset is stable and efficient. 
+Our method achieves better results with a fewer number of communication rounds, e.g., 800 for Heterofl and 1800 for LG-FedAvg \citep{liang2020think}. 
+We empirically discover gradient clipping stabilizes the optimization of HeteroFL as it prevents small models from gradient explosion. We can therefore adopt a universal learning rate for heterogeneous local models. It is also perceivable that aggregation of model parameters trained with non-IID data makes the optimization less stable. Results of \textit{Dynamic} show that global aggregation of dynamically varying computation complexities is stable. 
+
+\begin{table}[t]
+\centering
+\scalebox{0.9}{
+\begin{tabular}{@{}cccccccc@{}}
+\toprule
+\multirow{4}{*}{Model} &
+  \multirow{4}{*}{Ratio} &
+  \multirow{4}{*}{Parameters} &
+  \multirow{4}{*}{FLOPs} &
+  \multirow{4}{*}{Space (MB)} &
+  \multicolumn{3}{c}{\multirow{2}{*}{Accuracy}} \\
+           &      &       &        &      & \multicolumn{3}{c}{}                               \\ \cmidrule(l){6-8} 
+           &      &       &        &      & \multirow{2}{*}{IID} & \multicolumn{2}{c}{Non-IID} \\ \cmidrule(l){7-8} 
+           &      &       &        &      &                      & Local        & Global       \\ \midrule
+a          & 1.00 & 1.6 M & 80.5 M & 5.94 & 99.53                & 99.85        & 98.92        \\
+a-e        & 0.50 & 782 K & 40.5 M & 2.98 & 99.46                & 99.89        & 98.96        \\
+a-b-c-d-e  & 0.27 & 416 K & 21.6 M & 1.59 & 99.46                & 99.85        & 98.29        \\ \midrule
+b          & 1.00 & 391 K & 20.5 M & 1.49 & 99.53                & 99.87        & 99.10        \\
+b-e        & 0.51 & 199 K & 10.4 M & 0.76 & 99.51                & 99.67        & 98.51        \\
+b-c-d-e    & 0.33 & 131 K & 6.9 M  & 0.50 & 99.52                & 99.88        & 98.99        \\ \midrule
+c          & 1.00 & 99 K  & 5.3 M  & 0.38 & 99.35                & 99.56        & 96.34        \\
+c-e        & 0.53 & 53 K  & 2.9 M  & 0.20 & 99.39                & 99.79        & 97.27        \\
+c-d-e      & 0.44 & 44 K  & 2.4 M  & 0.17 & 99.31                & 99.76        & 97.85        \\ \midrule
+d          & 1.00 & 25 K  & 1.4 M  & 0.10 & 99.17                & 99.86        & 97.86        \\
+d-e        & 0.63 & 16 K  & 909 K  & 0.06 & 99.19                & 99.63        & 97.70        \\ \midrule
+e          & 1.00 & 7 K   & 400 K  & 0.03 & 98.66                & 99.07        & 92.84        \\ \midrule
+Standalone \citep{liang2020think} & 1.00 & 633 K & 1.3 M  & 2.42 & 86.24                & 98.72        & 30.41        \\
+FedAvg \citep{liang2020think}    & 1.00 & 633 K & 1.3 M  & 2.42 & 97.93                & 98.20        & 98.20        \\
+LG-FedAvg \citep{liang2020think}  & 1.00 & 633 K & 1.3 M  & 2.42 & 97.93                & 98.54        & 98.17        \\ \bottomrule
+\end{tabular}
+}
+\caption{Results of combination of various computation complexity levels for MNIST dataset. Full results can be found in Table~\ref{tab:MNIST_appendix}.}
+\label{tab:MNIST_main}
+\end{table}
+
+\begin{table}[t]
+\centering
+\scalebox{0.9}{
+\begin{tabular}{@{}cccccccc@{}}
+\toprule
+\multirow{4}{*}{Model} &
+  \multirow{4}{*}{Ratio} &
+  \multirow{4}{*}{Parameters} &
+  \multirow{4}{*}{FLOPs} &
+  \multirow{4}{*}{Space (MB)} &
+  \multicolumn{3}{c}{\multirow{2}{*}{Accuracy}} \\
+           &      &       &         &       & \multicolumn{3}{c}{}                               \\ \cmidrule(l){6-8} 
+           &      &       &         &       & \multirow{2}{*}{IID} & \multicolumn{2}{c}{Non-IID} \\ \cmidrule(l){7-8} 
+           &      &       &         &       &                      & Local        & Global       \\ \midrule
+a          & 1.00 & 9.6 M & 330.2 M & 36.71 & 91.19                & 92.38        & 56.88        \\
+a-e        & 0.50 & 4.8 M & 165.9 M & 18.43 & 90.29                & 92.10        & 59.11        \\
+a-b-c-d-e  & 0.27 & 2.6 M & 88.4 M  & 9.78  & 88.83                & 92.49        & 61.64        \\ \midrule
+b          & 1.00 & 2.4 M & 83.3 M  & 9.19  & 89.82                & 93.83        & 55.45        \\
+b-e        & 0.51 & 1.2 M & 42.4 M  & 4.67  & 89.10                & 90.68        & 59.81        \\
+b-c-d-e    & 0.33 & 801 K & 27.9 M  & 3.05  & 87.92                & 91.90        & 59.10        \\ \midrule
+c          & 1.00 & 604 K & 21.2 M  & 2.30  & 87.55                & 91.09        & 55.12        \\
+c-e        & 0.53 & 321 K & 11.3 M  & 1.22  & 86.88                & 91.83        & 63.47        \\
+c-d-e      & 0.44 & 265 K & 9.4 M   & 1.01  & 85.79                & 91.49        & 55.42        \\ \midrule
+d          & 1.00 & 152 K & 5.5 M   & 0.58  & 84.21                & 90.77        & 61.13        \\
+d-e        & 0.63 & 95 K  & 3.5 M   & 0.36  & 82.93                & 90.89        & 56.16        \\ \midrule
+e          & 1.00 & 38 K  & 1.5 M   & 0.15  & 77.09                & 89.62        & 54.16        \\ \midrule
+Standalone \citep{liang2020think} & 1.00 & 1.8 M & 3.6 M   & 6.88  & 16.90                & 87.93        & 10.03        \\
+FedAvg \citep{liang2020think}    & 1.00 & 1.8 M & 3.6 M   & 6.88  & 67.74                & 58.99        & 58.99        \\
+LG-FedAvg \citep{liang2020think} & 1.00 & 1.8 M & 3.6 M   & 6.88  & 69.76                & 91.77        & 60.79        \\ \bottomrule
+\end{tabular}
+}
+\caption{Results of combination of various computation complexity levels for CIFAR10 dataset. Full results can be found in Table~\ref{tab:CIFAR10_appendix}.}
+\label{tab:CIFAR10_main}
+\end{table}
+
+\begin{table}[t]
+\centering
+\scalebox{0.9}{
+\begin{tabular}{@{}cccccc@{}}
+\toprule
+Model     & Ratio & Parameters & FLOPs   & Space (MB) & Perplexity \\ \midrule
+a         & 1.00  & 19.3 M     & 1.4 B   & 73.49      & 3.37       \\
+a-e       & 0.53  & 10.2 M     & 718.6 M & 38.86      & 3.75       \\
+a-b-c-d-e & 0.37  & 7.2 M      & 496.6 M & 27.55      & 3.55       \\ \midrule
+b         & 1.00  & 9.1 M      & 614.8 M & 34.74      & 3.46       \\
+b-e       & 0.56  & 5.1 M      & 342.0 M & 19.49      & 3.90       \\
+b-c-d-e   & 0.46  & 4.2 M      & 278.7 M & 16.07      & 3.64       \\ \midrule
+c         & 1.00  & 4.4 M      & 290.1 M & 16.92      & 3.62       \\
+c-e       & 0.62  & 2.8 M      & 179.7 M & 10.57      & 3.89       \\
+c-d-e     & 0.58  & 2.6 M      & 166.7 M & 9.85       & 3.66       \\ \midrule
+d         & 1.00  & 2.2 M      & 140.7 M & 8.39       & 3.83       \\
+d-e       & 0.75  & 1.7 M      & 105.0 M & 6.31       & 3.90       \\ \midrule
+e         & 1.00  & 1.1 M      & 69.3 M  & 4.23       & 7.41       \\ \bottomrule
+\end{tabular}
+}
+\caption{Results of combination of various computation complexity levels for WikiText2 dataset. Full results can be found in Table~\ref{tab:WikiText2_appendix}.}
+\label{tab:WikiText2_main}
+\end{table}
+
+\begin{table}[t]
+\centering
+\begin{tabular}{@{}ccccc@{}}
+\toprule
+\multirow{2}{*}{Model} & \multirow{2}{*}{Normalization} & \multirow{2}{*}{Scaler} & \multicolumn{2}{c}{Accuracy IID} \\ \cmidrule(l){4-5} 
+                     &      &                      & MNIST         & CIFAR10       \\ \midrule
+\multirow{5}{*}{a}   & None & \multirow{5}{*}{N/A} & 99.2          & 81.3          \\
+                     & IN   &                      & 99.5          & 87.7          \\
+                     & GN   &                      & 99.5          & 81.0          \\
+                     & LN   &                      & 99.5          & 77.3          \\
+                     & sBN  &                      & \textbf{99.6} & \textbf{91.7} \\ \midrule
+\multirow{5}{*}{e}   & None & \multirow{5}{*}{N/A} & 98.6          & 58.1          \\
+                     & IN   &                      & 97.4          & 66.4          \\
+                     & GN   &                      & 98.7          & 62.6          \\
+                     & LN   &                      & 98.6          & 53.7          \\
+                     & sBN  &                      & \textbf{98.7} & \textbf{77.0} \\ \midrule
+\multirow{7}{*}{a-e} & None & \multirow{2}{*}{\xmark}   & 99.5          & 80.1          \\
+                     & sBN  &                      & 99.0          & 90.1          \\ \cmidrule(l){2-5} 
+                     & None & \multirow{5}{*}{\cmark}   & 99.2          & 80.4          \\
+                     & IN   &                      & 99.5          & 86.6          \\
+                     & GN   &                      & 99.5          & 76.0          \\
+                     & LN   &                      & 99.4          & 71.7          \\
+                     & sBN  &                      & \textbf{99.5} & \textbf{90.1} \\ \bottomrule
+\end{tabular}
+\vspace{-0.2cm}
+\caption{Ablation Study of IID scenarios. The single-letter models 'a' and 'e' are FedAvg equiped with various normalization methods. The sBN significantly outperforms other existing normalization methods, including the InstanceNorm (IN), GroupNorm (GN) (the number of group G=4), and LayerNorm (LN). Scaler is used for HeteroFL to train models of different sizes and moderately improve the results.}
+\label{tab:ablation_iid}
+\end{table}
+
+
+
+
+
+
+\section{Conclusions and Future Work}
+\vspace{-0.2cm}
+We propose Heterogeneous Federated Learning (HeteroFL), which shows the possibility of coordinatively training local models much smaller than a global model to produce a single global inference model. Our experiments show that FL can be made more practical by introducing HeteroFL and sBN and Mased Cross-Entropy Loss, as HeteroFL fully exploits local clients' capabilities and achieves better results with a fewer number of communication rounds. We demonstrate our results with various model architectures, including CNN, PreResNet18, and Transformer, and show that our method is robust to statistical heterogeneity and dynamically varying local capabilities. A future direction is to distinct model classes as well as model heterogeneity. Also, the proposed methods may be emulated to address heterogeneous few-shot learning, multi-modal learning, and multi-task learning.
+
+
+
+
+% \subsubsection*{Author Contributions}
+% If you'd like to, you may include a section for author contributions as is done
+% in many journals. This is optional and at the discretion of the authors.
+
+\subsubsection*{Acknowledgments}
+This work was supported by the Office of Naval Research (ONR) under grant number N00014-18-1-2244, and the Army Research Office (ARO) under grant number W911NF-20-1-0222.
+
+
+\bibliography{iclr2021_conference}
+\bibliographystyle{iclr2021_conference}
+
+\clearpage
+
+\appendix
+% You may include other additional sections here.
+\section{Appendix}
+The appendix contains supplementary experimental results. In Table~\ref{tab:ablation_non-iid} we show the ablation study of Non-IID experiments. Compared to results of IID experiments shown in Table~\ref{tab:ablation_iid}, Table~.\ref{tab:ablation_non-iid} shows the ablation study Maksed CrossEntropy which is shown beneficial for balanced Non-IID data partition. In Table~\ref{tab:hyper}, we show the hyperparameters adopted in our experiments. In Figure~\ref{fig:MNIST_interp_iid} and~\ref{fig:WikiText2_interp_iid}, we show the \textit{Fix} complexity assignments of MNIST and WikiText with iid data partition experiments. From Figure~\ref{fig:CIFAR10_interp_noniid_local} to~\ref{fig:CIFAR10_interp_noniid_global}, we show the \textit{Fix} complexity assignments for all balanced Non-IID data partition experiments. Figure~\ref{fig:MNIST_lc} to~\ref{fig:WikiText2_lc}, we show the learning curve of experiments with \textit{Dyanmic} complexity assignments. The complete results for all experiments with \textit{Dyanmic} complexity assignments can be found in Table~\ref{tab:MNIST_appendix},~\ref{tab:CIFAR10_appendix}, and~\ref{tab:WikiText2_appendix}.
+
+
+
+\begin{table}[hbtp]
+\centering
+\begin{tabular}{@{}cccccccc@{}}
+\toprule
+\multirow{3}{*}{Model} & \multirow{3}{*}{Normalization} & \multirow{3}{*}{Scaler} & \multirow{3}{*}{Masked CrossEntropy} & \multicolumn{4}{c}{Accuracy Non-IID} \\ \cmidrule(l){5-8} 
+                      &      &                      &                    & \multicolumn{2}{c}{MNIST}     & \multicolumn{2}{c}{CIFAR10}   \\ \cmidrule(l){5-8} 
+                      &      &                      &                    & Local         & Global        & Local         & Global        \\ \midrule
+\multirow{7}{*}{a}    & None & \multirow{2}{*}{N/A} & \multirow{2}{*}{\xmark} & 97.4          & 97.4          & 42.6          & 42.8          \\
+                      & sBN  &                      &                    & 99.4          & \textbf{99.4} & 53.4          & 53.7          \\ \cmidrule(l){2-8} 
+                      & None & \multirow{5}{*}{N/A} & \multirow{5}{*}{\cmark} & 99.7          & 95.6          & 91.7          & 58.5          \\
+                      & IN   &                      &                    & 99.8          & 98.7          & 88.4          & 43.7          \\
+                      & GN   &                      &                    & 99.7          & 98.3          & 91.2          & 58.2          \\
+                      & LN   &                      &                    & 99.8          & 98.3          & 89.9          & 54.2          \\
+                      & sBN  &                      &                    & \textbf{99.9} & 98.6          & \textbf{92.1} & \textbf{59.2} \\ \midrule
+\multirow{7}{*}{e}    & None & \multirow{2}{*}{N/A} & \multirow{2}{*}{\xmark} & 96.2          & 96.0          & 38.9          & 38.2          \\
+                      & sBN  &                      &                    & 90.1          & 90.1          & 40.7          & 40.4          \\ \cmidrule(l){2-8} 
+                      & None & \multirow{5}{*}{N/A} & \multirow{5}{*}{\cmark} & \textbf{99.5} & \textbf{96.5} & 86.6          & 48.9          \\
+                      & IN   &                      &                    & 98.5          & 89.8          & 83.7          & 37.0          \\
+                      & GN   &                      &                    & 99.2          & 92.2          & 83.5          & 36.7          \\
+                      & LN   &                      &                    & 99.3          & 94.0          & 82.6          & 40.0          \\
+                      & sBN  &                      &                    & 99.3          & 94.2          & \textbf{90.1} & \textbf{52.9} \\ \midrule
+\multirow{11}{*}{a-e} & None & \multirow{2}{*}{\xmark}   & \multirow{2}{*}{\xmark} & 96.8          & 96.9          & 37.8          & 37.4          \\
+                      & sBN  &                      &                    & 99.2          & 99.2          & 41.0          & 41.3          \\ \cmidrule(l){2-8} 
+                      & None & \multirow{2}{*}{\xmark}   & \multirow{2}{*}{\cmark} & 99.4          & 95.7          & 89.1          & 52.8          \\
+                      & sBN  &                      &                    & 99.8          & 98.0          & 90.7          & 57.7          \\ \cmidrule(l){2-8} 
+                      & None & \multirow{2}{*}{\cmark}   & \multirow{2}{*}{\xmark} & 97.3          & 97.3          & 34.6          & 34.4          \\
+                      & sBN  &                      &                    & 99.3          & \textbf{99.3} & 46.0          & 46.7          \\ \cmidrule(l){2-8} 
+                      & None & \multirow{5}{*}{\cmark}   & \multirow{5}{*}{\cmark} & 99.5          & 95.8          & 90.3          & 55.6          \\
+                      & IN   &                      &                    & 99.8          & 98.7          & 87.0          & 34.4          \\
+                      & GN   &                      &                    & 99.5          & 96.2          & 88.7          & 49.7          \\
+                      & LN   &                      &                    & 99.5          & 96.2          & 78.5          & 25.0          \\
+                      & sBN  &                      &                    & \textbf{99.8} & 98.2          & \textbf{92.8} & \textbf{60.4} \\ \bottomrule
+\end{tabular}
+\caption{Ablation Study of Non-IID scenarios. The Masked CrossEntropy is used for Non-IID experiments. It significantly improves the local performance and moderately improves global performance. Single letter model 'a' and 'e' are FedAvg equipped with various normalization methods. The sBN significantly outperforms other existing normalization methods, including InstanceNorm (IN), GroupNorm (GN) (the number of group G=4), and LayerNorm (LN). Scaler is used for HeteroFL to train models of different sizes and moderately improve the results.}
+\label{tab:ablation_non-iid}
+\end{table}
+
+\begin{table}[hbtp]
+\centering
+\scalebox{0.9}{
+\begin{tabular}{@{}ccccc@{}}
+\toprule
+\multicolumn{2}{c}{Data}                        & MNIST  & CIFAR10     & WikiText2   \\
+\multicolumn{2}{c}{Model}                       & CNN    & PreResNet18 & Transformer \\
+\multicolumn{2}{c}{Hidden   size}             & [64, 128, 256, 512] & [64, 128, 256, 512] & [512, 512, 512, 512] \\
+\multicolumn{2}{c}{Local Epoch $E$}                         & 5      & 5           & 1           \\
+\multicolumn{2}{c}{Local Batch Size $B$}                         & 10     & 10          & 100         \\
+\multicolumn{2}{c}{Optimizer}                   & \multicolumn{3}{c}{SGD}            \\
+\multicolumn{2}{c}{Momentum}                    & \multicolumn{3}{c}{0.9}            \\
+\multicolumn{2}{c}{Weight decay}                & \multicolumn{3}{c}{5.00E-04}       \\
+\multicolumn{2}{c}{Learning rate $\eta$}                      & 0.01   & 0.1         & 0.1         \\
+\multirow{2}{*}{Communication rounds} & IID     & 200    & 400         & 100         \\
+                                      & non-IID & 400    & 800         & 200         \\
+\multirow{2}{*}{Decay schedule $(0.1)$} & IID & [100]               & [150, 250]          & [25, 50]             \\
+                                      & non-IID & [200]  & [300, 500]  & [50, 100]   \\
+\multicolumn{2}{c}{Embedding Size}            & \multicolumn{2}{c}{\multirow{4}{*}{N/A}}  & 256                  \\
+\multicolumn{2}{c}{Number of heads}             & \multicolumn{2}{c}{} & 8           \\
+\multicolumn{2}{c}{Dropout}                     & \multicolumn{2}{c}{} & 0.2         \\
+\multicolumn{2}{c}{Sequence length}             & \multicolumn{2}{c}{} & 64          \\ \bottomrule
+\end{tabular}
+}
+\caption{Hyperparameters and model architecture used in our experiments.}
+\label{tab:hyper}
+\end{table}
+
+\begin{figure}[hbtp]
+\centering
+ \includegraphics[width=1\linewidth]{MNIST_interp_iid.pdf}
+ \caption{Interpolation experimental results for MNIST (IID) dataset between global model complexity ((a) a, (b) b, (c) c, (d) d) and various smaller model complexities.}
+ \label{fig:MNIST_interp_iid}
+\end{figure}
+
+\begin{figure}[hbtp]
+\centering
+ \includegraphics[width=1\linewidth]{WikiText2_interp_iid.pdf}
+ \caption{Interpolation experimental results for WikiText2 (IID) dataset between global model complexity ((a) a, (b) b, (c) c, (d) d) and various smaller model complexities.}
+ \label{fig:WikiText2_interp_iid}
+\end{figure}
+
+\begin{figure}[hbtp]
+\centering
+ \includegraphics[width=1\linewidth]{MNIST_interp_noniid_local.pdf}
+ \caption{Interpolation experimental results for MNIST (non-IID, Local) dataset between global model complexity ((a) a, (b) b, (c) c, (d) d) and various smaller model complexities.}
+ \label{fig:MNIST_interp_noniid_local}
+\end{figure}
+
+\begin{figure}[hbtp]
+\centering
+ \includegraphics[width=1\linewidth]{CIFAR10_interp_noniid_local.pdf}
+ \caption{Interpolation experimental results for CIFAR10 (non-IID, Local) dataset between global model complexity ((a) a, (b) b, (c) c, (d) d) and various smaller model complexities.}
+ \label{fig:CIFAR10_interp_noniid_local}
+\end{figure}
+
+\begin{figure}[hbtp]
+\centering
+ \includegraphics[width=1\linewidth]{MNIST_interp_noniid_global.pdf}
+ \caption{Interpolation experimental results for MNIST (non-IID, Global) dataset between global model complexity ((a) a, (b) b, (c) c, (d) d) and various smaller model complexities.}
+ \label{fig:MNIST_interp_noniid_global}
+\end{figure}
+
+\begin{figure}[hbtp]
+\centering
+ \includegraphics[width=1\linewidth]{CIFAR10_interp_noniid_global.pdf}
+ \caption{Interpolation experimental results for CIFAR10 (non-IID, Global) dataset between global model complexity ((a) a, (b) b, (c) c, (d) d) and various smaller model complexities.}
+ \label{fig:CIFAR10_interp_noniid_global}
+\end{figure}
+
+\begin{figure}[hbtp]
+\centering
+ \includegraphics[width=1\linewidth]{MNIST_lc.pdf}
+ \caption{Learning curves of MNIST datasets with 50\% Fix and Dynamic computation complexity assignments.}
+ \label{fig:MNIST_lc}
+\end{figure}
+
+\begin{figure}[hbtp]
+\centering
+ \includegraphics[width=1\linewidth]{CIFAR10_lc.pdf}
+ \caption{Learning curves of CIFAR10 datasets with 50\% Fix and Dynamic computation complexity assignments.}
+ \label{fig:CIFAR10_lc}
+\end{figure}
+
+\begin{figure}[hbtp]
+\centering
+ \includegraphics[width=1\linewidth]{WikiText2_lc.pdf}
+ \caption{Learning curves of WikiText2 datasets with 50\% Fix and Dynamic computation complexity assignments.}
+ \label{fig:WikiText2_lc}
+\end{figure}
+
+
+\begin{table}[hbtp]
+\centering
+\scalebox{0.9}{
+\begin{tabular}{@{}cccccccc@{}}
+\toprule
+\multirow{4}{*}{Model} &
+  \multirow{4}{*}{Ratio} &
+  \multirow{4}{*}{Parameters} &
+  \multirow{4}{*}{FLOPs} &
+  \multirow{4}{*}{Space (MB)} &
+  \multicolumn{3}{c}{\multirow{2}{*}{Accuracy}} \\
+           &      &         &         &      & \multicolumn{3}{c}{}                               \\ \cmidrule(l){6-8} 
+           &      &         &         &      & \multirow{2}{*}{IID} & \multicolumn{2}{c}{Non-IID} \\ \cmidrule(l){7-8} 
+           &      &         &         &      &                      & Local        & Global       \\ \midrule
+a          & 1.00 & 1.6 M   & 80.5 M  & 5.94 & 99.53                & 99.85        & 98.92        \\
+a-b        & 0.63 & 974.1 K & 50.5 M  & 3.72 & 99.54                & 99.96        & 99.10        \\
+a-c        & 0.53 & 827.9 K & 42.9 M  & 3.16 & 99.52                & 99.89        & 99.12        \\
+a-d        & 0.51 & 791.1 K & 41.0 M  & 3.02 & 99.54                & 99.81        & 98.37        \\
+a-e        & 0.50 & 781.7 K & 40.5 M  & 2.98 & 99.46                & 99.89        & 98.96        \\
+a-b-c      & 0.44 & 682.4 K & 35.4 M  & 2.60 & 99.53                & 99.90        & 98.72        \\
+a-b-d      & 0.42 & 657.8 K & 34.1 M  & 2.51 & 99.52                & 99.78        & 98.02        \\
+a-b-e      & 0.42 & 651.6 K & 33.8 M  & 2.49 & 99.54                & 99.95        & 98.92        \\
+a-c-d      & 0.36 & 560.4 K & 29.1 M  & 2.14 & 99.57                & 99.95        & 99.34        \\
+a-c-e      & 0.36 & 554.1 K & 28.7 M  & 2.11 & 99.52                & 99.94        & 98.43        \\
+a-d-e      & 0.34 & 529.6 K & 27.4 M  & 2.02 & 99.57                & 99.80        & 98.92        \\
+a-b-c-d    & 0.33 & 518.1 K & 26.9 M  & 1.98 & 99.54                & 99.80        & 99.03        \\
+a-b-c-e    & 0.33 & 513.4 K & 26.7 M  & 1.96 & 99.46                & 99.69        & 97.53        \\
+a-b-d-e    & 0.32 & 495.0 K & 25.7 M  & 1.89 & 99.49                & 99.85        & 98.66        \\
+a-c-d-e    & 0.27 & 421.9 K & 21.9 M  & 1.61 & 99.54                & 99.84        & 98.80        \\
+a-b-c-d-e  & 0.27 & 415.8 K & 21.6 M  & 1.59 & 99.46                & 99.85        & 98.29        \\
+b          & 1.00 & 391.4 K & 20.5 M  & 1.49 & 99.53                & 99.87        & 99.10        \\
+b-c        & 0.63 & 245.1 K & 12.9 M  & 0.94 & 99.49                & 99.87        & 99.05        \\
+b-d        & 0.53 & 208.3 K & 11.0 M  & 0.79 & 99.44                & 99.85        & 98.95        \\
+b-e        & 0.51 & 199.0 K & 10.4 M  & 0.76 & 99.51                & 99.67        & 98.51        \\
+b-c-d      & 0.44 & 171.9 K & 9.1 M   & 0.66 & 99.54                & 99.84        & 98.98        \\
+b-c-e      & 0.42 & 165.6 K & 8.7 M   & 0.63 & 99.51                & 99.85        & 98.20        \\
+b-d-e      & 0.36 & 141.1 K & 7.4 M   & 0.54 & 99.48                & 99.89        & 98.72        \\
+b-c-d-e    & 0.33 & 130.5 K & 6.9 M   & 0.50 & 99.52                & 99.88        & 98.99        \\
+c          & 1.00 & 98.9 K  & 5.3 M   & 0.38 & 99.35                & 99.56        & 96.34        \\
+c-d        & 0.63 & 62.1 K  & 3.4 M   & 0.24 & 99.38                & 99.92        & 99.05        \\
+c-e        & 0.53 & 52.8 K  & 2.9 M   & 0.20 & 99.39                & 99.79        & 97.27        \\
+c-d-e      & 0.44 & 43.6 K  & 2.4 M   & 0.17 & 99.31                & 99.76        & 97.85        \\
+d          & 1.00 & 25.3 K  & 1.4 M   & 0.10 & 99.17                & 99.86        & 97.86        \\
+d-e        & 0.63 & 15.9 K  & 909.5 K & 0.06 & 99.19                & 99.63        & 97.70        \\
+e          & 1.00 & 6.6 K   & 400.5 K & 0.03 & 98.66                & 99.07        & 92.84        \\ \midrule
+Standalone \citep{liang2020think}& 1.00 & 633.2 K & 1.3 M   & 2.42 & 86.24                & 98.72        & 30.41        \\
+FedAvg     \citep{liang2020think}& 1.00 & 633.2 K & 1.3 M   & 2.42 & 97.93                & 98.20        & 98.20        \\
+LG-FedAvg  \citep{liang2020think}& 1.00 & 633.2 K & 1.3 M   & 2.42 & 97.93                & 98.54        & 98.17        \\ \bottomrule
+\end{tabular}
+}
+\caption{Results of combination of various computation complexity levels for MNIST dataset.}
+\label{tab:MNIST_appendix}
+\end{table}
+
+\begin{table}[hbtp]
+\centering
+\scalebox{0.9}{
+\begin{tabular}{@{}cccccccc@{}}
+\toprule
+\multirow{4}{*}{Model} &
+  \multirow{4}{*}{Ratio} &
+  \multirow{4}{*}{Parameters} &
+  \multirow{4}{*}{FLOPs} &
+  \multirow{4}{*}{Space (MB)} &
+  \multicolumn{3}{c}{\multirow{2}{*}{Accuracy}} \\
+           &      &         &         &       & \multicolumn{3}{c}{}                               \\ \cmidrule(l){6-8} 
+           &      &         &         &       & \multirow{2}{*}{IID} & \multicolumn{2}{c}{Non-IID} \\ \cmidrule(l){7-8} 
+           &      &         &         &       &                      & Local        & Global       \\ \midrule
+a          & 1.00 & 9.6 M   & 330.2 M & 36.71 & 91.19                & 92.38        & 56.88        \\
+a-b        & 0.63 & 6.0 M   & 206.8 M & 22.95 & 90.60                & 91.35        & 59.93        \\
+a-c        & 0.53 & 5.1 M   & 175.7 M & 19.50 & 90.59                & 92.83        & 60.25        \\
+a-d        & 0.51 & 4.9 M   & 167.9 M & 18.64 & 90.28                & 91.78        & 56.54        \\
+a-e        & 0.50 & 4.8 M   & 165.9 M & 18.43 & 90.29                & 92.10        & 59.11        \\
+a-b-c      & 0.44 & 4.2 M   & 144.9 M & 16.07 & 89.70                & 90.41        & 54.16        \\
+a-b-d      & 0.42 & 4.1 M   & 139.7 M & 15.49 & 89.98                & 90.29        & 51.79        \\
+a-b-e      & 0.42 & 4.0 M   & 138.4 M & 15.35 & 89.79                & 90.79        & 62.17        \\
+a-c-d      & 0.36 & 3.5 M   & 119.0 M & 13.20 & 89.47                & 89.82        & 53.13        \\
+a-c-e      & 0.36 & 3.4 M   & 117.6 M & 13.05 & 89.35                & 93.59        & 57.30        \\
+a-d-e      & 0.34 & 3.3 M   & 112.4 M & 12.48 & 88.75                & 91.11        & 56.74        \\
+a-b-c-d    & 0.33 & 3.2 M   & 110.1 M & 12.19 & 89.33                & 91.32        & 54.50        \\
+a-b-c-e    & 0.33 & 3.2 M   & 109.1 M & 12.09 & 89.37                & 92.52        & 61.56        \\
+a-b-d-e    & 0.32 & 3.1 M   & 105.1 M & 11.65 & 89.40                & 91.80        & 56.78        \\
+a-c-d-e    & 0.27 & 2.6 M   & 89.6 M  & 9.93  & 88.42                & 91.50        & 62.15        \\
+a-b-c-d-e  & 0.27 & 2.6 M   & 88.4 M  & 9.78  & 88.83                & 92.49        & 61.64        \\
+b          & 1.00 & 2.4 M   & 83.3 M  & 9.19  & 89.82                & 93.83        & 55.45        \\
+b-c        & 0.63 & 1.5 M   & 52.3 M  & 5.75  & 89.00                & 89.96        & 52.29        \\
+b-d        & 0.53 & 1.3 M   & 44.4 M  & 4.88  & 89.18                & 91.78        & 51.07        \\
+b-e        & 0.51 & 1.2 M   & 42.4 M  & 4.67  & 89.10                & 90.68        & 59.81        \\
+b-c-d      & 0.44 & 1.1 M   & 36.7 M  & 4.02  & 88.35                & 92.79        & 58.09        \\
+b-c-e      & 0.42 & 1.0 M   & 35.3 M  & 3.88  & 87.98                & 91.98        & 58.28        \\
+b-d-e      & 0.36 & 866.3 K & 30.1 M  & 3.30  & 88.06                & 91.94        & 54.02        \\
+b-c-d-e    & 0.33 & 800.7 K & 27.9 M  & 3.05  & 87.92                & 91.90        & 59.10        \\
+c          & 1.00 & 603.8 K & 21.2 M  & 2.30  & 87.55                & 91.09        & 55.12        \\
+c-d        & 0.63 & 377.8 K & 13.4 M  & 1.44  & 86.75                & 91.58        & 54.61        \\
+c-e        & 0.53 & 321.1 K & 11.3 M  & 1.22  & 86.88                & 91.83        & 63.47        \\
+c-d-e      & 0.44 & 264.6 K & 9.4 M   & 1.01  & 85.79                & 91.49        & 55.42        \\
+d          & 1.00 & 151.8 K & 5.5 M   & 0.58  & 84.21                & 90.77        & 61.13        \\
+d-e        & 0.63 & 95.1 K  & 3.5 M   & 0.36  & 82.93                & 90.89        & 56.16        \\
+e          & 1.00 & 38.4 K  & 1.5 M   & 0.15  & 77.09                & 89.62        & 54.16        \\ \midrule
+Standalone \citep{liang2020think}& 1.00 & 1.8 M   & 3.6 M   & 6.88  & 16.90                & 87.93        & 10.03        \\
+FedAvg \citep{liang2020think}& 1.00 & 1.8 M   & 3.6 M   & 6.88  & 67.74                & 58.99        & 58.99        \\
+LG-FedAvg \citep{liang2020think} & 1.00 & 1.8 M   & 3.6 M   & 6.88  & 69.76                & 91.77        & 60.79        \\ \bottomrule
+\end{tabular}
+}
+\caption{Results of combination of various computation complexity levels for CIFAR10 dataset.}
+\label{tab:CIFAR10_appendix}
+\end{table}
+
+
+\begin{table}[hbtp]
+\centering
+\scalebox{0.9}{
+\begin{tabular}{@{}cccccc@{}}
+\toprule
+Model     & Ratio & Parameters & FLOPs   & Space (MB) & Perplexity \\ \midrule
+a         & 1.00  & 19.3 M     & 1.4 B   & 73.49      & 3.37       \\
+a-b       & 0.74  & 14.2 M     & 991.4 M & 54.12      & 3.31       \\
+a-c       & 0.62  & 11.8 M     & 829.0 M & 45.20      & 3.71       \\
+a-b-c     & 0.57  & 10.9 M     & 757.6 M & 41.72      & 3.42       \\
+a-d       & 0.56  & 10.7 M     & 754.3 M & 40.94      & 3.74       \\
+a-b-d     & 0.53  & 10.2 M     & 707.8 M & 38.87      & 3.53       \\
+a-e       & 0.53  & 10.2 M     & 718.6 M & 38.86      & 3.75       \\
+a-b-e     & 0.51  & 9.8 M      & 684.0 M & 37.49      & 3.47       \\
+b         & 1.00  & 9.1 M      & 614.8 M & 34.74      & 3.46       \\
+a-b-c-d   & 0.45  & 8.8 M      & 603.4 M & 33.39      & 3.61       \\
+a-c-d     & 0.45  & 8.6 M      & 599.6 M & 32.93      & 4.08       \\
+a-b-c-e   & 0.44  & 8.5 M      & 585.5 M & 32.34      & 3.50       \\
+a-c-e     & 0.43  & 8.3 M      & 575.8 M & 31.54      & 3.65       \\
+a-b-d-e   & 0.41  & 7.9 M      & 548.2 M & 30.21      & 3.64       \\
+a-d-e     & 0.39  & 7.5 M      & 526.0 M & 28.70      & 4.02       \\
+a-b-c-d-e & 0.37  & 7.2 M      & 496.6 M & 27.55      & 3.55       \\
+b-c       & 0.74  & 6.8 M      & 452.4 M & 25.83      & 3.45       \\
+a-c-d-e   & 0.35  & 6.8 M      & 467.0 M & 25.76      & 3.92       \\
+b-d       & 0.62  & 5.7 M      & 377.7 M & 21.57      & 3.70       \\
+b-c-d     & 0.58  & 5.2 M      & 348.5 M & 20.02      & 3.47       \\
+b-e       & 0.56  & 5.1 M      & 342.0 M & 19.49      & 3.90       \\
+b-c-e     & 0.54  & 4.9 M      & 324.7 M & 18.63      & 3.46       \\
+c         & 1.00  & 4.4 M      & 290.1 M & 16.92      & 3.62       \\
+b-c-d-e   & 0.46  & 4.2 M      & 278.7 M & 16.07      & 3.64       \\
+b-d-e     & 0.45  & 4.1 M      & 274.9 M & 15.79      & 3.92       \\
+c-d       & 0.75  & 3.3 M      & 215.4 M & 12.66      & 3.46       \\
+c-e       & 0.62  & 2.8 M      & 179.7 M & 10.57      & 3.89       \\
+c-d-e     & 0.58  & 2.6 M      & 166.7 M & 9.85       & 3.66       \\
+d         & 1.00  & 2.2 M      & 140.7 M & 8.39       & 3.83       \\
+d-e       & 0.75  & 1.7 M      & 105.0 M & 6.31       & 3.90       \\
+e         & 1.00  & 1.1 M      & 69.3 M  & 4.23       & 7.41       \\ \bottomrule
+\end{tabular}
+}
+\caption{Results of combination of various computation complexity levels for WikiText2 dataset.}
+\label{tab:WikiText2_appendix}
+\end{table}
+
+
+\end{document}

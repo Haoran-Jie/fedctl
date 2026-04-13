@@ -63,12 +63,34 @@ class FixedRateHeteroFL(FedAvg):
     def _resolve_model_rate(self, node_id: int) -> float:
         explicit_rate = self.rate_by_node_id.get(node_id)
         if explicit_rate is not None:
+            log(INFO, "model-rate: node=%s source=explicit-node-map rate=%s", node_id, explicit_rate)
             return float(explicit_rate)
         device_type = self.device_type_by_node_id.get(node_id)
         if device_type is not None:
             device_rate = self.rate_by_device_type.get(device_type)
             if device_rate is not None:
+                log(
+                    INFO,
+                    "model-rate: node=%s source=device-map device_type=%s rate=%s",
+                    node_id,
+                    device_type,
+                    device_rate,
+                )
                 return float(device_rate)
+            log(
+                INFO,
+                "model-rate: node=%s device_type=%s missing in rate map, falling back=%s",
+                node_id,
+                device_type,
+                self.default_model_rate,
+            )
+        else:
+            log(
+                INFO,
+                "model-rate: node=%s source=fallback no device type discovered rate=%s",
+                node_id,
+                self.default_model_rate,
+            )
         return self.default_model_rate
 
     def configure_train(

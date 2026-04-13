@@ -26,6 +26,7 @@ from fedctl.config.repo import (
 from fedctl.nomad.client import NomadClient
 from fedctl.nomad.errors import NomadConnectionError, NomadHTTPError, NomadTLSError
 from fedctl.project.errors import ProjectError
+from fedctl.project.experiment_config import extract_seed_sweep, resolve_experiment_config
 from fedctl.project.flwr_inspect import inspect_flwr_project
 from fedctl.submit.artifact import ArtifactUploadError, upload_artifact
 from fedctl.submit.client import SubmitServiceClient, SubmitServiceError
@@ -70,6 +71,9 @@ def _print_ok(message: str) -> None:
 def run_submit(
     *,
     path: str,
+    experiment_config: str | None = None,
+    run_config_overrides: list[str] | None = None,
+    seed: int | None = None,
     flwr_version: str,
     image: str | None,
     no_cache: bool,
@@ -108,6 +112,45 @@ def run_submit(
     exp_name = normalize_experiment_name(
         experiment or f"{project_name}-{_timestamp_compact()}"
     )
+    if seed is None:
+        try:
+            seed_sweep = extract_seed_sweep(info.root, experiment_config)
+        except ProjectError as exc:
+            console.print(f"[red]✗ Experiment config error:[/red] {exc}")
+            return 1
+        if seed_sweep:
+            return _submit_seed_sweep(
+                seed_sweep=seed_sweep,
+                base_experiment=exp_name,
+                path=path,
+                experiment_config=experiment_config,
+                run_config_overrides=run_config_overrides,
+                flwr_version=flwr_version,
+                image=image,
+                no_cache=no_cache,
+                platform=platform,
+                context=context,
+                push=push,
+                num_supernodes=num_supernodes,
+                auto_supernodes=auto_supernodes,
+                supernodes=supernodes,
+                net=net,
+                allow_oversubscribe=allow_oversubscribe,
+                repo_config=repo_config,
+                timeout_seconds=timeout_seconds,
+                federation=federation,
+                stream=stream,
+                verbose=verbose,
+                destroy=destroy,
+                submit_image=submit_image,
+                artifact_store=artifact_store,
+                priority=priority,
+            )
+    try:
+        resolved_experiment_config = resolve_experiment_config(info.root, experiment_config)
+    except ProjectError as exc:
+        console.print(f"[red]✗ Experiment config error:[/red] {exc}")
+        return 1
     repo_resolution = resolve_repo_config(
         repo_config=repo_config,
         include_profile=True,
@@ -115,6 +158,14 @@ def run_submit(
         project_root=project_path,
     )
     repo_cfg = repo_resolution.data
+    repo_supernodes = _repo_supernodes(repo_cfg)
+    if not supernodes and repo_supernodes:
+        supernodes = [f"{device_type}={count}" for device_type, count in repo_supernodes.items()]
+    if allow_oversubscribe is None:
+        repo_allow_oversubscribe = _repo_allow_oversubscribe(repo_cfg)
+        if repo_allow_oversubscribe is not None:
+            allow_oversubscribe = repo_allow_oversubscribe
+
     submit_client = _submit_service_client(repo_cfg=repo_cfg)
     submission_id = None
     if not submit_client:
@@ -154,6 +205,8 @@ def run_submit(
         )
 
     repo_cfg_path = repo_resolution.path
+    repo_config_label = _repo_config_label(repo_cfg_path)
+    attempt_started_at = _timestamp_iso()
 
     _print_step(2, 4, "Package project")
     try:
@@ -161,6 +214,12 @@ def run_submit(
             info.root,
             project_name,
             repo_config_path=repo_cfg_path,
+            experiment_config_path=(
+                resolved_experiment_config.archive_source if resolved_experiment_config else None
+            ),
+            experiment_config_arcname=(
+                resolved_experiment_config.runner_path if resolved_experiment_config else None
+            ),
         )
     except OSError as exc:
         console.print(f"[red]✗ Archive error:[/red] {exc}")
@@ -202,6 +261,9 @@ def run_submit(
                         path=path,
                         project_root=info.root,
                         experiment=exp_name,
+                        experiment_config=experiment_config,
+                        run_config_overrides=run_config_overrides,
+                        seed=seed,
                         flwr_version=flwr_version,
                         image=resolved_superexec_image,
                         no_cache=no_cache,
@@ -226,6 +288,13 @@ def run_submit(
                     "args": _runner_args(
                         project_dir_name=project_path.name,
                         exp_name=exp_name,
+                        experiment_config=(
+                            resolved_experiment_config.runner_path
+                            if resolved_experiment_config
+                            else None
+                        ),
+                        run_config_overrides=run_config_overrides,
+                        seed=seed,
                         flwr_version=flwr_version,
                         image=resolved_superexec_image,
                         no_cache=no_cache,
@@ -247,6 +316,13 @@ def run_submit(
                         eff,
                         result_store=resolved_artifact_store,
                         image_registry=internal_registry,
+                        attempt_started_at=attempt_started_at,
+                        experiment_config=(
+                            resolved_experiment_config.runner_path
+                            if resolved_experiment_config
+                            else None
+                        ),
+                        repo_config_label=repo_config_label,
                     ),
                     "priority": priority or 50,
                     "namespace": eff.namespace,
@@ -270,6 +346,13 @@ def run_submit(
             args=_runner_args(
                 project_dir_name=project_path.name,
                 exp_name=exp_name,
+                experiment_config=(
+                    resolved_experiment_config.runner_path
+                    if resolved_experiment_config
+                    else None
+                ),
+                run_config_overrides=run_config_overrides,
+                seed=seed,
                 flwr_version=flwr_version,
                 image=resolved_superexec_image,
                 no_cache=no_cache,
@@ -291,6 +374,14 @@ def run_submit(
                 eff,
                 result_store=resolved_artifact_store,
                 image_registry=internal_registry,
+                submission_id=submission_id,
+                attempt_started_at=attempt_started_at,
+                experiment_config=(
+                    resolved_experiment_config.runner_path
+                    if resolved_experiment_config
+                    else None
+                ),
+                repo_config_label=repo_config_label,
             ),
             priority=priority or 50,
             artifact_dest="/local/project",
@@ -826,9 +917,12 @@ def _build_project_archive(
     project_name: str,
     *,
     repo_config_path: Path | None = None,
+    experiment_config_path: Path | None = None,
+    experiment_config_arcname: str | None = None,
 ) -> Path:
     temp_dir = Path(tempfile.mkdtemp(prefix="fedctl-submit-"))
     archive_path = temp_dir / f"{project_name}.tar.gz"
+    replace_rel_path = Path(experiment_config_arcname) if experiment_config_arcname else None
     with tarfile.open(archive_path, "w:gz") as tar:
         for root, dirs, files in os.walk(project_root):
             dirs[:] = [d for d in dirs if d not in _ARCHIVE_SKIP_DIRS]
@@ -838,23 +932,64 @@ def _build_project_archive(
                     continue
                 full_path = Path(root) / name
                 rel_path = rel_root / name if rel_root != Path(".") else Path(name)
+                if replace_rel_path is not None and rel_path == replace_rel_path:
+                    continue
                 arcname = Path(project_root.name) / rel_path
                 tar.add(full_path, arcname=arcname)
         local_repo_cfg = project_root / ".fedctl" / "fedctl.yaml"
-        if (
-            repo_config_path is not None
-            and repo_config_path.exists()
-            and not local_repo_cfg.exists()
-        ):
+        if repo_config_path is not None and repo_config_path.exists():
             arcname = Path(project_root.name) / ".fedctl" / "fedctl.yaml"
             tar.add(repo_config_path, arcname=arcname)
+        elif local_repo_cfg.exists():
+            arcname = Path(project_root.name) / ".fedctl" / "fedctl.yaml"
+            tar.add(local_repo_cfg, arcname=arcname)
+        if (
+            experiment_config_path is not None
+            and experiment_config_path.exists()
+            and experiment_config_arcname
+        ):
+            arcname = Path(project_root.name) / experiment_config_arcname
+            tar.add(experiment_config_path, arcname=arcname)
     return archive_path
+
+
+def _repo_supernodes(repo_cfg: dict[str, object]) -> dict[str, int]:
+    deploy = repo_cfg.get("deploy")
+    if not isinstance(deploy, dict):
+        return {}
+    raw = deploy.get("supernodes")
+    if not isinstance(raw, dict):
+        return {}
+
+    counts: dict[str, int] = {}
+    for key, value in raw.items():
+        try:
+            count = int(value)
+        except (TypeError, ValueError):
+            continue
+        if count > 0:
+            counts[str(key)] = count
+    return counts
+
+
+def _repo_allow_oversubscribe(repo_cfg: dict[str, object]) -> bool | None:
+    deploy = repo_cfg.get("deploy")
+    if not isinstance(deploy, dict):
+        return None
+    placement = deploy.get("placement")
+    if not isinstance(placement, dict):
+        return None
+    value = placement.get("allow_oversubscribe")
+    return bool(value) if isinstance(value, bool) else None
 
 
 def _runner_args(
     *,
     project_dir_name: str,
     exp_name: str,
+    experiment_config: str | None,
+    run_config_overrides: list[str] | None,
+    seed: int | None,
     flwr_version: str,
     image: str | None,
     no_cache: bool,
@@ -890,6 +1025,12 @@ def _runner_args(
         "--federation",
         federation,
     ]
+    if experiment_config:
+        args.extend(["--experiment-config", experiment_config])
+    for override in run_config_overrides or []:
+        args.extend(["--run-config-override", override])
+    if seed is not None:
+        args.extend(["--seed", str(seed)])
     if not use_typed_supernodes:
         args.extend(["--num-supernodes", str(num_supernodes)])
     if image:
@@ -926,8 +1067,12 @@ def _runner_args(
 def _runner_env(
     eff: object,
     *,
+    submission_id: str | None = None,
     result_store: str | None = None,
     image_registry: str | None = None,
+    attempt_started_at: str | None = None,
+    experiment_config: str | None = None,
+    repo_config_label: str | None = None,
 ) -> dict[str, str]:
     env: dict[str, str] = {}
     endpoint = getattr(eff, "endpoint", None)
@@ -942,10 +1087,18 @@ def _runner_env(
         env["FEDCTL_PROFILE"] = str(profile)
     if token:
         env["NOMAD_TOKEN"] = str(token)
+    if submission_id:
+        env["FEDCTL_SUBMISSION_ID"] = str(submission_id)
     if result_store:
         env["FEDCTL_RESULT_STORE"] = str(result_store)
     if image_registry:
         env["FEDCTL_IMAGE_REGISTRY"] = str(image_registry)
+    if attempt_started_at:
+        env["FEDCTL_ATTEMPT_STARTED_AT"] = str(attempt_started_at)
+    if experiment_config:
+        env["FEDCTL_EXPERIMENT_CONFIG"] = str(experiment_config)
+    if repo_config_label:
+        env["FEDCTL_REPO_CONFIG_LABEL"] = str(repo_config_label)
     for key in (
         "AWS_ACCESS_KEY_ID",
         "AWS_SECRET_ACCESS_KEY",
@@ -959,11 +1112,24 @@ def _runner_env(
     return env
 
 
+def _repo_config_label(path: Path | None) -> str:
+    if path is None:
+        return "default"
+    return path.stem.replace("_", "-") or "default"
+
+
+def _timestamp_iso() -> str:
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
 def _original_submit_request(
     *,
     path: str,
     project_root: Path,
     experiment: str,
+    experiment_config: str | None,
+    run_config_overrides: list[str] | None,
+    seed: int | None,
     flwr_version: str,
     image: str | None,
     no_cache: bool,
@@ -998,6 +1164,12 @@ def _original_submit_request(
         "stream": stream,
         "auto_supernodes": auto_supernodes,
     }
+    if experiment_config:
+        options["experiment_config"] = experiment_config
+    if run_config_overrides:
+        options["run_config_overrides"] = list(run_config_overrides)
+    if seed is not None:
+        options["seed"] = seed
     if not use_typed_supernodes:
         options["num_supernodes"] = num_supernodes
     if image:
@@ -1037,6 +1209,12 @@ def _submit_command_preview(options: dict[str, object]) -> str:
     parts = ["fedctl", "submit", "run", str(options["path"])]
     if options.get("experiment"):
         parts.extend(["--exp", str(options["experiment"])])
+    if options.get("experiment_config"):
+        parts.extend(["--experiment-config", str(options["experiment_config"])])
+    for value in options.get("run_config_overrides") or []:
+        parts.extend(["--run-config-override", str(value)])
+    if options.get("seed") is not None:
+        parts.extend(["--seed", str(options["seed"])])
     if options.get("image"):
         parts.extend(["--image", str(options["image"])])
     if options.get("no_cache"):
@@ -1078,6 +1256,74 @@ def _submit_command_preview(options: dict[str, object]) -> str:
     if options.get("priority") is not None:
         parts.extend(["--priority", str(options["priority"])])
     return shlex.join(parts)
+
+
+def _submit_seed_sweep(
+    *,
+    seed_sweep: tuple[int, ...],
+    base_experiment: str,
+    path: str,
+    experiment_config: str | None,
+    run_config_overrides: list[str] | None,
+    flwr_version: str,
+    image: str | None,
+    no_cache: bool,
+    platform: str | None,
+    context: str | None,
+    push: bool,
+    num_supernodes: int,
+    auto_supernodes: bool,
+    supernodes: list[str] | None,
+    net: list[str] | None,
+    allow_oversubscribe: bool | None,
+    repo_config: str | None,
+    timeout_seconds: int,
+    federation: str,
+    stream: bool,
+    verbose: bool,
+    destroy: bool,
+    submit_image: str | None,
+    artifact_store: str | None,
+    priority: int | None,
+) -> int:
+    console.print(f"[cyan]Detected seed sweep:[/cyan] {', '.join(str(seed) for seed in seed_sweep)}")
+    failures = 0
+    for sweep_seed in seed_sweep:
+        child_experiment = normalize_experiment_name(f"{base_experiment}-seed{sweep_seed}")
+        console.print()
+        console.print(
+            f"[bold cyan]Seed[/bold cyan] [bold]-[/bold] {sweep_seed} -> {child_experiment}"
+        )
+        status = run_submit(
+            path=path,
+            experiment_config=experiment_config,
+            run_config_overrides=run_config_overrides,
+            seed=sweep_seed,
+            flwr_version=flwr_version,
+            image=image,
+            no_cache=no_cache,
+            platform=platform,
+            context=context,
+            push=push,
+            num_supernodes=num_supernodes,
+            auto_supernodes=auto_supernodes,
+            supernodes=supernodes,
+            net=net,
+            allow_oversubscribe=allow_oversubscribe,
+            repo_config=repo_config,
+            experiment=child_experiment,
+            timeout_seconds=timeout_seconds,
+            federation=federation,
+            stream=stream,
+            verbose=verbose,
+            destroy=destroy,
+            submit_image=submit_image,
+            artifact_store=artifact_store,
+            priority=priority,
+        )
+        if status != 0:
+            failures += 1
+    return 0 if failures == 0 else 1
 
 
 def _rewrite_local_endpoint(endpoint: str) -> str:

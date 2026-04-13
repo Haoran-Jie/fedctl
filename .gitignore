@@ -16,3 +16,6 @@ ansible/group_vars/tailscale_nodes.local.yml
 writeup/
 refs/heterofl/
 refs/heterofl_fedctl/data/
+refs/FedRolex-main
+tasks/
+apps/fedctl_research/experiment_configs

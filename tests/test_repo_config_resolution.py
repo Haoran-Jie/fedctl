@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from fedctl.commands.deploy import _repo_deploy_config
 from fedctl.config.io import ensure_config_exists, load_raw_toml, save_raw_toml
 from fedctl.config.repo import (
     get_cluster_image_registry,
     get_image_registry,
+    load_repo_config,
     resolve_repo_config,
     resolve_repo_config_path,
     rewrite_image_registry,
@@ -132,3 +134,43 @@ def test_rewrite_image_registry_only_rewrites_matching_source() -> None:
         )
         == "docker.io/library/python:3.12"
     )
+
+
+def test_load_repo_config_preserves_superexec_env_map(tmp_path: Path) -> None:
+    repo_cfg = tmp_path / "fedctl.yaml"
+    repo_cfg.write_text(
+        "deploy:\n"
+        "  superexec:\n"
+        "    env:\n"
+        "      WANDB_PROJECT: fedctl\n"
+        "      WANDB_ENTITY: samueljie\n",
+        encoding="utf-8",
+    )
+
+    loaded = load_repo_config(config_path=repo_cfg)
+
+    assert loaded["deploy"]["superexec"]["env"] == {
+        "WANDB_PROJECT": "fedctl",
+        "WANDB_ENTITY": "samueljie",
+    }
+
+
+def test_repo_deploy_config_extracts_superexec_env_map() -> None:
+    repo_defaults = _repo_deploy_config(
+        {
+            "deploy": {
+                "superexec": {
+                    "env": {
+                        "WANDB_PROJECT": "fedctl",
+                        "WANDB_ENTITY": "samueljie",
+                        "EMPTY": "",
+                    }
+                }
+            }
+        }
+    )
+
+    assert repo_defaults.superexec_env == {
+        "WANDB_PROJECT": "fedctl",
+        "WANDB_ENTITY": "samueljie",
+    }

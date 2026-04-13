@@ -11,7 +11,7 @@ def render_dockerfile(flwr_version: str) -> str:
         "\n"
         "WORKDIR /app\n"
         "\n"
-        "COPY pyproject.toml .\n"
+        "COPY . .\n"
         "USER root\n"
         "RUN apt-get update \\\n"
         "  && apt-get install -y --no-install-recommends iproute2 \\\n"

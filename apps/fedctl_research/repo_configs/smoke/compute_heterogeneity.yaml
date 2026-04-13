@@ -1,0 +1,38 @@
+deploy:
+  supernodes:
+    rpi4: 2
+    rpi5: 2
+  superexec:
+    env:
+      WANDB_API_KEY: "REPLACE_WANDB_API_KEY"
+      WANDB_PROJECT: "fedctl"
+      WANDB_ENTITY: "REPLACE_WANDB_ENTITY"
+  placement:
+    allow_oversubscribe: false
+    spread_across_hosts: true
+  resources:
+    supernode:
+      default: { cpu: 500, mem: 512 }
+      rpi4: { cpu: 500, mem: 512 }
+      rpi5: { cpu: 500, mem: 512 }
+  network:
+    image: "REPLACE_NETEM_IMAGE"
+    default_profile: none
+    interface: eth0
+    apply:
+      superexec_serverapp: false
+      superexec_clientapp: false
+    profiles:
+      none: {}
+
+submit:
+  image: "REPLACE_SUBMIT_IMAGE"
+  artifact_store: "REPLACE_ARTIFACT_STORE"
+  endpoint: "REPLACE_SUBMIT_ENDPOINT"
+  token: "REPLACE_SUBMIT_TOKEN"
+  user: "REPLACE_SUBMIT_USER"
+
+submit-service:
+  image_registry: "REPLACE_CLUSTER_IMAGE_REGISTRY"
+
+image_registry: "REPLACE_LAPTOP_IMAGE_REGISTRY"

@@ -1,0 +1,1650 @@
+\documentclass{article}
+
+
+% if you need to pass options to natbib, use, e.g.:
+%     \PassOptionsToPackage{numbers, compress}{natbib}
+% before loading neurips_2024
+
+\PassOptionsToPackage{numbers, square, sort}{natbib}
+% ready for submission
+\usepackage[final]{neurips_2024}
+
+% to compile a preprint version, e.g., for submission to arXiv, add add the
+% [preprint] option:
+%     \usepackage[preprint]{neurips_2024}
+
+
+% to compile a camera-ready version, add the [final] option, e.g.:
+%     \usepackage[final]{neurips_2024}
+
+
+% to avoid loading the natbib package, add option nonatbib:
+%    \usepackage[nonatbib]{neurips_2024}
+
+
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage{xcolor}         % colors
+
+% Recommended, but optional, packages for figures and better typesetting:
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{tabularx}
+% \usepackage{subfigure}
+\usepackage{booktabs} % for professional tables
+
+\usepackage{hyperref}
+% \hypersetup{colorlinks,linkcolor={black},citecolor={blue},urlcolor={black}} 
+% \usepackage[hidelinks,colorlinks=true,linkcolor=blue,citecolor=blue]{hyperref}
+
+\usepackage{multirow}
+\usepackage{multicol}
+\usepackage{makecell} 
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{float}
+\usepackage{parskip}
+\usepackage{graphicx}
+\usepackage{pifont}
+\usepackage{enumitem}
+
+\usepackage{subfig}
+\usepackage{algorithm}
+% \usepackage{algorithmic}
+\usepackage{algpseudocode}
+% \usepackage{color}
+\usepackage{wrapfig}
+\usepackage{lipsum}
+
+% For theorems and such
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{mathtools}
+\usepackage{amsthm}
+
+% if you use cleveref..
+\usepackage[capitalize,noabbrev]{cleveref}
+
+% For theorems and such
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{mathtools}
+\usepackage{amsthm}
+\usepackage{xparse}
+
+% if you use cleveref..
+% \usepackage[capitalize,noabbrev]{cleveref}
+
+\renewcommand{\cite}{\citep}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% THEOREMS
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{assumption}[theorem]{Assumption}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+% Todonotes is useful during development; simply uncomment the next line
+%    and comment out the line below the next line to turn off comments
+%\usepackage[disable,textsize=tiny]{todonotes}
+\usepackage[textsize=tiny]{todonotes}
+
+\usepackage{xspace}
+\newcommand{\algo}{\ensuremath{\text{FIARSE}}\xspace}
+\newcommand{\module}{\ensuremath{\text{TCB-GD}}\xspace}
+
+% Define all x
+\newcommand{\gxs}[1]{\boldsymbol{{x}}_{#1}}
+\newcommand{\gx}[1]{\tilde{\boldsymbol{x}}_{#1}}
+\newcommand{\lxx}[2]{\boldsymbol{x}_{#2}^{(#1)}}
+\newcommand{\lx}[3]{\boldsymbol{x}_{#2, #3}^{(#1)}}
+\newcommand{\optx}{\boldsymbol{x}_*}
+\NewDocumentCommand\x{ggg}{%
+    \IfNoValueTF{#1}{\optx}{\IfNoValueTF{#2}{\gx{#1}}{\IfNoValueTF{#3}{\lxx{#1}{#2}}{\lx{#1}{#2}{#3}}}}
+}
+
+% Define the mask 
+\newcommand{\globalmask}{\mathcal{M}}
+\newcommand{\localmask}[1]{\mathcal{M}^{(#1)}}
+\newcommand{\localmaskwithelement}[2]{\mathcal{M}^{(#1)}_{#2}}
+\NewDocumentCommand\mask{gg}{%
+    \IfNoValueTF{#1}{\globalmask}{\IfNoValueTF{#2}{\localmask{#1}}{\localmaskwithelement{#1}{#2}}}
+}
+
+% Define hard-to-distinguish letter 
+\newcommand{\w}{\omega}
+\newcommand{\E}{\mathbb{E}}
+\renewcommand{\eqref}[1]{Equation (\ref{#1})}
+\newcommand{\defeq}{\overset{\triangle}{=}}
+
+\newcommand{\m}[1]{\mathcal{M}_{#1}}
+\newcommand{\mt}[2]{\mathcal{M}_{#1}^{#2}}
+
+% \renewcommand{\v}{\boldsymbol{v}}
+\newcommand{\yq}[1]{{\color{blue}Yaqing: #1}}
+% Define bracket 
+\newcommand{\bracket}[1]{\left(#1\right)}
+\newcommand{\norm}[1]{\left\|#1\right\|_2^2}
+\newcommand{\innerproduct}[2]{\left\langle#1, #2\right\rangle}
+
+% Define Indicator
+\newcommand{\indicator}[1]{\boldsymbol{1}_{\{#1\}}}
+
+% Define small-batch gradient and full-batch gradient command here
+\newcommand{\fullbatch}[2]{\mathcal{B}_{#1, #2}}
+\newcommand{\minibatch}[2]{\mathcal{B}^{'}_{#1, #2}}
+\newcommand{\fullgrad}[2]{\nabla f_{#1}\left(\x{#2}, \fullbatch{#1}{#2}\right)}
+\newcommand{\minigrad}[4]{\nabla f_{#1}\left(\x{#1}{#2}{#3}, \minibatch{#1}{#4}\right)}
+
+% Define the gradient 
+\newcommand{\stogradone}[1]{\tilde{g}_{#1}}
+\newcommand{\stogradthree}[3]{g^{(#1)}_{#2, #3}}
+\NewDocumentCommand\g{ggg}{%
+    \IfNoValueTF{#2}{\stogradone{#1}}{\stogradthree{#1}{#2}{#3}}
+}
+
+% Define gradient command here
+\newcommand{\gradone}[1]{\nabla F\left(\gx{#1}\right)}
+\newcommand{\gradtwo}[2]{\nabla F_{#1}\left(\gx{#2}\right)}
+\newcommand{\gradthree}[3]{\nabla F_{#1}\left(\x{#1}{#2}{#3} \odot \mask{#1}{#2}\right) \odot \mask{#1}{#2}}
+\NewDocumentCommand\grad{mgg}{%
+    \IfNoValueTF{#2}{\gradone{#1}}{\IfNoValueTF{#3}{\gradtwo{#1}{#2}}{\gradthree{#1}{#2}{#3}}}
+}
+
+% Define masked gradient command here
+\newcommand{\maskgrad}[2]{\nabla_{#2} F_{#1}\bracket{#2 \odot \mask{#1}\bracket{#2}}}
+
+
+
+
+\newcommand{\newmaskgradtwo}[2]{\nabla_{\x{#2}} F_{#1}\bracket{\x{#2} \odot \mask{#1}{#2} \bracket{\x{#2}}}}
+\newcommand{\newmaskgradthree}[3]{\nabla_{\x{#1}{#2}{#3}} F_{#1}\bracket{\x{#1}{#2}{#3} \odot \mask{#1}{#2} \bracket{\x{#1}{#2}{#3}}}}
+\newcommand{\newmaskgradfour}[4]{\nabla_{\x{#1}{#2}{#3}} F_{#1}^{[\gamma_{#4-1}':\gamma_{#4}']} \bracket{\x{#1}{#2}{#3} \odot \mask{#1}{#2} \bracket{\x{#1}{#2}{#3}}}}
+\NewDocumentCommand\newmaskgrad{mggg}{%
+    \IfNoValueTF{#2}{\gradone{#1}}{\IfNoValueTF{#3}{\newmaskgradtwo{#1}{#2}}{\IfNoValueTF{#4}{\newmaskgradthree{#1}{#2}{#3}}{\newmaskgradfour{#1}{#2}{#3}{#4}}}}
+}
+
+
+
+\newcommand{\newmaskgradcons}[3]{\nabla_{\x{#2}} F_{#1}^{[\gamma_{#3-1}':\gamma_{#3}']} \bracket{\x{#2} \odot \mask{#1}{#2} \bracket{\x{#2}}}}
+
+
+
+\newcommand{\outergrad}[2]{\nabla_{\x{#2}} F_{#1}\bracket{\x{#2}} \odot \mask{#1}{#2} \bracket{\x{#2}}}
+\newcommand{\outergradgamma}[2]{\nabla F_{#1}^{[0: \gamma_{#1}]}\bracket{\x{#2}}}
+
+\newcommand{\innergradgamma}[2]{\nabla_{\x{#2}} F_{#1}^{[0: \gamma_{#1}]}\bracket{\x{#2} \odot \mask{#1}{#2} \bracket{\x{#2}}}}
+\newcommand{\innergradgammathree}[3]{\nabla_{\x{#1}{#2}{#3}} F_{#1}^{[0: \gamma_{#1}]}\bracket{\x{#1}{#2}{#3} \odot \mask{#1}{#2} \bracket{\x{#1}{#2}{#3}}}}
+
+
+
+\newcommand{\globaloutergrad}[2]{\nabla F\bracket{\x{#2}} \odot \mask{#1}{#2} \bracket{\x{#2}}}
+\newcommand{\globaloutergradmask}[3]{\nabla F^{[\gamma_{#3-1}': \gamma_{#3}']}\bracket{\x{#2}} \odot \mask{#1}{#2} \bracket{\x{#2}}}
+
+\newcommand{\globaloutergradgamma}[2]{\nabla F^{[0: \gamma_{#1}]}\bracket{\x{#2}}}
+
+\newcommand{\globaloutergradgammacons}[2]{\nabla F^{[\gamma_{#1-1}': \gamma_{#1}']}\bracket{\x{#2}}}
+
+\newcommand{\localoutergammacons}[3]{\nabla F_{#1}^{[\gamma_{#3-1}': \gamma_{#3}']}\bracket{\x{#2}} \odot \mask{#1}{#2} \bracket{\x{#2}} }
+% \newcommand{\localoutergammacons}[3]{\nabla_{\x{#2}} F_{#1}^{[\gamma_{#3-1}': \gamma_{#3}']}\bracket{\x{#2}} \odot \mask{#1}{#2} \bracket{\x{#2}} }
+
+\newcommand{\globaloutergradgammaconsthree}[3]{\nabla F_{#3}^{[\gamma_{#1-1}': \gamma_{#1}']}\bracket{\x{#2}}}
+\NewDocumentCommand\gggamma{mgg}{%
+    \IfNoValueTF{#2}{\gradone{#1}}{\IfNoValueTF{#3}{\globaloutergradgammacons{#1}{#2}}{\globaloutergradgammaconsthree{#1}{#2}{#3}}}
+}
+
+\title{\algo: Model-Heterogeneous Federated Learning via Importance-Aware Submodel Extraction}
+
+
+% The \author macro works with any number of authors. There are two commands
+% used to separate the names and addresses of multiple authors: \And and \AND.
+%
+% Using \And between authors leaves it to LaTeX to determine where to break the
+% lines. Using \AND forces a line break at that point. So, if LaTeX puts 3 of 4
+% authors names on the first line, and the last on the second line, try using
+% \AND instead of \And before the third author name.
+
+
+
+\author{%
+  Feijie Wu$^1$, Xingchen Wang$^1$, Yaqing Wang$^2$, Tianci Liu$^1$, Lu Su$^1$, Jing Gao$^1$ \\
+  % Department of Computer Science\\
+  $^1$Purdue University \quad
+  $^2$Google DeepMind \\
+  \texttt{\{wu1977, wang2930, liu3351, lusu, jinggao\}@purdue.edu} \\
+  \texttt{yaqingwang@google.com}
+  % examples of more authors
+  \And
+  % Xingchen Wang \\
+  % Purdue University \\
+  % Address \\
+  % \texttt{email} \\
+  % \AND
+  % Coauthor \\
+  % Affiliation \\
+  % Address \\
+  % \texttt{email} \\
+  % \And
+  % Coauthor \\
+  % Affiliation \\
+  % Address \\
+  % \texttt{email} \\
+  % \And
+  % Coauthor \\
+  % Affiliation \\
+  % Address \\
+  % \texttt{email} \\
+}
+
+
+\graphicspath{{kdd_figures/}}
+
+\begin{document}
+
+
+\maketitle
+
+
+\begin{abstract}
+{In federated learning (FL), accommodating clients' varied computational capacities poses a challenge, often limiting the participation of those with constrained resources in global model training.  To address this issue, the concept of model heterogeneity through submodel extraction has emerged, offering a tailored solution that aligns the model's complexity with each client's computational capacity. In this work, we propose Federated Importance-Aware Submodel Extraction (\algo), a novel approach that dynamically adjusts submodels based on the importance of model parameters, thereby overcoming the limitations of previous static and dynamic submodel extraction methods.  Compared to existing works, the proposed method offers a theoretical foundation for the submodel extraction and eliminates the need for additional information beyond the model parameters themselves to determine parameter importance, significantly reducing the overhead on clients. Extensive experiments are conducted on various datasets to showcase the superior performance of the proposed \algo.}
+\end{abstract}
+
+
+\section{Introduction} \label{sec:introduction}
+
+Federated learning (FL) \cite{konevcny2016federated, mcmahan2017communication} stands out as a promising distributed training paradigm, in which the clients enjoy mutual information without jeopardizing data privacy. Specifically, the FL server requests the clients to train a model with their local data and aggregates the models into a global one. Such a paradigm, however, may fail in a real-world FL system, where the clients usually have varying computation capacities \cite{li2019online, diao2020heterofl, lin2020ensemble}, likely preventing the clients with insufficient computation resources from being involved in training a large global model \cite{wu2024fedbiot}. 
+
+To tackle the challenge, a practical solution is to enable model heterogeneity, ensuring that the model deployed on each individual client aligns with its local computation capacity. This can be done by extracting a submodel for each client from the global model, which encompasses a subset of the parameters of the global model. During the model training period, the parameters of each submodel are thereby retrieved from the counterpart of the global model. Importantly, each parameter of the global model is exclusively averaged among the submodels containing it \cite{diao2020heterofl}. 
+
+\begin{figure*}
+  \centering
+  \subfloat{\label{subfig:(demo_a)}{}
+  \includegraphics[width=.99\textwidth]{demo3.pdf}}
+  \subfloat{\label{subfig:(demo_b)}}{}
+  \subfloat{\label{subfig:(demo_c)}}{}
+  \vspace{-10px}
+  \caption{\textcolor{black}{Three types of submodel extraction for model training, i.e., static, dynamic, and importance-aware (ours). The figure demonstrates the global model on the server and the local models of two consecutive rounds on a client. Note that solid lines represent the parameters preserved in the local model, while dash lines indicate the parameters excluded from the local model. In importance-aware submodel extraction, we present the importance of the parameters via the line thickness .}}
+  \label{fig:demo}
+  \vspace{-10px}
+\end{figure*}
+
+Depending on whether the submodels undergo reconstruction during the model training process, existing works fall into two categories: static submodel extraction \cite{diao2020heterofl, kim2022depthfl, kang2023nefl, wang2023flexifed, ilhan2023scalefl, yi2024fedp, shulgin2023towards} and dynamic submodel extraction \cite{caldas2018expanding, horvath2021fjord, alam2022fedrolex, liao2023adaptive, chen2023efficient}. 
+
+Static submodel extraction creates a submodel for each client prior to the model training process. As illustrated in Figure \ref{subfig:(demo_a)}, the submodel remains unchanged throughout the training process. However, static submodel extraction suffers from certain limitations that affect both local clients and global performance. Locally, the metrics or knowledge used to extract a submodel for each client are likely to evolve during the training process. Since static submodels do not account for this evolution, they may fail to achieve optimal performance. Globally, the extractions of submodels from certain parts may incur client drift during the training, as pointed out by \citet{alam2022fedrolex} and \citet{liao2023adaptive}. This phenomenon emerges when the clients update their submodels biased to their local optima, thereby deviating from the global optimum. As a result, it either degrades the training efficiency or leads to a surrogate convergence on a global scale~\cite{wang2020tackling, karimireddy2020scaffold}.
+
+Dynamic submodel extraction updates each submodel dynamically in each training round, and thus is able to capture the evolution of the global model. For example, FedRolex \cite{alam2022fedrolex} employs a rolling-based submodel extraction approach, addressing client drift by ensuring equal chances for training each parameter as shown in Figure \ref{subfig:(demo_b)}. While the method demonstrates significant performance improvement over static submodel extraction in terms of the global model, it sacrifices the submodels' performance. This is because FedRolex treats every parameter equally, leading to a lack of clear guidance on submodel extraction. 
+
+To overcome the limitations of the above methods, in this paper, we propose \underline{F}ederated \underline{I}mportance-\underline{A}wa\underline{R}e \underline{S}ubmodel \underline{E}xtraction, named \algo, for model-heterogeneous FL. Specifically, the proposed \algo method extracts the submodels based on the importance levels of model parameters. Here important parameters are the edges of the neural network that can induce dramatic changes in the final outputs when removed. 
+
+Figure \ref{subfig:(demo_c)} visually illustrates the submodels extracted by \algo. As demonstrated, \algo constructs a submodel by sequentially incorporating parameters in descending order of their importance levels (represented by the thickness of the edges in the model), from highest to lowest, until the client’s maximum computation capacity is reached. In contrast to static submodel extraction, our approach enables dynamic updates of the submodels, thereby effectively capturing the evolving nature of model parameters. When compared to rolling-based submodel extraction, \algo adaptively identifies important parameters, ensuring outstanding performance for both the global model and local submodels. Referring back to the model shown in Figure~\ref{fig:demo}, the edges connecting the leftmost neuron at the second layer are indicative of important parameters. However, the rolling-based submodel extraction method would roll these parameters out of the submodel in round $t+1$ (as shown in Figure \ref{subfig:(demo_b)}), resulting in inadequate training on these crucial parameters. In contrast, our proposed method can identify and retain these important parameters in the training process, as illustrated in Figure~\ref{subfig:(demo_c)}.
+
+% \vspace{-10px}
+\paragraph{Contributions.} The contributions of this paper can be highlighted from the following perspectives: 
+\begin{itemize}[leftmargin=1em]
+% [leftmargin=.6em]
+\item \textbf{Algorithmically}, we propose an importance-aware framework for model-heterogeneous federated learning. This framework can construct a client-specific submodel calibrated to each client's computation and storage capacity. It achieves this by representing the importance level of each model parameter with its magnitude, thereby avoiding additional storage or computational overhead needed to explicitly maintain the importance scores.
+\item \textbf{Theoretically}, we prove that the proposed algorithm converges at a rate of $O\left(1/\sqrt{T}\right)$, where $T$ is the number of communication rounds. This convergence rate is consistent with that of the state-of-the-art FL algorithms, indicating that the proposed submodel construction mechanism does not undermine the convergence properties. To the best of our knowledge, this is the first study to provide a theoretical analysis for model-heterogeneity FL under partial-client participation.
+\item \textbf{Empirically}, we conduct extensive experiments on image and text classification tasks, employing a training-from-scratched model ResNet, and a pretrained model RoBERTa. The results verify that \algo significantly outperforms existing approaches, particularly on the clients with limited capacity. The superior performance on resource-constrained devices demonstrates \algo's advantages in efficiently adapting submodels to meet diverse capabilities.
+\end{itemize}
+
+\section{Related Work}
+This section discusses the state-of-the-art works that are most relevant to our research. Appendix \ref{appendix:related_work} provides a more comprehensive review. 
+
+\paragraph{Computation Heterogeneity in FL.}  
+Computation heterogeneity in FL refers to the varying computational capacities among clients, including differences in hardware capabilities and resource availability. One typical solution is to allow faster clients to perform more local updates, while slower ones update their local models fewer times \cite{wang2020tackling, li2020federated, mitra2021linear, luo2021cost, shin2022fedbalancer, wu2023deterioration}. However, these approaches require clients to train the full model, which becomes infeasible when some clients cannot load the full model due to limited computation resources. In our work, we extract a submodel for each client that fits within their computational capacity. 
+
+\paragraph{Model Customization in FL.}
+Model customization allows the clients to build their local models that align with their local computation resources \cite{lin2020ensemble, zhang2021parameterized, itahara2021distillation, cho2022heterogeneous, wang2023towards, zhang2023distill}. To aggregate these heterogeneous models, the method often employs distillation for knowledge transfer, which requires a shared public dataset. However, this approach becomes infeasible when a shared public dataset is unavailable \cite{stanton2021does, alballa2023first}. In our work, we eliminate the need for a public dataset, broadening its applicability to a wider range of scenarios.
+
+\paragraph{Model Sparsification in FL.}
+Model sparsification, also known as model pruning, removes the unimportant model parameters from a deep learning model, reducing computation overhead and tailoring model sizes to suit clients with varying computational resources \cite{zhou2023every, liao2023adaptive, chen2023efficient}. For example, Flado \cite{liao2023adaptive} achieves model sparsification by requiring each client to maintain the importance levels of model parameters and extracting a submodel that encompasses the most important model parameters. While effective, this method incurs considerable overhead on each client in terms of both storage and computation, posing significant challenges for resource-constrained devices. In contrast, our work implicitly represents parameter importance through their values, eliminating the need to maintain separate importance scores for each parameter.
+
+
+\section{Preliminary: Model-Heterogeneous Federated Learning} \label{sec:preliminary}
+
+\paragraph{Problem Formulation.} Consider there are $N$ clients in an FL system. The computation capacity of each client $i \in [N]$ is metered by the maximum ratio of a submodel extracted from the global model $\x{} \in \mathbb{R}^d$ and denoted by $\gamma_i \in [0, 1]$, and the values of $\gamma_i$ could vary among the clients. To enable submodel extraction, each client $i$ should assign a binary mask $\mask{i} \in \{0, 1\}^d$ such that $\|\mask{i}\|_1 \leq \gamma_i d$. Let $\mask$ be the collections of the clients' masks $\mask{i}$, i.e., $\mask = \cup_{i \in [N]} \mask{i} \in \{0, 1\}^{N \times d}$. To simultaneously optimize the model parameter and the clients' masks, the model-heterogeneity FL system is formulated as
+\begin{equation} \label{eq:problem}
+    \min_{\substack{\x{} \in \mathbb{R}^d, \mask \in  \{0, 1\}^{N \times d}}} F(\x{}, \mask) \defeq \frac{1}{N} \sum_{i \in [N]} \left[F_i \bracket{\x{} \odot \mask{i}} \defeq \E_{b \sim \mathcal{D}_i} \ell\bracket{\x{} \odot \mask{i}; bd} \right]. 
+\end{equation}
+Let $\mathcal{D}_i$ be the local dataset of client $i \in [N]$, $\ell$ be the loss function which calculates the loss for a model on a given data sample (including an input and a target). Therefore, the local objective $F_i(\cdot)$ in \eqref{eq:problem} indicates the expected loss for client $i$ on the local dataset. For simplicity, we consider all $N$ clients to carry equal weights (i.e., $1/N$) in \eqref{eq:problem}, and the proposed approach can be extended to the scenario where the clients are with different weights. 
+
+\paragraph{A Generic Solution: Partial Averaging.}
+There are numerous submodel extraction approaches, which are categorized into static and dynamic submodel extractions. However, these methods adopt partial averaging to aggregate clients' models into a global one, and the details are outlined as follows: At round $t \in \{0, 1, \dots\}$, 
+\begin{itemize}[leftmargin=.1in]
+    \item \textbf{Sampling:} The server randomly samples a subset of clients $\mathcal{A} \subset [N]$ and distributes the global model parameters $\x{t}$ to the selected clients.
+    \item \textbf{Local Model Training:} The clients $i \in \mathcal{A}$ performs $K$-times local updates via $\x{i}{t}{k} = \x{i}{t}{k-1} - \eta \grad{i}{t}{k-1}$, where $k \in \{1, \dots, K\}$ and $\x{i}{t}{0} = \x{t}$. It is noted that $\mask{i}{t}$ represents a binary mask for client $i$ at $t$-th round, which can be either predefined \cite{diao2020heterofl, alam2022fedrolex, ilhan2023scalefl, kang2023nefl} or determined by the client \cite{ yi2024fedp, liao2023adaptive, horvath2021fjord}.
+    \item \textbf{Global Model Aggregation:} The clients collect the model updates from the participants $\mathcal{A}$ and perform the global model aggregation via $\x{t+1} = \x{t} - \eta_s \textsf{Agg}_{i \in \mathcal{A}} \bracket{\x{i}{t}{K} - \x{t}}$. Given a set of $d$-dimension vectors $\boldsymbol{v}^{0}, \dots, \boldsymbol{v}^{|\mathcal{A}|-1} \in \mathbb{R}^d$, $\textsf{Agg}_{i \in \mathcal{A}}(\boldsymbol{v})$ is defined as: (i) For the $j$-th index, $\textsf{Agg}_{i \in \mathcal{A}}(\boldsymbol{v}_j) = \left(\sum_{i\in\mathcal{A}} \boldsymbol{v}^{i}_j\right)/\left(\sum_{i\in\mathcal{A}}\boldsymbol{1}\{\boldsymbol{v}^{i}_j\neq 0\}\right)$; (ii) $\textsf{Agg}_{i \in \mathcal{A}}(\boldsymbol{v}) = \cup_{j \in [d]} \textsf{Agg}_{i \in \mathcal{A}}(\boldsymbol{v}_j)$.  
+\end{itemize}
+
+\paragraph{Limitations.}
+The above solution adopts a consistent mask during local model training, which cannot obtain the optimal mask $\mask$ for various clients as \eqref{eq:problem} expects. Some recent works (e.g., Flado \cite{liao2023adaptive} and pFedGate \cite{chen2023efficient}) have proposed to capture the importance levels of each model parameter in achieving the objective of \eqref{eq:problem}, where a submodel consists of the most important parameters up to the maximum capacity of a client. In these works, the clients hold the importance scores for each model parameter and extract a submodel accordingly. After the local training of the submodel, the clients take an additional step to optimize the importance scores. Despite the effectiveness of these approaches, their feasibility is compromised due to the massive costs related to storage and computation. These approaches entail a minimum training memory and storage of $O(d)$ and $O(d)$ on client $i \in [N]$, respectively, while HeteroFL \cite{diao2020heterofl} ensures the training memory within $O(\gamma_i d)$ and does not require additional storage. Moreover, it is time-consuming to separate model parameters update and mask optimization into two steps. A work \cite{zhou2023every} attempts to simplify the process by means of greedy pruning, where a submodel consists of the parameters selected from the largest to the smallest absolute values. Apparently, this approach avoids mask optimization while evolving the submodel architectures since they are associated with model parameters. However, this work keeps the mask consistent during local model training, which does not make sense because an update of model parameters should lead to a different mask. 
+
+
+\section{\algo} \label{sec:algo}
+
+\paragraph{Solution Overview.} 
+
+In this work, we explore the correlation between the value of model parameters and their importance levels, leveraging the insights from previous research \cite{mostafa2019parameter, jayakumar2020top}. These studies reveal that the magnitude of model parameters can act as an indicator of their importance levels. This discovery offers an opportunity to simplify \eqref{eq:problem}. Given that our objective is to extract important parameters for submodel construction, we can approximate this goal by selecting larger parameters to build the submodel, rather than explicitly maintaining an importance score for each parameter.  Though simplified, the problem is still challenging since the model parameters themselves are also variables to be optimized. To address this challenge, in Section~\ref{subsec:mask_optim}, we will present a novel submodel construction method that can jointly select and optimize model parameters.
+
+Finally, Section \ref{subsec:description} introduces our proposed FL algorithm \algo that seamlessly integrates the submodel construction method and optimizes the global model. In detail, the clients optimize the model parameters $\x{}$ by leveraging the submodel construction method. The server subsequently aggregates these optimized models from the clients and initiates a new training round. Given that the collected model parameters inherently reflect their importance levels, the aggregated global model parameters also effectively capture their importance from a global perspective.  Algorithm \ref{algo} concisely presents the pseudocode of \algo. 
+
+\subsection{Submodel Construction} \label{subsec:mask_optim}
+
+As highlighted in the overview, the insight that the values of model parameters are correlated with their importance allows us to reframe the problem of submodel construction. Intuitively, by controlling the number of parameters included in the submodel, we can ensure the computation and/or storage costs of the submodel not exceed the budget of the clients. To achieve this, we establish a threshold for the model parameters based on each client's capacity. Only those parameters whose values exceed this threshold are included in the respective client's submodel. 
+Thanks to the correlation between a parameter's value and its importance level, this approach ensures that the parameters included in the submodel are of greater importance than those that are excluded. This idea can be implemented by converting the mask variable in \eqref{eq:problem} into a function of the parameter values:
+\begin{equation} \label{eq:fp}
+    \min_{\substack{\x{} \in \mathbb{R}^d}} F(\x{}, \mask(\x{})) \defeq \frac{1}{N} \sum_{i \in [N]} F_i \bracket{\x{} \odot \mask{i}(\x{})}, \quad \text{where} \quad \mask{i}\bracket{\x{}} = \begin{cases}
+        1, & |\x{}| \geq \theta_i \\
+        0, & |\x{}| < \theta_i
+    \end{cases}, 
+\end{equation}
+where $\mask{i}(\cdot)$ represents the mask function of client $i \in [N]$ and incorporates the threshold $\theta_i$ on a given model such that $\|\mask{i}\bracket{\x{}}\|_1 \leq \gamma_i d$; and $\mask(\cdot)$ is the collections of all local mask functions. 
+As seen, the problem projects parameter importance to parameter values and thus can achieve parameter selection and model training through optimizing solely the parameter values.
+
+Now the question is how to determine the threshold for \eqref{eq:fp}. In general, the threshold abides by the clients' local computation/storage capacity. Towards this end, we determine the value using $\textsf{TopK}_{\gamma}(\cdot)$ operation, which selects the top $\gamma$ values of the given vector. For simplicity, we discuss model-wise threshold selection strategies in this section, where the threshold $\theta_i$ is set for $\textsf{TopK}_{\gamma_i}(|\x{}|)$. Our proposed method is applicable for settings where different thresholds are assigned to different model parameters. Additional threshold selection strategies will be explored in Appendix \ref{appendix:threshold}.
+
+\paragraph{Threshold-Controlled Biased Gradient Descent (\module).} 
+
+We enhance \eqref{eq:fp} by integrating straight-through estimation (STE) \cite{bengio2013estimating, liu2022nonuniform}, where we assume the mask is labeled with 1 with a probability determined by $\textsf{clip}\left(\frac{|\x{j}| - \theta_i}{|\x{j}| + \theta_i}, 0, 1\right)$, where $\x{j}$ means $j$-th element of a $d$-dimension model parameter $\x{}$. Therefore, the gradient calculated in the backward propagation on client $i \in [N]$ process adheres to:
+\begin{equation} \label{eq:bp}
+    \nabla_{\x{}} F_i\bracket{\x{} \odot \mask{i}(\x{})} = \underbrace{\nabla F_i\bracket{\x{} \odot \mask{i}(\x{})} \odot \mask{i}(\x{})}_{\text{Threshold-controlled}} \odot \underbrace{\left(\boldsymbol{1} + \frac{2 |\x{}| \theta_i}{(|\x{}| + \theta_i)^2}\right)}_{\text{Biased}},
+\end{equation}
+% \vspace{-5pt}
+A detailed derivation of the above equality is provided in Appendix \ref{apdx:derivation}. There are two key differences in comparison with the gradient computation used by local training of partial averaging, i.e., $\nabla F_i\bracket{\x{} \odot \mask{i}}\odot \mask{i}$. First, the mask shifts with the model parameters changing. Second, the backward propagation considers the importance levels of model parameters and forms a biased gradient descent. This means the second term tries to make a clear border between the important and non-important parameters. 
+
+\paragraph{Effectiveness.} We analyze our proposed approach based on its two features, namely, threshold-controlled and biased gradient computations: 
+\begin{itemize}[leftmargin=1em]
+    \item \textbf{Threshold-controlled:} By comparing \eqref{eq:bp} with \eqref{eq:fp}, we notice that the parameters no less than the designated threshold will be updated. In other words, this gradient descent method only updates the parameters that are greater or equal to the given threshold, and those parameters that are initially smaller than the threshold never get updated. Obviously, the computation cost at each iteration remains constant or even smaller than the cost at the previous iterations. 
+
+    FL clients usually update the model for multiple iterations. According to the description above, the trained submodel is shrinking because some parameters may drop behind the threshold, while no new parameters are introduced to the submodel. Therefore, the proposed gradient descent method keeps the computation cost constant or even smaller than our expectation. 
+    \item \textbf{Biased:} Biasedness accelerates the update of the parameters near the threshold to distinguish their importance. In other words, less important parameters drop below the threshold and roll out, while the important ones continue to increase until stable. This feature guarantees the model parameters reflect their importance value by minimizing the existence of ambiguous parameters close to the threshold. In other words, the clients can easily identify the unimportant model parameters, facilitating the extraction of a submodel based on parameter values ranging from large to small until it aligns with a client's maximum computation capacity. 
+\end{itemize}
+
+We further integrate this submodel construction method into our proposed FL algorithm \algo and comprehensively discuss how threshold-controlled biased gradient descent benefits the model-heterogeneity FL in the next section. 
+
+\subsection{Algorithm Description} \label{subsec:description}
+
+\begin{wrapfigure}{R}{0.6\textwidth}
+\begin{minipage}{0.6\textwidth}
+\setlength{\textfloatsep}{0.1cm}
+\setlength{\floatsep}{0.1cm}\vspace{-20px}
+\begin{algorithm}[H]
+\caption{\algo}\label{algo}
+\begin{flushleft}
+\textbf{Input:} local learning rate $\eta_l$, global learning rate $\eta_s$, local updates $K$, initial model $\x{0}$. 
+\end{flushleft}
+\begin{algorithmic}[1]
+\For{$t = 0, 1, 2, \dots$}
+    \State Sample clients $\mathcal{A} \subseteq [N]$
+    \State Send $\{\x{t} \odot \mask{i}{t}\bracket{\x{t}}\}_{i \in \mathcal{A}}$ to clients $i \in \mathcal{A}$
+    
+    \For{$i \in \mathcal{A}$ \textbf{in parallel}}
+        \State Initialize $\x{i}{t}{0} = \x{t} \odot \mask{i}{t}(\x{t})$
+        \For{$k = 0, \dots, K-1$}
+            \State $\g{i}{t}{k+1} = \nabla_{\x{i}{t}{k}} F_i\bracket{\x{i}{t}{k} \odot \mask{i}{t}\bracket{\x{i}{t}{k}}}$
+            \State $\x{i}{t}{k+1} = \x{i}{t}{k} - \eta_l \cdot \g{i}{t}{k+1}$
+        \EndFor
+        \State $\Delta\x{i}{t} = \x{t} - \x{i}{t}{K}$
+        \State Send $\Delta\x{i}{t}$ to the server
+    \EndFor
+
+    
+    \State $\x{t+1} = \x{t} - \eta_s \cdot \textsf{Agg}_{i\in\mathcal{A}}\bracket{\Delta\x{i}{t}}$
+\EndFor
+\end{algorithmic}
+\end{algorithm}
+\setlength{\textfloatsep}{0.1cm}
+\setlength{\floatsep}{0.1cm}
+\vspace{-30pt}
+\end{minipage}
+\end{wrapfigure}
+
+In \algo, a global model is initialized with arbitrary parameters $\x{0} \in \mathbb{R}^d$ (a pretrained model is allowed, which can be regarded as a special case of an arbitrary model). 
+
+Partial client participation is one of the features of FL algorithms because the server is unlikely to handle all the communications from all clients, especially when the number of clients is considerably large \cite{li2019convergence, yang2020achieving, kairouz2021advances, wu2023anchor, chen2024space}. Therefore, we present our algorithm \algo in support of partial client participation: At the beginning of each communication round $t \in \{0, 1, \dots\}$, the server uniformly samples a group of clients from $[N]$ without replacement, denoted by $\mathcal{A}$, which consists of $A$ clients. Subsequently, the server broadcasts the submodels to the selected clients and collects and merges their updates into the global model. In the rest of the section, we comprehensively discuss the details of these steps and exemplify them with $t$-th round.
+
+\newcommand{\participant}{\mathcal{A}}
+
+\paragraph{Submodel Extraction on Server.} 
+Based on the set of participants $\mathcal{A}$, the server learns their computation capacities $\{\gamma_i\}_{i\in \mathcal{A}}$. Then, the server follows the threshold selection strategies described in Section \ref{subsec:mask_optim} and extracts the submodel for all participants according to their computation capacities. Take the model-wise threshold selection as an example and select a submodel for participant $i \in \participant$. The threshold is set for $\theta_i = \textsf{TopK}_{\gamma_i}(|\x{}|)$. Then, the server extracts a submodel encompassing the parameters $|\x{t}| \geq \theta_i$ and sends it to the participant. This procedure is equivalent to the expression in Line 3 of Algorithm \ref{algo}, i.e., $\x{t} \odot \mask{i}{t}\bracket{\x{t}}$. 
+
+
+\newcommand{\agg}[1]{\textsf{Agg}_{#1}}
+\paragraph{Local Training on Clients $i \in \participant$.} 
+After receiving the submodel from the server, we thereby initialize the local masking function $\mask{i}{t}(\cdot)$ for training, which implicitly includes the threshold $\theta_i$. The threshold will remain constant during the local training. As outlined in Line 7 -- 8, the client utilizes the \module to optimize the local model for $K$ iterations. In each iteration $k \in \{0, \dots, K-1\}$, the client utilizes the masking function to sort out the parameters that drop behind the threshold. Then, the client computes the gradient $\nabla_{\x{i}{t}{k}} F_i\bracket{\x{i}{t}{k} \odot \mask{i}{t}\bracket{\x{i}{t}{k}}}$ using \eqref{eq:bp} (Line 7) and updates the local model via $\x{i}{t}{k+1} = \x{i}{t}{k} - \eta_l \cdot \nabla_{\x{i}{t}{k}} F_i\bracket{\x{i}{t}{k} \odot \mask{i}{t}\bracket{\x{i}{t}{k}}}$ (Line 8). As discussed in Section \ref{subsec:mask_optim}, the training memory is bounded by $O(\gamma_i d)$, and there is no additional storage requirement. In contrast to other importance-aware works such as Flado, the proposed \algo is more feasible in practice. 
+
+\newcommand{\n}[1]{N_{\gamma_{#1}'}}
+\renewcommand{\a}[1]{\participant_{\gamma_{#1}'}}
+\newcommand{\partialgrad}[3]{\nabla F_{#1}^{[\gamma_{#2 - 1}':\gamma_{#2}']} \bracket{#3}}
+
+\paragraph{Aggregation on Server.} After the selected clients finish their local updates, the server aggregates the updates from the clients (Line 10 -- 11). Similar to the global model aggregation of partial averaging described in Section \ref{sec:preliminary}, \algo updates the global model via $\x{t+1} = \x{t} - \eta_s \cdot \textsf{Agg}_{i\in\mathcal{A}}\bracket{\Delta\x{i}{t}}$ (Line 13). A detailed description of the recursive function is placed in Appendix \ref{subap:lemma}. 
+
+Given that the global model starts with randomly initialized parameters, this aggregation not only updates the global model parameters but also aligns their values with their importance levels. In the next training round $t+1$, the \algo will return to Line 3, regenerating a submodel from the updated parameters, which is then sent back to the client. Since the values of the parameters represent better their importance levels than in the last training round, the newly generated submodel will contain more important parameters. The whole algorithm will then be repeated once again, resulting in a newly aggregated global model. This iterative process will progressively select important parameters and exclude unsignificant ones, steering the global model towards a state of convergence in which the importance of parameters is accurately represented. In the coming section, we theoretically analyze the convergence rate of the proposed \algo. 
+
+\section{Convergence Analysis} \label{sec:convergence} 
+
+Existing convergence analyses of FL algorithms predominantly rely on model-homogeneous settings \cite{wang2021field}. However, the exploration of model-heterogeneity FL remains inadequately addressed, with some studies \cite{zhou2023every, shulgin2023towards, wang2023theoretical, yi2024fedp} in this domain being recently introduced but relying on full client participation. This section aims to present a thorough convergence analysis of the proposed \algo under non-convex objectives. Specially, our analysis is established under the scenarios of model-heterogeneity FL where not all clients actively participate in the round-by-round training process.
+
+Before showing the convergence result, we make the following three assumptions: 
+
+\begin{assumption}[Masked-$L$-smoothness] \label{ass:l-smooth}
+For all $i \in [N]$, the local objectives $F_i$ are $L$-Lipschitz smooth with a differentiable mask function $\mask{i}$: For all $w, v \in \mathbb{R}^d$, 
+\begin{equation*}
+    \left\|\maskgrad{i}{w} - \maskgrad{i}{v}\right\|_2 \leq L \left\|w-v\right\|_2. 
+\end{equation*}
+\end{assumption}
+
+\begin{assumption}[Bounded Global Variance]\label{ass:variance}
+For all $i \in [N]$, the variance between local gradient $\nabla F_i(\cdot)$ and global gradient $\nabla F(\cdot)$ is bounded under the same model parameters: For all $w \in \mathbb{R}^d$, there exists a constant $\sigma_j \geq 0$ for all $j \in [n]$ such that
+\begin{equation*}
+\sum_{i \in \n{j}} \frac{1}{\left|\n{j}\right|} \norm{\partialgrad{i}{j}{w} - \partialgrad{}{j}{w}} \leq \sigma_j^2.
+\end{equation*}
+We further annotate $\sigma^2 = \sum_{j=0}^n \sigma_j^2$. 
+\end{assumption}
+
+\begin{assumption}[Masked Reduction] \label{ass:mask_reduction}
+For all $i \in [N]$, the mask-incurred error is bounded with respect to the model parameter $\x{t}$, $t = 0, 1, \dots$: There exists a scalar $\delta_t^2 \in [0, 1)$ at round $t$ such that
+\begin{equation*}
+    \norm{\nabla F_i(\x{t}) \odot \mask{i}(\x{t}) - \maskgrad{i}{\x{t}}} \leq \delta_t^2 \norm{\x{t}}.
+\end{equation*}
+\end{assumption}
+
+Lipschitz-smooth assumption has gained widespread acceptance in machine learning research, as evidenced by its incorporation in various studies such as \cite{ajalloeian2020convergence, zhou2023every, ma2021effective, bottou2018optimization, yang2020achieving, yang2022anarchic, wu2022sign}. Assumption \ref{ass:l-smooth} extends this assumption to a scenario where a binary mask is calculated based on the model parameters and subsequently applied to the model. The second assumption, widely made in the previous FL studies \cite{yang2020achieving, yang2022anarchic}, establishes bounds between the local objectives and the global objective due to the occurrence of non-i.i.d. data. Assumption \ref{ass:mask_reduction} draws inspiration from  \cite{zhou2023every, ma2021effective} and characterizes the masking performance by comparing gradients with and without the application of the mask. Notably, if $\mask{i}{t} = \boldsymbol{1}^d$ (i.e., setting the threshold for $\theta_i = 0$), then $\delta_t^2 = 0$. 
+
+With these three assumptions, we analyze the convergence rate of our proposed algorithm. Under non-convex objectives, our goal is to evaluate if the gradient norm can approach zero with respect to the model parameters $\x{}$ when the communication round $t \rightarrow \infty$. Theorem \ref{theo:algo} presents the convergence result of the proposed \algo, and a detailed proof is deferred to Appendix \ref{appendix:proof}. 
+
+\begin{theorem} \label{theo:algo}
+Suppose that Assumption \ref{ass:l-smooth}, \ref{ass:variance} and \ref{ass:mask_reduction} hold. We define $F(\x{}) \defeq F\bracket{\x{}, \boldsymbol{1}^{N \times d}}$, and $F(\x{}) \geq F_*$ for all $\x{} \in \mathbb{R}^d$. Let the local learning rate satisfy 
+\begin{equation*}
+\eta_l \leq \min \bracket{\frac{1}{2L\sqrt{K(K+1)}}, \frac{1}{6L\sqrt{(K+1) A}}, \frac{\eta_s}{9L}, \frac{1}{12 L \sqrt{KN}}, \frac{A}{32KNL \eta_s}}. 
+\end{equation*}
+Denote $T$ as the total communication rounds. Therefore, the convergence rate of \algo for non-convex objectives should be 
+% \vspace{-1pt}
+\begin{align} \label{eq:theorem_main}
+    \min_{t \in [T]} \norm{\nabla F\bracket{\x{t}}} \leq & \frac{8  \bracket{F(\x{0}) - F_*} N}{\eta_s \eta_l K A T} + \frac{64 N}{A} \eta_s \eta_l K L \sigma^2 + \frac{32N}{T} \sum_{t \in [T]} \delta_t^2 \norm{\x{t}}. 
+\end{align}
+\end{theorem}
+
+The aforementioned theorem assesses the potential convergence of the global model towards a stable solution when employing the proposed algorithm (\algo). This implies that the submodels utilized in the analysis may differ from those employed in updates at each iteration. Consequently, our analysis takes into account clients utilizing the complete model, with the difference relative to their local submodels being constrained by Assumption \ref{ass:mask_reduction}. This methodology aligns with the analytical framework advocated by \cite{zhou2023every}. Next, we set the appropriate learning rates to achieve optimal convergence properties regarding the number of communication rounds, as outlined in the corollary:
+
+\begin{corollary} \label{theorem}
+Suppose that Assumption \ref{ass:l-smooth}, \ref{ass:variance} and \ref{ass:mask_reduction} hold. We define $F(\x{}) \defeq F\bracket{\x{}, \boldsymbol{1}^{N \times d}}$, and $F(\x{}) \geq F_*$ for all $\x{} \in \mathbb{R}^d$. Let the local learning rate $\eta_l = \frac{1}{K\sqrt{T}}$, and the global learning rate $\eta_s =1$, where $T$ is the total communication rounds. Then, under non-convex objectives, \algo converges to a small neighborhood of a stationary point of standard FL as $T$ is large enough, i.e., 
+% \vspace{-1pt}
+\begin{align} \label{eq:corollary}
+    \min_{t \in [T]} \norm{\nabla F\bracket{\x{t}}} \leq  O\bracket{\frac{N}{A} \cdot \frac{F(\x{0}) - F_* + \sigma^2}{ \sqrt{T}}} + O\bracket{\frac{N}{T} \sum_{t \in [T]} \delta_t^2 \norm{\x{t}}}. 
+\end{align}
+% \vspace{-1pt}
+where we treat $L$ as constants. 
+\end{corollary}
+
+\begin{remark}
+
+Regarding the first term on the right-hand side (RHS) of \eqref{eq:corollary}, it approaches zero as $T$ tends to infinity. However, an intriguing question arises concerning the potential for the second term to reach zero, given that the norm $\norm{\x{t}}$ cannot be zero. According to Assumption \ref{ass:mask_reduction}, a straightforward case where $\delta_t$ is always zero occurs when all clients use the full model -- that is, when the threshold $\theta_i$ in equation \eqref{eq:bp} is set to zero in the proposed \algo. Therefore, under model-homogeneous federated learning (FL), our theorem aligns with state-of-the-art works \cite{karimireddy2020scaffold, yang2020achieving} in terms of the convergence rate, which focuses solely on the number of communication rounds $T$, i.e., $O\bracket{1/\sqrt{T}}$.
+
+For model-heterogeneous FL, it is noteworthy that $\delta_t$ may tend toward zero as $t \rightarrow \infty$, leading to $\frac{1}{T} \sum_{t=1}^{T} \delta_t^2 \norm{\x{t}}$ approaching zero. As explored by \cite{zhou2023every, ma2021effective, wang2023theoretical}, this occurs because the submodels can replicate the performance of the full model on all clients after a substantial number of communication rounds $T$. Consequently, our proposed algorithm can achieve a convergence rate of $O\bracket{\frac{N\sigma^2}{A\sqrt{T}}}$, as long as $\lim_{t \rightarrow \infty} \delta_t = 0$.
+
+Ignoring constant terms, the proposed \algo converges at a rate of $O\bracket{\sigma^2/\sqrt{T}}$ under full-client participation (i.e., $A = N$). Recently, some works have reported their convergence rates under model-heterogeneous FL with full-client participation, such as pruning-greedy \cite{zhou2023every} with a rate of $O\left(M\sigma^2/\sqrt{T}\right)$ and FedDSE \cite{wang2024feddse} with $O\left(K\sigma^2/\sqrt{T}\right)$. Evidently, our proposed method exhibits better theoretical performance. 
+
+\end{remark}
+
+
+\section{Experiments} \label{sec:experiments}
+
+
+\subsection{Setup} \label{subsec:exp_setup}
+
+\paragraph{Datasets and Models.} 
+We evaluate the proposed methodology using a combination of two computer vision (CV) datasets and one natural language processing (NLP) dataset. Specifically, we employ CIFAR-10 and CIFAR-100 datasets \cite{krizhevsky2009learning} for image classification, and the AGNews dataset \cite{zhang2015character} for text classification. For the first two datasets, we conduct training utilizing a ResNet-18 architecture \cite{he2016deep}, with modifications made by substituting its batch normalization (BN) layers with static BN counterparts \cite{diao2020heterofl}. For the AGNews dataset, we fine-tune a pre-trained RoBERTa-base model \cite{liu2019roberta}. 
+
+\paragraph{Data Heterogeneity.}  For CIFAR-10 and CIFAR-100, we follow \cite{hsu2019measuring, jhunjhunwala2022fedexp} and partition the datasets into 100 clients based on a Dirichlet distribution setting $\alpha = 0.3$. As for AGNews, we partition the datasets for 200 clients with Dirichlet distribution as well, but it is with the parameter of $\alpha=1.0$. Note that the server or clients do not use any public datasets during the training stage. In the testing phase, we refer to the superset of all clients' test datasets as a "global test dataset."
+
+\paragraph{System Heterogeneity.} 
+Specifically, the parameter $\gamma$ is defined as the ratio corresponding to the largest model that can be loaded onto a device. The experiments are conducted with four different model sizes represented by $\gamma' = \{1/64, 1/16, 1/4, 1.0\}$. The allocation of clients to each level is balanced. It's important to note that our proposed method is flexible and can accommodate varying numbers of complexity levels or client distributions.
+
+\paragraph{Implementation.}
+In this setting, we set the participation ratio to 10\% by default. We perform 800-round training on the CV tasks while running for 300 rounds on the NLP task. To avoid the randomness of the results, we averaged the results from three different random seeds. In the experiments, we report the results of all the baselines based on the best hyperparameter settings. Due to the space limitation, more experimental results and analysis are deferred to Appendix \ref{appendix:experiments}. Our code is released at \url{https://github.com/HarliWu/FIARSE}. 
+
+
+
+\begin{table*}[]
+\centering
+\renewcommand{\arraystretch}{1.1}
+\vspace{-5px}
+\caption{Test accuracy under four different submodel sizes. To be more specific, the columns from "Local" to "Model (1.0)" evaluate the test accuracy on the local test datasets, while "Global" evaluates the average test accuracy of the global model of four different sizes (1/64, 1/16, 1/4, 1.0) on the global test dataset. } \label{table:cv_4}
+\vspace{-5px}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{ccccccccccccccccc}
+\Xhline{1pt}
+\multirow{3}{*}{\makecell[c]{Method}} & \multicolumn{6}{c}{CIFAR-10} & & \multicolumn{6}{c}{CIFAR-100} & & \multicolumn{2}{c}{AGNews} \\ \cline{2-7}\cline{9-14}\cline{16-17}
+& Local & \makecell[c]{Model\\(1/64)} & \makecell[c]{Model\\(1/16)} & \makecell[c]{Model\\(1/4)} & \makecell[c]{Model\\(1.0)} & Global && Local & \makecell[c]{Model\\(1/64)} & \makecell[c]{Model\\(1/16)} & \makecell[c]{Model\\(1/4)} & \makecell[c]{Model\\(1.0)} & Global && Local & Global \\ \hline
+
+HeteroFL & 68.88 & 60.24 & 69.32 & 72.18 & 73.76 & 66.05 && 31.75 & 27.24 & 29.80 & 33.52 & 36.44 & 30.67 && 87.59 & 86.88    \\
+FedRolex & 67.18 & 54.60 & 64.96 & 70.08 & 79.08 & 65.98 && 31.67 & 21.00 & 30.84 & 36.44 & 38.40 & 29.89 && 87.43 & 87.19 \\
+ScaleFL & 72.10 & 69.04 & 71.64 & 70.08 & 77.64 & 67.37 && 39.69 & 36.16 & 40.48 & 42.56 & 39.56 & 37.56 && 88.02 & 87.66 \\
+\algo & \textbf{77.04} & \textbf{73.12} & \textbf{77.20} & \textbf{77.24} & \textbf{82.04} & \textbf{73.75} && \textbf{41.76} & \textbf{39.12} & \textbf{43.24} & \textbf{43.72} & \textbf{40.96} & \textbf{38.63} && \textbf{90.03} & \textbf{89.61}  \\
+   
+\Xhline{1pt}
+\end{tabular}%
+}
+\vspace{-8px}
+\end{table*}
+
+
+\begin{figure*}[t]
+    \centering
+    \begin{tabular}{cccc} 
+            \multicolumn{4}{c}
+            {\hspace{-8px}\includegraphics[width=\textwidth]{rebuttal_figure/hist_cifar10_4.pdf}} \\
+            \begin{minipage}[t]{0.22\textwidth}
+                \centering
+                \footnotesize  (a) HeteroFL Histogram
+            \end{minipage}
+            & 
+            \begin{minipage}[t]{0.22\textwidth}
+                \centering
+                \footnotesize (b) FedRolex Histogram
+            \end{minipage}
+            & 
+            \begin{minipage}[t]{0.22\textwidth}
+                \centering
+                \footnotesize(c) ScaleFL Histogram
+            \end{minipage}
+            & 
+            \begin{minipage}[t]{0.22\textwidth}
+                \centering
+                \footnotesize (d) \algo Histogram
+            \end{minipage}
+    \end{tabular}
+    \vspace{-5px}
+    \caption{Histograms of various submodel extraction methods on CIFAR-10 under four submodel sizes. Each histogram shows the number of clients achieving different levels of test accuracy.}
+    \label{fig:local_model_local_dataset}
+    \vspace{-15px}
+\end{figure*}
+
+
+\subsection{Submodel Performance on Local Dataset}
+In this setting, we evaluate the submodels' performance on each client's test datasets. To be specific, the local models are extracted from the global models. Figure \ref{fig:local_model_local_dataset} comprehensively illustrates the number of clients across different test accuracies. Among the four figures presented, all exhibit a left-skewed distribution, with the exception of FedRolex. This outcome aligns with our expectations, as FedRolex employs a rolling-based approach and is unable to concentrate on optimizing submodel performance on the local dataset, while the rest three approaches can spare efforts on a specific (HeteroFL and ScaleFL) or important (\algo) part, effectively addressing performance on local datasets. Among these three approaches, we notice that \algo stands out with the best results, showcasing superior performance as more clients achieve higher accuracy compared to the other two methods. The averaged results are also reported by Table \ref{table:cv_4} under the column of CIFAR-10 and "Local" to "Model (1.0)". Specifically, "Model (1/64)" to "Model (1.0)" shows the averaged local performances classified by the model sizes, and the "Local" shows the result by averaging across these four columns. Table \ref{table:cv_4} also presents the test accuracy of CIFAR-100 and AGNews. The proposed \algo achieves at least 2\% better than other baselines under these datasets.
+
+
+
+
+
+\subsection{Submodel Performance on Global Dataset} \label{subsec:submodel_global}
+
+
+\begin{figure*}[t]
+    \centering
+    \begin{tabular}{ p{\dimexpr 0.25\linewidth-2\tabcolsep} 
+                   p{\dimexpr 0.25\linewidth-2\tabcolsep} 
+                   p{\dimexpr 0.25\linewidth-2\tabcolsep} 
+                   p{\dimexpr 0.25\linewidth-2\tabcolsep}  } 
+            \multicolumn{4}{c}
+            {\hspace{-8px}\includegraphics[width=\textwidth]{rebuttal_figure/cifar10_4_sizes.pdf}} \\
+            \begin{minipage}[t]{0.22\textwidth}
+                \centering
+                \footnotesize  (a) Model Size 1/64
+            \end{minipage}
+            & 
+            \begin{minipage}[t]{0.22\textwidth}
+                \centering
+                \footnotesize (b) Model Size 1/16
+            \end{minipage}
+            & 
+            \begin{minipage}[t]{0.22\textwidth}
+                \centering
+                \footnotesize(c) Model Size 1/4
+            \end{minipage}
+            & 
+            \begin{minipage}[t]{0.22\textwidth}
+                \centering
+                \footnotesize (d) Model Size 1.0
+            \end{minipage}
+    \end{tabular}
+    
+    \begin{tabular}{cccc}
+            \multicolumn{4}{c}{\hspace{-8px}\includegraphics[width=\textwidth]{rebuttal_figure/cifar100_4_sizes.pdf}} \\
+            \begin{minipage}[t]{0.22\textwidth}
+                \centering
+                \footnotesize (e) Model Size 1/64
+            \end{minipage}
+            & 
+            \begin{minipage}[t]{0.22\textwidth}
+                \centering
+                \footnotesize (f) Model Size 1/16
+            \end{minipage}
+            & 
+            \begin{minipage}[t]{0.22\textwidth}
+                \centering
+                \footnotesize(g) Model Size 1/4
+            \end{minipage}
+            & 
+            \begin{minipage}[t]{0.22\textwidth}
+                \centering
+                \footnotesize (h) Model Size 1.0
+            \end{minipage}
+    \end{tabular}
+    
+    \vspace{-5px}
+    \caption{Comparison of test accuracy across communication rounds for different submodel extraction strategies under four varying model sizes (1/64, 1/16, 1/4, 1.0) on global test datasets of CIFAR-10 (upper, a -- d) and CIFAR-100 (lower, e -- h).}
+    \label{fig:size_cifar10_4}
+    \vspace{-15px}
+\end{figure*}
+
+In this setting, we evaluate the performance of submodels with various sizes on the global test dataset to assess the generalizability of our proposed algorithm. Table \ref{table:cv_4} presents the results of two CV datasets and one NLP dataset under the column "Global". In conjunction with Figure \ref{fig:size_cifar10_4}, our proposed method \algo constantly outperforms other baselines in all submodels with different sizes by a substantial margin. Figure \ref{fig:size_cifar10_4} dives into the details of training and shows the test accuracy trend throughout the communication rounds. Consider the submodels are expected to surpass a 70\% test accuracy threshold.  As previously discussed, \algo ultimately achieves superior test accuracy compared to other baselines. Across model sizes of \{1/64, 1/16, 1/4\}, our proposed method requires fewer rounds to reach the targeted accuracy compared to other baselines. While the performance disparity between \algo and FedRolex is less discernible under the full model (Model (1.0)), both methods significantly outpace static submodel extraction approaches in achieving 70\% accuracy. In summary, the proposed method stands out by attaining the desired submodels with the fewest rounds among the approaches implemented in this section.
+
+
+\subsection{Unparticipated Clients Performance}
+
+
+
+The above evaluations are conducted on the clients who participated in the training process. However, a more general scenario includes clients who skip the training phase but need models to process newly arrived data. In such cases, our algorithm can enable the server to customize models from the trained global model for them. Same as the expression in Line 3 of Algorithm \ref{algo}, the server extracts a submodel encompassing the parameters $|\x{t}| \geq \theta_i$ and sends it to the client. Note that the unparticipated clients could have capacities different from that of any client involved in the training. 
+
+\begin{wrapfigure}{r}{0.43\textwidth}
+\centering
+\centering
+\includegraphics[width=0.99\linewidth]{acc_size_cifar10_4.pdf}
+\vspace{-15px}
+\caption{Comparison of test accuracy across different submodel sizes for different submodel extraction methods on a global test dataset of CIFAR-10. }
+\label{fig:unseen_model_global_dataset}
+\vspace{-10px}
+\end{wrapfigure}
+
+In Figure \ref{fig:unseen_model_global_dataset}, we employ our algorithm as well as the baselines to extract submodels with different sizes and compare their performance on unparticipated clients. Generally, the performances of all methods increase as the size of extracted submodels grows. Our algorithm consistently outperforms the baseline methods. In contrast, alternative approaches, particularly static ones like HeteroFL and ScaleFL, suffer from more significant drops in performance. For the case of extracting a submodel that is much smaller than the minimum size involved in the training stage, our proposed method demonstrates remarkable superiority, outperforming existing works by at least 10\%.
+
+
+
+
+\section{Conclusion} \label{sec:conclusion}
+
+This work introduces an algorithm for model-heterogeneity FL, named \algo, that utilizes importance-aware operation to extract various sizes of submodels. In detail, we utilize \module that is able to optimize the clients' local parameters to reflect their importance levels. Subsequently, we provide a theoretical analysis and highlight that the proposed work can converge to a neighborhood of a stationary point at the rate of $O\bracket{1/\sqrt{T}}$, where $T$ is the number of communication rounds. Extensive experiments are conducted on ResNet-18 and Roberta-base that demonstrate the significant superiority of our proposed method over the state-of-the-art works. 
+
+The proposed approach relies on exploiting model sparsity, which is conditionally supported by some hardware. In light of this limitation, one of the future works is to investigate neuron-wise importance-aware submodel extraction, a method that calculates the importance level of neurons without depending on additional information.
+
+\section*{Broader Impact}
+This work addresses model heterogeneity in federated learning due to varying computational capacities among clients. The proposed method enhances the efficiency of on-device training and reduces computation and energy demands, which is particularly significant for resource-constrained devices like smartphones in real-world applications. Moreover, the method facilitates the practical deployment of federated learning systems in heterogeneous environments, making them more accessible and scalable.
+
+
+\section*{Acknowledgements}
+The authors would like to thank the anonymous reviewers for their constructive comments. This work is supported in part by the US National Science Foundation under grants NSF IIS-1747614, NSF IIS-2226108, and NSF CNS-2154059. Any opinions, findings, and conclusions or recommendations expressed in this material are those of the author(s) and do not necessarily reflect the views of the National Science Foundation. 
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\appendix
+
+\allowdisplaybreaks
+
+\newpage
+\section{Related Work} \label{appendix:related_work}
+
+\paragraph{Computation Heterogeneity in FL.}  
+Computation heterogeneity in FL has become a critical area of research due to the varying computational capacities of participating clients. In traditional FL setups, each client is expected to perform the same volume of computation, such as training on local datasets for a fixed number of iterations, regardless of their hardware capabilities or resource availability \cite{fang2022communication, fang2024hierarchical, he2023gluefl, wang2024fedcda, hu2024aggregation, wang2024fedhkd}. This assumption leads to inefficiencies, particularly when slower devices cause stragglers that delay model aggregation \cite{li2019convergence, wang2020tackling, hu2022gitfl}. Recent work has proposed adaptive aggregation strategies to handle computation heterogeneity by assigning different workloads or varying the number of local updates based on client resources, allowing faster clients to contribute more to the global model while slower clients contribute less frequently \cite{wang2020tackling, li2020federated, mitra2021linear, luo2021cost, shin2022fedbalancer, wu2023deterioration}. However, these works require the clients to train the full model, so they are infeasible when some of the clients cannot load the full model due to limited computation resources. In contrast, our work extracts a submodel for each client that fits within their computational capacity. 
+
+\paragraph{Model Customization in FL.} In addition to submodel extraction, another effective method for facilitating model heterogeneity is model customization \cite{lin2020ensemble, zhang2021parameterized, itahara2021distillation, cho2022heterogeneous, wang2023towards, zhang2023distill}. This approach allows clients to construct local models that align with their local computation resources. Since the clients' local models could be very distinct, the existing works implement model aggregation through the technique of knowledge distillation \cite{hinton2015distilling, wang2023dafkd, lin2020ensemble, zhang2022fine}. In detail, each client first locally trains its model on a shared public dataset, and then sends the model’s output (i.e., logits) to the server. The server gathers and aggregates clients’ outputs into a unified model output and broadcasts it to the clients \cite{wang2022fedkc}. Prior to the next round of local training, the clients thereby fine-tune the local models by incorporating the aggregated logits. Although the process effectively transfers knowledge across heterogeneous models, model customization requires a shared public dataset that should have a similar distribution with the clients' training data, which is unattainable in some cases \cite{stanton2021does, alballa2023first}. In our work, we do not require a public dataset, rendering it applicable to a broader range of applications.
+
+\paragraph{Model Sparsification in FL.} 
+Model sparsification, also known as model pruning, intrigues increasing research focuses with the introduction of lottery ticket hypothesis \cite{frankle2018lottery}. This hypothesis addresses the existence of a sparse submodel within a large model, capable of direct training to yield improved performance. Early works \cite{liu2015sparse, chen2018escoin, zhu2020taming} have explored sparse models to mitigate the computation overhead. Notably, the industry has recently achieved remarkable advancements in the development of hardware that facilitates the training and inference of sparse models \cite{kurtz2020inducing, hoefler2021sparsity, iofinova2022well, kurtic2023sparse}. 
+
+In the context of FL, two distinct strategies in search of an optimal sparse submodel: dense-to-sparse \cite{li2021fedmask, jiang2022model, isik2022sparse} and sparse-to-sparse \cite{mugunthan2022fedltn, seo2021communication, li2020lotteryfl, bibikar2022federated, dai2022dispfl}. These strategies are distinguished based on whether the global model starts at dense. In both approaches, clients initialize with a global model and iteratively train towards a sparse model to mitigate over-parameterization. Nonetheless, these methods face challenges when client computation capacities differ, particularly when loading the global model exceeds the maximum computation capacities of some clients. Consequently, there arises a need for algorithms capable of tailoring submodels to accommodate various client computation capacities. 
+
+An existing work, Flado \cite{liao2023adaptive}, realizes that the server tailors the submodels to align with various computation resources among clients. It achieves the performance trade-off between the global model and the clients' submodels by differentiating model parameters based on their importance levels. However, this advantage comes at the cost of requiring clients to explicitly maintain the importance score of each model parameter. This requirement, consequently, introduces a considerable overhead on each client in terms of both storage and computation, which imposes great challenges on resource-constrained devices. Contrasting with Flado, our \algo explores the correlation between a model parameter's importance level and its value. It implicitly represents the importance level through the parameter's value, thereby eliminating the need to explicitly maintain separate importance scores for each model parameter. 
+
+\newpage
+\section{Derivation of \eqref{eq:bp}} \label{apdx:derivation}
+
+Before deriving \eqref{eq:bp}, we should find a formula for $\frac{\partial\mathcal{M}^{(i)}}{\partial\tilde{x}}$:
+\begin{align}
+\frac{\partial\mathcal{M}^{(i)}}{\partial\tilde{x}}&=\bigcup_j \frac{\partial}{\partial\tilde{x}_j} \left(\frac{|\tilde{x}_{j}| - \theta_i}{|\tilde{x}_{j}| + \theta_i}\right)\cdot\boldsymbol{1}_{|\tilde{x}_{j}|\geq\theta_i}\\
+&=\bigcup_j \frac{\partial|\tilde{x}_j|}{\partial x_j} \cdot \frac{\partial}{\partial|\tilde{x}_j|} \left(\frac{|\tilde{x}_{j}| - \theta_i}{|\tilde{x}_{j}| + \theta_i}\right)\cdot\boldsymbol{1}_{|\tilde{x}_{j}|\geq\theta_i}\\
+&=\bigcup_j \frac{\partial|\tilde{x}_j|}{\partial x_j} \cdot \frac{2\theta_i}{(|\tilde{x}_{j}| + \theta_i)^2}\cdot\boldsymbol{1}_{|\tilde{x}_{j}|\geq\theta_i}
+\end{align}
+
+As defined in the paper, $\mathcal{M}^{(i)}=\cup_j \boldsymbol{1}_{|\tilde{x}_{j}|\geq\theta_i}$. Therefore, we can obtain \eqref{eq:bp} via
+\begin{align}
+\frac{\partial F_i(\tilde{x} \odot \mathcal{M}^{(i)})}{\partial\tilde{x}}&=\frac{\partial F_i(\tilde{x} \odot \mathcal{M}^{(i)})}{\partial\tilde{x} \odot \mathcal{M}^{(i)}} \cdot \frac{\partial \tilde{x} \odot \mathcal{M}^{(i)}}{\partial\tilde{x}}\\
+&=\frac{\partial F_i(\tilde{x} \odot \mathcal{M}^{(i)})}{\partial\tilde{x} \odot \mathcal{M}^{(i)}}\odot\left(\mathcal{M}^{(i)} + \tilde{x}\odot\frac{\partial\mathcal{M}^{(i)}}{\partial\tilde{x}}\right)\\
+&=\nabla F_i(\tilde{x} \odot \mathcal{M}^{(i)})\odot \mathcal{M}^{(i)}\left(1+\frac{2|\tilde{x}|\theta_i}{(|\tilde{x}| + \theta_i)^2}\right)
+\end{align}
+
+where $\odot$ is an element-wise product.
+
+\section{Proof of Theorem \ref{theorem}} \label{appendix:proof}
+
+Prior to giving detailed proofs of the theorems, we cover some technical lemmas in this section, and all of them are valid in general cases.
+
+\subsection{Useful Lemmas} \label{subap:lemma}
+
+\paragraph{Comprehensive description for the aggregation on the server.} Since \algo generates the submodel based on the parameter importance reflected by the magnitude of the model parameters, a submodel is nested within other submodels that are with a larger size. Given a set of model sizes $\{\gamma_i\}_{i \in [N]}$, we define a sorted set $\gamma' = \cup_{i \in [N]} \{\gamma_i\}$, where $0 < \gamma_0' < \dots < \gamma_{n-1}' \leq 1$ and $n = |\gamma'| \leq N$. Let us partition the global model $\x{t}$ into the disjoint submodels $\x{t, [0:\gamma_0']}$, $\x{t, [\gamma_0':\gamma_1']}$, $\dots$, $\x{t, [\gamma_{n-2}':\gamma_{n-1}']}$, $\x{t, [\gamma_{n-1}':1]}$. These models are separately held by a set of clients $\n{0} \supset \n{1} \supset \dots \supset \n{n-1} \supset \emptyset$. In round $t$, the server samples a set of clients $\participant$ to train the model, and these models are therefore held by $\a{0} \supseteq \a{1} \supseteq \dots \supseteq \a{n-1} \supseteq \emptyset$. Notably, the smallest submodel should be held by all clients, i.e., $\n{0} = [N]$, $\a{0}=\participant$.  Let us define $\agg{i \in \participant}\bracket{\Delta \x{i}{t}} = \cup_j \Bar{\Delta} \x{t, [\gamma_{j-1}':\gamma_{j}']}$, where  
+\begin{equation} \label{eq:pt_avg}
+\Bar{\Delta} \x{t, [\gamma_{j-1}':\gamma_{j}']} = \begin{cases}
+        \frac{1}{\left|\a{j}\right|} \sum_{i \in \a{j}} \Delta \x{i}{t, [\gamma_{j-1}':\gamma_{j}']}, &\left|\a{j}\right| \neq 0 \\
+        \boldsymbol{0}, &\left|\a{j}\right| = 0
+    \end{cases}
+\end{equation}
+Therefore, the global update follows $\x{t+1} = \x{t} - \eta_s \textsf{Agg}_{i \in \mathcal{A}} \bracket{\x{t} - \x{i}{t}{K}}$. Upon the description, we have the following lemma:
+
+\renewcommand{\r}{\mathbb{R}^d}
+\renewcommand{\v}[1]{v_{\left[\gamma_{#1-1}':\gamma_{#1}'\right]}}
+\begin{lemma} \label{lemma:1}
+For a vector $v \in \r$, we partition it into $n$ sets, where we present it in Table \ref{tab:client_set}.
+\begin{table}[h]
+    \renewcommand{\arraystretch}{1.2}
+    \centering
+    \caption{Vector Partition across Different Sizes. These notations are the same as the definition in \eqref{eq:pt_avg}. }
+    \begin{tabular}{l|c|c|c|c|c}
+    \hline
+        Submodel & $v_{\left[0:\gamma_{0}'\right]}$ & $v_{\left[\gamma_{0}':\gamma_{1}'\right]}$ & $\cdots$ & $v_{\left[\gamma_{n-2}':\gamma_{n-1}'\right]}$ & $v_{\left[\gamma_{n-1}':1\right]}$ \\\hline
+        Clients set & $\n{0}$ & $\n{1}$ & \dots & $\n{n-1}$ & $\emptyset$ \\\hline
+        Participation set & $\a{0}$ & $\a{1}$ & \dots & $\a{n-1}$ & $\emptyset$\\\hline
+    \end{tabular}
+
+    \label{tab:client_set}
+\end{table}
+Suppose we select an $A$-client set out of a total of $N$ clients $[N]$. Let us define that 
+\begin{equation}
+    \agg{i \in [N]} \bracket{v} = \bigcup_{j \in [n]} \frac{1}{\left|\n{j}\right|} \sum_{i \in \n{j}} \v{j}^{(i)}; \quad \agg{i \in \participant} \bracket{v} = \bigcup_{j \in [n]} \frac{1}{\left|\a{j}\right|} \sum_{i \in \a{j}} \v{j}^{(i)}. 
+\end{equation}
+Therefore, we have
+\begin{equation}
+    \E \agg{i \in \participant} \bracket{v} = \bigcup_{j \in [n]} \frac{1}{\left|\n{j}\right|} \cdot \frac{\binom{N}{A} - \binom{N - \left|\n{j}\right|}{A}}{\binom{N}{A}} \sum_{i \in \n{j}} \v{j}^{(i)}
+\end{equation}
+Specially, if $A > N - \left|\n{j}\right|$, we define $\binom{N - \left|\n{j}\right|}{A} = 0$. 
+\begin{proof}
+For a given submodel $v_{\left[\gamma_{j-1}':\gamma_{j}'\right]}$, there are $\left|\n{j}\right|$ clients holding the submodel. In other words, $\left(N - \left|\n{j}\right|\right)$ clients do not hold any parameters of $v_{\left[\gamma_{j-1}':1\right]}$. If a selected client $i \in \participant$ holds the submodel $v_{\left[\gamma_{j-1}':\gamma_{j}'\right]}$, it will be divided by an integer $k \in \{1, \dots, A\}$ (i.e., $\left|\a{j}\right| = k$) with a probability of $\frac{\binom{\left|\n{j}\right|-1}{k-1} \cdot \binom{N - \left|\n{j}\right|}{A - k}}{\binom{N}{A}}$. Therefore, this part is expected to obtain the following result after aggregation:
+\begin{align}
+    \E \agg{i \in \participant} \bracket{v_{\left[\gamma_{j-1}':\gamma_{j}'\right]}} &= \sum_{k=1}^{A} \frac{\binom{\left|\n{j}\right|-1}{k-1} \cdot \binom{N - \left|\n{j}\right|}{A - k}}{\binom{N}{A}} \cdot \frac{1}{k} \sum_{i \in \n{j}} \v{j}^{(i)} \\
+    & = \sum_{k=1}^{A} \frac{\binom{\left|\n{j}\right|}{k} \cdot \binom{N - \left|\n{j}\right|}{A - k}}{\binom{N}{A}} \cdot \frac{1}{\left|\n{j}\right|} \sum_{i \in \n{j}} \v{j}^{(i)}\\
+    & = \frac{\binom{N}{A} - \binom{N - \left|\n{j}\right|}{A}}{\binom{N}{A}} \cdot \frac{1}{\left|\n{j}\right|} \sum_{i \in \n{j}} \v{j}^{(i)}
+\end{align}
+By concatenating all $j \in [n]$, we can attain the desired results.
+\end{proof}
+\end{lemma}
+
+In addition to the above lemma, we provide a bound for $\frac{\binom{N}{A} - \binom{N - c}{A}}{\binom{N}{A}}$ and $\frac{\binom{N}{A} - \binom{N - c}{A}}{c \cdot \binom{N}{A}}$, where $c$ is an integer of $\{1, \dots, N-A\}$. 
+
+\begin{lemma} \label{lemma2: 2}
+Given $N$ and $A$ are two integers where $A \leq N$, and $c$ is an integer of $\{1, \dots, N-A\}$, the following two inequalities are always true:
+\begin{align}
+    \frac{A}{N} \leq  \frac{\binom{N}{A} - \binom{N - c}{A}}{\binom{N}{A}} \leq 1; \qquad \frac{\binom{N}{A} - \binom{N - c}{A}}{c \cdot \binom{N}{A}} \leq \frac{A}{N} \label{eq2:18}
+\end{align}
+\begin{proof}
+For the first inequality, the lower bound holds when $c=1$, while the upper bound constantly satisfies. 
+
+For the second inequality, we define $f(c) = \frac{\binom{N}{A} - \binom{N - c}{A}}{c \cdot \binom{N}{A}}$, and we aim to show that $f(c)$ is \textit{monotonically decreasing}.
+
+Toward the goal, we reduce and prove the following inequality holds:
+\begin{align}
+    & \frac{\binom{N}{A} - \binom{N - c}{A}}{c \cdot \binom{N}{A}} \leq  \frac{\binom{N}{A} - \binom{N - (c
+    -1)}{A}}{(c-1) \cdot \binom{N}{A}} \\
+    \iff \quad & c \cdot \binom{N - c
+    + 1}{A} - (c-1) \cdot \binom{N - c}{A} \leq \binom{N}{A}\\
+    \iff \quad & \frac{(N-c)!}{(N-c-A+1)!} \cdot \left(c(N-c+1) - (c-1)(N-c-A+1)\right) \leq \frac{N!}{(N-A)!A!} \\
+    \iff \quad & N + cA - c - A + 1 \leq (N - c - A + 1) \cdot \frac{\frac{N!}{(N-c)!}}{\frac{(N-A)!}{(N-A-c)!}} \\
+    \iff \quad & 1 + \frac{cA}{N - c - A + 1} \leq \prod_{i=0}^{c-1} \left(1 + \frac{A}{N - A - i}\right) \label{eq2:23}
+\end{align}
+Next, we show the establishment of \eqref{eq2:23} by mathematical induction:
+
+$\bullet$ When $c = 1$, we have $LHS = 1 + \frac{A}{N - A}$, while $RHS = 1 + \frac{A}{N - A}$. Apparently, the inequality holds. 
+
+$\bullet$ Let us assume that, when $c = k$, the conclusion holds, i.e., $1 + \frac{kA}{N - k - A + 1} \leq \prod_{i=0}^{k-1} \left(1 + \frac{A}{N - A - i}\right)$. 
+When $c = k+1$, we have 
+\begin{align}
+\prod_{i=0}^{k} \left(1 + \frac{A}{N - A - i}\right) &= \prod_{i=0}^{k-1} \left(1 + \frac{A}{N - A - i}\right) \cdot \left(1 + \frac{A}{N - A - k}\right)\\
+&\geq \left(1 + \frac{kA}{N - k - A + 1}\right) \cdot \left(1 + \frac{A}{N - A - k}\right) \\
+&\geq 1 + \frac{(k+1)A}{N - k - A}
+\end{align}
+This shows that the inequality (i.e., \eqref{eq2:23}) still holds, indicating that $f(c)$ is monotonically decreasing. As $c$ is an integer of $\{1, \dots, N-A\}$, we have
+\begin{align}
+    f(c) \leq f(1) = \frac{\binom{N}{A} - \binom{N - 1}{A}}{\binom{N}{A}} = \frac{A}{N}
+\end{align}
+Apparently, we can attain the desired results as mentioned in \eqref{eq2:18}. 
+\end{proof}
+\end{lemma}
+
+\subsection{Preliminary} 
+
+\begin{lemma} \label{lemma:2}
+Suppose that Assumption \ref{ass:l-smooth}, \ref{ass:variance} and \ref{ass:mask_reduction} hold. Let the local learning rate satisfy $\eta_l \leq \frac{1}{2L\sqrt{K(K+1)}}$. With \algo, we have the following conclusion: 
+\begin{align} \label{eq:12}
+    \frac{1}{N} \sum_{i \in [N]} \sum_{k=0}^{K-1} \E \norm{\x{i}{t}{k} - \x{t}} \leq 36 K^2 \eta_l^2 \bracket{\delta_t^2 \norm{\x{t}} + \sigma^2 + \norm{\grad{t}}}
+\end{align}
+\begin{proof}
+First, we establish a recursive relationship between $\E\norm{\x{i}{t}{k+1} - \x{t}}$ and $\E\norm{\x{i}{t}{k} - \x{t}}$: 
+\begin{align}
+&\quad\E\norm{\x{i}{t}{k+1} - \x{t}} = \E\norm{\x{i}{t}{k} -\eta_l \newmaskgrad{i}{t}{k} - \x{t}} \\
+&\leq \bracket{1 + \frac{1}{K}} \cdot \E\norm{\x{i}{t}{k} - \x{t}} + (1+K) \eta_l^2 \cdot \E\norm{\newmaskgrad{i}{t}{k}} \label{eq:14} \\
+&\leq \bracket{1 + \frac{1}{K}} \cdot \E\norm{\x{i}{t}{k} - \x{t}} \\
+&\quad + 4 (1+K) \eta_l^2 \cdot \E\norm{\newmaskgrad{i}{t}{k} - \newmaskgrad{i}{t}} \label{eq:16}\\
+&\quad + 4 (1+K) \eta_l^2 \cdot \E\norm{\newmaskgrad{i}{t} - \outergrad{i}{t}} \label{eq:17} \\
+&\quad + 4 (1+K) \eta_l^2 \cdot \E\norm{\outergrad{i}{t} - \globaloutergrad{i}{t}} \label{eq:18} \\
+&\quad + 4 (1+K) \eta_l^2 \cdot \E\norm{\globaloutergrad{i}{t}} \label{eq:19}
+\end{align}
+where the second term in \eqref{eq:14} is expanded to four parts: \eqref{eq:16}, \eqref{eq:17}, \eqref{eq:18}, and \eqref{eq:19}. Furthermore, applying Assumption \ref{ass:l-smooth} to \eqref{eq:16} and Assumption \ref{ass:mask_reduction} to \eqref{eq:17}, along with the equalities $\outergrad{i}{t} = \outergradgamma{i}{t}$ and $\globaloutergrad{i}{t} = \globaloutergradgamma{i}{t}$, we simplify the above inequality for
+\begin{align}
+&\E\norm{\x{i}{t}{k+1} - \x{t}} \\
+\leq &\bracket{1 + \frac{1}{K} + 4(1+K) \eta_l^2 L^2} \cdot \E\norm{\x{i}{t}{k} - \x{t}} \label{eq:20}\\
+& + 4(1+K) \eta_l^2 \bracket{\delta_t^2 \norm{\x{t}} + \E \norm{\outergradgamma{i}{t} - \globaloutergradgamma{i}{t}} + \E\norm{\globaloutergradgamma{i}{t}}} \label{eq:21}
+\end{align}
+
+Let $C$ be
+\begin{align}
+    C = \delta_t^2 \norm{\x{t}} + \E \norm{\outergradgamma{i}{t} - \globaloutergradgamma{i}{t}} + \E\norm{\globaloutergradgamma{i}{t}}. 
+\end{align}
+As $\eta_l \leq \frac{1}{2L\sqrt{K(K+1)}}$, we have 
+\begin{align} 
+\E \norm{\x{i}{t}{k+1} - \x{t}} &\leq \bracket{1 + \frac{2}{K}} \E\norm{\x{i}{t}{k} - \x{t}} + 4(1+K) \eta_l^2 \cdot C \\
+&\leq 4(1+K) \bracket{1 + \frac{2}{K}}^k \eta_l^2 \cdot C \\
+&\leq 36(1+K) \eta_l^2 \cdot C \label{eq:22}
+\end{align}
+\eqref{eq:22} holds because $\bracket{1 + \frac{2}{K}}^k \leq 9$ for all $k \in \mathbb{N}_{+}$. Therefore, for all $k \in [K]$, we have
+\begin{align}
+\E \norm{\x{i}{t}{k} - \x{t}} &\leq 36(1+K) \eta_l^2 \delta_t^2 \norm{\x{t}} \\
+&\quad + 36(1+K) \eta_l^2 \bracket{ \E \norm{\outergradgamma{i}{t} - \globaloutergradgamma{i}{t}} + \E\norm{\globaloutergradgamma{i}{t}}}.
+\end{align}
+With this  conclusion, we can bound the left-hand side of \eqref{eq:12}, which is 
+\begin{align}
+&\quad \frac{1}{N} \sum_{i \in [N]} \sum_{k=0}^{K-1} \E\norm{\x{i}{t}{k} - \x{t}} = \frac{1}{N} \sum_{i \in [N]} \sum_{k=1}^{K-1} \E\norm{\x{i}{t}{k} - \x{t}} \\
+&\leq \frac{36 K^2 \eta_l^2}{N} \sum_{i \in [N]} \bracket{\delta_t^2 \norm{\x{t}} + \E \norm{\outergradgamma{i}{t} - \globaloutergradgamma{i}{t}} + \E\norm{\globaloutergradgamma{i}{t}}} \label{eq:26}
+\end{align}
+Finally, by applying Assumption \ref{ass:variance} to \eqref{eq:26}, we achieve the desired conclusion. 
+\end{proof}
+\end{lemma}
+
+
+\begin{lemma} \label{lemma:3}
+Suppose that Assumption \ref{ass:l-smooth}, \ref{ass:variance} and \ref{ass:mask_reduction} hold. Let the local learning rate satisfy $\eta_l \leq \min \bracket{\frac{1}{2L\sqrt{K(K+1)}}, \frac{1}{6L\sqrt{(K+1) A}}}$. For any $t \in [T]$, $j\in\{0, \dots, n\}$, let $\boldsymbol{v}_{t}^{[\gamma_{j-1}':\gamma_{j}']}$ be
+\begin{align}
+\boldsymbol{v}_{t}^{[\gamma_{j-1}':\gamma_{j}']} = \globaloutergradgammacons{j}{t} - \frac{1}{\left|\n{j}\right| K}  \sum_{i \in \n{j}} \sum_{k=0}^{K-1} \newmaskgrad{i}{t}{k}{j} \label{eq2:47}
+\end{align}
+With \algo, we have the following conclusion: 
+\begin{align}
+\sum_{j=0}^n \frac{\binom{N}{A} - \binom{N - \left|\n{j}\right|}{A}}{\binom{N}{A}} \cdot \E\norm{\boldsymbol{v}_{t}^{[\gamma_{j-1}':\gamma_{j}']}} &\leq 4A\delta_t^2 \norm{\x{t}} + 72 K A \eta_l^2 L^2 \bracket{\sigma^2 + \norm{\grad{t}}}\label{eq:27} %\label{eq:28}
+\end{align}
+\begin{proof}
+In the beginning, let us define 
+\begin{align}
+\hat{\boldsymbol{g}}^{[\gamma_{j-1}':\gamma_{j}'] (i)}_{t} &= \gggamma{j}{t}{i} - \newmaskgradcons{i}{t}{j},\\
+\tilde{\boldsymbol{g}}^{[\gamma_{j-1}':\gamma_{j}'] (i)}_{t, k} &= \newmaskgrad{i}{t}{k}{j} - \newmaskgradcons{i}{t}{j}. \label{eq2:50}
+\end{align}
+According to \eqref{eq2:47}, $\boldsymbol{v}^{[\gamma_{j-1}':\gamma_{j}']}$ is equivalent to 
+\begin{align}
+\boldsymbol{v}_{t}^{[\gamma_{j-1}':\gamma_{j}']} = \frac{1}{\left|\n{j} \right|} \sum_{i \in \n{j}} \hat{\boldsymbol{g}}^{[\gamma_{j-1}':\gamma_{j}'] (i)}_{t} - \frac{1}{\left|\n{j} \right| K}  \sum_{i \in \n{j}} \sum_{k=0}^{K-1} \tilde{\boldsymbol{g}}^{[\gamma_{j-1}':\gamma_{j}'] (i)}_{t, k}
+\end{align}
+
+To find a bound for \eqref{eq:27}, we try to bound $\E\norm{\boldsymbol{v}}$ using generalized mean inequality and Cauchy–Shwarz inequality:
+\begin{align}
+\E\norm{\boldsymbol{v}_{t}^{[\gamma_{j-1}':\gamma_{j}']}} &\leq 2 \E \norm{\frac{1}{\left|\n{j} \right|} \sum_{i \in \n{j}} \hat{\boldsymbol{g}}^{[\gamma_{j-1}':\gamma_{j}'] (i)}_{t}} + 2 \E \norm{\frac{1}{\left|\n{j} \right| K}  \sum_{i \in \n{j}} \sum_{k=0}^{K-1} \tilde{\boldsymbol{g}}^{[\gamma_{j-1}':\gamma_{j}'] (i)}_{t, k}} \\
+&\leq 2 \frac{1}{\left|\n{j} \right|} \sum_{i \in \n{j}} \E\norm{ \hat{\boldsymbol{g}}^{[\gamma_{j-1}':\gamma_{j}'] (i)}_{t} } + 2 \frac{1}{\left|\n{j} \right| K}  \sum_{i \in \n{j}} \sum_{k=0}^{K-1} \E\norm{ \tilde{\boldsymbol{g}}^{[\gamma_{j-1}':\gamma_{j}'] (i)}_{t, k} } \label{eq:29}
+\end{align}
+With the inequality above, the LHS of \eqref{eq:27} is bounded by
+\begin{align}
+\sum_{j=0}^n \frac{\binom{N}{A} - \binom{N - \left|\n{j}\right|}{A}}{\binom{N}{A}} \cdot \E\norm{\boldsymbol{v}_{t}^{[\gamma_{j-1}':\gamma_{j}']}} \leq & 2 \sum_{j=0}^n \frac{\binom{N}{A} - \binom{N - \left|\n{j}\right|}{A}}{\binom{N}{A} \left|\n{j} \right|} \sum_{i \in \n{j}} \E \norm{ \hat{\boldsymbol{g}}^{[\gamma_{j-1}':\gamma_{j}'] (i)}_{t} } \\
+& + 2 \sum_{j=0}^n \frac{\binom{N}{A} - \binom{N - \left|\n{j}\right|}{A}}{\binom{N}{A} \left|\n{j} \right| K} \sum_{i \in \n{j}} \sum_{k=0}^{K-1} \E \norm{ \tilde{\boldsymbol{g}}^{[\gamma_{j-1}':\gamma_{j}'] (i)}_{t, k} } \label{eq2:55}
+\end{align}
+
+According to Lemma \ref{lemma2: 2}, we have
+\begin{align}
+\frac{\binom{N}{A} - \binom{N - \left|\n{j}\right|}{A}}{\binom{N}{A} \left|\n{j} \right|} \leq \frac{A}{N}.
+\end{align}
+Therefore, we further bound \eqref{eq2:55} for 
+\begin{align}
+&\sum_{j=0}^n \frac{\binom{N}{A} - \binom{N - \left|\n{j}\right|}{A}}{\binom{N}{A}} \cdot \E\norm{\boldsymbol{v}_{t}^{[\gamma_{j-1}':\gamma_{j}']}} \\
+\leq & \frac{2A}{N} \sum_{j=0}^n \sum_{i \in \n{j}} \E \norm{ \hat{\boldsymbol{g}}^{[\gamma_{j-1}':\gamma_{j}'] (i)}_{t} } + \frac{2A}{N K} \sum_{j=0}^n \sum_{i \in \n{j}} \sum_{k=0}^{K-1} \E \norm{ \tilde{\boldsymbol{g}}^{[\gamma_{j-1}':\gamma_{j}'] (i)}_{t, k} } \\
+= & \frac{2A}{N} \sum_{i \in [N]} \E\norm{ \hat{\boldsymbol{g}}^{[0:\gamma_{i}] (i)}_{t} } + \frac{2A}{NK} \sum_{i \in [N]} \sum_{k=0}^{K-1} \E\norm{ \tilde{\boldsymbol{g}}^{[0:\gamma_{i}] (i)}_{t, k} } \label{eq2:59}
+\end{align}
+where the last equation holds because the second norm is non-zero when the client $i \in [N]$ owns the part $[\gamma_{j-1}':\gamma_{j}'], j\in\{0, \dots, n\}$, and different parts (i.e., $[\gamma_{j-1}':\gamma_{j}']$ for different $j$s) are independent with each other when calculating the second norm. 
+
+With Assumption \ref{ass:mask_reduction} and Assumption \ref{ass:l-smooth}, we separately bound two terms in \eqref{eq2:59} for
+\begin{align}
+\norm{ \hat{\boldsymbol{g}}^{[0:\gamma_{i}] (i)}_{t} } \leq \delta_t^2 \norm{\x{t}}; \qquad \norm{ \tilde{\boldsymbol{g}}^{[0:\gamma_{i}] (i)}_{t, k} } \leq L^2 \norm{\x{i}{t}{k} - \x{t}}.
+\end{align}
+Therefore, With the inequality above, the LHS of \eqref{eq:27} is bounded by
+\begin{align}
+&\sum_{j=0}^n \frac{\binom{N}{A} - \binom{N - \left|\n{j}\right|}{A}}{\binom{N}{A}} \cdot \E\norm{\boldsymbol{v}_{t}^{[\gamma_{j-1}':\gamma_{j}']}}\\
+\leq & \frac{2A}{N} \sum_{i \in [N]} \delta_t^2 \norm{\x{t}} + \frac{2A}{NK} \sum_{i \in [N]} \sum_{k=0}^{K-1} L^2 \cdot \E\norm{\x{i}{t}{k} - \x{t}} \label{eq:42} \\
+\leq & 2A \delta_t^2 \norm{\x{t}} + 72 K A \eta_l^2 L^2 \bracket{\delta_t^2 \norm{\x{t}} + \sigma^2 + \norm{\grad{t}}} \label{eq2:63}
+\end{align}
+Since the learning rate meets the constraint of Lemma \ref{lemma:2}, \eqref{eq2:63} is obtained when Lemma \ref{lemma:2} applies. Furthermore, with the defined learning rate, we can attain the desired conclusion of \eqref{eq:27}.
+\end{proof}
+\end{lemma}
+
+
+\begin{lemma} \label{lemma:4}
+Suppose that Assumption \ref{ass:l-smooth}, \ref{ass:variance} and \ref{ass:mask_reduction} hold. Let the local learning rate satisfy $\eta_l \leq \min \bracket{\frac{1}{2L\sqrt{K(K+1)}}, \frac{1}{6L\sqrt{(K+1) A}}}$. With \algo, we have the following conclusion: 
+\begin{align}
+\E \norm{\x{t+1} - \x{t}} \leq 8 \eta_s^2 \eta_l^2 K^2 \bracket{A \delta_t^2 \norm{\x{t}} + \norm{\grad{t}} + \sigma^2}
+\end{align}
+\begin{proof}
+The recursive function of the global updates of \algo follows that 
+\begin{align}
+\x{t+1} - \x{t} = - \eta_s \eta_l \agg{i \in \participant} \bracket{\sum_{k=0}^{K-1} \newmaskgrad{i}{t}{k}}.
+\end{align}
+Let us define $\boldsymbol{g}_{t,k}^{[\gamma_{j-1}':\gamma_{j}'](i)}$ to be
+\begin{align}
+\boldsymbol{g}_{t,k}^{[\gamma_{j-1}':\gamma_{j}'](i)} = \newmaskgrad{i}{t}{k}{j}.
+\end{align}
+Therefore,
+\begin{align}
+\agg{i \in \participant} \bracket{\sum_{k=0}^{K-1} \newmaskgrad{i}{t}{k}} = \bigcup_{j \in [n]} \frac{1}{\left|\a{j}\right|} \sum_{i \in \a{j}} \sum_{k=0}^{K-1} \boldsymbol{g}_{t,k}^{[\gamma_{j-1}':\gamma_{j}'](i)}.
+\end{align}
+
+The bound for $\E \norm{\x{t+1} - \x{t}}$ is formulated and simplified as follows: 
+\begin{align}
+\E \norm{\x{t+1} - \x{t}} = &\E \sum_{j=0}^{n} \norm{\frac{\eta_s \eta_l}{\left|\a{j}\right|} \sum_{i \in \a{j}} \sum_{k=0}^{K-1} \boldsymbol{g}_{t,k}^{[\gamma_{j-1}':\gamma_{j}'](i)} } \\
+\leq & \eta_s^2 \eta_l^2 \cdot \E \sum_{j=0}^{n} \frac{K}{\left|\a{j}\right|} \sum_{i \in \a{j}} \sum_{k=0}^{K-1} \norm{\boldsymbol{g}_{t,k}^{[\gamma_{j-1}':\gamma_{j}'](i)}} \label{eq2:69} \\
+= & \eta_s^2 \eta_l^2 K \cdot \sum_{j=0}^{n} \sum_{i \in \n{j}} \sum_{k=0}^{K-1} \frac{1}{\left|\n{j}\right|} \cdot \frac{\binom{N}{A} - \binom{N - \left|\n{j}\right|}{A}}{\binom{N}{A}} \cdot \E \norm{\boldsymbol{g}_{t,k}^{[\gamma_{j-1}':\gamma_{j}'](i)}} \label{eq2:70} 
+\end{align}
+\eqref{eq2:69} is obtained based on Cauchy–Shwarz inequality, and \eqref{eq2:70} holds according to Lemma \ref{lemma:1}. 
+
+Let us define 
+\begin{align}
+\bar{\boldsymbol{g}}^{[\gamma_{j-1}':\gamma_{j}'](i)}_{t} &= \newmaskgradcons{i}{t}{j} - \localoutergammacons{i}{t}{j},\\
+\Ddot{\boldsymbol{g}}_{t}^{[\gamma_{j-1}':\gamma_{j}'](i)} &= \localoutergammacons{i}{t}{j} - \globaloutergradgammacons{j}{t}. 
+\end{align}
+Since
+\begin{align}
+\boldsymbol{g}_{t,k}^{[\gamma_{j-1}':\gamma_{j}'](i)} = \tilde{\boldsymbol{g}}^{[\gamma_{j-1}':\gamma_{j}'] (i)}_{t, k} + \bar{\boldsymbol{g}}^{[\gamma_{j-1}':\gamma_{j}'](i)}_{t} + \Ddot{\boldsymbol{g}}^{[\gamma_{j-1}':\gamma_{j}'](i)}_{t} + \globaloutergradgammacons{j}{t},
+\end{align}
+where $\tilde{\boldsymbol{g}}^{[\gamma_{j-1}':\gamma_{j}'] (i)}_{t, k}$ is defined in \eqref{eq2:50}, we bound $\norm{\boldsymbol{g}_{t,k}^{[\gamma_{j-1}':\gamma_{j}'](i)}}$ by splitting it into four terms: 
+\begin{align}
+& \norm{\boldsymbol{g}_{t,k}^{[\gamma_{j-1}':\gamma_{j}'](i)}} \\
+\leq & 4  \norm{ \tilde{\boldsymbol{g}}^{[\gamma_{j-1}':\gamma_{j}'] (i)}_{t, k} } + 4 \norm{ \bar{\boldsymbol{g}}^{[\gamma_{j-1}':\gamma_{j}'](i)}_{t} } + 4 \norm{ \Ddot{\boldsymbol{g}}_{t}^{[\gamma_{j-1}':\gamma_{j}'](i)} } + 4 \norm{\globaloutergradgammacons{j}{t}}.
+\end{align}
+Therefore, to bound \eqref{eq2:70}, we should analyze the following inequality, i.e., 
+\begin{align}
+&\sum_{j=0}^{n} \sum_{i \in \n{j}} \sum_{k=0}^{K-1} \frac{1}{\left|\n{j}\right|} \cdot \frac{\binom{N}{A} - \binom{N - \left|\n{j}\right|}{A}}{\binom{N}{A}} \cdot \E \norm{\boldsymbol{g}_{t,k}^{[\gamma_{j-1}':\gamma_{j}'](i)}} \\
+\leq & 4 \sum_{j=0}^{n} \sum_{i \in \n{j}} \sum_{k=0}^{K-1} \frac{1}{\left|\n{j}\right|} \cdot \frac{\binom{N}{A} - \binom{N - \left|\n{j}\right|}{A}}{\binom{N}{A}} \cdot \E \norm{ \tilde{\boldsymbol{g}}^{[\gamma_{j-1}':\gamma_{j}'] (i)}_{t, k} } \label{eq2:77} \\
+& + 4 K \cdot \sum_{j=0}^{n} \sum_{i \in \n{j}} \frac{1}{\left|\n{j}\right|} \cdot \frac{\binom{N}{A} - \binom{N - \left|\n{j}\right|}{A}}{\binom{N}{A}} \cdot \E\norm{ \bar{\boldsymbol{g}}^{[\gamma_{j-1}':\gamma_{j}'](i)}_{t} } \label{eq2:78} \\
+& + 4 K \cdot \sum_{j=0}^{n} \sum_{i \in \n{j}} \frac{1}{\left|\n{j}\right|} \cdot \frac{\binom{N}{A} - \binom{N - \left|\n{j}\right|}{A}}{\binom{N}{A}} \cdot \E\norm{ \Ddot{\boldsymbol{g}}_{t}^{[\gamma_{j-1}':\gamma_{j}'](i)} } \label{eq2:79} \\
+& + 4 K \cdot \sum_{j=0}^{n} \frac{\binom{N}{A} - \binom{N - \left|\n{j}\right|}{A}}{\binom{N}{A}} \cdot \E\norm{\globaloutergradgammacons{j}{t}}. \label{eq2:80}
+\end{align}
+There are four terms in the above inequality, i.e., \eqref{eq2:77}, \eqref{eq2:78}, \eqref{eq2:79}, and \eqref{eq2:80}. Subsequently, we analyze these four terms one by one. 
+
+$\bullet$ For \eqref{eq2:77}, we apply Lemma \ref{lemma2: 2} and obtain that
+\begin{align}
+\sum_{j=0}^{n} \sum_{i \in \n{j}} \sum_{k=0}^{K-1} \frac{1}{\left|\n{j}\right|} \cdot \frac{\binom{N}{A} - \binom{N - \left|\n{j}\right|}{A}}{\binom{N}{A}} \cdot \E \norm{ \tilde{\boldsymbol{g}}^{[\gamma_{j-1}':\gamma_{j}'] (i)}_{t, k} } \leq \frac{A}{N} \sum_{j=0}^{n} \sum_{i \in \n{j}} \sum_{k=0}^{K-1} \E \norm{ \tilde{\boldsymbol{g}}^{[\gamma_{j-1}':\gamma_{j}'] (i)}_{t, k} }.
+\end{align}
+In Lemma \ref{lemma:3}, we mention that 
+\begin{align}
+\sum_{j=0}^{n} \sum_{i \in \n{j}} \sum_{k=0}^{K-1} \E \norm{ \tilde{\boldsymbol{g}}^{[\gamma_{j-1}':\gamma_{j}'] (i)}_{t, k} } = \sum_{i \in [N]} \sum_{k=0}^{K-1} \E\norm{ \tilde{\boldsymbol{g}}^{[0:\gamma_{i}] (i)}_{t, k} }; \quad \norm{ \tilde{\boldsymbol{g}}^{[0:\gamma_{i}] (i)}_{t, k} } \leq L^2 \norm{\x{i}{t}{k} - \x{t}}.
+\end{align}
+Therefore, \eqref{eq2:77} is further bounded by
+\begin{align}
+\sum_{j=0}^{n} \sum_{i \in \n{j}} \sum_{k=0}^{K-1} \frac{1}{\left|\n{j}\right|} \cdot \frac{\binom{N}{A} - \binom{N - \left|\n{j}\right|}{A}}{\binom{N}{A}} \cdot \E \norm{ \tilde{\boldsymbol{g}}^{[\gamma_{j-1}':\gamma_{j}'] (i)}_{t, k} } \leq \frac{A L^2}{N} \sum_{i \in [N]} \sum_{k=0}^{K-1} \E\norm{\x{i}{t}{k} - \x{t}}. 
+\end{align}
+
+$\bullet$ Similarly, \eqref{eq2:78} is bounded for 
+\begin{align}
+\sum_{j=0}^{n} \sum_{i \in \n{j}} \frac{1}{\left|\n{j}\right|} \cdot \frac{\binom{N}{A} - \binom{N - \left|\n{j}\right|}{A}}{\binom{N}{A}} \cdot \E\norm{ \bar{\boldsymbol{g}}^{[\gamma_{j-1}':\gamma_{j}'](i)}_{t} } \leq \frac{A}{N} \sum_{i \in [N]} \E\norm{ \bar{\boldsymbol{g}}^{[0:\gamma_{i}](i)}_{t} }. 
+\end{align}
+In view that the non-zero part of $\nabla F_i^{[0: \gamma_i]}(\x{t})$ is equivalent to $\mask{i}{t}\bracket{\x{t}}$, we apply Assumption \ref{ass:mask_reduction} and attain that
+\begin{align}
+\norm{ \bar{\boldsymbol{g}}^{[0:\gamma_{i}](i)}_{t} } \leq \delta_t^2 \norm{\x{t}}. 
+\end{align}
+Therefore, the bound of \eqref{eq2:78} is 
+\begin{align}
+\sum_{j=0}^{n} \sum_{i \in \n{j}} \frac{1}{\left|\n{j}\right|} \cdot \frac{\binom{N}{A} - \binom{N - \left|\n{j}\right|}{A}}{\binom{N}{A}} \cdot \E\norm{ \bar{\boldsymbol{g}}^{[\gamma_{j-1}':\gamma_{j}'](i)}_{t} } \leq A \delta_t^2 \norm{\x{t}}. 
+\end{align}
+
+$\bullet$ For \eqref{eq2:79}, we apply $\frac{\binom{N}{A} - \binom{N - \left|\n{j}\right|}{A}}{\binom{N}{A}} \leq 1$ and Assumption \ref{ass:variance} and obtain
+\begin{align}
+\sum_{j=0}^{n} \sum_{i \in \n{j}} \frac{1}{\left|\n{j}\right|} \cdot \frac{\binom{N}{A} - \binom{N - \left|\n{j}\right|}{A}}{\binom{N}{A}} \cdot \E\norm{ \Ddot{\boldsymbol{g}}_{t}^{[\gamma_{j-1}':\gamma_{j}'](i)} }  \leq \sigma^2
+\end{align}
+
+$\bullet$ With $\frac{\binom{N}{A} - \binom{N - \left|\n{j}\right|}{A}}{\binom{N}{A}} \leq 1$, \eqref{eq2:80} is bounded and simplified for
+\begin{align}
+\sum_{j=0}^{n} \frac{\binom{N}{A} - \binom{N - \left|\n{j}\right|}{A}}{\binom{N}{A}} \cdot \E\norm{\globaloutergradgammacons{j}{t}} \leq \sum_{j=0}^{n} \E\norm{\globaloutergradgammacons{j}{t}} = \norm{\grad{t}}
+\end{align}
+
+In conclusion, \eqref{eq2:70} is bounded by
+\begin{align}
+& \sum_{j=0}^{n} \sum_{i \in \n{j}} \sum_{k=0}^{K-1} \frac{1}{\left|\n{j}\right|} \cdot \frac{\binom{N}{A} - \binom{N - \left|\n{j}\right|}{A}}{\binom{N}{A}} \cdot \E \norm{\boldsymbol{g}_{t,k}^{[\gamma_{j-1}':\gamma_{j}'](i)}} \\
+\leq & \frac{4A L^2}{N} \sum_{i \in [N]} \sum_{k=0}^{K-1} \E\norm{\x{i}{t}{k} - \x{t}} + 4 K A \delta_t^2 \norm{\x{t}} + 4K\sigma^2 + 4K \norm{\grad{t}}
+\end{align}
+By applying Lemma \ref{lemma:2}, we further simplify the inequality for 
+\begin{align}
+& \sum_{j=0}^{n} \sum_{i \in \n{j}} \sum_{k=0}^{K-1} \frac{1}{\left|\n{j}\right|} \cdot \frac{\binom{N}{A} - \binom{N - \left|\n{j}\right|}{A}}{\binom{N}{A}} \cdot \E \norm{\boldsymbol{g}_{t,k}^{[\gamma_{j-1}':\gamma_{j}'](i)}} \\
+\leq & 4 K A \bracket{1 + 36 \eta_l^2 K L} \delta_t^2 \norm{\x{t}} + 4 K \bracket{1 + 36 \eta_l^2 K A L} \sigma^2 + 4 K \bracket{1 + 36 \eta_l^2 K A L} \norm{\grad{t}}
+\end{align}
+By applying the above learning rate, we can attain the desired conclusion. 
+\end{proof}
+\end{lemma}
+
+\subsection{Main Proof of Theorem \ref{theo:algo}}
+
+As we set $F(\x{})$ with the mask $\mask = \boldsymbol{1}^{N \times d}$, Assumption \ref{ass:l-smooth} is reduced to the statement that for all $v, \bar{v} \in \mathbb{R}^d$, 
+\begin{equation*}
+    \|\nabla F_i(v) - \nabla F_i(\Bar{v})\|_2 \le L\|v-\Bar{v}\|_2, \quad \forall i \in [M].
+\end{equation*}
+Therefore, the global objective function $F(\cdot)$ is a L-smooth function. As a result, we have 
+\begin{align}
+    \E F(\x{t+1}) - F(\x{t}) \leq \E \innerproduct{\grad{t}}{\x{t+1} - \x{t}} + \frac{L}{2} \E\norm{\x{t+1} - \x{t}} \label{eq:46}
+\end{align}
+The iteration function in \algo follows that:
+\begin{itemize}
+    \item \textbf{Local updates:} 
+    \begin{align}
+        \x{i}{t}{k+1} = \x{i}{t}{k} - \eta_l \cdot \newmaskgrad{i}{t}{k}
+    \end{align}
+    \item \textbf{Global update:}
+    \begin{align}
+        \x{t+1} - \x{t} = - \eta_s \eta_l \agg{i \in \participant} \bracket{\sum_{k=0}^{K-1} \newmaskgrad{i}{t}{k}}
+    \end{align}
+\end{itemize}
+Similar to Lemma \ref{lemma:4}, we define $\boldsymbol{g}_{t,k}^{[\gamma_{j-1}':\gamma_{j}'](i)}$ to be
+\begin{align}
+\boldsymbol{g}_{t,k}^{[\gamma_{j-1}':\gamma_{j}'](i)} = \newmaskgrad{i}{t}{k}{j}.
+\end{align}
+Therefore,
+\begin{align}
+\agg{i \in \participant} \bracket{\sum_{k=0}^{K-1} \newmaskgrad{i}{t}{k}} = \bigcup_{j \in [n]} \frac{1}{\left|\a{j}\right|} \sum_{i \in \a{j}} \sum_{k=0}^{K-1} \boldsymbol{g}_{t,k}^{[\gamma_{j-1}':\gamma_{j}'](i)}.
+\end{align}
+
+In the proposed algorithm, the parameters are updated only when the submodels hold the counterpart. In this means, the definition for $\gggamma{j}{t}$ is 
+\begin{align}
+    \gggamma{j}{t} = \frac{1}{\left|\n{j}\right|} \sum_{i \in \n{j}} \gggamma{j}{t}{i}
+\end{align}
+Therefore, by applying Lemma \ref{lemma:1}, we have 
+\begin{align}
+&\quad \E \innerproduct{\grad{t}}{\x{t+1} - \x{t}} = \sum_{j=0}^n \E\innerproduct{\gggamma{j}{t}}{\x{t+1}^{[\gamma_{j-1}':\gamma_{j}']} - \x{t}^{[\gamma_{j-1}':\gamma_{j}']}} \\
+&= \sum_{j=0}^n \E \innerproduct{\gggamma{j}{t}}{ -\eta_s \eta_l \cdot \frac{1}{\left|\n{j}\right|} \cdot \frac{\binom{N}{A} - \binom{N - \left|\n{j}\right|}{A}}{\binom{N}{A}} \sum_{i \in \n{j}} \sum_{k=0}^{K-1} \boldsymbol{g}_{t,k}^{[\gamma_{j-1}':\gamma_{j}'](i)} } \\
+&= -\eta_s \eta_l K \sum_{j=0}^n \frac{\binom{N}{A} - \binom{N - \left|\n{j}\right|}{A}}{\binom{N}{A}} \E \innerproduct{\gggamma{j}{t}}{  \frac{1}{\left|\n{j}\right| K} \sum_{i \in \n{j}} \sum_{k=0}^{K-1} \boldsymbol{g}_{t,k}^{[\gamma_{j-1}':\gamma_{j}'](i)} } \\
+&\leq -\frac{\eta_s \eta_l K}{2} \sum_{j=0}^n \frac{\binom{N}{A} - \binom{N - \left|\n{j}\right|}{A}}{\binom{N}{A}} \norm{\gggamma{j}{t}} \\
+&\quad + \frac{\eta_s \eta_l K}{2} \sum_{j=0}^n \frac{\binom{N}{A} - \binom{N - \left|\n{j}\right|}{A}}{\binom{N}{A}} \cdot \E\norm{\globaloutergradgammacons{j}{t} - \frac{1}{\left|\n{j}\right| K}  \sum_{i \in \n{j}} \sum_{k=0}^{K-1} \boldsymbol{g}_{t,k}^{[\gamma_{j-1}':\gamma_{j}'](i)} } \label{eq:54}
+\end{align}
+where the last equation is built upon $\innerproduct{\boldsymbol{a}}{\boldsymbol{b}} = -\frac{1}{2} \norm{\boldsymbol{a}} - \frac{1}{2} \norm{\boldsymbol{b}} + \frac{1}{2} \norm{\boldsymbol{a} - \boldsymbol{b}} \leq  -\frac{1}{2} \norm{\boldsymbol{a}} +  \frac{1}{2} \norm{\boldsymbol{a} - \boldsymbol{b}}$. Lemma \ref{lemma2: 2} mentions that
+\begin{align}
+    \frac{A}{N} \leq  \frac{\binom{N}{A} - \binom{N - \left|\n{j}\right|}{A}}{\binom{N}{A}} \leq 1, 
+\end{align}
+and we simplify \eqref{eq:54} with the conclusion from Lemma \ref{lemma:3}: 
+\begin{align}
+&\E \innerproduct{\grad{t}}{\x{t+1} - \x{t}}\\
+\leq &-\frac{\eta_s \eta_l K A}{2 N} \norm{\grad{t}}  + \frac{\eta_s \eta_l K}{2} \bracket{4A\delta_t^2 \norm{\x{t}} + 72 K A \eta_l^2 L^2 \bracket{\sigma^2 + \norm{\grad{t}}} }
+\end{align}
+By applying the above local learning rate, we can further simplify the equation for 
+\begin{align}
+\E \innerproduct{\grad{t}}{\x{t+1} - \x{t}}\leq -\frac{\eta_s \eta_l K A}{4 N} \norm{\grad{t}}  + 2\eta_s \eta_l K A\delta_t^2 \norm{\x{t}} + 36 K^2 A \eta_s \eta_l^3 L^2 \sigma^2 \label{eq:57}
+\end{align}
+Plugging \eqref{eq:57} and Lemma \ref{lemma:4} back to \eqref{eq:46}, we have 
+\begin{align}
+\E F(\x{t+1}) - F(\x{t}) &\leq -\frac{\eta_s \eta_l K A}{4 N} \norm{\grad{t}}  + 2\eta_s \eta_l K A\delta_t^2 \norm{\x{t}} + 36 K^2 A \eta_s \eta_l^3 L^2 \sigma^2 \nonumber \\
+&\quad+ 4 \eta_s^2 \eta_l^2 K^2 L \bracket{A \delta_t^2 \norm{\x{t}} + \norm{\grad{t}} + \sigma^2} \label{eq:59}
+\end{align}
+With the above learning rate, we reorder the formula of \eqref{eq:59} for
+\begin{align}
+\E F(\x{t+1}) - F(\x{t}) \leq &-\frac{\eta_s \eta_l K A}{8 N} \norm{\grad{t}}  + 4 \eta_s \eta_l K A\delta_t^2 \norm{\x{t}} \nonumber \\
+&+ 4\eta_s \eta_l^2 K \bracket{\eta_s K L + 9 K \eta_l L^2} \sigma^2 \label{eq:60}
+\end{align}
+By summing \eqref{eq:60} for all $t \in \{0, \dots, T-1\}$, we have:
+\begin{align}
+&\quad F_* - F(\x{0}) \leq \E F(\x{T+1}) - F(\x{0}) = \sum_{t=0}^T \bracket{\E F(\x{t+1}) - F(\x{t})}\\
+&\leq -\frac{\eta_s \eta_l K A}{8 N} \sum_{t=0}^{T-1} \norm{\grad{t}}  + 4 \eta_s \eta_l K A \sum_{t=0}^{T-1} \delta_t^2 \norm{\x{t}} + 4\eta_s \eta_l^2 K \bracket{\eta_s K L + 9 K \eta_l L^2} \sigma^2 T
+\end{align}
+By reorganizing the inequality above, we have: 
+\begin{align}
+    \frac{1}{T} \sum_{t=0}^{T-1} \norm{\grad{t}} \leq \frac{8 \bracket{F(\x{0}) - F_*} N}{\eta_s \eta_l K A T} + \frac{64 N}{A} \eta_s \eta_l K L \sigma^2 + \frac{32N}{T} \sum_{t \in [T]} \delta_t^2 \norm{\x{t}}
+\end{align}
+Based on Theorem \ref{theo:algo}, when we apply local and global learning rates as described in Corollary \ref{theorem}, we can obtain the desired conclusion that the proposed \algo can converge to a stationary point at a rate of $O(1/\sqrt{T})$. 
+
+\newpage
+\begin{table}[!t]
+    \centering
+    \renewcommand{\arraystretch}{1.1}
+    \caption{Hyperparameter Settings}
+    \begin{tabular}{lccc}
+    \hline
+         & CIFAR-10 & CIFAR-100 & AGNews \\\hline
+        Local Epochs & 5 & 5 & 2 \\
+        Batch Size & 20 & 20 & 20 \\
+        Communication Rounds & 800 & 800 & 300 \\
+        Optimizer & SGD & SGD & AdamW \\
+        Learning rate ($\log_{10}$) & $\{-1, -2\}$ & $\{-1, -2\}$ & $\{-3, -4, -5\}$ \\
+        Momentum & \{0.0, 0.9\} & \{0.0, 0.9\} & \{(0.9, 0.95)\}  \\\hline
+    \end{tabular}
+
+    \label{tab:hyperparameter}
+\end{table}
+
+\begin{table*}[t]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\caption{Test accuracy under four different submodel sizes on different datasets, and  20 out of 100 clients participate in the training at each round. To be more specific, the columns from ``Local'' to ``Model (1.0)'' evaluate the test accuracy on the local test datasets, while ``Global'' evaluates the average test accuracy of the global model of four different sizes (1/64, 1/16, 1/4, 1.0) on the global test dataset. } \label{table:cv_20}
+% \vspace{-10px}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{cccccccccccccc}
+\Xhline{1pt}
+\multirow{3}{*}{\makecell[c]{Method}} & \multicolumn{6}{c}{CIFAR-10} & & \multicolumn{6}{c}{CIFAR-100} \\ \cline{2-7}\cline{9-14}
+% &
+& Local & \makecell[c]{Model\\(1/64)} & \makecell[c]{Model\\(1/16)} & \makecell[c]{Model\\(1/4)} & \makecell[c]{Model\\(1.0)} & Global && Local & \makecell[c]{Model\\(1/64)} & \makecell[c]{Model\\(1/16)} & \makecell[c]{Model\\(1/4)} & \makecell[c]{Model\\(1.0)} & Global  \\ \hline
+HeteroFL & 69.93 & 61.40 & 69.02 & 72.36 & 76.76 & 67.92 && 32.23 &  28.32 & 31.52 & 33.96 & 35.12 & 30.30   \\
+FedRolex & 68.64 & 53.16 & 67.00 & 71.60 & 82.80 & 66.75 && 33.00 & 21.36 & 34.12 & 36.72 & 39.80 & 31.33 \\
+ScaleFL & 72.05  & 68.44 & 71.12 & 70.36 & 78.28 & 67.27 && 39.57 & 37.92 & 39.60 & 41.84 & 38.92 & 37.63 \\
+\algo & \textbf{79.65} & \textbf{73.84} & \textbf{80.00} & \textbf{80.40} & \textbf{84.36} & \textbf{76.61} && \textbf{42.27} & \textbf{40.32} & \textbf{43.28} & \textbf{43.52} & \textbf{41.96} & \textbf{38.97} \\
+   
+\Xhline{1pt}
+\end{tabular}%
+}
+
+\end{table*}
+
+
+\section{Additional Experiments} \label{appendix:experiments}
+
+\subsection{More Threshold Selection Strategies} \label{appendix:threshold}
+
+\begin{itemize}[leftmargin=1em]
+    \item \textbf{Layer-wise threshold} gives a set of thresholds based on the computation cost of each layer $l \in [L]$, where $L$ is the number of layers of the global model. Therefore, the threshold for each layer is $\theta_{i, l} = \textsf{TopK}_{\gamma_i}(|\x{l}|)$, and $\theta_i = \{\theta_{i, l}\}_{l \in [L]}$. 
+    \item \textbf{Sharding-wise threshold} is a  way in the middle that partitions the model into several shardings, and each sharding encompasses a couple of consecutive layers. This is designed for the case when the parameters have distinct distributions across the model. In this case, we partition the layers $[L]$ into multiple group, i.e., $\mathcal{L} = \{[l_j:l_{j+1}]\}$. Therefore, the threshold for each sharding is $\theta_{i, [l_j: l_{j+1}]} = \textsf{TopK}_{\gamma_i}(|\x{[l_j: l_{j+1}]}|)$. 
+\end{itemize}
+
+
+
+\subsection{Hyper-parameter settings} \label{appendix:experiments_setup}
+Table \ref{tab:hyperparameter} lists the hyperparameters that we use in the experiments. For CV datasets, we adopt vanilla SGD or momentum SGD (with the setting of 0.9) as an optimizer. For the NLP dataset, we fine-tune the pretrained model with AdamW and set the parameters $(\beta_1, \beta_2)$ for $(0.9, 0.95)$. In our experiments, we keep the learning rate constant. There is no weight decay during our training. 
+
+
+\subsection{Experiments Compute Resources}  \label{appendix:compute_resource}
+
+We train the neural network and run the program on a server with 8 NVIDIA A6000 GPUs, an Intel Xeon Gold 6254 CPU, and 256GB RAM. Our codes are running with Python 3.7 and Pytorch 1.8.1. 
+
+\subsection{More Experimental Results}
+
+\paragraph{Participation rates of 20\%.} 
+
+
+Table \ref{table:cv_20} presents the test accuracy of CIFAR-10 and CIFAR-100 for the case where the participation ratio is 20\%. Notably, upon increasing the participation ratio to 20\%, \algo exhibits even more remarkable performance compared to the default setting, i.e., the participation ratio is 10\%, surpassing baselines by at least 7\% and 3\% for CIFAR-10 and CIFAR-100, respectively. 
+
+
+
+
+
+\begin{table*}[h]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\caption{Test accuracy under five different submodel sizes on different datasets. To be more specific, the columns from ``Local'' to ``Model (1.0)'' evaluate the test accuracy on the local test datasets, while ``Global'' evaluates the average test accuracy of the global model of five different sizes (0.04, 0.16, 0.36, 0.64, 1.0) on the global test dataset.}
+\resizebox{\textwidth}{!}{%
+
+\begin{tabular}{ccccccccccccccccccc}
+\Xhline{1pt}
+ \multirow{3}{*}{\makecell[c]{Method}} & \multicolumn{7}{c}{CIFAR-10} & & \multicolumn{7}{c}{CIFAR-100} & & \multicolumn{2}{c}{AGNews} \\ \cline{2-8}\cline{10-16}\cline{18-19}
+& Local & \makecell[c]{Model\\(0.04)} & \makecell[c]{Model\\(0.16)} & \makecell[c]{Model\\(0.36)} & \makecell[c]{Model\\(0.64)} & \makecell[c]{Model\\(1.0)} & Global && Local & \makecell[c]{Model\\(0.04)} & \makecell[c]{Model\\(0.16)} & \makecell[c]{Model\\(0.36)} & \makecell[c]{Model\\(0.64)} & \makecell[c]{Model\\(1.0)} &  Global && Local & Global \\ \hline
+
+   HeteroFL & 72.93 & 64.05 & 71.80 & 75.75 & 77.25 & 75.80 & 70.38 && 35.01 & 30.15 & 33.60 & 36.10 & 37.75 & 37.45 & 32.60 && 90.10 & 89.53  \\
+   FedRolex & 73.36 & 60.55 & 70.09 & 74.45 & 80.25 & 81.45 & 71.07 && 38.51 & 28.40 & 37.75 & 41.10 & 42.10 & 43.19 &36.09 && 89.27 & 88.94\\
+   ScaleFL & 74.32 & 71.95 & 73.24 & 73.90 & 74.00 & 78.50 & 68.94 && 42.43 & 42.90 & 44.75 & 42.49 & 42.05 & 39.95 & 40.21 && 89.67 & 89.51\\
+   FjORD & 74.04 & 73.00 & 73.20 & 73.55 & 72.30 &78.15 & 72.64 && 43.11 & 42.19& 43.90 & 45.00 & 42.25 & 42.20 & 40.73 && 90.68 & 89.08 \\
+   \algo & \textbf{81.79} & \textbf{77.75} & \textbf{82.15} & \textbf{81.40} & \textbf{82.90} & \textbf{84.75} & \textbf{78.13} && \textbf{45.94} & \textbf{44.35} & \textbf{45.65} & \textbf{47.80} & \textbf{47.00} & \textbf{44.90} & \textbf{42.61} && \textbf{91.55} & \textbf{91.50} \\
+\Xhline{1pt}
+\end{tabular}%
+}
+\label{table:cv_5}
+\end{table*}
+
+\begin{figure*}[t]
+    \centering
+    \begin{tabular}{ cccc  } 
+            \multicolumn{4}{c}
+            {\hspace{-8px}\includegraphics[width=\textwidth]{rebuttal_figure/hist_cifar10_5.pdf}} \\
+            \begin{minipage}[t]{0.22\textwidth}
+                \centering
+                \footnotesize  (a) HeteroFL Histogram
+            \end{minipage}
+            & 
+            \begin{minipage}[t]{0.22\textwidth}
+                \centering
+                \footnotesize (b) FedRolex Histogram
+            \end{minipage}
+            & 
+            \begin{minipage}[t]{0.22\textwidth}
+                \centering
+                \footnotesize(c) ScaleFL Histogram
+            \end{minipage}
+            & 
+            \begin{minipage}[t]{0.22\textwidth}
+                \centering
+                \footnotesize (d) \algo Histogram
+            \end{minipage}
+    \end{tabular}
+    \vspace{-5px}
+    \caption{Histograms of various submodel extraction methods on CIFAR-10 under five submodel sizes. Each histogram shows the number of clients achieving different levels of test accuracy.}
+    \label{fig:exp_acc_size}
+\end{figure*}
+
+\begin{figure*}[!t]
+    \centering
+    \begin{tabular}{ccccc}
+    
+            \multicolumn{5}{c}{\hspace{-15px}\includegraphics[width=1.05\textwidth]{rebuttal_figure/cifar10_5_sizes.pdf}} \\
+                \begin{minipage}[t]{0.18\textwidth}
+                \centering
+                \footnotesize (a) Model Size 0.04
+            \end{minipage}
+            & 
+            \begin{minipage}[t]{0.18\textwidth}
+                \centering
+                \footnotesize (b) Model Size 0.16
+            \end{minipage}
+            & 
+            \begin{minipage}[t]{0.18\textwidth}
+                \centering
+                \footnotesize(c) Model Size 0.36
+            \end{minipage}
+            & 
+            \begin{minipage}[t]{0.18\textwidth}
+                \centering
+                \footnotesize(d) Model Size 0.64
+            \end{minipage}
+            & 
+            \begin{minipage}[t]{0.17\textwidth}
+                \centering
+                \footnotesize (e) Model Size 1.0
+            \end{minipage}
+    \end{tabular}
+    
+    \begin{tabular}{ccccc}
+    
+            \multicolumn{5}{c}{\hspace{-15px}\includegraphics[width=1.05\textwidth]{rebuttal_figure/cifar100_5_sizes.pdf}} \\
+            \begin{minipage}[t]{0.18\textwidth}
+                \centering
+                \footnotesize (f) Model Size 0.04
+            \end{minipage}
+            & 
+            \begin{minipage}[t]{0.18\textwidth}
+                \centering
+                \footnotesize (g) Model Size 0.16
+            \end{minipage}
+            & 
+            \begin{minipage}[t]{0.18\textwidth}
+                \centering
+                \footnotesize(h) Model Size 0.36
+            \end{minipage}
+            & 
+            \begin{minipage}[t]{0.18\textwidth}
+                \centering
+                \footnotesize(i) Model Size 0.64
+            \end{minipage}
+            & 
+            \begin{minipage}[t]{0.18\textwidth}
+                \centering
+                \footnotesize (j) Model Size 1.0
+            \end{minipage}
+    \end{tabular}
+    \vspace{-5px}
+    \caption{Comparison of test accuracy across communication rounds for different submodel extraction strategies under five varying model sizes (0.04, 0.16, 0.36, 0.64, 1.0) on global test datasets of CIFAR-10 (upper, a -- e) and CIFAR-100 (lower, f -- j).}
+    \label{fig:size_cifar10_5}
+\end{figure*}
+
+
+\paragraph{System heterogeneity with five different model sizes.} 
+
+The experiments are conducted with five different model sizes for $\gamma' = \{0.04, 0.16, 0.36, 0.64, 1.0\}$. The allocation of clients to each level is balanced. It's important to note that our proposed method is flexible and can accommodate varying numbers of complexity levels or client distributions. 
+
+Table \ref{table:cv_5} provides the results under CV and NLP tasks. The results are consistent with the case where four different model sizes were chosen. The proposed \algo outperforms all the baselines under both CIFAR-10 and CIFAR-100 in terms of local performance and global performance. As for AGNews, the proposed method still achieves up to 2\% improvement over the existing baselines. 
+
+Figure \ref{fig:size_cifar10_5} presents the model performance of various model sizes over the communication rounds. Similar to the analysis in Section \ref{subsec:submodel_global}, the proposed \algo significantly outperforms other baselines, especially under a submodel with small sizes. The results demonstrate the superiority of our proposed work in the scenario that we should apply the submodel to the global dataset. 
+
+\paragraph{Ablation study: Effectiveness of \module.}  Table \ref{table:ablation_1} and \ref{table:ablation_2} presents the effectiveness by comparing our proposed work with pruning-greedy \cite{zhou2023every}. As mentioned before, pruning-greedy is an approach that chooses the largest few values at the beginning of the local training and keeps the mask unchanged during local model training. Apparently, this method does not optimize the model parameters in terms of their importance. A main takeaway in our experimental results is the necessity of optimizing the model with respect to the parameter's importance. In other words, only optimizing the model parameters cannot reflect their importance upon their absolute values. 
+
+
+\begin{table*}[!t]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\caption{Test accuracy under four different submodel sizes on CIFAR-100 for ablation study. To be more specific, the columns within “Local” evaluate the test accuracy on the local test datasets, while “Global” evaluates the test accuracy of the global model on the global
+test dataset.}
+\resizebox{\textwidth}{!}{%
+
+\begin{tabular}{lccccccccccc}
+\Xhline{1pt}
+ \multirow{3}{*}{\makecell[l]{Method}} & \multicolumn{5}{c}{Local} & & \multicolumn{5}{c}{Gobal}  \\ \cline{2-6}\cline{8-12}
+& \makecell[c]{Model\\(1/64)} & \makecell[c]{Model\\(1/16)} & \makecell[c]{Model\\(1/4)} & \makecell[c]{Model\\(1.0)} & Average && \makecell[c]{Model\\(1/64)} & \makecell[c]{Model\\(1/16)} & \makecell[c]{Model\\(1/4)} & \makecell[c]{Model\\(1.0)} & Average \\ \hline
+    \algo & \textbf{39.12} & \textbf{43.24} & \textbf{43.72} & \textbf{40.96} & \textbf{41.76} && \textbf{35.04} & \textbf{39.53} & \textbf{41.22} & \textbf{38.71} & \textbf{38.63}  \\
+   Pruning-greedy & 34.32 & 39.36 & 41.00 & 38.96 & 38.41 && 30.28 & 35.93 & 38.23 & 36.50 &  35.24  \\
+   \algo (layerwise) & 33.44 & 38.24 & 38.64 & 37.00  & 36.83 && 30.54 & 35.94 & 37.12 & 34.46  & 34.52 \\
+\Xhline{1pt}
+\end{tabular}%
+}
+\label{table:ablation_1}
+\end{table*}
+
+\begin{table*}[!t]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\caption{Test accuracy under five different submodel sizes on CIFAR-100 for ablation study. To be more specific, the columns within “Local” evaluate the test accuracy on the local test datasets, while “Global” evaluates the test accuracy of the global model on the global
+test dataset.}
+\resizebox{\textwidth}{!}{%
+
+\begin{tabular}{lccccccccccccc}
+\Xhline{1pt}
+ \multirow{3}{*}{\makecell[l]{Method}} & \multicolumn{6}{c}{Local} & & \multicolumn{6}{c}{Gobal}  \\ \cline{2-7}\cline{9-14}
+& \makecell[c]{Model\\(0.04)} & \makecell[c]{Model\\(0.16)} & \makecell[c]{Model\\(0.36)} & \makecell[c]{Model\\(0.64)} & \makecell[c]{Model\\(1.0)} & Average && \makecell[c]{Model\\(0.04)} & \makecell[c]{Model\\(0.16)} & \makecell[c]{Model\\(0.36)} & \makecell[c]{Model\\(0.64)} & \makecell[c]{Model\\(1.0)} & Average \\ \hline
+
+    \algo & \textbf{44.35} & \textbf{45.65} & \textbf{47.80} & \textbf{47.00} & \textbf{44.90} & \textbf{45.94}  && \textbf{40.03} & \textbf{42.44} & \textbf{43.90} & \textbf{44.01} & \textbf{42.65} & \textbf{42.61}  \\
+   Pruning-Greedy & 39.75 & 43.85  & 44.00 & 43.50 & 42.65 & 42.75 && 34.51 & 39.97 & 40.80 & 42.39 & 40.81 &  39.70 \\
+   \algo (layerwise) & 37.30 & 41.75 & 42.75 & 41.85 & 41.10 & 40.95 && 33.63 & 38.43 & 40.29 & 40.99 & 39.10 & 38.49 \\
+\Xhline{1pt}
+\end{tabular}%
+}
+\label{table:ablation_2}
+\end{table*}
+
+
+
+
+
+\paragraph{Ablation study: Different Threshold Selection Strategies.}
+Table \ref{table:ablation_1} and \ref{table:ablation_2} compare the proposed work among various threshold selection strategies. For layerwise one, we can extract the model more balanced, where we preserve a fixed ratio of parameters for each layer. The results indicate that a balanced structure performs worse than the one without a balanced guarantee. For these results, we hypothesize that more parameters should be preserved for the first few layers, while the layers close to the output may have massive redundant parameters. Such a conclusion can be verified by comparing ScaleFL \cite{ilhan2023scalefl} with HeteroFL \cite{diao2020heterofl}. This is because ScaleFL preserves more model parameters at the beginning of a few layers while discarding the last few layers. 
+
+
+
+\paragraph{Ablation study: Submodel Exploration.} 
+Figure \ref{fig:test1} and \ref{fig:test2} separately include two client heterogeneity settings, i.e., Figure \ref{fig:test1} is $\gamma' = \{1/64, 1/16, 1/4, 1.0\}$ with 25 clients each, and Figure \ref{fig:test2} is $\gamma' = \{0.04, 0.16, 0.36, 0.64\}$ with 25 clients each. Figure \ref{subfig:(size_cifar10_4_exp)} and \ref{subfig:(size_cifar10_4_nonfull_exp)} show two phenomena: (i) all model sizes will gradually slow down their exploration speeds; (ii) even if the largest model size is smaller than the full model size, the number of untrained parameters will eventually go to zero, meaning that none of the parameters are ignored or deactivated. According to Figure \ref{subfig:(size_cifar10_4_diff)} and \ref{subfig:(size_cifar10_4_nonfull_diff)}, the extracted submodel for a given size will gradually stabilize, indicating that a suitable submodel architecture has been found. Moreover, a submodel requiring a larger size makes it easier to obtain a stable architecture.
+
+
+\begin{figure*}[h]
+\centering
+\vspace{10px}
+\begin{minipage}{.48\textwidth}
+  \centering
+  \begin{tabular}{cc} 
+            \multicolumn{2}{c}
+            {\hspace{-8px}\includegraphics[width=\textwidth]{rebuttal_figure/explore_and_diff.pdf}} \\
+            \subfloat{\label{subfig:(size_cifar10_4_exp)}}{}
+            \subfloat{\label{subfig:(size_cifar10_4_diff)}}{}
+            \begin{minipage}[t]{0.46\textwidth}
+                \centering
+                \footnotesize  (a) Exploration Rates
+            \end{minipage}
+            & 
+            \begin{minipage}[t]{0.46\textwidth}
+                \centering
+                \footnotesize (b) Model Differences
+            \end{minipage}
+
+    \end{tabular}
+  \caption{Exploration rates and model differences against communication rounds for a client heterogeneity setting of $\{1/64, 1/16, 1/4, 1.0\}$.}
+  \label{fig:test1}
+\end{minipage}%
+\quad
+\begin{minipage}{.48\textwidth}
+  \centering
+  \begin{tabular}{cc} 
+            \multicolumn{2}{c}
+            {\hspace{-8px}\includegraphics[width=\textwidth]{rebuttal_figure/explore_and_diff_small.pdf}} \\
+            \subfloat{\label{subfig:(size_cifar10_4_nonfull_exp)}}{}
+            \subfloat{\label{subfig:(size_cifar10_4_nonfull_diff)}}{}
+            \begin{minipage}[t]{0.46\textwidth}
+                \centering
+                \footnotesize  (a) Exploration Rates
+            \end{minipage}
+            & 
+            \begin{minipage}[t]{0.46\textwidth}
+                \centering
+                \footnotesize (b) Model Differences
+            \end{minipage}
+
+    \end{tabular}
+  \caption{Exploration rates and model differences against communication rounds for a client heterogeneity setting of $\{0.04, 0.16, 0.36, 0.64\}$.}
+  \label{fig:test2}
+\end{minipage}
+\end{figure*}
+
+\newpage
+\section*{NeurIPS Paper Checklist}
+
+% %%% BEGIN INSTRUCTIONS %%%
+% The checklist is designed to encourage best practices for responsible machine learning research, addressing issues of reproducibility, transparency, research ethics, and societal impact. Do not remove the checklist: {\bf The papers not including the checklist will be desk rejected.} The checklist should follow the references and follow the (optional) supplemental material.  The checklist does NOT count towards the page
+% limit. 
+
+% Please read the checklist guidelines carefully for information on how to answer these questions. For each question in the checklist:
+% \begin{itemize}
+%     \item You should answer \answerYes{}, \answerNo{}, or \answerNA{}.
+%     \item \answerNA{} means either that the question is Not Applicable for that particular paper or the relevant information is Not Available.
+%     \item Please provide a short (1–2 sentence) justification right after your answer (even for NA). 
+%    % \item {\bf The papers not including the checklist will be desk rejected.}
+% \end{itemize}
+
+% {\bf The checklist answers are an integral part of your paper submission.} They are visible to the reviewers, area chairs, senior area chairs, and ethics reviewers. You will be asked to also include it (after eventual revisions) with the final version of your paper, and its final version will be published with the paper.
+
+% The reviewers of your paper will be asked to use the checklist as one of the factors in their evaluation. While "\answerYes{}" is generally preferable to "\answerNo{}", it is perfectly acceptable to answer "\answerNo{}" provided a proper justification is given (e.g., "error bars are not reported because it would be too computationally expensive" or "we were unable to find the license for the dataset we used"). In general, answering "\answerNo{}" or "\answerNA{}" is not grounds for rejection. While the questions are phrased in a binary way, we acknowledge that the true answer is often more nuanced, so please just use your best judgment and write a justification to elaborate. All supporting evidence can appear either in the main paper or the supplemental material, provided in appendix. If you answer \answerYes{} to a question, in the justification please point to the section(s) where related material for the question can be found.
+
+% IMPORTANT, please:
+% \begin{itemize}
+%     \item {\bf Delete this instruction block, but keep the section heading ``NeurIPS paper checklist"},
+%     \item  {\bf Keep the checklist subsection headings, questions/answers and guidelines below.}
+%     \item {\bf Do not modify the questions and only use the provided macros for your answers}.
+% \end{itemize} 
+ 
+
+% %%% END INSTRUCTIONS %%%
+
+
+\begin{enumerate}
+
+\item {\bf Claims}
+    \item[] Question: Do the main claims made in the abstract and introduction accurately reflect the paper's contributions and scope?
+    \item[] Answer: \answerYes{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
+    \item[] Justification: We highlight our contributions in the Introduction (Section \ref{sec:introduction}) and clearly present the idea of the proposed \algo. 
+    \item[] Guidelines:
+    \begin{itemize}
+        \item The answer NA means that the abstract and introduction do not include the claims made in the paper.
+        \item The abstract and/or introduction should clearly state the claims made, including the contributions made in the paper and important assumptions and limitations. A No or NA answer to this question will not be perceived well by the reviewers. 
+        \item The claims made should match theoretical and experimental results, and reflect how much the results can be expected to generalize to other settings. 
+        \item It is fine to include aspirational goals as motivation as long as it is clear that these goals are not attained by the paper. 
+    \end{itemize}
+
+\item {\bf Limitations}
+    \item[] Question: Does the paper discuss the limitations of the work performed by the authors?
+    \item[] Answer: \answerYes{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
+    \item[] Justification: We mention our limitations and point out a future research direction in the Conclusion (Section \ref{sec:conclusion}). 
+    \item[] Guidelines:
+    \begin{itemize}
+        \item The answer NA means that the paper has no limitation while the answer No means that the paper has limitations, but those are not discussed in the paper. 
+        \item The authors are encouraged to create a separate "Limitations" section in their paper.
+        \item The paper should point out any strong assumptions and how robust the results are to violations of these assumptions (e.g., independence assumptions, noiseless settings, model well-specification, asymptotic approximations only holding locally). The authors should reflect on how these assumptions might be violated in practice and what the implications would be.
+        \item The authors should reflect on the scope of the claims made, e.g., if the approach was only tested on a few datasets or with a few runs. In general, empirical results often depend on implicit assumptions, which should be articulated.
+        \item The authors should reflect on the factors that influence the performance of the approach. For example, a facial recognition algorithm may perform poorly when image resolution is low or images are taken in low lighting. Or a speech-to-text system might not be used reliably to provide closed captions for online lectures because it fails to handle technical jargon.
+        \item The authors should discuss the computational efficiency of the proposed algorithms and how they scale with dataset size.
+        \item If applicable, the authors should discuss possible limitations of their approach to address problems of privacy and fairness.
+        \item While the authors might fear that complete honesty about limitations might be used by reviewers as grounds for rejection, a worse outcome might be that reviewers discover limitations that aren't acknowledged in the paper. The authors should use their best judgment and recognize that individual actions in favor of transparency play an important role in developing norms that preserve the integrity of the community. Reviewers will be specifically instructed to not penalize honesty concerning limitations.
+    \end{itemize}
+
+\item {\bf Theory Assumptions and Proofs}
+    \item[] Question: For each theoretical result, does the paper provide the full set of assumptions and a complete (and correct) proof?
+    \item[] Answer: \answerYes{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
+    \item[] Justification: We provide the theoretical conclusion in the Convergence Analysis (Section \ref{sec:convergence}), and the detailed proof is provided in Appendix \ref{appendix:proof}. 
+    \item[] Guidelines:
+    \begin{itemize}
+        \item The answer NA means that the paper does not include theoretical results. 
+        \item All the theorems, formulas, and proofs in the paper should be numbered and cross-referenced.
+        \item All assumptions should be clearly stated or referenced in the statement of any theorems.
+        \item The proofs can either appear in the main paper or the supplemental material, but if they appear in the supplemental material, the authors are encouraged to provide a short proof sketch to provide intuition. 
+        \item Inversely, any informal proof provided in the core of the paper should be complemented by formal proofs provided in appendix or supplemental material.
+        \item Theorems and Lemmas that the proof relies upon should be properly referenced. 
+    \end{itemize}
+
+    \item {\bf Experimental Result Reproducibility}
+    \item[] Question: Does the paper fully disclose all the information needed to reproduce the main experimental results of the paper to the extent that it affects the main claims and/or conclusions of the paper (regardless of whether the code and data are provided or not)?
+    \item[] Answer: \answerYes{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
+    \item[] Justification: We provide the experiment setup in Section \ref{subsec:exp_setup} and Appendix \ref{appendix:experiments_setup}. Also, we release our code at \url{https://github.com/HarliWu/FIARSE}. 
+    \item[] Guidelines:
+    \begin{itemize}
+        \item The answer NA means that the paper does not include experiments.
+        \item If the paper includes experiments, a No answer to this question will not be perceived well by the reviewers: Making the paper reproducible is important, regardless of whether the code and data are provided or not.
+        \item If the contribution is a dataset and/or model, the authors should describe the steps taken to make their results reproducible or verifiable. 
+        \item Depending on the contribution, reproducibility can be accomplished in various ways. For example, if the contribution is a novel architecture, describing the architecture fully might suffice, or if the contribution is a specific model and empirical evaluation, it may be necessary to either make it possible for others to replicate the model with the same dataset, or provide access to the model. In general. releasing code and data is often one good way to accomplish this, but reproducibility can also be provided via detailed instructions for how to replicate the results, access to a hosted model (e.g., in the case of a large language model), releasing of a model checkpoint, or other means that are appropriate to the research performed.
+        \item While NeurIPS does not require releasing code, the conference does require all submissions to provide some reasonable avenue for reproducibility, which may depend on the nature of the contribution. For example
+        \begin{enumerate}
+            \item If the contribution is primarily a new algorithm, the paper should make it clear how to reproduce that algorithm.
+            \item If the contribution is primarily a new model architecture, the paper should describe the architecture clearly and fully.
+            \item If the contribution is a new model (e.g., a large language model), then there should either be a way to access this model for reproducing the results or a way to reproduce the model (e.g., with an open-source dataset or instructions for how to construct the dataset).
+            \item We recognize that reproducibility may be tricky in some cases, in which case authors are welcome to describe the particular way they provide for reproducibility. In the case of closed-source models, it may be that access to the model is limited in some way (e.g., to registered users), but it should be possible for other researchers to have some path to reproducing or verifying the results.
+        \end{enumerate}
+    \end{itemize}
+
+
+\item {\bf Open access to data and code}
+    \item[] Question: Does the paper provide open access to the data and code, with sufficient instructions to faithfully reproduce the main experimental results, as described in supplemental material?
+    \item[] Answer: \answerYes{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
+    \item[] Justification: The experiments of this work rely on three public datasets, namely, CIFAR-10, CIFAR-100, and AGNews. Additionally, our experiment leverages a pretrained model named Roberta, which is available online. 
+    \item[] Guidelines:
+    \begin{itemize}
+        \item The answer NA means that paper does not include experiments requiring code.
+        \item Please see the NeurIPS code and data submission guidelines (\url{https://nips.cc/public/guides/CodeSubmissionPolicy}) for more details.
+        \item While we encourage the release of code and data, we understand that this might not be possible, so “No” is an acceptable answer. Papers cannot be rejected simply for not including code, unless this is central to the contribution (e.g., for a new open-source benchmark).
+        \item The instructions should contain the exact command and environment needed to run to reproduce the results. See the NeurIPS code and data submission guidelines (\url{https://nips.cc/public/guides/CodeSubmissionPolicy}) for more details.
+        \item The authors should provide instructions on data access and preparation, including how to access the raw data, preprocessed data, intermediate data, and generated data, etc.
+        \item The authors should provide scripts to reproduce all experimental results for the new proposed method and baselines. If only a subset of experiments are reproducible, they should state which ones are omitted from the script and why.
+        \item At submission time, to preserve anonymity, the authors should release anonymized versions (if applicable).
+        \item Providing as much information as possible in supplemental material (appended to the paper) is recommended, but including URLs to data and code is permitted.
+    \end{itemize}
+
+
+\item {\bf Experimental Setting/Details}
+    \item[] Question: Does the paper specify all the training and test details (e.g., data splits, hyperparameters, how they were chosen, type of optimizer, etc.) necessary to understand the results?
+    \item[] Answer: \answerYes{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
+    \item[] Justification: The experimental details are provided in Section \ref{subsec:exp_setup} and Appendix \ref{appendix:experiments_setup}.
+    \item[] Guidelines:
+    \begin{itemize}
+        \item The answer NA means that the paper does not include experiments.
+        \item The experimental setting should be presented in the core of the paper to a level of detail that is necessary to appreciate the results and make sense of them.
+        \item The full details can be provided either with the code, in appendix, or as supplemental material.
+    \end{itemize}
+
+\item {\bf Experiment Statistical Significance}
+    \item[] Question: Does the paper report error bars suitably and correctly defined or other appropriate information about the statistical significance of the experiments?
+    \item[] Answer: \answerYes{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
+    \item[] Justification: Figure \ref{fig:size_cifar10_4} and \ref{fig:size_cifar10_5} display the results as mean and standard deviation. Other experimental results are averaged with three random seeds for different hyperparameter settings. All results are reported under the best hyperparameter setting. 
+    \item[] Guidelines:
+    \begin{itemize}
+        \item The answer NA means that the paper does not include experiments.
+        \item The authors should answer "Yes" if the results are accompanied by error bars, confidence intervals, or statistical significance tests, at least for the experiments that support the main claims of the paper.
+        \item The factors of variability that the error bars are capturing should be clearly stated (for example, train/test split, initialization, random drawing of some parameter, or overall run with given experimental conditions).
+        \item The method for calculating the error bars should be explained (closed form formula, call to a library function, bootstrap, etc.)
+        \item The assumptions made should be given (e.g., Normally distributed errors).
+        \item It should be clear whether the error bar is the standard deviation or the standard error of the mean.
+        \item It is OK to report 1-sigma error bars, but one should state it. The authors should preferably report a 2-sigma error bar than state that they have a 96\% CI, if the hypothesis of Normality of errors is not verified.
+        \item For asymmetric distributions, the authors should be careful not to show in tables or figures symmetric error bars that would yield results that are out of range (e.g. negative error rates).
+        \item If error bars are reported in tables or plots, The authors should explain in the text how they were calculated and reference the corresponding figures or tables in the text.
+    \end{itemize}
+
+\item {\bf Experiments Compute Resources}
+    \item[] Question: For each experiment, does the paper provide sufficient information on the computer resources (type of compute workers, memory, time of execution) needed to reproduce the experiments?
+    \item[] Answer: \answerYes{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
+    \item[] Justification: The details of computation resources are provided in Appendix \ref{appendix:compute_resource}. 
+    \item[] Guidelines:
+    \begin{itemize}
+        \item The answer NA means that the paper does not include experiments.
+        \item The paper should indicate the type of compute workers CPU or GPU, internal cluster, or cloud provider, including relevant memory and storage.
+        \item The paper should provide the amount of compute required for each of the individual experimental runs as well as estimate the total compute. 
+        \item The paper should disclose whether the full research project required more compute than the experiments reported in the paper (e.g., preliminary or failed experiments that didn't make it into the paper). 
+    \end{itemize}
+    
+\item {\bf Code Of Ethics}
+    \item[] Question: Does the research conducted in the paper conform, in every respect, with the NeurIPS Code of Ethics \url{https://neurips.cc/public/EthicsGuidelines}?
+    \item[] Answer: \answerYes{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
+    \item[] Justification: We affirm that this work conform with the NeurIPS Code of Ethics. 
+    \item[] Guidelines:
+    \begin{itemize}
+        \item The answer NA means that the authors have not reviewed the NeurIPS Code of Ethics.
+        \item If the authors answer No, they should explain the special circumstances that require a deviation from the Code of Ethics.
+        \item The authors should make sure to preserve anonymity (e.g., if there is a special consideration due to laws or regulations in their jurisdiction).
+    \end{itemize}
+
+
+\item {\bf Broader Impacts}
+    \item[] Question: Does the paper discuss both potential positive societal impacts and negative societal impacts of the work performed?
+    \item[] Answer: \answerYes{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
+    \item[] Justification: We include a section to discuss the broader impacts of our work, which is placed after the Conclusion (Section \ref{sec:conclusion}). 
+    \item[] Guidelines:
+    \begin{itemize}
+        \item The answer NA means that there is no societal impact of the work performed.
+        \item If the authors answer NA or No, they should explain why their work has no societal impact or why the paper does not address societal impact.
+        \item Examples of negative societal impacts include potential malicious or unintended uses (e.g., disinformation, generating fake profiles, surveillance), fairness considerations (e.g., deployment of technologies that could make decisions that unfairly impact specific groups), privacy considerations, and security considerations.
+        \item The conference expects that many papers will be foundational research and not tied to particular applications, let alone deployments. However, if there is a direct path to any negative applications, the authors should point it out. For example, it is legitimate to point out that an improvement in the quality of generative models could be used to generate deepfakes for disinformation. On the other hand, it is not needed to point out that a generic algorithm for optimizing neural networks could enable people to train models that generate Deepfakes faster.
+        \item The authors should consider possible harms that could arise when the technology is being used as intended and functioning correctly, harms that could arise when the technology is being used as intended but gives incorrect results, and harms following from (intentional or unintentional) misuse of the technology.
+        \item If there are negative societal impacts, the authors could also discuss possible mitigation strategies (e.g., gated release of models, providing defenses in addition to attacks, mechanisms for monitoring misuse, mechanisms to monitor how a system learns from feedback over time, improving the efficiency and accessibility of ML).
+    \end{itemize}
+    
+\item {\bf Safeguards}
+    \item[] Question: Does the paper describe safeguards that have been put in place for responsible release of data or models that have a high risk for misuse (e.g., pretrained language models, image generators, or scraped datasets)?
+    \item[] Answer: \answerNA{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
+    \item[] Justification: Not applicable. 
+    \item[] Guidelines: The paper poses no such risks.
+    \begin{itemize}
+        \item The answer NA means that the paper poses no such risks.
+        \item Released models that have a high risk for misuse or dual-use should be released with necessary safeguards to allow for controlled use of the model, for example by requiring that users adhere to usage guidelines or restrictions to access the model or implementing safety filters. 
+        \item Datasets that have been scraped from the Internet could pose safety risks. The authors should describe how they avoided releasing unsafe images.
+        \item We recognize that providing effective safeguards is challenging, and many papers do not require this, but we encourage authors to take this into account and make a best faith effort.
+    \end{itemize}
+
+\item {\bf Licenses for existing assets}
+    \item[] Question: Are the creators or original owners of assets (e.g., code, data, models), used in the paper, properly credited and are the license and terms of use explicitly mentioned and properly respected?
+    \item[] Answer: \answerYes{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
+    \item[] Justification: We properly cite those open-source resources in the paper. Specifically, the information is available in the experimental setup (Section \ref{subsec:exp_setup}). 
+    \item[] Guidelines:
+    \begin{itemize}
+        \item The answer NA means that the paper does not use existing assets.
+        \item The authors should cite the original paper that produced the code package or dataset.
+        \item The authors should state which version of the asset is used and, if possible, include a URL.
+        \item The name of the license (e.g., CC-BY 4.0) should be included for each asset.
+        \item For scraped data from a particular source (e.g., website), the copyright and terms of service of that source should be provided.
+        \item If assets are released, the license, copyright information, and terms of use in the package should be provided. For popular datasets, \url{paperswithcode.com/datasets} has curated licenses for some datasets. Their licensing guide can help determine the license of a dataset.
+        \item For existing datasets that are re-packaged, both the original license and the license of the derived asset (if it has changed) should be provided.
+        \item If this information is not available online, the authors are encouraged to reach out to the asset's creators.
+    \end{itemize}
+
+\item {\bf New Assets}
+    \item[] Question: Are new assets introduced in the paper well documented and is the documentation provided alongside the assets?
+    \item[] Answer: \answerNA{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
+    \item[] Justification: Not Applicable. 
+    \item[] Guidelines:
+    \begin{itemize}
+        \item The answer NA means that the paper does not release new assets.
+        \item Researchers should communicate the details of the dataset/code/model as part of their submissions via structured templates. This includes details about training, license, limitations, etc. 
+        \item The paper should discuss whether and how consent was obtained from people whose asset is used.
+        \item At submission time, remember to anonymize your assets (if applicable). You can either create an anonymized URL or include an anonymized zip file.
+    \end{itemize}
+
+\item {\bf Crowdsourcing and Research with Human Subjects}
+    \item[] Question: For crowdsourcing experiments and research with human subjects, does the paper include the full text of instructions given to participants and screenshots, if applicable, as well as details about compensation (if any)? 
+    \item[] Answer: \answerNA{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
+    \item[] Justification: The paper does not involve crowdsourcing or research with human subjects.
+    \item[] Guidelines: 
+    \begin{itemize}
+        \item The answer NA means that the paper does not involve crowdsourcing nor research with human subjects.
+        \item Including this information in the supplemental material is fine, but if the main contribution of the paper involves human subjects, then as much detail as possible should be included in the main paper. 
+        \item According to the NeurIPS Code of Ethics, workers involved in data collection, curation, or other labor should be paid at least the minimum wage in the country of the data collector. 
+    \end{itemize}
+
+\item {\bf Institutional Review Board (IRB) Approvals or Equivalent for Research with Human Subjects}
+    \item[] Question: Does the paper describe potential risks incurred by study participants, whether such risks were disclosed to the subjects, and whether Institutional Review Board (IRB) approvals (or an equivalent approval/review based on the requirements of your country or institution) were obtained?
+    \item[] Answer: \answerNA{} % Replace by \answerYes{}, \answerNo{}, or \answerNA{}.
+    \item[] Justification: The paper does not involve crowdsourcing or research with human subjects.
+    \item[] Guidelines:
+    \begin{itemize}
+        \item The answer NA means that the paper does not involve crowdsourcing nor research with human subjects.
+        \item Depending on the country in which research is conducted, IRB approval (or equivalent) may be required for any human subjects research. If you obtained IRB approval, you should clearly state this in the paper. 
+        \item We recognize that the procedures for this may vary significantly between institutions and locations, and we expect authors to adhere to the NeurIPS Code of Ethics and the guidelines for their institution. 
+        \item For initial submissions, do not include any information that would break anonymity (if applicable), such as the institution conducting the review.
+    \end{itemize}
+
+\end{enumerate}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\end{document}

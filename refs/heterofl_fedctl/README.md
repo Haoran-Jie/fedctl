@@ -75,7 +75,7 @@ Remote smoke test via `fedctl submit run`:
 ```bash
 cd /Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl
 fedctl submit run refs/heterofl_fedctl \
-  --repo-config experiments/dissertation/repo_config/heterofl_smoke.yaml \
+  --repo-config apps/fedctl_research/repo_configs/smoke/compute_heterogeneity.yaml \
   --exp heterofl-smoke-4nodes \
   --supernodes rpi4=2 \
   --supernodes rpi5=2 \
@@ -88,4 +88,5 @@ cluster workflow from the laptop, use `fedctl submit run`.
 
 Detailed notes:
 
-- `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/experiments/dissertation/heterofl_smoke_test.md`
+- `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/docs/experiment_plan.md`
+- `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/docs/fedctl_overview.md`

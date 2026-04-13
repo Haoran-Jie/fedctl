@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -48,6 +49,7 @@ from datetime import datetime, timezone
 class _RepoDeployConfig:
     supernodes: dict[str, object]
     supernode_resources: dict[str, object]
+    superexec_env: dict[str, str]
     network_profiles: dict[str, object]
     network_ingress_profiles: dict[str, object]
     network_egress_profiles: dict[str, object]
@@ -57,6 +59,14 @@ class _RepoDeployConfig:
     network_image: str | None
     network_apply: dict[str, object]
     allow_oversubscribe: object
+
+
+_RUNTIME_SUPEREXEC_ENV_KEYS = (
+    "FEDCTL_ATTEMPT_STARTED_AT",
+    "FEDCTL_EXPERIMENT_CONFIG",
+    "FEDCTL_REPO_CONFIG_LABEL",
+    "FEDCTL_SUBMISSION_ID",
+)
 
 def run_deploy(
     *,
@@ -113,6 +123,10 @@ def run_deploy(
     repo_defaults = _repo_deploy_config(repo_cfg)
     repo_supernodes = repo_defaults.supernodes
     repo_supernode_resources = repo_defaults.supernode_resources
+    repo_superexec_env = repo_defaults.superexec_env
+    runtime_superexec_env = _runtime_superexec_env()
+    if runtime_superexec_env:
+        repo_superexec_env = {**repo_superexec_env, **runtime_superexec_env}
     repo_network_profiles = repo_defaults.network_profiles
     repo_network_ingress_profiles = repo_defaults.network_ingress_profiles
     repo_network_egress_profiles = repo_defaults.network_egress_profiles
@@ -217,6 +231,7 @@ def run_deploy(
             default_resources=default_resources,
             netem_serverapp=netem_serverapp,
             netem_clientapp=netem_clientapp,
+            superexec_env=repo_superexec_env,
         )
         try:
             rendered = render_deploy(spec)
@@ -364,6 +379,7 @@ def run_deploy(
             default_resources=default_resources,
             netem_serverapp=netem_serverapp,
             netem_clientapp=netem_clientapp,
+            superexec_env=repo_superexec_env,
         )
         try:
             rendered = render_deploy(spec)
@@ -447,6 +463,8 @@ def _repo_deploy_config(repo_cfg: dict[str, object]) -> _RepoDeployConfig:
     supernodes = _as_dict(deploy.get("supernodes"))
     placement = _as_dict(deploy.get("placement"))
     resources = _as_dict(deploy.get("resources"))
+    superexec = _as_dict(deploy.get("superexec"))
+    superexec_env = _as_string_dict(_as_dict(superexec.get("env")))
     supernode_resources = _as_dict(resources.get("supernode"))
     network = _as_dict(deploy.get("network"))
     network_profiles = _as_dict(network.get("profiles"))
@@ -456,6 +474,7 @@ def _repo_deploy_config(repo_cfg: dict[str, object]) -> _RepoDeployConfig:
     return _RepoDeployConfig(
         supernodes=supernodes,
         supernode_resources=supernode_resources,
+        superexec_env=superexec_env,
         network_profiles=network_profiles,
         network_ingress_profiles=network_ingress_profiles,
         network_egress_profiles=network_egress_profiles,
@@ -476,6 +495,35 @@ def _as_optional_str(value: object) -> str | None:
     if isinstance(value, str) and value:
         return value
     return None
+
+
+def _as_string_dict(value: dict[str, object]) -> dict[str, str]:
+    resolved: dict[str, str] = {}
+    for key, raw in value.items():
+        if not isinstance(key, str) or not key:
+            continue
+        if raw is None:
+            continue
+        text = str(raw).strip()
+        if text:
+            resolved[key] = text
+    return resolved
+
+
+def _runtime_superexec_env() -> dict[str, str]:
+    env: dict[str, str] = {}
+    submission_id = os.environ.get("FEDCTL_SUBMISSION_ID") or os.environ.get(
+        "SUBMIT_SUBMISSION_ID"
+    )
+    if submission_id:
+        env["FEDCTL_SUBMISSION_ID"] = str(submission_id)
+    for key in _RUNTIME_SUPEREXEC_ENV_KEYS:
+        if key == "FEDCTL_SUBMISSION_ID":
+            continue
+        value = os.environ.get(key)
+        if value:
+            env[key] = value
+    return env
 
 
 def _resolve_network_plan(

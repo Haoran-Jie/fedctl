@@ -39,7 +39,7 @@ def test_archive_includes_profile_repo_config_when_project_config_missing(
     assert "allow_oversubscribe: true" in archived_cfg
 
 
-def test_archive_prefers_project_local_repo_config_over_profile_repo_config(
+def test_archive_uses_explicit_repo_config_over_project_local_repo_config(
     tmp_path: Path,
 ) -> None:
     project_root = tmp_path / "project"
@@ -67,4 +67,4 @@ def test_archive_prefers_project_local_repo_config_over_profile_repo_config(
         archive_path,
         f"{project_root.name}/.fedctl/fedctl.yaml",
     )
-    assert "allow_oversubscribe: false" in archived_cfg
+    assert "allow_oversubscribe: true" in archived_cfg

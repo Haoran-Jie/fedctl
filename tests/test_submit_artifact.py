@@ -361,3 +361,108 @@ def test_run_submit_rewrites_explicit_superexec_image_to_internal_registry(
         == "192.168.8.101:5000/demo-project-superexec:test123"
     )
     assert payload["env"]["FEDCTL_IMAGE_REGISTRY"] == "192.168.8.101:5000"
+
+
+def test_run_submit_uses_repo_deploy_supernodes_and_placement_defaults(
+    monkeypatch, tmp_path: Path
+) -> None:
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    archive = tmp_path / "project.tar.gz"
+    archive.write_bytes(b"artifact-bytes")
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        submit_cmd,
+        "inspect_flwr_project",
+        lambda _: SimpleNamespace(
+            project_name="demo-project",
+            local_sim_num_supernodes=2,
+            root=project_root,
+        ),
+    )
+    monkeypatch.setattr(
+        submit_cmd,
+        "resolve_repo_config",
+        lambda **_: SimpleNamespace(
+            data={
+                "deploy": {
+                    "supernodes": {"rpi4": 2, "rpi5": 2},
+                    "placement": {"allow_oversubscribe": False},
+                },
+                "submit": {
+                    "image": "submit-image:latest",
+                    "artifact_store": "s3+presign://fedctl-submits/fedctl-submits",
+                    "endpoint": "http://submit.example:8080",
+                    "token": "token-from-config",
+                },
+            },
+            path=None,
+        ),
+    )
+
+    class FakeSubmitClient:
+        endpoint = "http://submit.example:8080"
+        token = "token-from-client"
+
+        def create_submission(self, payload):
+            captured["submission_payload"] = payload
+            return {"submission_id": "sub-123"}
+
+    monkeypatch.setattr(
+        submit_cmd,
+        "_submit_service_client",
+        lambda **_: FakeSubmitClient(),
+    )
+    monkeypatch.setattr(
+        submit_cmd,
+        "_build_project_archive",
+        lambda *_, **__: archive,
+    )
+    monkeypatch.setattr(
+        submit_cmd,
+        "upload_artifact",
+        lambda *_, **__: "https://signed.example/get-object",
+    )
+    monkeypatch.setattr(submit_cmd, "load_config", lambda: object())
+    monkeypatch.setattr(
+        submit_cmd,
+        "get_effective_config",
+        lambda _: SimpleNamespace(namespace="default"),
+    )
+
+    status = submit_cmd.run_submit(
+        path=str(project_root),
+        flwr_version="1.27.0",
+        image=None,
+        no_cache=False,
+        platform=None,
+        context=None,
+        push=False,
+        num_supernodes=2,
+        auto_supernodes=True,
+        supernodes=None,
+        net=None,
+        allow_oversubscribe=None,
+        repo_config=None,
+        experiment="demo-exp",
+        timeout_seconds=120,
+        federation="remote-deployment",
+        stream=True,
+        verbose=False,
+        destroy=True,
+        submit_image=None,
+        artifact_store=None,
+        priority=50,
+    )
+
+    assert status == 0
+    payload = captured["submission_payload"]
+    assert payload["args"].count("--supernodes") == 2
+    assert "rpi4=2" in payload["args"]
+    assert "rpi5=2" in payload["args"]
+    assert "--num-supernodes" not in payload["args"]
+    assert "--no-allow-oversubscribe" in payload["args"]
+    options = payload["submit_request"]["options"]
+    assert options["supernodes"] == ["rpi4=2", "rpi5=2"]
+    assert options["allow_oversubscribe"] is False

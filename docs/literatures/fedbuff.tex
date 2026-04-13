@@ -1,0 +1,1978 @@
+\documentclass[twoside]{article}
+
+% \usepackage{aistats2022}
+% If your paper is accepted, change the options for the package
+% aistats2022 as follows:
+%
+\usepackage[accepted]{aistats2022}
+%
+% This option will print headings for the title of your paper and
+% headings for the authors names, plus a copyright note at the end of
+% the first column of the first page.
+
+% If you set papersize explicitly, activate the following three lines:
+%\special{papersize = 8.5in, 11in}
+%\setlength{\pdfpageheight}{11in}
+%\setlength{\pdfpagewidth}{8.5in}
+
+% If you use natbib package, activate the following three lines:
+\usepackage[round]{natbib}
+\renewcommand{\bibname}{References}
+\renewcommand{\bibsection}{\subsubsection*{\bibname}}
+
+% If you use BibTeX in apalike style, activate the following line:
+%\bibliographystyle{apalike}
+
+%%%%% NEW MATH DEFINITIONS %%%%%
+
+\usepackage{amsmath,amsfonts,bm}
+
+% Mark sections of captions for referring to divisions of figures
+\newcommand{\figleft}{{\em (Left)}}
+\newcommand{\figcenter}{{\em (Center)}}
+\newcommand{\figright}{{\em (Right)}}
+\newcommand{\figtop}{{\em (Top)}}
+\newcommand{\figbottom}{{\em (Bottom)}}
+\newcommand{\captiona}{{\em (a)}}
+\newcommand{\captionb}{{\em (b)}}
+\newcommand{\captionc}{{\em (c)}}
+\newcommand{\captiond}{{\em (d)}}
+
+% Highlight a newly defined term
+\newcommand{\newterm}[1]{{\bf #1}}
+
+
+% Figure reference, lower-case.
+\def\figref#1{figure~\ref{#1}}
+% Figure reference, capital. For start of sentence
+\def\Figref#1{Figure~\ref{#1}}
+\def\twofigref#1#2{figures \ref{#1} and \ref{#2}}
+\def\quadfigref#1#2#3#4{figures \ref{#1}, \ref{#2}, \ref{#3} and \ref{#4}}
+% Section reference, lower-case.
+\def\secref#1{section~\ref{#1}}
+% Section reference, capital.
+\def\Secref#1{Section~\ref{#1}}
+% Reference to two sections.
+\def\twosecrefs#1#2{sections \ref{#1} and \ref{#2}}
+% Reference to three sections.
+\def\secrefs#1#2#3{sections \ref{#1}, \ref{#2} and \ref{#3}}
+% Reference to an equation, lower-case.
+\def\eqref#1{equation~\ref{#1}}
+% Reference to an equation, upper case
+\def\Eqref#1{Equation~\ref{#1}}
+% A raw reference to an equation---avoid using if possible
+\def\plaineqref#1{\ref{#1}}
+% Reference to a chapter, lower-case.
+\def\chapref#1{chapter~\ref{#1}}
+% Reference to an equation, upper case.
+\def\Chapref#1{Chapter~\ref{#1}}
+% Reference to a range of chapters
+\def\rangechapref#1#2{chapters\ref{#1}--\ref{#2}}
+% Reference to an algorithm, lower-case.
+\def\algref#1{algorithm~\ref{#1}}
+% Reference to an algorithm, upper case.
+\def\Algref#1{Algorithm~\ref{#1}}
+\def\twoalgref#1#2{algorithms \ref{#1} and \ref{#2}}
+\def\Twoalgref#1#2{Algorithms \ref{#1} and \ref{#2}}
+% Reference to a part, lower case
+\def\partref#1{part~\ref{#1}}
+% Reference to a part, upper case
+\def\Partref#1{Part~\ref{#1}}
+\def\twopartref#1#2{parts \ref{#1} and \ref{#2}}
+
+\def\ceil#1{\lceil #1 \rceil}
+\def\floor#1{\lfloor #1 \rfloor}
+\def\1{\bm{1}}
+\newcommand{\train}{\mathcal{D}}
+\newcommand{\valid}{\mathcal{D_{\mathrm{valid}}}}
+\newcommand{\test}{\mathcal{D_{\mathrm{test}}}}
+
+\def\eps{{\epsilon}}
+
+
+% Random variables
+\def\reta{{\textnormal{$\eta$}}}
+\def\ra{{\textnormal{a}}}
+\def\rb{{\textnormal{b}}}
+\def\rc{{\textnormal{c}}}
+\def\rd{{\textnormal{d}}}
+\def\re{{\textnormal{e}}}
+\def\rf{{\textnormal{f}}}
+\def\rg{{\textnormal{g}}}
+\def\rh{{\textnormal{h}}}
+\def\ri{{\textnormal{i}}}
+\def\rj{{\textnormal{j}}}
+\def\rk{{\textnormal{k}}}
+\def\rl{{\textnormal{l}}}
+% rm is already a command, just don't name any random variables m
+\def\rn{{\textnormal{n}}}
+\def\ro{{\textnormal{o}}}
+\def\rp{{\textnormal{p}}}
+\def\rq{{\textnormal{q}}}
+\def\rr{{\textnormal{r}}}
+\def\rs{{\textnormal{s}}}
+\def\rt{{\textnormal{t}}}
+\def\ru{{\textnormal{u}}}
+\def\rv{{\textnormal{v}}}
+\def\rw{{\textnormal{w}}}
+\def\rx{{\textnormal{x}}}
+\def\ry{{\textnormal{y}}}
+\def\rz{{\textnormal{z}}}
+
+% Random vectors
+\def\rvepsilon{{\mathbf{\epsilon}}}
+\def\rvtheta{{\mathbf{\theta}}}
+\def\rva{{\mathbf{a}}}
+\def\rvb{{\mathbf{b}}}
+\def\rvc{{\mathbf{c}}}
+\def\rvd{{\mathbf{d}}}
+\def\rve{{\mathbf{e}}}
+\def\rvf{{\mathbf{f}}}
+\def\rvg{{\mathbf{g}}}
+\def\rvh{{\mathbf{h}}}
+\def\rvu{{\mathbf{i}}}
+\def\rvj{{\mathbf{j}}}
+\def\rvk{{\mathbf{k}}}
+\def\rvl{{\mathbf{l}}}
+\def\rvm{{\mathbf{m}}}
+\def\rvn{{\mathbf{n}}}
+\def\rvo{{\mathbf{o}}}
+\def\rvp{{\mathbf{p}}}
+\def\rvq{{\mathbf{q}}}
+\def\rvr{{\mathbf{r}}}
+\def\rvs{{\mathbf{s}}}
+\def\rvt{{\mathbf{t}}}
+\def\rvu{{\mathbf{u}}}
+\def\rvv{{\mathbf{v}}}
+\def\rvw{{\mathbf{w}}}
+\def\rvx{{\mathbf{x}}}
+\def\rvy{{\mathbf{y}}}
+\def\rvz{{\mathbf{z}}}
+
+% Elements of random vectors
+\def\erva{{\textnormal{a}}}
+\def\ervb{{\textnormal{b}}}
+\def\ervc{{\textnormal{c}}}
+\def\ervd{{\textnormal{d}}}
+\def\erve{{\textnormal{e}}}
+\def\ervf{{\textnormal{f}}}
+\def\ervg{{\textnormal{g}}}
+\def\ervh{{\textnormal{h}}}
+\def\ervi{{\textnormal{i}}}
+\def\ervj{{\textnormal{j}}}
+\def\ervk{{\textnormal{k}}}
+\def\ervl{{\textnormal{l}}}
+\def\ervm{{\textnormal{m}}}
+\def\ervn{{\textnormal{n}}}
+\def\ervo{{\textnormal{o}}}
+\def\ervp{{\textnormal{p}}}
+\def\ervq{{\textnormal{q}}}
+\def\ervr{{\textnormal{r}}}
+\def\ervs{{\textnormal{s}}}
+\def\ervt{{\textnormal{t}}}
+\def\ervu{{\textnormal{u}}}
+\def\ervv{{\textnormal{v}}}
+\def\ervw{{\textnormal{w}}}
+\def\ervx{{\textnormal{x}}}
+\def\ervy{{\textnormal{y}}}
+\def\ervz{{\textnormal{z}}}
+
+% Random matrices
+\def\rmA{{\mathbf{A}}}
+\def\rmB{{\mathbf{B}}}
+\def\rmC{{\mathbf{C}}}
+\def\rmD{{\mathbf{D}}}
+\def\rmE{{\mathbf{E}}}
+\def\rmF{{\mathbf{F}}}
+\def\rmG{{\mathbf{G}}}
+\def\rmH{{\mathbf{H}}}
+\def\rmI{{\mathbf{I}}}
+\def\rmJ{{\mathbf{J}}}
+\def\rmK{{\mathbf{K}}}
+\def\rmL{{\mathbf{L}}}
+\def\rmM{{\mathbf{M}}}
+\def\rmN{{\mathbf{N}}}
+\def\rmO{{\mathbf{O}}}
+\def\rmP{{\mathbf{P}}}
+\def\rmQ{{\mathbf{Q}}}
+\def\rmR{{\mathbf{R}}}
+\def\rmS{{\mathbf{S}}}
+\def\rmT{{\mathbf{T}}}
+\def\rmU{{\mathbf{U}}}
+\def\rmV{{\mathbf{V}}}
+\def\rmW{{\mathbf{W}}}
+\def\rmX{{\mathbf{X}}}
+\def\rmY{{\mathbf{Y}}}
+\def\rmZ{{\mathbf{Z}}}
+
+% Elements of random matrices
+\def\ermA{{\textnormal{A}}}
+\def\ermB{{\textnormal{B}}}
+\def\ermC{{\textnormal{C}}}
+\def\ermD{{\textnormal{D}}}
+\def\ermE{{\textnormal{E}}}
+\def\ermF{{\textnormal{F}}}
+\def\ermG{{\textnormal{G}}}
+\def\ermH{{\textnormal{H}}}
+\def\ermI{{\textnormal{I}}}
+\def\ermJ{{\textnormal{J}}}
+\def\ermK{{\textnormal{K}}}
+\def\ermL{{\textnormal{L}}}
+\def\ermM{{\textnormal{M}}}
+\def\ermN{{\textnormal{N}}}
+\def\ermO{{\textnormal{O}}}
+\def\ermP{{\textnormal{P}}}
+\def\ermQ{{\textnormal{Q}}}
+\def\ermR{{\textnormal{R}}}
+\def\ermS{{\textnormal{S}}}
+\def\ermT{{\textnormal{T}}}
+\def\ermU{{\textnormal{U}}}
+\def\ermV{{\textnormal{V}}}
+\def\ermW{{\textnormal{W}}}
+\def\ermX{{\textnormal{X}}}
+\def\ermY{{\textnormal{Y}}}
+\def\ermZ{{\textnormal{Z}}}
+
+% Vectors
+\def\vzero{{\bm{0}}}
+\def\vone{{\bm{1}}}
+\def\vmu{{\bm{\mu}}}
+\def\vtheta{{\bm{\theta}}}
+\def\va{{\bm{a}}}
+\def\vb{{\bm{b}}}
+\def\vc{{\bm{c}}}
+\def\vd{{\bm{d}}}
+\def\ve{{\bm{e}}}
+\def\vf{{\bm{f}}}
+\def\vg{{\bm{g}}}
+\def\vh{{\bm{h}}}
+\def\vi{{\bm{i}}}
+\def\vj{{\bm{j}}}
+\def\vk{{\bm{k}}}
+\def\vl{{\bm{l}}}
+\def\vm{{\bm{m}}}
+\def\vn{{\bm{n}}}
+\def\vo{{\bm{o}}}
+\def\vp{{\bm{p}}}
+\def\vq{{\bm{q}}}
+\def\vr{{\bm{r}}}
+\def\vs{{\bm{s}}}
+\def\vt{{\bm{t}}}
+\def\vu{{\bm{u}}}
+\def\vv{{\bm{v}}}
+\def\vw{{\bm{w}}}
+\def\vx{{\bm{x}}}
+\def\vy{{\bm{y}}}
+\def\vz{{\bm{z}}}
+
+% Elements of vectors
+\def\evalpha{{\alpha}}
+\def\evbeta{{\beta}}
+\def\evepsilon{{\epsilon}}
+\def\evlambda{{\lambda}}
+\def\evomega{{\omega}}
+\def\evmu{{\mu}}
+\def\evpsi{{\psi}}
+\def\evsigma{{\sigma}}
+\def\evtheta{{\theta}}
+\def\eva{{a}}
+\def\evb{{b}}
+\def\evc{{c}}
+\def\evd{{d}}
+\def\eve{{e}}
+\def\evf{{f}}
+\def\evg{{g}}
+\def\evh{{h}}
+\def\evi{{i}}
+\def\evj{{j}}
+\def\evk{{k}}
+\def\evl{{l}}
+\def\evm{{m}}
+\def\evn{{n}}
+\def\evo{{o}}
+\def\evp{{p}}
+\def\evq{{q}}
+\def\evr{{r}}
+\def\evs{{s}}
+\def\evt{{t}}
+\def\evu{{u}}
+\def\evv{{v}}
+\def\evw{{w}}
+\def\evx{{x}}
+\def\evy{{y}}
+\def\evz{{z}}
+
+% Matrix
+\def\mA{{\bm{A}}}
+\def\mB{{\bm{B}}}
+\def\mC{{\bm{C}}}
+\def\mD{{\bm{D}}}
+\def\mE{{\bm{E}}}
+\def\mF{{\bm{F}}}
+\def\mG{{\bm{G}}}
+\def\mH{{\bm{H}}}
+\def\mI{{\bm{I}}}
+\def\mJ{{\bm{J}}}
+\def\mK{{\bm{K}}}
+\def\mL{{\bm{L}}}
+\def\mM{{\bm{M}}}
+\def\mN{{\bm{N}}}
+\def\mO{{\bm{O}}}
+\def\mP{{\bm{P}}}
+\def\mQ{{\bm{Q}}}
+\def\mR{{\bm{R}}}
+\def\mS{{\bm{S}}}
+\def\mT{{\bm{T}}}
+\def\mU{{\bm{U}}}
+\def\mV{{\bm{V}}}
+\def\mW{{\bm{W}}}
+\def\mX{{\bm{X}}}
+\def\mY{{\bm{Y}}}
+\def\mZ{{\bm{Z}}}
+\def\mBeta{{\bm{\beta}}}
+\def\mPhi{{\bm{\Phi}}}
+\def\mLambda{{\bm{\Lambda}}}
+\def\mSigma{{\bm{\Sigma}}}
+
+% Tensor
+\DeclareMathAlphabet{\mathsfit}{\encodingdefault}{\sfdefault}{m}{sl}
+\SetMathAlphabet{\mathsfit}{bold}{\encodingdefault}{\sfdefault}{bx}{n}
+\newcommand{\tens}[1]{\bm{\mathsfit{#1}}}
+\def\tA{{\tens{A}}}
+\def\tB{{\tens{B}}}
+\def\tC{{\tens{C}}}
+\def\tD{{\tens{D}}}
+\def\tE{{\tens{E}}}
+\def\tF{{\tens{F}}}
+\def\tG{{\tens{G}}}
+\def\tH{{\tens{H}}}
+\def\tI{{\tens{I}}}
+\def\tJ{{\tens{J}}}
+\def\tK{{\tens{K}}}
+\def\tL{{\tens{L}}}
+\def\tM{{\tens{M}}}
+\def\tN{{\tens{N}}}
+\def\tO{{\tens{O}}}
+\def\tP{{\tens{P}}}
+\def\tQ{{\tens{Q}}}
+\def\tR{{\tens{R}}}
+\def\tS{{\tens{S}}}
+\def\tT{{\tens{T}}}
+\def\tU{{\tens{U}}}
+\def\tV{{\tens{V}}}
+\def\tW{{\tens{W}}}
+\def\tX{{\tens{X}}}
+\def\tY{{\tens{Y}}}
+\def\tZ{{\tens{Z}}}
+
+
+% Graph
+\def\gA{{\mathcal{A}}}
+\def\gB{{\mathcal{B}}}
+\def\gC{{\mathcal{C}}}
+\def\gD{{\mathcal{D}}}
+\def\gE{{\mathcal{E}}}
+\def\gF{{\mathcal{F}}}
+\def\gG{{\mathcal{G}}}
+\def\gH{{\mathcal{H}}}
+\def\gI{{\mathcal{I}}}
+\def\gJ{{\mathcal{J}}}
+\def\gK{{\mathcal{K}}}
+\def\gL{{\mathcal{L}}}
+\def\gM{{\mathcal{M}}}
+\def\gN{{\mathcal{N}}}
+\def\gO{{\mathcal{O}}}
+\def\gP{{\mathcal{P}}}
+\def\gQ{{\mathcal{Q}}}
+\def\gR{{\mathcal{R}}}
+\def\gS{{\mathcal{S}}}
+\def\gT{{\mathcal{T}}}
+\def\gU{{\mathcal{U}}}
+\def\gV{{\mathcal{V}}}
+\def\gW{{\mathcal{W}}}
+\def\gX{{\mathcal{X}}}
+\def\gY{{\mathcal{Y}}}
+\def\gZ{{\mathcal{Z}}}
+
+% Sets
+\def\sA{{\mathbb{A}}}
+\def\sB{{\mathbb{B}}}
+\def\sC{{\mathbb{C}}}
+\def\sD{{\mathbb{D}}}
+% Don't use a set called E, because this would be the same as our symbol
+% for expectation.
+\def\sF{{\mathbb{F}}}
+\def\sG{{\mathbb{G}}}
+\def\sH{{\mathbb{H}}}
+\def\sI{{\mathbb{I}}}
+\def\sJ{{\mathbb{J}}}
+\def\sK{{\mathbb{K}}}
+\def\sL{{\mathbb{L}}}
+\def\sM{{\mathbb{M}}}
+\def\sN{{\mathbb{N}}}
+\def\sO{{\mathbb{O}}}
+\def\sP{{\mathbb{P}}}
+\def\sQ{{\mathbb{Q}}}
+\def\sR{{\mathbb{R}}}
+\def\sS{{\mathbb{S}}}
+\def\sT{{\mathbb{T}}}
+\def\sU{{\mathbb{U}}}
+\def\sV{{\mathbb{V}}}
+\def\sW{{\mathbb{W}}}
+\def\sX{{\mathbb{X}}}
+\def\sY{{\mathbb{Y}}}
+\def\sZ{{\mathbb{Z}}}
+
+% Entries of a matrix
+\def\emLambda{{\Lambda}}
+\def\emA{{A}}
+\def\emB{{B}}
+\def\emC{{C}}
+\def\emD{{D}}
+\def\emE{{E}}
+\def\emF{{F}}
+\def\emG{{G}}
+\def\emH{{H}}
+\def\emI{{I}}
+\def\emJ{{J}}
+\def\emK{{K}}
+\def\emL{{L}}
+\def\emM{{M}}
+\def\emN{{N}}
+\def\emO{{O}}
+\def\emP{{P}}
+\def\emQ{{Q}}
+\def\emR{{R}}
+\def\emS{{S}}
+\def\emT{{T}}
+\def\emU{{U}}
+\def\emV{{V}}
+\def\emW{{W}}
+\def\emX{{X}}
+\def\emY{{Y}}
+\def\emZ{{Z}}
+\def\emSigma{{\Sigma}}
+
+% entries of a tensor
+% Same font as tensor, without \bm wrapper
+\newcommand{\etens}[1]{\mathsfit{#1}}
+\def\etLambda{{\etens{\Lambda}}}
+\def\etA{{\etens{A}}}
+\def\etB{{\etens{B}}}
+\def\etC{{\etens{C}}}
+\def\etD{{\etens{D}}}
+\def\etE{{\etens{E}}}
+\def\etF{{\etens{F}}}
+\def\etG{{\etens{G}}}
+\def\etH{{\etens{H}}}
+\def\etI{{\etens{I}}}
+\def\etJ{{\etens{J}}}
+\def\etK{{\etens{K}}}
+\def\etL{{\etens{L}}}
+\def\etM{{\etens{M}}}
+\def\etN{{\etens{N}}}
+\def\etO{{\etens{O}}}
+\def\etP{{\etens{P}}}
+\def\etQ{{\etens{Q}}}
+\def\etR{{\etens{R}}}
+\def\etS{{\etens{S}}}
+\def\etT{{\etens{T}}}
+\def\etU{{\etens{U}}}
+\def\etV{{\etens{V}}}
+\def\etW{{\etens{W}}}
+\def\etX{{\etens{X}}}
+\def\etY{{\etens{Y}}}
+\def\etZ{{\etens{Z}}}
+
+% The true underlying data generating distribution
+\newcommand{\pdata}{p_{\rm{data}}}
+% The empirical distribution defined by the training set
+\newcommand{\ptrain}{\hat{p}_{\rm{data}}}
+\newcommand{\Ptrain}{\hat{P}_{\rm{data}}}
+% The model distribution
+\newcommand{\pmodel}{p_{\rm{model}}}
+\newcommand{\Pmodel}{P_{\rm{model}}}
+\newcommand{\ptildemodel}{\tilde{p}_{\rm{model}}}
+% Stochastic autoencoder distributions
+\newcommand{\pencode}{p_{\rm{encoder}}}
+\newcommand{\pdecode}{p_{\rm{decoder}}}
+\newcommand{\precons}{p_{\rm{reconstruct}}}
+
+\newcommand{\laplace}{\mathrm{Laplace}} % Laplace distribution
+
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\Ls}{\mathcal{L}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\emp}{\tilde{p}}
+\newcommand{\lr}{\alpha}
+\newcommand{\reg}{\lambda}
+\newcommand{\rect}{\mathrm{rectifier}}
+\newcommand{\softmax}{\mathrm{softmax}}
+\newcommand{\sigmoid}{\sigma}
+\newcommand{\softplus}{\zeta}
+\newcommand{\KL}{D_{\mathrm{KL}}}
+\newcommand{\Var}{\mathrm{Var}}
+\newcommand{\standarderror}{\mathrm{SE}}
+\newcommand{\Cov}{\mathrm{Cov}}
+% Wolfram Mathworld says $L^2$ is for function spaces and $\ell^2$ is for vectors
+% But then they seem to use $L^2$ for vectors throughout the site, and so does
+% wikipedia.
+\newcommand{\normlzero}{L^0}
+\newcommand{\normlone}{L^1}
+\newcommand{\normltwo}{L^2}
+\newcommand{\normlp}{L^p}
+\newcommand{\normmax}{L^\infty}
+
+\newcommand{\parents}{Pa} % See usage in notation.tex. Chosen to match Daphne's book.
+
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+
+\DeclareMathOperator{\sign}{sign}
+\DeclareMathOperator{\Tr}{Tr}
+\let\ab\allowbreak
+
+
+\usepackage{microtype}
+\usepackage{graphicx}
+\usepackage{subfigure}
+\usepackage{booktabs} % for professional tables
+\usepackage{xcolor}
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{amsmath}
+\usepackage{mathtools}
+\usepackage{amsthm}
+\usepackage{amssymb}
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+% \usepackage{xcolor}         % colors
+\usepackage{multirow}
+\usepackage{colortbl}
+\usepackage{array}
+% \usepackage{color}
+\usepackage{booktabs}
+\usepackage{algorithm}
+\usepackage[noend]{algpseudocode}
+\usepackage{cleveref}
+\usepackage{xspace}
+\newcommand{\calS}{\mathcal{S}}
+\usepackage{wrapfig}
+\usepackage[textwidth=6cm]{todonotes}
+\usepackage{soul}
+
+\algrenewcommand\algorithmicrequire{\textbf{Input:}}
+\algrenewcommand\algorithmicensure{\textbf{Output:}}
+
+\newcommand{\ashkan}[1]{\todo[color=green!20,size=\footnotesize]{AY: #1}{}} 
+\newcommand{\hy}[1]{\todo[color=green!20,size=\footnotesize,inline,caption={}]{HY: #1}{}}
+\newcommand{\john}[1]{\todo[color=yellow!20,size=\footnotesize,inline,caption={}]{JN: #1}{}}
+\newcommand{\mike}[1]{\todo[color=blue!20,size=\footnotesize,inline,caption={}]{MR: #1}{}}
+\newcommand{\kshitiz}[1]{\todo[color=red!20,size=\footnotesize,inline,caption={}]{KM: #1}{}}
+
+
+\newtheorem{definition}{Definition}
+\newtheorem{theorem}{Theorem}
+\newtheorem*{theorem*}{Theorem}
+\newtheorem{lemma}{Lemma}
+\newtheorem*{remark}{Remark}
+
+\newtheorem{corollary}{Corollary}
+\newtheorem{assumption}{Assumption}
+\DeclarePairedDelimiterX{\inp}[2]{\langle}{\rangle}{#1, #2}
+\DeclareMathOperator*{\lrnlocal}{LRN}
+
+\newcommand{\norm}[1]{\left\lVert#1\right\rVert}
+\newcommand{\order}[1]{\mathcal{O}\left(#1\right)}
+\newcommand\Tstrut{\rule{0pt}{2.6ex}}         % = `top' strut
+\newcommand\Bstrut{\rule[-0.9ex]{0pt}{0pt}}   % = `bottom' strut
+
+
+\newcommand{\algname}{{FedBuff}\xspace}
+\newcommand{\lrn}{{LR-Norm}\xspace}
+\newcommand{\concurrency}{{concurrency}\xspace}
+\newcommand{\asyncfl}{{AsyncFL}\xspace}
+\newcommand{\syncfl}{{SyncFL}\xspace}
+\newcommand{\secagg}{{SecAgg}\xspace}
+
+\definecolor{babyblue}{rgb}{0.63, 0.79, 0.95}
+
+\begin{document}
+
+% If your paper is accepted and the title of your paper is very long,
+% the style will print as headings an error message. Use the following
+% command to supply a shorter title of your paper so that it can be
+% used as headings.
+%
+%\runningtitle{I use this title instead because the last one was very long}
+
+% If your paper is accepted and the number of authors is large, the
+% style will print as headings an error message. Use the following
+% command to supply a shorter version of the authors names so that
+% they can be used as headings (for example, use only the surnames)
+%
+\runningauthor{J. Nguyen, K. Malik,  H. Zhan, A. Yousefpour, M. Rabbat, M. Malek, D. Huba}
+
+\twocolumn[
+
+\aistatstitle{Federated Learning with Buffered Asynchronous Aggregation}
+
+\aistatsauthor{ John Nguyen \And Kshitiz Malik  \And  Hongyuan Zhan \And Ashkan Yousefpour}
+\aistatsauthor{Mike Rabbat \And Mani Malek \And Dzmitry Huba }
+
+\aistatsaddress{ Meta AI} ]
+
+\begin{abstract}
+Scalability and privacy are two critical concerns for cross-device federated learning (FL) systems. In this work, we identify that synchronous FL --- synchronized aggregation of client updates in FL --- cannot scale efficiently beyond a few hundred clients training in parallel. It leads to diminishing returns in model performance and training speed, analogous to large-batch training. On the other hand, asynchronous aggregation of client updates in FL (i.e., asynchronous FL) alleviates the scalability issue. However, aggregating individual client updates is incompatible with Secure Aggregation, which could result in an undesirable level of privacy for the system. To address these concerns, we propose a novel buffered asynchronous aggregation method, \algname, that is agnostic to the choice of optimizer, and combines the best properties of synchronous and asynchronous FL. We empirically demonstrate that \algname is 3.3$\times$ more efficient than synchronous FL and up to 2.5$\times$ more efficient than asynchronous FL, while being compatible with privacy-preserving technologies such as Secure Aggregation and differential privacy. We provide theoretical convergence guarantees in a smooth non-convex setting. Finally, we show that under differentially private training, \algname can outperform FedAvgM at low privacy settings and achieve the same utility for higher privacy settings.
+\end{abstract}
+
+
+\section{Introduction}
+\label{sec:intro}
+Federated Learning (FL) is a distributed learning paradigm that aims to train a shared model across participants while training data stays on the participant devices. In this work, we focus on cross-device FL where participants are edge devices (\cite{fl-survey}), and in particular, aim to address the following two challenges:
+
+% Federated Learning (FL) is a distributed learning paradigm that aims to train a shared model across clients while training data stays on the client devices. FL has two primary settings, \emph{cross-silo} and \emph{cross-device} (\cite{fl-survey}). Cross-silo FL targets collaborative learning among several institutions, while cross-device FL targets learning across large populations of mobile devices. In this work, we focus on the cross-device settings, particularly the following challenges: 
+% \mike{Do we need to mention both cross-silo and cross-device, or could we just directly say “Federated Learning (FL) is a distributed learning paradigm that aims to train a shared model across clients while training data stays on the client devices. In this work we focus on cross-device FL (Kairouz et al., 2019), and in particular, the following two challenges:”}
+
+% . The authors in (\cite{fl_field_guide}) highlighted several key challenges with cross-device FL include the following: 
+% Since the number of clients in cross-device FL can be in the millions (\cite{fl-survey}), designing a practical FL algorithm comes with the following challenges:
+% \john{TODO: 
+% \begin{itemize}
+%     \item Change from FedBuff to FedBuff + SGM or SyncFL (FedAvgM)
+%     \item Add DP formulation
+%     \item Mentioned good rule of them for setting K w.r.t to concurrency
+%     \item Explain DP experimental section
+% \end{itemize}
+% }
+
+\textbf{Challenge 1: Scalability.} In large-scale cross-device FL settings, the number of clients can be in the millions, and only a small fraction of the client population may be available at any given time for training (\cite{fl_field_guide}). Additionally, client devices may have limited communication bandwidth and compute power. In these settings, an important parameter is \emph{\concurrency}: the number of clients training concurrently (i.e., \emph{clients-per-round} or \emph{cohort size}). 
+% With these challenges in mind, cross-device FL algorithms must be scalable and data-efficient — they should be able to exploit parallelism across clients to speed up training. 
+% Prior works in FL (\cite{fedprox, fedavgm, adaptive-fl-optimization}) often focus on heterogeneity, asymptotic convergence, and communication efficiency in low \concurrency settings. In this work, we focus on the more practical high \concurrency settings.
+% Prior works in FL \citep{charles2021large, SCAFFOLD, google-fl} have observed that
+There is a fundamental limitation when increasing concurrency in synchronous FL training: a diminishing return in the speed and quality of training. In this paper, we propose a novel buffered asynchronous aggregation optimization that makes it possible to train using significantly higher concurrency, improving the performance and efficiency of~FL.
+% In these settings, \syncfl is not scalable nor data-efficient.
+% \mike{In the prior works mentioned, the focus is indeed on other topics, but it’s not clear to me that low concurrency matters so much there. Instead of emphasizing those, how about pointing out that prior work has observed that there are (rapidly) diminishing returns when increasing concurrency with synchronous training, despite that one would hope to train faster with higher concurrency. Here we focus on demonstrating a practical approach that makes it possible to train using significantly higher concurrency, leading to faster (or more efficient) overall training.}
+
+\textbf{Challenge 2: Privacy.}
+Inference attacks, methods trying to recover information from gradients, can expose sensitive information about the participating clients \citep{melis2019exploiting, geiping2020inverting}. Given this privacy concern, secure aggregation (SecAgg) (\cite{secagg-sgx, secagg}) and differential privacy (DP) (\cite{dpftrl, google-dp-fl}) provide protection against inference attacks \citep{lauren_alex, extraction}. Using SecAgg, an honest-but-curious server cannot see the individual client updates, while DP can protect clients’ data from observations based on the inputs and the output of the computation. With SecAgg, DP clipping and noise addition can be performed on server, providing a better privacy-utility trade-off. For many real-world cross-device FL applications, compatibility with such privacy enhancing technologies is vital.  
+% In this work, we show our method can achieve strong privacy guarantees with the same utility 
+% \john{Make it clear that we need SecAgg for DP. We're not being one or the other here}
+% Thus, FL optimization methods must be compatible with secure aggregation and differential privacy.
+
+% Therefore, information learned from the federated sums may not be attributed to any specific client, offering a greater level of privacy. In the context of FL, federated sums over a large number of client updates and training on a large population size render most inference attacks ineffectual. Moreover, secure aggregation is provably secured against an honest-but-curious threat model \cite{so2021turbo, secagg-sgx, secagg, bell2020secure}. 
+
+% While there are many other challenges in FL \cite{fl-survey}, this paper focuses on the two challenges mentioned above.
+
+% Motivated by these challenges, we propose and analyze \algname, a novel asynchronous federated optimization framework using buffered asynchronous aggregation. By using asynchronous updates, we demonstrate that \algname can scale efficiently to thousands of concurrent clients. Moreover, by aggregating client updates in a secure buffer before applying them at the server, \algname is compatible with secure aggregation unlike previous asynchronous FL proposals.
+
+\textbf{Our proposal: \algname{}.} Motivated by these challenges, we propose and analyze \algname, a novel asynchronous federated optimization framework using buffered asynchronous aggregation. In \algname, clients train and communicate asynchronously with the server. Unlike other asynchronous methods, the server aggregates $K$ client updates in a secure buffer before performing a server update. This secure buffer can be implemented by using Trusted Execution Environments (TEEs) \citep{secagg-sgx, tee_ppfl}. 
+% Furthermore, \algname is compatible with secure aggregation and differential privacy. 
+% or through cryptographic algorithms (\cite{secagg, bell2020secure}).
+% The buffer size, $K$, is a tunable parameter. 
+% \algname can scale efficiently to thousands of concurrent clients (Figure \ref{fig:large_upr}). We show in Section~\ref{subsec:results} that $K = 10$ result in fast and data-efficient training while larger values of $K$ can provide better privacy-utility trade-off. In Section \ref{sec:experimental_dp}, we demonstrate \algname can be easily extended to provide global user-level DP. 
+
+% , up to 3.8$\times$ faster than synchronous FL methods and up to 2.5$\times$ over purely asynchronous FL. In Section \ref{sec:experimental_dp}, we demonstrate \algname can be easily extended to provide with global user-level DP. 
+
+% \john{Need to phrase that moderate values of K such as 10 is a good default. }
+% Moreover, by aggregating client updates in a secure buffer before applying them at the server, \algname is compatible with secure aggregation unlike previous asynchronous FL proposals. 
+
+% Unlike other \asyncfl proposals \cite{fedasync}, \algname{} is compatible with secure aggregation, especially techniques that rely on a Trusted Execution Environment (TEE) (\cite{secagg-sgx, pysft-secagg, tee_ppfl}).
+
+\textbf{Contributions.}
+We highlight the main contributions: 
+
+    $\bullet$ We propose \algname{}, a novel asynchronous federated optimization framework with buffered asynchronous aggregation to achieve scalability and privacy against the \textbf{honest-but-curious} threat model through secure aggregation and differential privacy.
+    % for the honest-but-curious threat model through secure aggregation. 
+    % \kshitiz{We propose \algname{}, a novel asynchronous FL training scheme with buffered asynchronous aggregation. Unlike previous asynchronous FL proposals, \algname{} is compatible with secure aggregation.}
+     
+    $\bullet$ We provide a convergence analysis for \algname in the smooth non-convex setting. When clients take $Q$ local SGD steps, \algname requires $\order{1/(\epsilon^2 Q)}$ server iterations to reach $\epsilon$ accuracy (Section \ref{sec:convergence}).
+    
+    $\bullet$ Empirically, we show that \algname{} is up to 3.8$\times$ more efficient than competing synchronous FL algorithms,  even without penalizing synchronous FL algorithms for stragglers. We also demonstrate that \algname{} is up to 2.5$\times$ more efficient than the closest asynchronous FL algorithm in the literature, FedAsync \citep{fedasync}. Our extensive empirical evaluation finds that $K = 10$ is a good setting across benchmarks and does not require tuning. 
+
+    % $\bullet$ We demonstrate that \algname{}'s speed up over competing synchronous and asynchronous FL methods is robust across various staleness distributions and datasets. We show that staleness distribution in a real-world setup; running FL across millions of client devices approximates a half-normal distribution. 
+    % \john{Should we still have this as a contribution?}
+    $\bullet$ To the best of our knowledge, we are the first to propose an asynchronous federated optimization framework that is compatible with SecAgg and global user-level DP. Under differentially private training, \algname can outperform both synchronous FL with amplified DP-SGD and DP-FTRL (differentially private Follow-the-Regularized-Leader) at low privacy settings, and be competitive for high privacy settings. 
+    % \john{A}
+    % We study privacy-utility trade-off of \algname in Section \ref{sec:ex_dp}.
+    % We demonstrate that \algname{}'s speed up over competing synchronous and asynchronous FL methods is robust across various staleness distributions and datasets. We show that staleness distribution in a real-world setup; running FL across millions of client devices approximates a half-normal distribution.
+    % To the best of our knowledge, we are the first to analyze empirical staleness distribution from a production system. \mike{I don't disagree with this last statement, but do we consider this a major contribution of the paper? If not, maybe we could de-emphasize here.}
+
+% s training is often an order of magnitude slower than conventional server training~\cite{google-fl}. 
+% However, \syncfl methods are prone to stragglers. They proceed at the pace of the slowest client. To overcome this issue, \cite{google-fl} proposed over-selection, and selects 30\% more clients than the target number of clients to participate and waits for the fastest replies. However, over-selection comes at the cost of wasting client's resource. 
+
+\begin{figure*}[t]
+     \centering
+     \begin{minipage}[t]{0.32\linewidth}
+         \centering
+         \includegraphics[width=\linewidth]{figures/sent140_rounds.pdf}
+     \end{minipage}
+     \hspace{1em}
+     \begin{minipage}[t]{0.32\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/celeba_rounds.pdf}
+     \end{minipage}
+        \begin{minipage}[t]{0.32\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/cifar10_rounds.pdf}
+     \end{minipage}
+     \caption{The number of communication rounds to reach a target accuracy with varying levels of concurrency.
+        SyncFL algorithms such as FedAvgM \citep{fedavgm} shows diminishing returns from
+        increasing concurrency beyond 100. For example, increasing concurrency by 10x (100 –> 1000)
+        decreases the number of communication rounds by less than 2x. This is analogous to large-batch
+        training, where increasing the batch size eventually gives diminishing returns.}
+     \label{fig:sent140_rounds}
+\end{figure*}
+
+
+\begin{figure}[t]
+    \begin{minipage}[t]{\linewidth}
+        \centering
+	\includegraphics[width=\linewidth]{figures/sync_async.pdf}
+    \end{minipage}
+
+    \caption{Training progress for asynchronous and synchronous FL, and the associated delays. Synchronous FL proceeds in \emph{rounds}. The number of active clients increases at the beginning of a round as clients join the cohort, and it falls gradually towards the end of the round due to stragglers. In asynchronous FL, the number of active clients stays relatively constant over time; as clients finish training and upload their results, other clients take their place.}
+	\label{fig:concurrency_sync_async}	
+\end{figure}
+
+% Although the straggler problem in SyncFL has been well-studied~\cite{fedasync, paper3, paper2, paper1, safa}, the scalability of SyncFL is perhaps an even bigger concern that has not received as much attention.
+
+% \textbf{Synchronous FL.}
+% Most works in FL have focused on synchronous methods. Synchronous FL (\syncfl) methods are better suited for privacy --- aggregating updates over large number of client updates and training on a large population size render most inference attacks ineffectual \cite{melis2019exploiting, zhu2020deep, geiping2020inverting, lam2021gradient}. However, \syncfl is not scalable nor data-efficient. In \syncfl, the optimal server learning rate generally increases with \concurrency{}; aggregating over more users has a variance-reducing effect, enabling the server to take longer steps. Consequently, higher \concurrency reduces the number of rounds needed to reach a target accuracy, similar to in large-batch training (\cite{imagenet-1hr, scaling_nmt, bert_in_76, imagenet_minutes, lars, measuring_data_parallelism}). However, to have stable, convergent training dynamics, the server learning rate cannot be increased indefinitely. Eventually it saturates, resulting in a sub-linear speed-up as illustrated in Figure~\ref{fig:sent140_rounds} (left). As a result, practical \syncfl systems cannot accelerate training through parallelism beyond a few hundred clients. Moreover, \syncfl exhibits decreasing data efficiency with increasing \concurrency (Figure \ref{fig:large_upr}).
+
+% \textbf{Asynchronous FL.}
+% Asynchronous training methods are a good match for cross-device settings, where clients have different compute power and intermittently availability.
+% % heterogeneity and clients dropping out mid-round amplify the straggler problem. 
+% % Asynchronous FL (AsyncFL) schemes solve the straggler problem by incorporating a client update as soon as it is available rather than over-selecting clients and then discarding their updates.
+% % Asynchronous methods have their challenges, including staleness of client updates which complicates analysis, and non-determinism, which can complicate debugging. 
+% In pure \asyncfl methods (\cite{fedasync}), every client update results in a server model update. This has implications for privacy and scalability. Privacy wise, when every client update forces a server update, \secagg cannot be used to make FL more private -- secure aggregation's benefit is in hiding updates in an aggregate. Additionally, providing user-level DP in \asyncfl is only feasible with local differential privacy (LDP), where the client clips and adds noise locally before sending the update to the server. LDP for high dimensional data has been criticized for poor privacy-utility trade-off \cite{esa_empirical, prochlo}. Scalability wise, \asyncfl is impractical at scale as updating the server model on every client update places significant memory and compute constraint on the server. 
+
+
+\section{Background}
+\label{sec:background}
+\textbf{Synchronous FL. }
+Significant attention has been paid towards synchronous FL methods (\syncfl), as they are perhaps easier to
+analyze and implement. \syncfl methods are also better suited for privacy -- training and aggregating updates over a large number of clients render most inference attacks ineffectual \citep{melis2019exploiting, zhu2020deep, geiping2020inverting, lam2021gradient}. However, synchronous FL methods are prone to stragglers, proceeding at the pace of the slowest client. \cite{google-fl} proposed using over-selection to tap 30\% more clients than the target cohort size and wait for the fastest replies to overcome this issue. However, over-selection comes at the cost of wasting clients' resources and introduces selection bias. We study these problems in Appendix~\ref{sec:appendix_stragglers} and~\ref{sec:appendix_diversity}.
+
+In \syncfl optimization, FedAvg, a generalization of local SGD, has been shown to work well empirically \citep{google-fedavg}. FedProx \citep{fedprox} improves upon FedAvg by adding a proximal term~$\mu$ to the local SGD optimizer. FedAvgM \citep{fedavgm} further improves convergence by adding server-side momentum. Adaptive methods such as FedAdam \citep{adaptive-fl-optimization} are effective in cross-device FL settings and have comparable performance to FedAvgM. These optimizers often focus on heterogeneity, asymptotic convergence, and communication efficiency in \emph{low \concurrency} settings. In this paper, we focus on \emph{high \concurrency} settings. In these settings, \syncfl is not scalable and is inefficient. Typically, the optimal server learning rate increases with \concurrency{}; aggregating over more users has a variance-reducing effect, enabling the server to take larger steps. Consequently, higher \concurrency reduces the number of rounds needed to reach a target accuracy because of a larger server learning rate. However, to have stable, convergent training dynamics, the server learning rate cannot be increased indefinitely; eventually it saturates, resulting in a sub-linear speed-up similar to in large-batch training (\cite{imagenet-1hr, scaling_nmt, bert_in_76, imagenet_minutes, lars, measuring_data_parallelism}). 
+% We illustrate this phenomenon in Figure~\ref{fig:sent140_rounds} (left). 
+As a result, \syncfl systems cannot accelerate training through parallelism beyond a few hundred clients and exhibit decreasing efficiency with increasing \concurrency (Figure \ref{fig:sent140_rounds}). 
+% \kshitiz{This paragraph starting from "these works often focus on low concurrency settings...." is really important, but it's hiding in related work. is the intro a better place for this? }.
+
+\textbf{Asynchronous FL.}
+Asynchronous FL methods are a good match for cross-device FL settings, where clients have different compute power and intermittent availability \citep{fl_field_guide}. Most asynchronous FL (\asyncfl) works, such as the works \citep{fedasync, paper3, paper2, paper1, safa, li2021stragglers} have been focused on solving the straggler problem by designing asynchronous FL algorithms. However, these proposals include aspects that make them impractical for real-world FL deployment at scale. For instance, \cite{paper2, li2021stragglers} profile client speed, \cite{paper1} broadcast the model updates to all clients, \cite{fedasync} update the server model on every client, placing a significant burden on the clients and server, and \cite{paper3} assume all clients have the same speed. 
+% heterogeneity and clients dropping out mid-round amplify the straggler problem. 
+% Asynchronous methods have their challenges, including staleness of client updates which complicates analysis, and non-determinism, which can complicate debugging. 
+
+In \emph{``fully''} \asyncfl methods (e.g., \cite{fedasync}), every client update results in a server model update. This has implications for privacy and scalability. Considering privacy, when every client update forces a server update, \secagg cannot be used; secure aggregation's benefit is in hiding individual updates by combining them in an aggregate. Additionally, providing user-level DP in \asyncfl is only feasible with local differential privacy (LDP), where the client clips the model update and adds noise locally to it before sending it to the server. LDP for high dimensional data has been criticized for poor privacy-utility trade-off (\cite{esa_empirical, prochlo}). 
+
+% Considering Scalability, fully \asyncfl methods
+% are impractical at scale since updating the server model on every client update places significant memory and compute load on the server and results in potentially excessive communication (for model update broadcast) to all client devices. 
+
+\textbf{Secure Aggregation.}
+SecAgg is a privacy enhancing technology based on cryptographic primitives \citep{secagg, bell2020secure, so2021turbo} or hardware-based Trusted Execution Environment (TEE)~\citep{secagg-sgx}. SecAgg enhances privacy by obfuscating a client's update with many other clients' updates, protecting against the honest-but-curious server threat model~\citep{secagg}. \algname is compatible with SecAgg.
+
+\textbf{Differential Privacy.}
+DP \citep{dp} provides a rigorous formulation of the release of information derived from private data. In the context of machine learning, differentially private training \citep{dp-sgd} limits what can be learned about the original training data. 
+% In this paper, we use the notion of R{\'e}nyi differential privacy (RDP) \citep{renyi} where an ($\alpha, \epsilon$)-RDP algorithm guarantees ($\epsilon + \frac{log(1/\delta)}{\alpha - 1}$). 
+\begin{definition}
+    A randomized mechanism M: $U \mapsto R$ satisfies ($\epsilon, \delta$)-DP if for all adjacent datasets $D, D' \in U$ and for any subset of outputs $S \subseteq R$, the following holds:
+    \[
+    Pr[M(D) \in S] \leq e^{\epsilon} \cdot Pr[M(D') \in S] + \delta.
+    \]
+\end{definition}
+The definition of adjacent datasets $D,D'$ is domain and application dependent. In the context of cross-device FL, we consider $D,D'$ to be two datasets of training examples, where each example is associated with a client. Then, $D$ and $D'$ are adjacent if $D'$ can be formed by adding or removing all of the examples associated with a single client from $D$ (i.e., \textit{user-level privacy} \citep{google-dp-fl}). In this paper, we consider the \emph{global DP} (GDP) setting, where a trusted server collects, clips, and aggregates the client updates. The server then adds noise to the aggregated updates. Compared to LDP, GDP provides a better privacy-utility trade-off for high dimensional data. This setting of DP relies on using SecAgg, as the server is responsible for implementing DP.
+
+% definition of a single data record can be one training example (a.k.a., example level privacy), or a group of training examples from one individual (a.k.a., user level privacy).
+
+\section{\algname{}: Federated Learning with Buffered Asynchronous Aggregation}
+\label{sec:alg}
+We consider the following optimization problem:
+\begin{equation}
+    \min_{w \in \mathbb{R}^d} f(w) := \frac{1}{m} \sum_{i=1}^m p_i F_i(w)
+\end{equation}
+where $m$ is the total number of clients and the function $F_i$ measures the loss of a model with parameters $w$ on the $i$th client's data, and $p_i > 0$ weighs the importance of the data from client $i$. The goal is to find a model that fits all clients' data well on (weighted) average. In FL, $F_i$ is only accessible by client $i$. 
+% For simplicity, in this paper, we focus on the unweighted setting, $p_i = 1$ for all $i$, although the analysis is easily extendable to the more general case with non-uniform weights.
+
+\syncfl methods need to aggregate and synchronize clients after each round. Hence, concurrency in \syncfl is equal to the number of clients that participate in a given round. In asynchronous methods, concurrency is the number of clients training at a given point in time (Figure \ref{fig:concurrency_sync_async}). In \algname{} (Algorithm \ref{alg:server}), clients enter and finish local training asynchronously. However, the server model is not updated immediately upon receiving every client update. Instead, client updates are stored in a \textit{buffer}. A server update only takes place once $K$ client updates are in the buffer, where $K$ is the size of the buffer and is a tunable parameter. However, we find that $K = 10$ is a good choice and does not require tuning. The buffer can be implemented by using a Trusted Execution Environment (TEE) \citep{secagg-sgx, tee_ppfl} or through a cryptographic algorithm \citep{so_buffsecagg}. 
+Note that $K$ is independent of concurrency --- the extra degree of freedom introduced by the buffer allows the server to choose the model update frequency instead of coupling concurrency with the server model update as in \syncfl. The extra degree of freedom  allows \algname{} to achieve data efficiency at high concurrency while being compatible with secure aggregation and DP.
+% \kshitiz{perhaps restrict to 'the buffer can be implemented using a TEE'? implementing the buffer using cryptographic sec agg is not str8forward. might confuse a reviewer}. Note, the buffer does not rely on a trusted third party who gets to see the data clearly but can be done securely.\kshitiz{this line confused me}
+
+
+
+\algname is compatible with SecAgg, because with $K>1$ updates in the buffer, SecAgg provides its promise by hiding individual updates in the aggregate. Since \algname supports SecAgg, it can be easily extended to provide global DP. In asynchronous FL settings, the server has no control over which clients participate in a particular model update and client availability is dynamic. For such settings, privacy amplification by sampling is not feasible. DP-FTRL \citep{dpftrl} has emerged as a suitable solution to address this issue. \algname with DP-FTRL is straightforward and we show in Algorithm \ref{alg:server} how one can extend \algname to provide global DP. The three functions, \textit{InitializeTree}, \textit{AddToTree}, and \textit{GetSum} in Algorithm \ref{alg:server} correspond to those of the DP-FTRL algorithm. We defer to Section B.1 in \citep{dpftrl} for more in-depth descriptions of the functions. 
+
+% At a high level to provide DP with \algname, the server simply initializes the prefix tree $\mathcal{T}$ (line 1), clips the user gradient norm (line 7), adds the gradient from $K$ clients $\overline{\Delta}^t$ to $\mathcal{T}$ (line 12), and adds noise drawn from $\mathcal{T}$ to $\overline{\Delta}^t$ (line 13). 
+% \newlength\myindent
+% \setlength\myindent{2em}
+% \newcommand\bindent{%
+%   \begingroup
+%   \setlength{\itemindent}{\myindent}
+%   \addtolength{\algorithmicindent}{\myindent}
+% }
+% \newcommand\eindent{\endgroup}
+
+%\scriptsize
+% \begin{tabular}{r c} \toprule
+% Description & Symbol \\ \midrule
+% server model & $w_t$ \\
+% client $k$ full gradient & $\nabla F_k(w)$ \\
+% noise in stochastic gradient & $\zeta$ \\
+% client $k$ stochastic gradient & $g_k(w; \zeta_k)$ \\
+% local and global learning rate & $\eta_{\ell}$, $\eta_g$ \\
+% buffer size for each update & $K$ \\
+% number of local SGD steps & $Q$  \\
+% maximum delay & $\tau_{\max}$\\ \bottomrule
+% \end{tabular}
+
+
+
+
+\section{Convergence Analysis}
+\label{sec:convergence}
+In this section, we provide a convergence guarantee for \algname{} in the smooth, non-convex setting. Most previous works analyze synchronous federated learning methods, such as the works in \citep{dont_use_minibatch, fedprox, adaptive-fl-optimization, fedavg_conv_Li, Stitch_LocalSGD, restarted_SGD_Yu, li2019communication, haddadpour_localdescent, SCAFFOLD}. In contrast, in \algname{}, clients train asynchronously, and the client updates are first aggregated in a buffer before producing a server model update. Hence, it is essential to understand the relationship between client computation and server communication under asynchrony with buffered aggregation. 
+
+\textbf{Notation.} We use the following notation throughout: $[m]$ represents the set of all client indices, $\nabla F_i(w)$ denotes the gradient with respect to the loss on client $i$'s data, $f^*$ denotes the minimum of $f(w)$, $g_i(w; \zeta_i)$ denotes the stochastic gradient on client $i$, $K$ is the buffer size for aggregation before producing each server update, and $Q$ denotes the number of local steps taken by each client. We make the following assumptions throughout.
+
+\begin{algorithm}[t]
+  \caption{\texttt{\algname{}-server}}\label{alg:server}
+    \begin{algorithmic}[1]
+    \Require server learning rate $\eta_g$, client learning rate $\eta_{\ell}$, client SGD steps $Q$, buffer size $K$ 
+    \colorbox{babyblue}{$n$ dataset size, noise scale $\sigma^2$, clip norm $L$ (DP) }
+    % model $w^0$, 
+    \Ensure FL-trained global model
+    \State \colorbox{babyblue}{$\mathcal{T} \leftarrow InitializeTree(n, \sigma^2, L)$ (DP)}
+    \Repeat
+    \State{$c \leftarrow$ sample available clients \Comment{async}}
+    \State{run \texttt{\algname{}-client}$(w^t, \eta_{\ell}, Q)$ on $c$ \Comment{async}} 
+    \If{receive client update}
+    \State{$\Delta_i \leftarrow$ received update from client $i$}
+    \State{\colorbox{babyblue}{$\Delta_i \leftarrow Clip(\Delta_i, L)$ (DP)} \Comment{in TEE}}
+    \State{$\overline{\Delta}^t \leftarrow \overline{\Delta}^t + \Delta_i$ \Comment{in TEE}}
+    \State{$k \leftarrow k + 1$} %\Comment{number of clients in buffer}
+    \EndIf
+    \If{$k == K$} %\Comment{update global model}
+    \State {$\overline{\Delta}^t \leftarrow \frac{\overline{\Delta}^t}{K}$}
+    \State \colorbox{babyblue}{$\mathcal{T} \leftarrow \text{AddToTree}(\mathcal{T}, t, \overline{\Delta}^t)$ (DP) \Comment{in TEE}}
+    \State \colorbox{babyblue}{$\overline{\Delta}^t \leftarrow \overline{\Delta}^t + \text{GetSum}(\mathcal{T}, t)$ (DP) \Comment{in TEE}}
+    \State $w^{t+1} \leftarrow w^t - \eta_g \overline{\Delta}^t$
+    \State  $\overline{\Delta}^t \leftarrow 0, k \leftarrow 0, t \leftarrow t + 1$ \Comment{reset buffer}
+    \EndIf
+    \Until{Convergence}
+    \end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[t]
+  \caption{\texttt{\algname{}-client}}\label{alg:client}
+    \begin{algorithmic}[1]
+    \Require server model $w$, client learning rate $\eta_{\ell}$, number of client SGD steps $Q$
+    \Ensure client update $\Delta$
+     \State{$y_0 \leftarrow w$ }
+     \For{$q=1:Q$}
+     \State{$y_q \leftarrow y_{q-1} - \eta_{\ell} g_q(y_{q-1} )  $}
+     \EndFor
+     \State{$\Delta \leftarrow y_0 - y_q$}
+     \State{Send $\Delta$ to server}
+    %  \ashkan{what is ``client delta''? Did we mean gradient?} \hy{it is not gradient, it is "delta" we are using throughout the paper}
+    \end{algorithmic}
+\end{algorithm}
+
+\begin{assumption}
+(Unbiasedness of client stochastic gradient) $\mathbb{E}_{\zeta_i}[g_i(w ; \zeta_i))] = \nabla F_i(w)$.
+\label{assumption:unbiased}
+\end{assumption}
+\begin{assumption}
+(Bounded local and global variance) for all clients $i \in [m]$, $$\mathbb{E}_{\zeta_i|i}[\norm{g_i(w; \zeta_i) - \nabla F_i(w)}^2] \leq \sigma^2_{\ell},$$
+and 
+$$\frac{1}{m} \sum_{i=1}^m \norm{\nabla F_i(w) - \nabla f(w)}^2 \leq \sigma^2_{g}.$$ 
+\label{assumption:bounded_var}
+\end{assumption}
+
+\begin{assumption}
+(Bounded gradient) $\norm{\nabla F_i}^2 \leq G$ for all $i \in [m]$.
+\label{assumption:bounded_grad}
+\end{assumption}
+
+\begin{assumption}
+(Lipschitz gradient) for all client $i \in [m]$, the gradient is $L$-smooth, 
+$$\norm{\nabla F_i(w) - \nabla F_i(w')}^2 \leq L \norm{w - w'}^2. $$
+\label{assumption:lipz}
+\end{assumption}
+Assumptions~\ref{assumption:unbiased}--\ref{assumption:lipz} are commonly made in analyzing federated learning algorithms (\cite{adaptive-fl-optimization, fedavg_conv_Li, Stitch_LocalSGD, restarted_SGD_Yu}). We make an additional assumption on the staleness under asynchrony.
+
+\begin{assumption}
+(Bounded Staleness when $K=1$) For all clients $i \in [m]$ and for each server step $t$, the staleness $\tau_i(t)$ between the model version in which \texttt{FedBuff-client} uses to start local training, and the model version in which $\Delta^i$ is used to modify the global model is not larger than $\tau_{\max,1}$ when $K=1$. 
+\label{assumption:staleness1}
+\end{assumption}
+
+\textbf{Remark.} More generally, the staleness upper-bound depends on the buffer size $K$. When the buffer size increases, the server iterates are updated less frequently, hence reducing the number of server steps in between the initialization of client training and when the client updates are used for modifying the server model. Specifically, if Assumption 5 holds, then for any execution of FedBuff with $K>1$, the maximum delay $\tau_{\max,K}$ is at most $\lceil \tau_{\max, 1} / K \rceil$; see Appendix~\ref{appendix:staleness-K}.
+
+\begin{theorem}
+Let $\eta^{(q)}_{\ell}$ be the local learning rate of client SGD in the $q$-th step, and define $\alpha(Q):=\sum_{q=0}^{Q-1} \eta^{(q)}_{\ell}$, $\beta(Q):=\sum_{q=0}^{Q-1} (\eta^{(q)}_{\ell})^2$. Choosing $\eta_g \eta^{(q)}_{\ell} Q \leq \frac{1}{L}$ for all local steps $q=0,\cdots,Q-1$, the global model iterates in Algorithm \ref{alg:server} achieves the following ergodic convergence rate
+\begin{equation}
+    \begin{aligned}
+        \frac{1}{T} \sum_{t=0}^{T-1} \norm{\nabla f(w^t)}^2 
+         &\leq \frac{2 \Big(f(w^0) - f^* \Big)}{\eta_g \alpha(Q) T} +\frac{L}{2}\frac{\eta_g \beta(Q) }{ \alpha(Q)}   \sigma^2_{\ell} \\ + 3 L^2 Q  & \beta(Q)  \Big(\eta^2_g \tau_{\max, K}^2 + 1 \Big)  \Big(\sigma^2_{\ell} + \sigma^2_g +  G\Big).
+    \end{aligned}
+\end{equation}
+\label{thm:main_ergodic_rate}
+\end{theorem}
+The proof of Theorem~\ref{thm:main_ergodic_rate} is provided in Appendix \ref{appendix:proof}, and leverages ideas from the perturbed iterate framework~\citep{AsyncSGD_purturbed}.
+\begin{corollary}
+Choosing constant local learning rate $\eta_{\ell}$ and $\eta_g$ such that $\eta_g \eta_{\ell} Q \leq \frac{1}{L},
+$ the global model iterates in \algname{} (Algorithm \ref{alg:server}) are bounded by 
+\begin{equation}
+\begin{aligned}
+        \frac{1}{T} \sum_{t=0}^{T-1} \mathbb{E}\left[\norm{\nabla f(w^t)}^2\right]
+        &\leq \frac{2 F^*}{\eta_g \eta_{\ell} QT} +\frac{L}{2}\eta_g \eta_{\ell} \sigma_{\ell}^2 \\  &+ 3 L^2 Q^2\eta_{\ell}^2\Big(\eta^2_g  \tau_{\max, K}^2 + 1 \Big)  \sigma^2, 
+         \end{aligned}
+\end{equation}
+where $F^* := f(w^0) - f^*$ and $\sigma^2 := \sigma^2_{\ell} + \sigma^2_g + G$. Further, choosing $\eta_{\ell} = \order{ 1/\left(K\sqrt{TQ}\right)}$, $\eta_g = \order{K}$, for all $\eta_g, \eta_{\ell}$ satisfying $\eta_g \eta_{\ell} Q \leq \frac{1}{L}$ and sufficiently large $T$, we have
+\begin{equation}
+\begin{aligned}
+    & \frac{1}{T} \sum_{t=0}^{T-1} \mathbb{E}\left[\norm{\nabla f(w^t)}^2\right]
+    \leq \order{ \frac{F^*}{\sqrt{TQ}} } \\ &+ \order{ \frac{ \sigma_{\ell}^2}{\sqrt{TQ}} }+ \order{ \frac{Q \sigma^2}{TK^2} } + \order{ \frac{ Q \sigma^2 \tau^2_{\max, 1}}{TK^2} },
+     \end{aligned}
+    \label{eq:constantLR_bound}
+\end{equation}
+\label{corollary:constant_LR_bound}
+where we use the relation $\tau_{\max, K} \leq \lceil \tau_{\max, 1} / K \rceil$.
+\end{corollary}
+
+Corollary \ref{corollary:constant_LR_bound} yields several insights:
+
+\textbf{Worst-case iteration complexity. } Theorem \ref{thm:main_ergodic_rate} bounds the ergodic norm-squared of the gradient, a standard quantity studied in non-convex stochastic optimization. If this becomes small as $T$ grows, then it must be that the norm-squared of the gradient at later iterations is vanishing, implying the algorithm is converging towards a first-order stationary point. The bound in equation (\ref{eq:constantLR_bound}) contains three terms. The first is standard, expressing how the initialization impacts convergence, and it decreases at a rate of  $\order{1 / T}$ as is standard for SGD. The second two terms depend on different sources of variance, due to heterogeneity of functions at different clients ($\sigma^2_{g}$), stochasticity of gradients ($\sigma^2_{\ell} + G$), and stale gradients due to delays in asynchronous execution ($\tau_{\max, K}$). Corollary \ref{corollary:constant_LR_bound} is derived from Theorem \ref{thm:main_ergodic_rate} under a specific choice of constant learning rate, and yields interpretation of trade-offs between the convergence of loss, local and global variance, effect of client drift due to local steps, effect of staleness and effect of buffer size. We summarize the these trade-offs next. 
+
+% Taking $\eta_g = \order{1}$ and satisfying the step-size constraint in Corollary \ref{corollary:constant_LR_bound}, the convergence rate of \algname{} is dominated by $\order{\sigma_{\ell}^2 /\sqrt{TKQ}}$ for large $T$. \algname{} requires $T = \order{1/(\epsilon^2 KQ)}$ server updates to guarantee $(1/T)\sum_{t=1}^T \mathbb{E}[\norm{\nabla f(w^t)}^2] \le \epsilon$. This is of the same order as the dominant term in synchronous methods such as FedAvg and \textsc{Scaffold}~\cite{SCAFFOLD}.
+
+\textbf{Total communication cost.} Since each server step in \algname{} involves $K$ client trips between the server and the clients,  the total communication cost is $\order{K/\epsilon^2Q} + \order{Q\sigma^2 / K \epsilon} + \order{K Q\sigma^2 \tau^2_{\max, K} / \epsilon}$ in order to achieve $\frac{1}{T} \sum_{t=0}^{T-1} \mathbb{E}\left[\norm{\nabla f(w^t)}^2\right] \leq \epsilon$. This suggests a trade-off in the communication cost introduced by the effect of the buffer. We empirically investigate different values of $K$ in Section~\ref{sec:experiment} and observe this tradeoff in Table~\ref{tab:communication_cost}. 
+
+\textbf{Relation between communication and local computation. } Note that in equation (\ref{eq:constantLR_bound}), increasing the number of local steps $Q$ improves the first term related to $F^*$ and the second term related to the local variance $\sigma^2_{\ell}$, but increases the third and fourth term. The first term with constant $F^*$ characterizes the distance to optimal loss. Hence, increasing local computation $Q$ reduces the loss faster, but it also leads to more drift, enlarging the effect of the local and global variance sum $\sigma^2$ and the impact of the worst-case staleness $\tau_{\max, K}$. 
+
+
+% \textbf{Effect of server learning rate $\eta_g$.} In equation $(\ref{eq:constantLR_bound})$, $\eta_g$ is the reciprocal in the first term compared to the second and the fourth term. From this observation, taking a larger server learning rate $\eta_g$, decreases the loss $F^*$ faster, at a cost of amplifying the effect of variance $\sigma^2_{\ell}$, $\sigma^2$, and staleness $\tau_{\max, 1}$. On the other hand, a smaller server learning rate $\eta_g$ controls the effect of variance and staleness at the cost of amplifying the dominant term involving $F^*$. This suggests that in practice it may be better to initially have larger $\eta_g$, when $F^*$ dominates the error, and to reduce $\eta_g$ later in training when the local noise $\sigma_{\ell}^2$ dominates the error.
+
+\textbf{Effect of staleness.} The effect of staleness between the initialization of \texttt{FedBuff-client} and the server update dissipates at the rate of $\order{1/T}$ according to the fourth term in equation $(\ref{eq:constantLR_bound})$. In addition, the maximum staleness $\tau_{\max, K}$ reduces as the buffer size $K$ grows. (see Appendix~\ref{appendix:staleness-K})
+
+
+%The effect of staleness can be controlled by taking the server learning rate as $\eta_g = \order{1/\tau_{\max, 1}}$, at the cost of slower convergence of the loss term $F^*$. 
+
+% \textbf{Effect of buffer size $K$.} In equation $(\ref{eq:constantLR_bound})$, increasing the buffer size $K$ reduces 
+% the first three terms, relate to the initial loss $F^*$, and variance $\sigma_{\ell}$ and $\sigma$, in a faster rate. However, larger values of $K$ exacerbates the effect of worst-case staleness $\tau_{\max, 1}$ in the fourth term. This suggests that as we increase the buffer size and incorporate more clients in each server update, the total number of server updates required is a result trading off the variance-reduction effect (second and third term) and the staleness (fourth term). Our empirical analysis in Section \ref{tab:different_ks} suggest that a moderate value of $K$ (e.g 10) is effective. 
+
+
+
+\section{Practical Improvements}
+% \john{Let's leave practical improvement as its own section?}
+\label{sec:improvement}
+% \kshitiz{To save space, we could move these to the experiments section (so we don't have three large headings), and reduce the description of LRNorm to maybe a sentence?} \mike{trying something different to save a littleR space.}
+% \subsection{Learning Rate Normalization. }
+% In a federated setting, most users have fewer than one full batch of data (See Appendix \ref{fig:sent140_stats} for details). 
+\textbf{Staleness scaling.}
+% Corollary~\ref{corollary:constant_LR_bound} is derived based on constant learning rate. Equation (\ref{eq:constantLR_bound}) suggests adjusting the server learning rate based on the staleness can potentially be beneficial in practice.
+To control the effect of staleness $\tau_i(t)$ in client $i$'s contribution to the $t$-th server update, we down-weight stale updates using the following function: $s(\tau_i(t)) := 1 / (1 + \tau_i(t))^{0.5}$, similar to (\cite{fedasync}).
+% \kshitiz{I wouldn't cite fedasync here. Their staleness is applied in the weight}
+
+\textbf{Learning rate normalization.}
+In practical FL implementations, each client is typically asked to perform a fixed number of \emph{epochs} over their local training data, rather than a fixed number $Q$ of steps, using a server-prescribed batch size $B$ which is the same for all clients. Because different clients have different amounts of data, some clients may only have a fraction of a batch. Previous work has suggested that increasing batch size and learning rate are complementary~\citep{imagenet-1hr,increase_batchsize,three-factors}. When a client performs a local update with a batch size smaller than $B$, we have it linearly scale the learning rate used for that local step; i.e., $\eta_{\lrnlocal} := \eta_{\ell} \cdot n^t_{i,q} / B$, where $n^t_{i,q} \le B$ is actual batch size used for the step. We find that this small change can improve \algname. A theoretical justification is provided in Appendix~\ref{sec:appendix_lrn}.
+
+
+% To deal with imbalanced data across users in an asynchronous setting, we propose a delicate but powerful change to local model training, called Learning Rate Normalization (\lrn{}). Prior works \cite{imagenet-1hr, increase_batchsize} show that increasing learning rate linearly with batch size is a good heuristic. We follow the same linear heuristic, except we \emph{decrease} local learning rate ($\eta_{\ell}$) for incomplete batches. We define the normalized learning rate $\eta_{\lrnlocal} := \eta_{\ell} * n_{i} / B$ for taking a local step. For full batches, number of examples ($n_{i}$) for user $i$ is the same as batch size ($B$), then $\eta_{\lrnlocal}$ is exactly the same as $\eta_{\ell}$. We show that LR-Norm significantly improves the performance of asynchronous FL algorithms in the presence of imbalanced data distribution as seen in Sent140. A theoretical justification and a detailed comparison for LR-Norm is in Appendix \ref{sec:appendix_lrn}. 
+
+% \subsection{Staleness Scaling}
+% To control the effect of staleness $\tau_i(t)$, client $i$'s staleness for the $t$th server update, we use a polynomial staleness function $s(\tau_i(t)):=1 / (1 + t)^\alpha$ as described in \cite{fedasync} to adaptively adjust the server learning rate. 
+
+% % The polynomial staleness function adaptively scales down the server learning based on a client's staleness. 
+
+
+\section{Experiments}
+\label{sec:experiment}
+
+\begin{figure*}[t]
+     \centering
+     \begin{minipage}[t]{0.32\linewidth}
+         \centering
+         \includegraphics[width=\linewidth]{figures/sent140_updates.pdf}
+     \end{minipage}
+    %  \hspace{1em}
+     \begin{minipage}[t]{0.32\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/celeba_updates.pdf}
+     \end{minipage}
+        \begin{minipage}[t]{0.32\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/cifar10_updates.pdf}
+     \end{minipage}
+     \caption{Number of client trips to reach target validation accuracy for \algname + SGD with momentum at the server and FedAvgM. At low concurrency, \algname{} and FedAvgM perform similarly. However, as concurrency increases, \algname{} outperforms FedAvgM by increasingly larger amounts. In contrast to FedAvgM, \algname{}'s data-efficiency and communication-efficiency degrade less with concurrency.}
+     \label{fig:large_upr}
+\end{figure*}
+
+
+\begin{table*}
+\centering
+\caption{\textbf{Average (speedup)} number of client trips (in units of 1000 updates) to reach target validation accuracy on CelebA and Sent140 (lower is better). We set concurrency = 1000 for all methods, $K=10$ for FedBuff and ran all methods for 600k client trips. ``$>600$'' indicates the target accuracy was not reached.}
+\label{tab:baseline_convergence}
+\begin{tabular}{lrrrrrr} 
+\toprule
+Dataset &  Accuracy &   FedBuff    & FedAsync       & FedAvgM    & FedAvg     & FedProx     \\ 
+\midrule
+CelebA  & 90\%              & 31.9  & 37.1 (1.2$\times$)    & 104 (3.3$\times$) & 231 (8.5$\times$) & 228 (8.4$\times$)  \\
+Sent140 & 69\%             & 124.7 & 308.9 (2.5$\times$) & 216 (1.7$\times$) & $>600$   & $ >600$    \\
+CIFAR-10 & 60\%             & 67.5 & 73.3 (1.1$\times$) & 122.7 (1.8$\times$) & 386.7 (5.7$\times$) &  292.7 (4.3$\times$)    \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+In this section, we compare the efficiency and scalability of \algname{} with other synchronous and asynchronous FL methods from the literature via simulation. We wish to understand how \algname{} behaves under different values of $K$, its scalability, and data efficiency.  
+
+\textbf{Evaluation metrics.}
+The standard evaluation metric for FL is the number of communication rounds to reach a target accuracy. However, asynchronous and synchronous methods do not have the same notion of rounds. For this reason, we compare different synchronous and asynchronous methods by the \emph{number of client trips} needed to reach a target accuracy. 
+% The communication and computational complexity per client update are the same for both methods.'
+One client trip corresponds to one client round-trip communication. A client trip involves a client pulling the latest model from the server (download communication), performing one epoch of training on the local dataset (computation), then communicating the model update to the server (upload communication). Since the number of client trips measures both communication and computation costs, we use this as a proxy for wall-clock training time. We show wall-clock time simulation with stragglers in Appendix \ref{sec:appendix_stragglers}. 
+% Note, when penalize synchronous FL for stragglers the speedup for \algname is even greater. 
+
+% To demonstrate that our speed up is from taking smaller server steps and not from the straggler effect, we use client trips instead of simulating wall-clock training time. Note, when penalize synchronous FL for stragglers our speedup is even greater. We show wall-clock time simulation with stragglers in Appendix \ref{sec:appendix_stragglers}. 
+
+\textbf{Datasets, models, and tasks.}
+In order to provide a comparison with other work in the literature, we run experiments on three datasets: CelebA (\cite{celeba}), Sent140 (\cite{sent140}), and CIFAR-10 (\cite{cifar10}). Sent140 is a text classification dataset (binary sentiment analysis), whereas CelebA and CIFAR-10 are image classification datasets (multi-class classification).
+For Sent140 and CelebA, we use the natural non-iid client partitions and models from the LEAF benchmark (\cite{leaf}). 
+For Sent140, we train an LSTM classifier over 660,120 clients, where each Twitter account corresponds to one client. For CelebA, we train the same convolutional neural network classifier as LEAF over 9,343 clients, but with batch normalization layers replaced by group normalization layers (\cite{groupnorm}) as suggested in (\cite{batchnorm_with_groupnorm}). For CIFAR-10, we generate 5000 non-iid clients using a Dirichlet distribution with parameter 0.1, the same approach as in (\cite{fedavgm}).
+More details about datasets, models, and tasks are provided in Appendix~\ref{sec:appendix_data_model}. 
+ 
+% To simulate realistic cross-device settings, we run experiments on two large datasets from the LEAF benchmark~\cite{leaf}, one text classification (binary sentiment analysis on Sent140 \cite{sent140}), and one image classification (multi-class classification with CelebA \cite{celeba}). We use the standard non-iid client partitions from LEAF, and similar models. For Sent140 \cite{sent140}, we train an LSTM classifier, where each Twitter account corresponds to a client. For CelebA \cite{celeba}, we train the same convolutional neural network classifier as LEAF, but with batch normalization layers replaced by group normalization layers~\cite{groupnorm} as suggested in~\cite{batchnorm_with_groupnorm}.
+
+%\textbf{Setup}
+%We implement all algorithms in Pytorch \cite{pytorch}. Our implementation has two important characteristics. First, we do 1 epoch of training over each client’s dataset. Second, to account for varying numbers of gradient steps per client, we use the weighted sum of the client outputs by each client’s number of training samples. For full descriptions of the algorithms used, see Appendix \ref{sec:appendix_imple}
+
+% \begin{figure}
+% \centering
+% 	\includegraphics[width=.35\textwidth]{figures/prod_staleness.pdf}
+% 	\caption{Staleness distribution observed in production when training over millions of real clients for \algname{}. Overlaid on this figure is the staleness distribution from our simulation with $M=1000$ and $K=100$ when using a half-normal with $\sigma=1.25$. 
+% % 	Our observation that execution time on mobile clients exhibits a half-normal distribution is consistent with previous findings \cite{inference-at-the-edge}.
+% 	}
+% 	\label{fig:prod_staleness}
+% \end{figure}
+
+
+\textbf{Experimental setup.}
+% \john{Rewrite this section}
+We implement all algorithms in PyTorch (\cite{pytorch}). We repeat each experiment with three different seeds and report the average. For asynchronous FL methods, we assume that clients arrive at a constant rate. We sample the delay distribution, the time delay between a client's download and upload operation, from a half-normal distribution. We choose this distribution because it best matches the delay distribution observed in our production FL system (See Appendix ~\ref{sec:other_training_distributions}). 
+% The best fit to the production data is a half-normal distribution with $\sigma=1.25$.
+We also report results with two other delay distributions (uniform and exponential) in Appendix \ref{sec:other_training_distributions}. We find that \algname's performance improvements are consistent across different delay distributions. 
+
+
+\textbf{Baselines.}
+We compare \algname with three SyncFL baselines, namely FedAvg (\cite{google-fedavg}), FedProx (\cite{fedprox}), FedAvgM (\cite{fedavgm}), and one AsyncFL baseline, FedAsync (\cite{fedasync}). 
+% We focus on non-adaptive methods here since \algname currently uses non-adaptive updates; \algname could also be modified to use adaptive updates at the server, and we leave this to future work\kshitiz{should we remove this? I don't think any reviewer cared that we didn't have FedAdam in the comparison}. 
+For more details about the algorithms used and the experimental setup, see Appendix~\ref{sec:appendix_imple}.
+
+\textbf{Hyperparameters.}
+\label{sec:hyperparameter}
+For all algorithms, we run hyperparameter sweeps to tune client and server learning rates $\eta_{\ell}$ and $\eta_g$, server momentum $\beta$, and the proximal term $\mu$ for FedProx. We set $\beta = 0$ for FedAvg. Each client update entails running one local epoch with batch size $B = 32$, rather than a fixed number of local steps.
+See Appendix~\ref{sec:appendix_hyper} for additional details on hyperparameter tuning.
+% More details on hyperparameters and tuning protocols are in Appendix~\ref{sec:appendix_hyper}.
+
+\textbf{Concurrency and $K$.}
+In at-scale cross-device FL, only a small fraction of all clients participate in training at any point in time. As discussed earlier, concurrency --- the maximum number of clients that train in parallel --- significantly impacts the performance of FL algorithms. 
+For a fair comparison between synchronous and asynchronous algorithms, we keep \concurrency{} the same across all configurations. Recall the example in Figure~\ref{fig:concurrency_sync_async} where \concurrency{}=100. For synchronous algorithms, this implies that 100 clients are training and contributing in each round. For asynchronous algorithms, this implies that 100 clients can train concurrently, and we can still vary the buffer size $K$, which will control how frequently updates occur.
+
+
+
+\subsection{Results}
+\label{subsec:results}
+
+\textbf{Comparison of Methods. }
+Table \ref{tab:baseline_convergence} shows the number of client trips needed to converge to the target accuracy on Sent140, CelebA and CIFAR-10 for each method considered. In Table \ref{tab:different_ks}, we show results with other values of $K$ and present the learning curves in Appendix \ref{sec:learning_curves}. Compared to FedBuff, the best synchronous method in the experiments (FedAvgM) requires 1.7-3.3$\times$ more updates, and FedAsync requires 1.1-2.5$\times$ more updates.
+
+% \textbf{Robustness to Staleness Distributions.}
+% \label{subsec:other_training_distributions}
+% To analyze the sensitivity of \algname{} to different training time distributions, we compare \algname{} against other competing algorithms with different staleness distributions. Table \ref{tab:robustness} demonstrates that \algname{} is robust and \algname{}'s speed up is consistent across staleness distributions. 
+
+% Figure \ref{fig:sent140_accuracy} shows that \algname{} with higher values of $K$ is more resilient to the change in staleness distribution.
+
+
+% \textbf{Simulated wall-clock time.} Previous work on asynchronous FL~\cite{fedasync} includes simulated wall-clock time to reach the target model accuracy instead of counting client trips, towards demonstrating robustness to stragglers. For comparison, Table~\ref{tab:large_k} shows a similar wall-clock time comparison. The speedup of \algname{} over synchronous methods is strictly higher when comparing wall-clock time instead of number of client trips. 
+
+\textbf{Scalablility of \algname{}.}
+Figure~\ref{fig:large_upr} shows that \algname{} scales much better to larger values of \concurrency{} than FedAvgM. \algname{} with $K=10$ scales better because it updates the server model more frequently than FedAvgM in high concurrency. When \concurrency{} is 10, both FedAvgM and \algname{} update the server model after every 10 client updates. However, when \concurrency{} is 1000, \algname{} with $K=10$ updates the server model after every 10 client updates, while FedAvgM updates the server model after 1000 client updates. One might argue that FedAvgM should run at lower concurrency, e.g. 10. However, that leads to longer wall-clock training time because less parallelism is exploited. We discuss this problem in Appendix \ref{sec:appendix_stragglers}. For synchronous FL methods, larger concurrency reduces training time but is also less efficient.
+On the other hand, taking server model steps more frequently is not free; \algname{} has to deal with staleness as a consequence. Our empirical results show that the benefits from frequent updating of the server model outweigh the cost of staleness in client model updates. 
+
+% the best-performing synchronous algorithm in our experiments.
+
+% To summarize, \syncfl algorithms have only one degree of freedom: \concurrency{}. Synchronous methods need higher \concurrency{} in practice to speed up training time by increasing parallelism, but higher \concurrency{} brings data inefficiency. \algname{} has two degrees of freedom, \concurrency{}, and $K$, controlling the frequency of server model updates. High \concurrency{} coupled with frequent server model updates (small values of $K$) results in speedy training. 
+
+% Understanding and optimizing \algname{} behavior with even larger levels of concurrency - hundreds of thousands of clients training in parallel - is a direction for future research.
+\begin{table}
+\centering
+\caption{\textbf{Average $\pm$ standard deviation} number of client trips to reach validation accuracy on CelebA (90\%), Sent140 (69\%) and CIFAR-10 (60\%) (lower is better, Units = 1000 updates) in \algname. We set concurrency = 1000 for all methods. }
+\label{tab:different_ks}
+\begin{tabular}{llrrllll} 
+\toprule
+Dataset & $K$ & Client trips  \\ 
+\hline
+\Tstrut{}
+        &   1                      & 32.4 $\pm$  2.0       \\
+CelebA  &   10                     & 31.9 $\pm$  8.9         \\       
+        &   100                    & 71.6 $\pm$  6.8        \\ 
+\hline
+\Tstrut{}
+        &    1                      & 190.0   $\pm$  11.9      \\
+Sent140 &   10                      & 124.7   $\pm$  25.8      \\
+        &   100                     & 178.2   $\pm$  13.1        \\
+\bottomrule
+\Tstrut{}
+        &    1                      & 76.7 $\pm$ 9.6    \\
+CIFAR-10 &   10                     & 67.5 $\pm$ 7.4         \\
+        &    100                    & 102.5 $\pm$ 2.0          \\
+\bottomrule
+\end{tabular}
+\label{tab:communication_cost}
+\end{table}
+
+\textbf{Choice of $K$.} Table \ref{tab:different_ks} presents the number of client trips to reach validation accuracy for different values of $K$, with fixed concurrency. We find that $K$=10 is a good setting across benchmarks. We analyze FedBuff with even larger values of $K$ in Table \ref{tab:large_k}, and show the training curves of \algname{} and other algorithms in Appendix \ref{sec:learning_curves}.
+
+\begin{figure}
+ \centering
+ \begin{minipage}[t]{\linewidth}
+     \centering
+     \includegraphics[width=0.80\linewidth]{figures/dp_results.pdf}
+ \end{minipage}
+\caption{Accuracy on Sent140 under different levels of privacy ($\delta = 1e^{-7}$) for FedBuff with DP-FTRL versus FedAvgM with DP-FTRL and FedAvgM with amplified DP-SGD. For all methods, we use momentum at the server and fix the communication cost at 600 thousands. For \algname, we use $K = 10$. As for FedAvgM we use clients-per-round = 1000.}
+\label{fig:dp_results}
+\end{figure}
+
+
+\textbf{\algname with Differential Privacy.} To evaluate the privacy-utility trade-off of \algname, we compare the final test accuracy of \algname with synchronous baselines after 600 thousands client trips, one pass over the dataset. Figure \ref{fig:dp_results} illustrates that \algname can outperform both FedAvgM with amplified DP-SGD and FedAvgM with DP-FTRL at high values of $\epsilon$, and be competitive for lower values of $\epsilon$. This result illustrates \algname's flexibility to be adapted for privacy. Even with DP, we find that $K=10$ is good setting. We find that a small $L$ can counteract the additional noise from taking more steps. For more details see Appendix \ref{sec:appendix_dp}. 
+
+% In this setting, \algname main advantage over synchronous FL is straggler resilience. We demonstrate \algname's speedup over synchronous FL in terms of wall-clock time when K = \concurrency in Appendix \ref{sec:appendix_large_k}.
+
+% \begin{figure}
+% \centering
+% 	\includegraphics[width=.40\textwidth]{figures/training_curve_dp.pdf}
+% 	\caption{Privacy ($\epsilon =12, \delta = 1e^{-7}$) and accuracy after 600k client trips of training for FedBuff with DP-FTRL, \syncfl with DP-FTRL and \syncfl with DP-SGD. \algname converges more efficient than other synchronous methods while achieving the similar final accuracy.}
+% 	\label{fig:dp_training_curve}
+% \end{figure}
+
+
+% So far we have focused on experiments with \algname which do not involve any mechanism for DP, to focus on the asynchronous optimization method described and analyzed above. Next, we demonstrate that \algname is also compatible with DP. 
+
+% We tune clipping norm $L$ for each method and set $K$ and \concurrency to 1000 for FedBuff. We find that a small $L$ is essential for \algname to yield high utility (Appendix \ref{sec:appendix_dp}). 
+
+% \textbf{Other Findings.}
+% We offer additional empirical analyses in Appendix \ref{sec:appendix_additional}. These include wall-clock time simulation in Appendix \ref{sec:appendix_stragglers}, client diversity with FedBuff in Appendix \ref{sec:appendix_diversity}, FedBuff robustness to different staleness distributions in Appendix \ref{sec:other_training_distributions}, and FedBuff with large values of $K$ in Appendix \ref{sec:appendix_large_k}. 
+
+
+%\section{Discussion}
+%\input{dp}
+
+
+\section{Related Work}
+\label{sec:related}
+In addition to the discussion in Section \ref{sec:background} on related works, we discuss the other efforts in related domains.
+
+\textbf{Asynchronous stochastic optimization. }
+Asynchronous stochastic optimization in shared-memory and distributed-memory systems has been extensively studied (\cite{bertsekasTsitsiklis, Duchi_AsyncSGD_convex, hogwild, lian2015asynchronous_nonconvex, lian2018asynchronous, Revisit_dist_SGD_google, AsyncSGDDelay, AsyncSGD_purturbed, leblond17a_ASAGA, reddi2015_ASVRG, advance_async_Mike}). Asynchronous training is resilient to stragglers in both centralized and federated settings. The idea of aggregating $K$ asynchronous updates for convex objectives has been studied in \citep{dutta2018slow}. Although \citet{dutta2020slow} provide a guarantee for non-convex objectives, their assumption on the relationship between staleness and gradient moments is difficult enforce, in contrast to the bounded staleness assumption we consider which can be easily enforced. In this work, we consider heterogeneous objectives and show that in a federated environment with a large number of clients, the source of speed-up is not only due to avoiding stragglers but also achieving better efficiency at high concurrency.
+% mike{May need more context for this last sentence.}
+ 
+\textbf{Large-batch training. }
+Many proposals aim to understand and characterize conditions under which linear speed-up for distributed SGD and local SGD is achievable (\cite{dont_use_minibatch, yu2019linear, is_local_sgd_better, adaptive_sync_localSGD}). It is well accepted that increasing \concurrency{} eventually saturates beyond a certain batch size in synchronous methods (\cite{gradient-diversity, scaling_nmt, imagenet-1hr, scaling_nmt, bert_in_76, imagenet_minutes, lars, measuring_data_parallelism}). However, most existing research focuses on scalability across tens of server workers, each having iid-data - very different from the FL setting.
+
+% \kshitiz{Should we consider removing the LDP argument, and talk only about SecAgg?}
+
+% We compared \algname{} with three synchronous algorithms --- FedProx (\cite{fedprox}), FedAvgM (\cite{fedavgm}) and FedAvg (\cite{google-fedavg}) --- in Section \ref{sec:experiment}. FedProx improved upon the FedAvg algorithm by adding a proximal term $\mu$ to the local SGD solver. FedAvgM improves convergence by adding server momentum. Adaptive methods such as FedAdam (\cite{adaptive-fl-optimization}) have comparable performance to FedAvgM. 
+
+% Previously proposed \asyncfl methods (\cite{fedasync, paper3, paper2, paper1, safa}) include aspects that make them impractical. For instance, (\cite{paper2, li2021stragglers}) profiles client speed, (\cite{paper1}) broadcasts the model updates to all clients, and (\cite{fedasync}) updates server model on every client, placing a significant burden on the clients and server. (\cite{paper3}) assumes all clients have the same speed, not a valid assumption in a production environment. 
+
+% places significant extra burden on clients and the server. Assuming all clients have same speed \cite{paper3} do not hold in your production environment. Updating server model on every client \cite{fedasync} puts significant memory constraint on the server. 
+
+% For example, profiling client speed~\cite{paper2, li2021stragglers}, assuming clients have same speed \cite{paper3}, requiring information about participating clients~\cite{safa}, frequently broadcasting the server model updates to all participating clients~\cite{paper1}, or being incompatible with secure aggregation~\cite{fedasync}.
+
+
+% For a more in-depth discussion and proof we defer to (\cite{secagg} and \cite{bell2020secure}). 
+
+\section{Conclusions}
+\label{sec:conclusions}
+In this paper, we propose \algname{}, an asynchronous FL training scheme with buffered aggregation. Compared to \syncfl proposals, \algname{} scales to large values of concurrency. Compared to \asyncfl proposals, \algname{} is more private as it is compatible with SecAgg and differential privacy. At high levels of $\epsilon$, we demonstrate that \algname can outperform major \syncfl proposals.
+We analyze the convergence behavior of \algname{} in the non-convex setting. Empirical evaluation shows that \algname{} is up to 3.3$\times$ more efficient than FedAvgM, and up to 2.5$\times$ more efficient than FedAsync. As for future work, we are aware that our analyses is on standard SGD. We leave extending the analysis to include momentum or adaptive learning rates as future work. 
+
+% Our empirical evaluation makes assumptions about staleness distributions. We have validated these assumptions from our production implementation, and also simulate with different distributions. However, under different staleness assumptions, \algname{} may behave differently. 
+
+% leave improving the privacy-utility trade-off of \algname with differential privacy as future work.
+
+% We have not provided a rigorous analysis of \algname{} with differential privacy and how $K$ affects the privacy-utility trade-off, we leave that as future work. 
+% \john{Change this to reflect better utility from DP}
+% FL practitioners need to choose between small values of $K$ (faster training) or large values of $K$ (better privacy-utility trade-off with DP). This may encourage practitioners to run faster configurations (small values of $K$) without user-level DP.
+
+% Additionally, \algname{} is robust to different staleness distributions. 
+
+% \textbf{Limitations.}
+% \algname{}, being an asynchronous method, may be harder to analyze and debug than synchronous methods. In the setting where $K$=concurrency, \algname{} does update the server model more frequently than synchronous methods, and then its only advantage is robustness to stragglers.  
+
+% Our empirical evaluation makes assumptions about staleness distributions. We have validated these assumptions from our production implementation, and also simulate with different distributions. However, under different staleness assumptions, \algname{} may behave differently. \algname{} adds an extra hyperparameter (staleness exponent) that needs to be tuned. Finally, while have not provided a rigorous analysis of \algname{} with differential privacy, we leave that as future work. 
+
+% \textbf{Broader Impact.}
+% Federated Learning improves user privacy, compared to server training. \algname{} makes FL training faster (compared to synchronous FL proposals), and more private (compared to asynchronous FL proposals). However, FL may give the appearance of privacy because data stays on devices. If FL is run without DP, it may be possible to obtain the private data from the publicly shared gradients. Additionally, \algname{} adds a privacy-speed trade-off by introducing a parameter $K$. FL practitioners need to choose between small values of $K$ (faster training) or large values of $K$ (better privacy-utility trade-off with DP). This may encourage practitioners to run faster configurations (small values of $K$) without user-level DP.
+
+
+
+\subsubsection*{Acknowledgements}
+We would like to thank Ilya Mironov, Maziar Sanjabi, Graham Cormode, Samuel Horvath and Luca Melis for the meaningful discussions and their valuable suggestions which significantly improved the quality of this paper. We would like to also thank the anonymous reviewers for their insightful feedback. 
+
+\bibliography{reference}
+\bibliographystyle{abbrvnat}
+
+\clearpage
+\onecolumn
+\appendix
+\section*{Appendix}
+\section{Relationship Between Maximum Staleness and $K$}
+\label{appendix:staleness-K}
+
+Recall Assumption~\ref{assumption:staleness1}, that the staleness when executing \algname with $K=1$ is always bounded as $\tau_i(t) \le \tau_{\max, 1}$. In this section we will show that this implies the staleness bound $\tau_i(t) \le \lceil \tau_{\max, K} \rceil \le \lceil \tau_{\max, 1}/K \rceil$ when running \algname with $K > 1$.
+
+Consider an execution of \algname. Let $r_i$ denote the time when the $i$'th client update is received by the server, and let $s_i < r_i$ denote the time when the client downloaded the serve model before performing local steps that resulted in the model update received at $r_i$.
+
+When $K=1$, the staleness $\tau_i^{(1)}$ of the $i$'th update corresponds to the number of updates that occurs between when the client downloaded the model and when it completed local training and uploaded the model to the server,
+\[
+\tau_i^{(K=1)} = |\{j \colon s_i < r_j < r_i \}|.
+\]
+If Assumption~\ref{assumption:staleness1} holds, then $\max_{i} \tau_i^{(1)} \le \tau_{\max,1}.$
+
+When $K > 1$, the server waits to aggregate $K$ client updates before stepping the global model. Thus, if $\tau_i^{(K=1)}$ client updates are received between the times $s_i$ and $r_i$, then at most $\tau_i^{(1)} / K$ server updates occur during this time. Hence $\tau_i^{(K)} \le \lceil \tau_i^{(1)} / K \rceil$, and therefore
+\[
+\tau_{\max, K} = \max_i \tau_i^{(K)} \le \max_i \lceil \tau_i^{(1)} / K \rceil \le \lceil \tau_{\max, 1} / K \rceil.
+\]
+
+Note that the times $s_i$ and $r_i$ only depend on the number of clients training concurrently, and the distribution of client execution times (the time it takes a client to complete one round of local updates; i.e., the distribution of $r_i - s_i$). These times are not impacted by the choice of $K$; rather $K$ only affects how frequently the server performs an update. Thus, the arguments above hold regardless of the distribution of client execution times, and only depend on  Assumption~\ref{assumption:staleness1}.
+
+We also remark that the same relationship holds for the average delay; i.e., increasing $K$ reduces average delay. In particular, let
+\newcommand{\taubar}{\overline{\tau}}
+\[
+\taubar_1 = \lim_{N \rightarrow \infty} \frac{1}{N} \sum_{i=1}^N \tau_i^{(1)},
+\]
+and suppose the limit exists. Clearly, if the limit exists and Assumption~\ref{assumption:staleness1} holds, then $\taubar_1 \le \tau_{\max, 1}$. Furthermore, then
+\begin{align*}
+\taubar_K &= \lim_{N \rightarrow \infty} \frac{1}{N} \sum_{i=1}^N \tau_i^{(K)} \\
+&\le \lim_{N \rightarrow \infty} \frac{1}{N} \sum_{i=1}^N \tau_i^{(1)} / K \\
+&= \taubar_1 / K.
+\end{align*}
+
+
+\section{Experiment Details}
+\label{sec:appendix_exp}
+
+\subsection{Datasets and Models}
+\label{sec:appendix_data_model}
+
+% \begin{figure*}[t]
+%      \centering
+%      \includegraphics[width=0.45\linewidth]{figures/celeba_stats.pdf}
+%       \includegraphics[width=.45\linewidth]{figures/cifar_stats.pdf}
+%      \caption{(left) Statistics for CelebA dataset. (right) Statistics for CIFAR-10 dataset.}
+%      \label{fig:celeba_stats}
+%      \label{fig:cifar_stats}
+% \end{figure*}
+
+% \begin{figure*}[t]
+%      \centering
+%      \includegraphics[width=.95\linewidth]{figures/sent140_stats.pdf}
+%      \caption{Statistics for Sent140 dataset.}
+%      \label{fig:sent140_stats}
+% \end{figure*}
+
+\textbf{Sent140.} We train a sentiment classifier on tweets from the Sent140 dataset~\citep{leaf, sent140} with a two-layer LSTM binary classifier. The dataset has 660,120 clients where each client is a Twitter account. The LSTM binary classifier contains 100 hidden units with a top 10,000 pretrained word embedding from 300D GloVe~\citep{glove}. The model has a max sequence length of 25 characters. The model first embeds each of the characters into a 300-dimensional space by looking up GloVe, passes through 2 LSTM layers and a 128 hidden unit linear layer to output labels 0 or 1. We set the dropout rate to 0.1. We split the data into 80\% training set, 10\% validation set, and 10\% test set using script provided by \cite{leaf}. Due to memory constraint, we use 15\% of the entire dataset using the script provided by \cite{leaf}, with split seed = 1549775860.
+
+\textbf{CelebA.} We study an image classification problem on the CelebA dataset~\citep{celeba, leaf} using a four layer CNN binary classifier with dropout rate of 0.1, stride of 1, and padding of 2. As it is standard with image datasets, we preprocess train, validation, and test images; we resize and center crop each image to $32 \times 32$ pixels, then normalize by $0.5$ mean and $0.5$ standard deviation. The dataset has 9,343 clients where each client is a unique celebrity. 
+
+\textbf{CIFAR-10.} We evaluate a multi-class image classification problem on CIFAR-10 \citep{cifar10} using a four layer CNN binary classifier with dropout rate of 0.1, stride of 1, and padding of 2. We normalize the images by the dataset mean and standard deviation. Following \citet{fedavgm}, we partition the dataset into 5,000 clients using a Dirichlet distribution with parameter 0.1 and split seed = 0. 
+
+
+
+\subsection{Implementation Details}
+\label{sec:appendix_imple}
+We implemented all algorithms in Pytorch \citep{pytorch} and evaluated them on a cluster of machines, each with eight NVidia V100 GPUs. Independently, we built a simulator to simulate large-scale federated learning environments. The simulator can realistically simulate clients, server, communication channels between clients and server, model aggregation schemes, and local training of clients. We intend to open-source the simulator, making it available for the research community.
+
+For our experiments, we assume clients arrive to the FL system at a constant rate. To simulate device heterogeneity, we sample each client training duration from a half-normal, uniform, or exponential distribution. Moreover, our implementation has two other important distinctions. First, each client does one epoch of training over its local data; this distinction stems from two observations in our production stack: that our FL production stack has plenty of users to train on, and that we train small capacity models in FL (e.g., less than 10 million parameters) because of bandwidth and client compute. Second, we use the weighted sum of the client updates instead of the weighted average. This is because each client update has different levels of staleness; taking the average cannot capture the true contribution for each client. 
+
+\subsection{Hyperparameters}
+\label{sec:appendix_hyper}
+For all experiments, we tune hyperparameters using Bayesian optimization \citep{bayesian-opt}. For optimizer on clients, we use minibatch SGD for all tasks. We select the best hyperparameters based on the number of rounds to reach target validation accuracy for each dataset. 
+
+\begin{table}
+\centering
+\caption{The best performing hyperparameters for \cref{fig:dp_results}}
+\label{tab:dp_hp}
+\begin{tabular}{llllll} 
+\toprule
+ & \algname + DP-FTRL & SyncFL + DP-SGD & SyncFL + DP-FTRL\\
+\hline
+\Tstrut{}
+               &  $\eta_{\ell}=1.0$ &  $\eta_{\ell}=1.0\cdot10^{-1}$ &  $\eta_{\ell}=1.0\cdot10^{-3}$  \\     
+$\epsilon = 6$ & $\eta_g=4.3$ & $\eta_g=5.9\cdot10^{2}$ & $\eta_g=2.6\cdot10^{4}$ \\ 
+               & $\beta=9.9\cdot10^{-1}$ & $\beta=3.0\cdot10^{-1}$ & $\beta=1.0\cdot10^{-1}$ \\
+               & $L=1.2\cdot10^{-4}$ & $L=1.1\cdot10^{-2}$& $L=2.7\cdot10^{-4}$ \\
+\hline
+\Tstrut{}
+               &  $\eta_{\ell}=1.0\cdot10^{-2}$ &  $\eta_{\ell}=1.0$ &  
+               $\eta_{\ell}=1.0$  \\     
+$\epsilon = 12$ & $\eta_g=5.4\cdot10^{1}$ & 
+                $\eta_g=1.0\cdot10^{4}$ & $\eta_g=1.0\cdot10^{2}$ \\ 
+                & $\beta=0$ & 
+                $\beta=5.0\cdot10^{-1}$ & $\beta=9.0\cdot10^{-1}$ \\
+                & $L=1.1\cdot10^{-3}$ & 
+                $L=7.6\cdot10^{-3}$  & 
+                $L=2.7\cdot10^{-1}$ \\
+\hline
+\Tstrut{}
+               &  $\eta_{\ell}=1.0\cdot10^{-1}$ &  $\eta_{\ell}=1.0\cdot10^{-1}$ &  $\eta_{\ell}=1.0$  \\     
+$\epsilon = 24 $ & $\eta_g=8.7\cdot10^{2}$ & 
+                $\eta_g=5.1\cdot10^{2}$ & $\eta_g=8.0\cdot10^{3}$ \\ 
+               & $\beta=3.0\cdot10^{-1}$ & $\beta=3.0\cdot10^{-1}$ & $\beta=5.0\cdot10^{-1}$ \\
+               & $L=1.0\cdot10^{-4}$ & 
+               $L=1.4\cdot10^{-2}$ & 
+               $L=1.0\cdot10^{-4}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Hyperparameter Ranges}
+Below, we show the range for the client learning rate ($\eta_{\ell}$), server learning rate ($\eta_g$), server momentum ($\beta$), proximal term ($\mu$) sweep ranges. 
+\begin{align*}
+\beta &\in \{0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 0.99\} \\
+\eta_{\ell} &\in [1\cdot10^{-8}, 10000] \\
+\eta_g &\in [1\cdot10^{-8}, 10000] \\
+\mu &\in \{0.001, 0.01, 0.1, 1\} \\
+\end{align*}
+
+\subsubsection{Best Performing Hyperparameters}
+Table \ref{tab:best_hyper} illustrates the best value for client and server learning rates ($\eta_{\ell}$, $\eta_g$), server momentum ($\beta$), and proximal term ($\mu$) for tasks in Table \ref{tab:baseline_convergence}. For experiments in Table \ref{tab:large_k}, we set staleness exponent $\alpha = 10$. We set $\alpha = 0.5$ for all other experiments. 
+
+\begin{table}
+\centering
+\caption{The best performing hyperparameters for Table \ref{tab:baseline_convergence}}
+\label{tab:best_hyper}
+\begin{tabular}{llllll} 
+\toprule
+ & \algname{} & FedAsync &  FedAvgM & FedAvg & FedProx  \\
+\hline
+\Tstrut{}
+  & $\eta_{\ell}=4.7\cdot10^{-6}$ & $\eta_{\ell}=5.7$ &  $\eta_{\ell}=1.1\cdot10^{-1}$ & $\eta_{\ell}=1.0\cdot10^2$  & $\eta_{\ell}=4.9\cdot10^{-4}$ \\     
+CelebA  & $\eta_g=1.0\cdot10^{3}$  & $\eta_g=2.8\cdot10^{-3}$ & $\eta_g=2.4\cdot10^{-1}$ & $\eta_g=1.6\cdot10^{-3}$ & $\eta_g=1.0\cdot10^2$   \\ 
+  & $\beta=3.0\cdot10^{-1}$ &  &  $\beta=8.3\cdot10^{-1}$ &  & $\mu=1.0\cdot10^{-2}$   \\ 
+\hline
+\Tstrut{}
+  & $\eta_{\ell}=1.3\cdot10^1$ & $\eta_{\ell}=1.7\cdot10^1$ &  $\eta_{\ell}=1.5$ & $\eta_{\ell}=2.6\cdot10^{-3}$  & $\eta_{\ell}=2.0\cdot10^{-3}$ \\     
+Sent140  & $\eta_g=4.9\cdot10^{-2}$  & $\eta_g=1.5\cdot10^{-2}$ & $\eta_g=3.4\cdot10^{-1}$ & $\eta_g=1.0\cdot10^3$ & $\eta_g=1.0^3$   \\ 
+  & $\beta=5.0\cdot10^{-1}$ &  &  $\beta=9.0\cdot10^{-1}$ &  & $\mu=1.0\cdot10^{-3}$   \\ 
+\hline
+\Tstrut{}
+
+  & $\eta_{\ell}=1.95\cdot10^{-4}$  & $\eta_{\ell}=1.0\cdot10^{2}$  & $\eta_{\ell}=1.0\cdot10^1$  & $\eta_{\ell}=1.0\cdot10^1$  & $\eta_{\ell}=1.0\cdot10^1$  \\     
+CIFAR-10  & $\eta_g=4.09\cdot10^1$ & $\eta_g=6.4\cdot10^{-5}$ & $\eta_g=1.02\cdot10^{-3}$ & $\eta_g=1.02\cdot10^{-3}$ & $\eta_g=1.02\cdot10^{-3}$ \\ 
+& $\beta=0$ & & $\beta=9.0\cdot10^{-1}$  &  & $\mu=1.0\cdot10^{-3}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Additional Experiments}
+\label{sec:appendix_additional}
+\begin{table}
+\centering
+\caption{Speed up of FedBuff over FedAvgM and FedAsync with regards to number of client trips to reach target validation accuracy, for different delay distributions. We set concurrency = 1000 for all methods and $K=10$ for FedBuff. FedBuff's speed up is consistent across delay distributions.}
+\label{tab:robustness}
+\begin{tabular}{llrrlll} 
+\toprule
+Dataset & Delay Distribution & Speedup over FedAvgM & Speedup over FedAsync  \\ 
+% \cmidrule{1-1}\cline{2-3}\cmidrule{4-7}
+\hline
+\Tstrut{}
+        &   Uniform           & 4.7$\times$                        & 1.6$\times$       \\
+CelebA  &   Half-Normal       & 3.3$\times$                        & 1.2$\times$      \\
+        &   Exponential       & 4.3$\times$                        & 1.1$\times$      \\ 
+\hline
+\Tstrut{}
+        &   Uniform             & 1.3$\times$                       &   1.2$\times$    \\
+Sent140 &   Half-Normal         & 1.7$\times$                       &   2.5$\times$    \\
+        &   Exponential         & 1.4$\times$                       &   2.0$\times$    \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+	\includegraphics[width=0.75\textwidth]{figures/delay_stale.pdf}
+	\caption{Delay and staleness distributions observed in production when training over millions of real clients for \algname{}.}
+	\label{fig:prod_staleness}
+\end{figure}
+
+\subsection{Robustness to Delay Distributions.}
+\label{sec:other_training_distributions}
+In this section, we analyze the sensitivity of \algname{} to different staleness distributions. We compare \algname{} against other competing algorithms with different staleness distributions. Table \ref{tab:robustness} demonstrates that \algname{} is robust and \algname{}'s speed up is consistent. 
+To have an accurate view of real-world delays, we observe the delays and their resulting staleness distribution in our production stack when training over millions of clients with concurrency = 1000 and K = 100. \Cref{fig:prod_staleness} demonstrates that a half-normal is a suitable delay distribution.
+
+\subsection{Wall-Clock Time Simulation}
+\label{sec:appendix_stragglers}
+
+In this section, we study the speed up of FedBuff over FedAvgM in terms of wall-clock time for various concurrency levels. The results for Sent140 are in Figure \ref{fig:stragglers}. 
+
+In cross-device FL, each client is a mobile phone with limited compute power and communication bandwidth \citep{fl-survey}. Moreover, clients can have vastly different number of examples. Recall, SyncFL methods wait for all the participating clients in a round to finish before updating the server model -- a round proceeds at the pace of the slowest client, the straggler effect. To mitigate the straggler problem, over-selection proposed in \citet{google-fl}, which selects 30\% more clients than the target number of clients to participate and waits for the fastest replies. 
+
+To confirm the speedup gain by \algname in terms of wall-clock time, we simulate training time of FedAvgM and FedBuff using a random exponential time model from \cite{straggler_model}. The random exponential time model has been widely used to simulate the straggler effect in federated learning, e.g. in \cite{reisizadeh2020straggler, tandon2017gradient, yu2020straggler, yu2019lagrange, charles2021large}. 
+
+We assume the time a client requires to perform local training is proportional to the number of examples the client has, same as the assumption in \cite{charles2021large}. Formally, let $n_i$ be the number of examples held by client $i$, and let $T_i$ be the amount of time required by client $i$ to perform local training. Also assume that there is a constant $\lambda > 0$ such that 
+\[
+T_i \sim Exp( \frac{1}{\lambda n_i}).
+\]
+
+In this context, $\lambda$ is the straggler parameter. The larger the $\lambda$, the longer the expected client training time. For a given round $t$, let $C_t$ be number of clients required to close a round, and let $M$ be the total number of clients training concurrently with over-selection. If $T_1, \dots, T_M$ denote the raw times when clients complete the round and $T_{(1)} \le \dots \le T_{(M)}$ denote order statistic of the client training time, then $R_t$ for SyncFL is 
+\[
+R_t = T_{(C_t)}.
+\]
+
+If $T$ is the number of rounds to reach a target accuracy, the expected total training time for SyncFL is
+\[
+\mathbb{E}[T_{\text{SyncFL}}] = \sum_{t=0}^{T} R_t.
+\]
+
+In the case of \algname, the total wall-clock time is when the last client required to reach a target accuracy finishes training. Formally, let $N$ be the number of clients required to reach a target accuracy and $T_{(1)} \le \dots \le T_{(N)}$ denotes the order statistic of the client training time. Then the expected total training time for \algname is
+
+\[
+\mathbb{E}[T_{\text{\algname}}] = T_{(N)}.
+\]
+
+\begin{figure}[t]
+     \centering
+     \includegraphics[width=0.8\linewidth]{figures/sent140_training_time.pdf}
+     \label{fig:sent140_stragglers}
+     \caption{(left) The total run time required to reach a target accuracy on Sent140 with $\lambda = 1$ under a random exponential time model. (right) The number of client trips required to reach a target accuracy. This measures the resource efficiency of the three algorithms. In all three configurations, increasing concurrency lowers wall-clock convergence time. However, \syncfl uses much more resources compared with \asyncfl. This highlights the importance of scalability, the ability to efficiently utilize increasing number of clients training in parallel. Both figures illustrates that FedBuff is faster than SyncFL (e.g., FedAvgM) even with over-selection with increasing concurrency, while being up to 3 times more resource efficient.}
+    \label{fig:stragglers}
+\end{figure}
+
+\subsection{Bias}
+\label{sec:appendix_diversity}
+
+\begin{figure}[t]
+     \centering
+     \includegraphics[width=1\linewidth]{figures/sent140_samples.pdf}
+     \label{fig:sent140_diversity}
+     \caption{The distribution of Number of examples held by each participating client on Sent140 with varying $\lambda$. We fix concurrency = 1000 and buffer size $K = 10$. Since \algname does not drop the slowest clients, it can incorporate a more diverse set of clients.}
+    \label{fig:diversity}
+\end{figure}
+
+In this section, we show the diversity of participating clients in \algname and FedAvgM. We should that SyncFL methods can introduce bias in their selection process while \algname does not. We use the same random exponential time model in Appendix \ref{sec:appendix_stragglers}. The result is given in Figure \ref{fig:diversity}. We find that in all levels of $\lambda$, \algname can incorporate clients with large local datasets. On the other hand, SyncFL (e.g., FedAvgM) with over-selection drops these clients leading to bias in the selection process. \algname does not drop the slowest clients, and can incorporate these clients with many examples.
+
+\subsection{Large values of $K$}
+\label{sec:appendix_large_k}
+
+\begin{table}
+% \centering
+\caption{Wall-clock time to reach target validation accuracy on CelebA and Sent140 when $K$ is large (Units for wall-clock time: mean training time for one client. Units for client trips updates: 1000 updates). For \algname{}, $K$=1000. FedAvgM with over-selection throws away results from the slowest 30\% of users in each round. These users are included when calculating the number of client trips}
+\label{tab:large_k}
+\centering
+\begin{tabular}{lrrlr} 
+\toprule
+Dataset & Algorithm & Concurrency & Wall-Clock Time & client trips \\ 
+\hline
+\Tstrut{}
+        &   FedBuff ($K$=1000)             & 1000    & 124            & 124\\
+CelebA  &   FedAvgM                        & 1000    & 446 (3.6$\times$)     & 104\\
+        &   FedAvgM, over-selection        & 1300    & 155 (1.25$\times$)    & 135\\ 
+\hline
+\Tstrut{}
+        &   FedBuff ($K$=1000)             & 1000    & 228            & 228\\
+Sent140 &   FedAvgM                        & 1000    & 927 (4.06$\times$)    & 216\\
+        &   FedAvgM. over-selection    & 1300    & 322 (1.41$\times$)    & 281\\
+        \bottomrule
+\end{tabular}
+\end{table}
+
+In this section, we study the performance of \algname with large values of $K$. In Table \ref{tab:different_ks}, we observe that \algname{} trains fast when running with small values of $K$, relative to the concurrency. However, large values of $K$ are useful when providing user-level differential privacy, as essentially the noise is divided among larger number of clients (larger values of $K$)~\citep{dpftrl, google-dp-fl}. 
+
+We compare the training speed of \algname{} and FedAvgM in a setting where both algorithms produce a server update from the same number of aggregated client updates. We fix concurrency at 1000, and have both FedAvgM and \algname{} perform updates after aggregating responses from $K=1000$ clients. In this setting, \algname{}'s main advantage is robustness to stragglers. It cannot take advantage of frequent server updates, yet still needs to deal with staleness. 
+
+%As a result, robustness to stragglers is the main advantage of \algname{} over synchronous methods in this setting.
+
+The synchronous FL system described in~\cite{google-fl} uses over-selection, typically by 30\%, to address stragglers. For example, if 1000 users are needed to produce a server model update, 1300 users are selected. The round will finish when the fastest 1000 users finish training. Results from the slowest 300 users will be thrown away. Over-selection makes synchronous FL more robust to stragglers, but at the cost of wasting some clients' compute and bandwidth. 
+
+Table~\ref{tab:large_k} reports the wall-clock training time and number of client trips to reach target accuracy for \algname and FedAvgM with and without over-selection. We assume a half-normal training duration distribution since that matches the behavior observed in our production system (see Figure~\ref{fig:prod_staleness}). We find that over-selection reduces the impact of stragglers significantly. However, even with over-selection, \algname{} is 25\%-41\% faster than FedAvgM, despite using 30\% lower concurrency.
+
+\subsection{\algname with Differential Privacy}
+\label{sec:appendix_dp}
+
+\begin{figure*}[t]
+     \centering
+     \begin{minipage}[t]{0.32\linewidth}
+         \centering
+         \includegraphics[width=\linewidth]{figures/eps_6.pdf}
+     \end{minipage}
+    %  \hspace{1em}
+     \begin{minipage}[t]{0.32\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/eps_12.pdf}
+     \end{minipage}
+        \begin{minipage}[t]{0.32\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/eps_24.pdf}
+     \end{minipage}
+     \caption{Training curves for different values of $\epsilon$ for three FL configurations.}
+     \label{fig:dp_learning_curves}
+\end{figure*}
+
+\Cref{fig:dp_learning_curves} shows the training curves of \algname with DP-FTRL, SyncFL with DP-SGD and DP-FTRL. At low values of $\epsilon$, \algname can achieve the same utility as SyncFL with amplified DP-SGD at the cost of slower convergence. At the same $\epsilon$, \algname with DP-FTRL achieves better utility and faster convergence compared to SyncFL with DP-FTRL. We find the source for this speed-up is from \algname's ability to tolerate much lower clipping norm value $L$. We repeat each experiment for 3 different seeds and take the average. The seeds are 0, 1, and 2. 
+
+
+\subsection{Learning Rate Normalization (\lrn{})}
+\label{sec:appendix_lrn}
+\subsubsection{Theoretical Justification}
+
+Recall that \lrn{} described in Section \ref{sec:improvement} aims to address the situation where a client performing local updates may need to perform an update using a batch size $b$ smaller than the server-prescribed batch size $B$. This may occur when processing a batch at the end of one epoch, including the first batch if the client has fewer than $B$ samples in total. Since this only pertains to the local updates performed at clients, let us simply write such an update as
+\begin{equation} \label{eq:sgd_varying_batch}
+y_q = y_{q-1} - \eta_q g_q^{(b_q)},
+\end{equation}
+without referring to any specific client index $i$ or global iteration index $t$. Here $g_q^{(b_q)}$ denotes a stochastic gradient of $F$ (the client's local objective) evaluated at $y_q$ using batch size $b_q$.
+
+Assume that $F$ is $L$-smooth, i.e.,
+\[
+\norm{\nabla F(y) - \nabla F(y')} \le L \norm{y - y'}.
+\]
+Also assume that the stochastic gradients are unbiased and have variance satisfying a weak growth condition. Specifically, assume that with batch size $b_q=1$,
+\begin{align*}
+\mathbb{E}[g_q^{(1)} | y_q] &= \nabla F(y_q), \\
+\mathbb{E}[ \norm{g_q^{(1)} - \nabla F(y_q)}^2] &\le \sigma_\ell^2 + M \norm{\nabla F(y_q)}^2.
+\end{align*}
+Note that in the proof of Theorem~\ref{thm:main_ergodic_rate}, we make the stronger assumption of bounded variance, corresponding to $M=0$.
+
+Furthermore, suppose that a mini-batch stochastic gradient $g_q^{(n)}$ with batch size $b_q > 1$ is obtained by averaging the gradients evaluated at $b_q$ independent and identically distributed samples. Thus,
+\begin{align*}
+\mathbb{E}[g_q^{(b_q)} | y_q] &= \nabla F(y_q), \\
+\mathbb{E}[ \norm{g_q^{(b_q)} - \nabla F(y_q)}^2] &\le \frac{\sigma_\ell^2}{b_q} + \frac{M}{b_q} \norm{\nabla F(y_q)}^2.
+\end{align*}
+
+\textbf{Uniform batch sizes.} If all steps use the same batch size $b_q=B$ with constant step-size $\eta_q = \eta_\ell$ satisfying
+\[
+0 < \eta_\ell \le \frac{1}{L(M/B + 1)},
+\]
+then it is well-known that the SGD iterates satisfy
+\[
+\mathbb{E}\left[\frac{1}{Q} \sum_{q=1}^Q \norm{\nabla F(y_q)}^2\right] \le \frac{2(F(y_1) - F^*)}{\eta_\ell Q} + \frac{\eta_\ell L \sigma_\ell^2}{B};
+\]
+see, for example, Theorem~4.8 in L.~Bottou, F.~Curtis, and J.~Nocedal, ``Optimization methods for large-scale machine learning,'' \textit{SIAM Review}, 2019.
+
+\textbf{Non-uniform batch sizes.} Now suppose that some steps will use batch size $1 < b_q \le B$. In this case one can show the following result.
+
+\begin{theorem*}
+Consider updates as in \eqref{eq:sgd_varying_batch} with per-iteration batch size
+\[
+\eta_q = \eta_\ell \frac{b_q}{B},
+\]
+and let $A_Q = \sum_{q=1}^Q \eta_q = \frac{\eta_\ell}{B} \sum_{q=1}^Q b_q$.
+Suppose that $\eta_\ell$ satisfies
+\[
+0 < \eta_\ell \le \frac{1}{L (M/B + 1)}.
+\]
+Then
+\[
+\mathbb{E}\left[ \frac{1}{A_Q} \sum_{q=1}^Q \norm{\nabla F(y_q)}^2\right] \le \frac{2(F(y_1) - F^*)}{A_Q} + \frac{\eta_\ell L \sigma_\ell^2}{B}.
+\]
+\end{theorem*}
+
+First, note that $A_Q$ is strictly increasing in $Q$, since $1 \le b_q \le B$. In the special case where $b_q = B$ for all $q$ we exactly recover the result above for uniform batch sizes. More generally, when $b_q < B$ for some steps, the asymptotic residual is identical to the case with uniform-batch size. This justifies using the \lrn{} step-size rule $\eta_q = \eta_\ell b_q / B$ when encountering batches of size $b_q < B$. The proof follows from similar arguments to those of Theorem~4.8 in L.~Bottou, F.~Curtis, and J.~Nocedal, ``Optimization methods for large-scale machine learning,'' \textit{SIAM Review}, 2019.
+
+\newcommand{\ip}[2]{\left\langle #1, #2 \right\rangle}
+\begin{proof}
+Let $\mathbb{E}_q$ denote expectation with respect to all randomness up to step $y_q$. Because $F$ is $L$-smooth,
+\[
+\mathbb{E}_q[F(y_{q+1})] - F(y_q) \le - \eta_q \ip{ \nabla F(y_q) }{ \mathbb{E}_q[g_q^{(b_q)}] } + \frac{\eta_q^2 L}{2} \mathbb{E}_k[ \norm{g_q^{(b_q)}}^2].
+\]
+From the weak growth assumption, it follows that
+\[
+\mathbb{E}_k[\norm{g_q^{(b_q)}}^2] \le \frac{\sigma_\ell^2}{b_q} + \left(\frac{M}{b_q} + 1\right) \norm{\nabla F(y_q)}^2,
+\]
+and thus
+\begin{align*}
+\mathbb{E}_q[F(y_{q+1})] - F(y_q) &\le - \eta_q \norm{ \nabla F(y_q) }^2 + \frac{\eta_q^2 L}{2} \left( \frac{\sigma_\ell^2}{b_q} + \left(\frac{M}{b_q} + 1\right) \norm{\nabla F(y_q)}^2 \right) \\
+&= - \eta_q \left(1 - \frac{\eta_q L}{2} \left(\frac{M}{b_q} + 1\right)\right) \norm{\nabla F(y_q)}^2 + \frac{\eta_q^2 L \sigma_\ell^2}{2 b_q}.
+\end{align*}
+Based on the relationship $\eta_q = \eta_\ell b_q / B$ and the upper-bound assumed on $\eta_\ell$, we have
+\begin{align*}
+\frac{\eta_q L }{2} \left( \frac{M}{b_q} + 1\right) &\le \frac{1}{2}.
+\end{align*}
+Consequently,
+\begin{align*}
+\mathbb{E}_q[F(y_{q+1})] - F(y_q) &\le - \frac{\eta_q}{2} \norm{\nabla F(y_q)}^2 + \frac{\eta_q^2 L \sigma_\ell^2}{2 b_q}.
+\end{align*}
+Rearranging, we get
+\begin{align*}
+\frac{\eta_q}{2} \norm{\nabla F(y_q)}^2 &\le F(y_q) - \mathbb{E}_q[F(y_{q+1})] + \frac{\eta_q^2 L \sigma_\ell^2}{2 b_q}.
+\end{align*}
+Summing both sides over $q=1,\dots,Q$ and taking the total expectation yields
+\begin{align*}
+\sum_{q=1}^Q \frac{\eta_q}{2} \mathbb{E}[\norm{\nabla F(y_q)}^2] &\le F(y_1) - \mathbb{E}[F(y_Q)] + \sum_{q=1}^Q \frac{\eta_q^2 L \sigma_\ell^2}{2 n_q} \\
+&\le F(y_1) - F^* + \sum_{q=1}^Q \frac{\eta_q^2 L \sigma_\ell^2}{2 n_q}.
+\end{align*}
+Now, multiplying both sides by $2/A_Q$, we obtain
+\begin{align*}
+\frac{1}{A_Q} \sum_{q=1}^Q \eta_q \mathbb{E}[\norm{\nabla F(y_q)}^2] &\le \frac{2(F(y_1) - F^*)}{A_Q} + \frac{1}{A_Q} \sum_{q=1}^Q \frac{\eta_q^2 L \sigma_\ell^2}{n_q} \\
+&= \frac{2(F(y_1) - F^*)}{A_Q} + \frac{\eta_\ell L \sigma_\ell^2}{B}.
+\end{align*}
+\end{proof}
+
+
+\subsubsection{Empirical Evaluation}
+
+\begin{table}
+\centering
+\caption{Number of client updates (lower is better) to reach validation accuracy on CelebA (90\%) and Sent140 (69\%). We set $M = 1000$ for all methods. We compare \lrn{} against two other popular weighting schemes. {\em Example weight} is when the weight is the number of training examples for each client. {\em Uniform weight} is where all clients have weights of 1. (Units = 1000 updates.)}
+\label{tab:lrn}
+\begin{tabular}{llrrrlll} 
+\toprule
+Dataset & K & \lrn{} & Example Weight & Uniform Weight  \\ 
+% \cmidrule{1-1}\cline{2-3}\cmidrule{4-7}
+\hline
+\Tstrut{}
+        &   1                      & 20.8                       & 23.9                             & 20.7 \\
+CelebA  &   10                     & 27.1                       & 25.5                             & 28.7 \\       
+        &   100                    & 57.6                       & 57.6                             & 54.4  \\ 
+\hline
+\Tstrut{}
+        &    1                      & 190.0                      & 201.9                            & 201.9  \\
+Sent140 &   10                      & 124.7                      & 207.9                            & 136.6  \\
+        &   100                     & 178.2                      & 570.3                            & 231.7 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+In Table \ref{tab:lrn}, we compare \lrn{} against two other weighting schemes: {\em Example Weight } where the weight is the number of training examples for each client, and {\em Uniform Weight} where all clients have weight of 1. We see that \lrn{} performs competitively on CelebA. For CelebA, all weighting schemes,  Uniform, Example, and \lrn{} perform similarly. This is because all clients in CelebA have one batch of data and number of examples per client is fairly centered around the mean. On the other hand, \lrn{} significantly outperforms Example Weight and Uniform Weight on Sent140. \lrn{} is beneficial when there is a high degree of data imbalance across clients, as in Sent140. Sent140 is more representative of real world FL applications where there is a long tail in the number of examples and number of batches per client. 
+
+\subsection{Learning Curves}
+\label{sec:learning_curves}
+In this section, we show the learning curves for each algorithm in Figures \ref{fig:sent140_accuracy}, \ref{fig:celeba_accuracy}, and \ref{fig:cifar_accuracy}. These figures demonstrate \algname{}'s robustness to different staleness distributions. Synchronous FL algorithms, FedAvgM, FedAvg and FedProx, are unaffected by the change in staleness distribution because they simply wait for all clients in the round. 
+
+For both CelebA and Sent140, \algname{} with $K=10$ can reach the target validation accuracy quicker than other values of $K$. At $K=10$, \algname{} appears to have the optimal balance between speed and variance reduction. 
+
+\clearpage
+\begin{figure*}[t]
+     \centering
+     \begin{minipage}[t]{0.32\linewidth}
+         \centering
+         \includegraphics[width=\linewidth]{figures/sent140_1000.pdf}
+     \end{minipage}
+     \begin{minipage}[t]{0.32\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/sent140_500.pdf}
+     \end{minipage}
+        \begin{minipage}[t]{0.32\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/sent140_100.pdf}
+     \end{minipage}
+     \caption{Training accuracy for FedAsync, FedAvgM and \algname on Sent140.}
+     \label{fig:sent140_accuracy}
+\end{figure*}
+
+\begin{figure*}[t]
+     \centering
+     \begin{minipage}[t]{0.32\linewidth}
+         \centering
+         \includegraphics[width=\linewidth]{figures/celeba_1000.pdf}
+     \end{minipage}
+     \begin{minipage}[t]{0.32\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/celeba_500.pdf}
+     \end{minipage}
+        \begin{minipage}[t]{0.32\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/celeba_100.pdf}
+     \end{minipage}
+     \caption{Training accuracy for FedAsync, FedAvgM and \algname on CelebA.}
+     \label{fig:celeba_accuracy}
+\end{figure*}
+
+\begin{figure*}[t]
+     \centering
+     \begin{minipage}[t]{0.32\linewidth}
+         \centering
+         \includegraphics[width=\linewidth]{figures/cifar_1000.pdf}
+     \end{minipage}
+     \begin{minipage}[t]{0.32\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/cifar_500.pdf}
+     \end{minipage}
+        \begin{minipage}[t]{0.32\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{figures/cifar_100.pdf}
+     \end{minipage}
+     \caption{Training accuracy for FedAsync, FedAvgM and \algname on CIFAR-10.}
+     \label{fig:cifar_accuracy}
+\end{figure*}
+
+% \begin{figure}[t]
+%      \centering
+%      \begin{minipage}[b]{.90\linewidth}
+%          \centering
+%          \includegraphics[width=\linewidth]{figures/sent140_loss.pdf}
+%          \caption{Train loss over the course of training for all algorithms on Sent140  for different distributions (left: uniform, center: half-normal, right: exponential) of staleness. \label{fig:sent140_loss}}
+%      \end{minipage}
+     
+% \end{figure}
+
+% \begin{figure}[t]
+%      \centering
+%      \begin{minipage}[b]{.90\linewidth}
+%          \centering
+%          \includegraphics[width=\linewidth]{figures/celeba_accuracy.pdf}
+%          \caption{Validation accuracy over the course of training for all algorithms on CelebA  for different distributions (left: uniform, center: half-normal, right: exponential) of staleness. \label{fig:celeba_accuracy}}
+%      \end{minipage}
+% \end{figure}
+
+% \begin{figure}[t]
+%      \centering
+%      \begin{minipage}[b]{.90\linewidth}
+%          \centering
+%          \includegraphics[width=\linewidth]{figures/celeba_loss.pdf}
+%          \caption{Train loss over the course of training for all algorithms on CelebA  for different distributions (left: uniform, center: half-normal, right: exponential) of staleness.. \label{fig:celeba_loss}}
+%      \end{minipage}
+% \end{figure}
+
+% In this section, we show the learning curves for each algorithm in Figures \ref{fig:sent140_accuracy}, \ref{fig:celeba_accuracy}, \ref{fig:sent140_loss} and \ref{fig:celeba_loss}. These figures demonstrate \algname{}'s robustness to different staleness distributions. Synchronous FL algorithms, FedAvgM, FedAvg and FedProx, are unaffected by the change in staleness distribution because they simply wait for all clients in the round. 
+
+% For both CelebA and Sent140, \algname{} with $K=10$ can reach the target validation accuracy quicker than other values of $K$. At $K=10$, \algname{} appears to have the optimal balance between speed and variance reduction. 
+
+% We find that algorithms without momentum, FedProx and FedAvg, have erratic train loss curves.  This highlights the importance of momentum tuning in FL. The erratic train loss curves for FedProx and FedAvg is consistent with findings in \cite{fedprox}. 
+% \section{Related Work Discussion}
+% \label{sec:appendix_related_work}
+% Asynchronous stochastic optimization in centralized and distributed server setting is well-studied \cite{Duchi_AsyncSGD_convex, hogwild, Revisit_dist_SGD_google, AsyncSGDDelay, AsyncSGD_purturbed, advance_async_Mike}. The primary motivation for most asynchronous optimization methods is to avoid stragglers, hence allowing each iteration to execute faster. In shared-memory centralized setting, a ``lock-free'' asynchronous SGD was first analyzed in \cite{hogwild} under the assumption of sparse gradient for convex problems. \cite{lian2015asynchronous_nonconvex, lian2018asynchronous} extended the analysis to general non-convex functions. In addition, recent works also studied various asynchronous variance-reduction techniques to improve the convergence rate \cite{leblond17a_ASAGA, reddi2015_ASVRG, advance_async_Mike}. Semi-asynchronous SGD was first introduced by \cite{soft-sync} as $n$-softsync and further analyzed by \cite{dutta2018slow}. Existent works focus on understanding the trade-offs between execution speed and iteration complexity. In this work, we show that in a federated environment with a large number of clients, the source of speed-up is not only due to avoiding stragglers, but also achieving better data-efficiency at high concurrency.
+
+% %In practice, it is observed that optimal learning rate increases with batch size~\cite{three-factors, imagenet-1hr}. 
+% There is a line of recent works aim to understand and characterize conditions under which linear speed-up for distributed SGD and local SGD is achievable \cite{dont_use_minibatch, yu2019linear, is_local_sgd_better, adaptive_sync_localSGD}.
+% To achieve speedup, the optimal learning rate typically increases with batch size. However, there is a limit to how much learning rate can be scaled up and increasing \concurrency{} eventually saturates beyond certain batch size \cite{gradient-diversity, scaling_nmt, imagenet-1hr, scaling_nmt, bert_in_76, imagenet_minutes, lars, measuring_data_parallelism}. The authors in \cite{is_local_sgd_better} found local-SGD can scale better with increasing concurrency than large batch SGD in some cases. Finally, many recent works analyzed the computation-communication trade-offs in synchronized federated learning, or in a distributed server computing environment \cite{dont_use_minibatch, is_local_sgd_better, adaptive_runtime, bert_in_76, yu2019linear, mb_vs_local, bert_in_76, imagenet_minutes, lars, measuring_data_parallelism}. Even though local SGD scales better than distributed large-batch SGD in some settings, experiments in existent works mostly focus on server computing environment where there are 2 to 64 computing nodes \cite{yu2019linear, dont_use_minibatch, Stitch_LocalSGD, restarted_SGD_Yu, li2019communication, adaptive_runtime, adaptive_sync_localSGD}. In practical internet-scale FL system, there are hundreds if not thousands of clients available for training concurrently. To the best of our knowledge, existent experiments are not designed for such massive distributed parallel cases.
+
+\clearpage
+\section{Proof of Convergence Rate}
+\label{appendix:proof}
+
+\begin{table}[t]
+    \caption{Summary of notation}
+    \label{tab:notation}
+\begin{center}
+\begin{tabular}{r c} \toprule
+Description & Symbol \\ \midrule
+number of server updates, server update index &  $T$, $t$ \\
+set of clients updates used in server update $t$ & $\calS^t$ \\
+number of clients, client index & $m$, $i$ or $k$ \\
+number of local steps per round, round index & $Q$, $q$ \\
+server model after $t$ steps & $w^t$ \\
+stochastic gradient at client $i$ & $g_i(w; \zeta_i):=g_i(w)$ \\
+local learning rate &  $\eta_l$ \\
+global learning rate  & $\eta_g$ \\
+number of clients in update & $K$ \\
+local and global gradient variance & $\sigma_{\ell}^2$, $\sigma_g^2$\\
+delay/staleness of client $i$'s model update for the $t$th server update & $\tau_i(t)$ \\
+maximum staleness for buffer of size $K$ & $\tau_{\max, K}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{table}
+
+In this appendix, we prove the main convergence result for \algname{}. A summary of the notation used is provided in Table~\ref{tab:notation}.
+
+Observe that \algname{} updates can be described succinctly as
+\begin{align*}
+w^{t+1} &= w^t + \eta_g \overline{\Delta}^t \\
+&= w^t + \eta_g \frac{1}{K} \sum_{k \in \calS^t} \left(- \eta_\ell \sum_{q=1}^Q g_k(y_{k,q}^{t - \tau_k(t)}) \right),
+\end{align*}
+where $\calS^t$ denotes the set of clients that contribute to the $t$'th server update, and $\tau_k(t) \ge 1$ is the staleness of an update contributed by client $k$ to the $t$'th server update. Specifically, when $k \in \calS^t$, the update returned by client $k$ was computed by starting from $w^{t-\tau_k(t)}$ and performing $Q$ local gradient steps. When $\tau_k(t) = 1$ there is no staleness in the update, and more generally $\tau_k(t) > 1$ corresponds to some staleness; i.e., $t - \tau_k(t)$ server updates have taken place between when the client last pulled a model from the server and when the client's update is being incorporated at the server.
+
+In addition to the assumptions stated in Section~\ref{sec:convergence}, in the proof below we assume that $\calS^t$ is a uniform subset $[n]$; i.e., in any given round any client is equally likely to contribute. This can be justified in practice as follows. To avoid having any client contribute more than once to any update, after the client returns an update contributing to $\overline{\Delta}^t$, the server can only sample that client after the server has performed another update. 
+
+We first state a useful lemma.
+\begin{lemma}
+$\mathbb{E}\Big[\norm{g_k}^2\Big] \leq 3(\sigma^2_{\ell} + \sigma^2_g + G)$, where the total expectation $\mathbb{E}[\cdot]$ is evaluated over the randomness with respect to client participation and the stochastic gradient taken by a client. 
+\label{ref:lemma_totalexpectation}
+\end{lemma}
+
+\begin{proof}
+From the law of total expectation we have $\mathbb{E} = 
+\mathbb{E}_{k\sim[m]}  \mathbb{E}_{\zeta_k | k}$. Hence,
+\begin{equation}
+    \begin{aligned}
+            \mathbb{E}\Big[\norm{g_k(w)}^2\Big] &= \mathbb{E}_{k\sim[m]}  \mathbb{E}_{g | k}\Big[\norm{g_k(w) - \nabla F_k(w) + \nabla F_k(w) - \nabla f(w) + \nabla f(w)}^2\Big] \\
+            &\leq 3 \mathbb{E}_{k\sim[m]} \mathbb{E}_{g | k} \Big[\norm{g_k(w) - \nabla F_k(w)}^2 + \norm{\nabla F_k(w) - \nabla f(w)}^2 + \norm{\nabla f(w)}^2 \Big] \\
+            &= 3(\sigma^2_{\ell} + \sigma^2_g + G )
+    \end{aligned}
+\end{equation}
+\end{proof}
+
+\subsection{Proof of Theorem \ref{thm:main_ergodic_rate}}
+\begin{theorem}
+Let $\eta^{(q)}_{\ell}$ be the local learning rate of client SGD in the $q$-th step, and define $\alpha(Q):=\sum_{q=0}^{Q-1} \eta^{(q)}_{\ell}$, $\beta(Q):=\sum_{q=0}^{Q-1} (\eta^{(q)}_{\ell})^2$. Choosing $\eta_g \eta^{(q)}_{\ell} Q \leq \frac{1}{L}$ for all local steps $q=0,\cdots,Q-1$, the global model iterates in Algorithm \ref{alg:server} achieves the following ergodic convergence rate
+\begin{equation}
+        \frac{1}{T} \sum_{t=0}^{T-1} \norm{\nabla f(w^t)}^2
+        \leq \frac{2 \Big(f(w^0) - f(w^*) \Big)}{\eta_g \alpha(Q) T} + 3 L^2 Q  \beta(Q)\Big(\eta^2_g \tau_{\max, K}^2 + 1 \Big)  \Big(\sigma^2_{\ell} + \sigma^2_g +  G\Big)
+        +\frac{L}{2}\frac{\eta_g \beta(Q) }{ \alpha(Q)}   \sigma^2_{\ell} .
+\end{equation}
+\end{theorem}
+
+\begin{proof}
+By $L$-smoothness assumption,
+\begin{equation}
+    \begin{aligned}
+        f(w^{t+1}) &\leq f(w^t) - \eta_g \langle \nabla f(w^t), \overline{\Delta}^t \rangle + \frac{L\eta^2_g}{2} \norm{\overline{\Delta}^t}^2 \\
+       &\leq   f(w^t) \underbrace{-\frac{\eta_g}{K}\sum_{k\in \calS_t} \Big\langle \nabla f(w^t),  \Delta_{k}^{t-\tau_k} \Big\rangle}_{T_1} + \underbrace{\frac{L\eta^2_g}{2K^2} \norm{\sum_{k\in \calS_t} \Delta_{k}^{t-\tau_k}}^2}_{T_2},
+    \end{aligned}
+    \label{eq:lipchitz_expansion}
+\end{equation}
+where $\Delta_{k}^{t-\tau_k}$ is the client delta which is trained from using the global model after $t-\tau_k$ updates as initialization. We will next derive the upper bounds on $T_1$ and $T_2$. To begin,
+\begin{equation}
+    \begin{aligned}
+        T_1 
+        &= -\frac{\eta_g}{K} \sum_{k\in \calS_t}  \Big\langle \nabla f(w^t),  \sum_{q=0}^{Q-1} \eta^{(q)}_{\ell} g_k(y^{t-\tau_k}_{k,q}) \Big\rangle
+        = - \frac{\eta_g}{K} \sum_{k\in \calS_t}  \sum_{q=0}^{Q-1} \eta^{(q)}_{\ell} \Big\langle \nabla f(w^t),   g_k(y^{t-\tau_k}_{k,q}) \Big\rangle.
+    \end{aligned}
+\end{equation}
+Using conditional expectation, the expectation operator can be written as 
+\begin{equation*}
+    \mathbb{E}[\cdot]:= \mathbb{E}_{\mathcal{H}} \mathbb{E}_{i \sim [m]} \mathbb{E}_{g_i | i, \mathcal{H}}[\cdot]
+\end{equation*}
+where $\mathbb{E}_{\mathcal{H}}$ is the expectation over the history of the iterates, $\mathbb{E}_{i \sim [m]}$ is evaluated over the randomness over the distribution of clients $i \sim [m]$ checking in at time-step $t$, and the inner expectation operates over the stochastic gradient of one step on a client. Hence, following unbiasedness, 
+\begin{equation*}
+    \begin{aligned}
+            \mathbb{E}[T_1] =&  - \mathbb{E} \left[  \frac{\eta_g}{K}  \sum_{k\in \calS_t} \sum_{q=0}^{Q-1} \eta^{(q)}_{\ell}  \Big\langle \nabla f(w^t),   g_k(y^{t-\tau_k}_{k,q}) \Big\rangle \right] \\
+            =& - \eta_g \mathbb{E}_{\mathcal{H}} \left[ \frac{1}{m}   \sum_{i=1}^m \sum_{q=0}^{Q-1} \eta^{(q)}_{\ell}  \mathbb{E}_{g_i | i\sim[m]}  \Big\langle \nabla f(w^t),    g_i(y^{t-\tau_i}_{i,q})  \Big\rangle \right] \\
+            =& - \frac{\eta_g}{m} \mathbb{E}_{\mathcal{H}} \left[  \sum_{i=1}^m \sum_{q=0}^{Q-1} \eta^{(q)}_{\ell} \Big\langle \nabla f(w^t),   \nabla F_i(y^{t-\tau_i}_{i,q})  \Big\rangle \right] \\
+            =& - \eta_g \mathbb{E}_{\mathcal{H}} \left[ \sum_{q=0}^{Q-1} \eta^{(q)}_{\ell}  \Big\langle \nabla f(w^t),   \frac{1}{m}\sum_{i=1}^m \nabla F_i(y^{t-\tau_i}_{i,q}) \Big\rangle \right].
+    \end{aligned}
+\end{equation*}
+
+From the identity 
+$$\langle a, b \rangle = \frac{1}{2}(\norm{a}^2 + \norm{b}^2 - \norm{a-b}^2),$$
+we have
+\begin{equation}
+    \begin{aligned}
+        \mathbb{E}[T_1] 
+        &= -\frac{ \eta_g}{2}\left(\sum_{q=0}^{Q-1} \eta^{(q)}_{\ell} \right) \norm{\nabla f(w^t)}^2 + \sum_{q=0}^{Q-1} \frac{ \eta_g \eta^{(q)}_{\ell}}{2} \Big(-\mathbb{E}_{\mathcal{H}} \norm{\frac{1}{m}\sum_{i=1}^m \nabla F_i(y^{t-\tau_i}_{i,q})}^2 \\ &+\mathbb{E}_{\mathcal{H}}  \underbrace{\norm{\nabla f(w^t) -  \frac{1}{m}\sum_{i=1}^m \nabla F_i(y^{t-\tau_i}_{i,q})}^2 }_{T_3} \Big).
+    \end{aligned}
+    \label{eq:T1}
+\end{equation}
+Now for $T_3$, from the definition of $f(w^t)$,
+\begin{equation}
+    \begin{aligned}
+        \mathbb{E}_{\mathcal{H}}[T_3] &= \mathbb{E}_{\mathcal{H}}\norm{ \frac{1}{m}\sum_{i=1}^m  \nabla F_i(w^t) -  \frac{1}{m}\sum_{i=1}^m \nabla F_i(y^{t-\tau_i}_{i,q})}^2 \\
+        &\leq \frac{1}{m} \sum_{i=1}^m \mathbb{E}_{\mathcal{H}}\norm{\nabla F_i(w^t) - \nabla F_i(y^{t-\tau_i}_{i,q})}^2.
+    \end{aligned}
+\end{equation}
+Further, by telescoping, $T_3$ can be decomposed as
+\begin{equation}
+    \begin{aligned}
+        \mathbb{E}[T_3] &= \frac{1}{m}\sum_{i=1}^m \mathbb{E}_{\mathcal{H}} \Big|\Big|\nabla F_i(w^t) - \nabla F_i(w^{t-\tau_i}) + \nabla F_i(w^{t-\tau_i}) - \nabla F_i(y^{t-\tau_i}_{i,q}) \Big|\Big|^2\\
+        &\leq \frac{2}{m}\sum_{i=1}^m \mathbb{E}_{\mathcal{H}} \Big( \underbrace{\Big|\Big|\nabla F_i(w^t) - \nabla F_i(w^{t-\tau_i})\Big|\Big|^2}_{\text{staleness}} + \underbrace{\Big|\Big|\nabla F_i(w^{t-\tau_i}) - \nabla F_i(y^{t-\tau_i}_{i,q})\Big|\Big|^2}_{\text{local drift}} \Big) \\
+        &\leq \frac{2}{m}\sum_{i=1}^m \Big( L^2 \mathbb{E}_{\mathcal{H}}\norm{w^t - w^{t-\tau_i}}^2 + L^2\mathbb{E}_{\mathcal{H}}\norm{w^{t-\tau_i} - y^{t-\tau_i}_{i,q}}^2 \Big).
+    \end{aligned}
+\end{equation}
+
+The upper bound on $T_3$ can be understood as sums of bounds on the effect of staleness and local drift during client training, and local variance induced by client-side SGD. Further, we need to produce an upper bound on the staleness of initial model from which the client models are trained.
+\begin{equation}
+    \begin{aligned}
+     \norm{w^t - w^{t-\tau_i}}^2 &= \norm{\sum^{t-1}_{\rho=t-\tau_i} (w^{\rho+1} - w_{\rho}) }^2
+= \norm{\sum^{t-1}_{\rho=t-\tau_i} \frac{\eta_g}{K} \sum_{j_\rho \in \calS_{\rho}} \Delta_{j_\rho}^{\rho} }^2 \\
+&=  \frac{\eta^2_g}{K^2}\norm{\sum^{t-1}_{\rho=t-\tau_i} \sum_{j_\rho \in \calS_{\rho}} \sum_{l=0}^{Q-1} \eta^{(l)}_{\ell}  g_{j_\rho}(y^{\rho}_{j_\rho, l}) }^2.
+%&\leq \eta^2_g\tau_i Q K  \sum^{t-1}_{\rho=t-\tau_i} \sum_{j_\rho \in \calS_{\rho}} \sum_{l=0}^{Q-1} (\eta^{(l)}_{\ell} )^2\norm{ g_{j_\rho}(y^{\rho}_{j_\rho, l} }^2  \\
+\end{aligned}
+\label{eq:stalenss_UB}
+\end{equation}
+Taking the expectation in terms of $\mathcal{H}$,
+\begin{equation}
+    \begin{aligned}
+     \mathbb{E}_{\mathcal{H}}\norm{w^t - w^{t-\tau_i}}^2 &\leq \frac{\eta^2_g Q  \tau_i}{K} \sum^{t-1}_{\rho=t-\tau_i} \sum_{j_\rho \in \calS_{\rho}} \sum_{l=0}^{Q-1} (\eta^{(l)}_{\ell} )^2 \mathbb{E}\norm{ g_{j_\rho}(y^{\rho}_{j_\rho, l}) }^2 \\
+     &\leq 3 \eta^2_g Q  \max_{\tau_i} \tau_i^2  \Big(\sum_{l=0}^{Q-1} (\eta^{(l)}_{\ell})^2\Big) \Big(\sigma^2_{\ell} + \sigma^2_g + G\Big) \\
+&\leq 3 \eta^2_g Q \tau_{\max, K}^2 \Big(\sum_{l=0}^{Q-1} (\eta^{(l)}_{\ell})^2\Big) \Big(\sigma^2_{\ell} + \sigma^2_g  + G\Big),
+\end{aligned}
+\end{equation}
+where the last inequality follows from the assumption on maximal delay and applying Lemma \ref{ref:lemma_totalexpectation}. Similarly, the local drift term can be upper-bounded by
+\begin{equation}
+     \mathbb{E}\norm{w^{t-\tau_i} - y^{t-\tau_i}_{i,q}}^2 = \mathbb{E}\norm{y^{t-\tau_i}_{i,0} - y^{t-\tau_i}_{i,q}}^2
+    \leq \mathbb{E} \norm{\sum_{l=0}^{q-1}  \eta^{(l)}_{\ell}g_i(y^{t-\tau_i}_{i,l}) }^2 
+    \leq 3 q \left(\sum_{l=0}^{q-1}  (\eta^{(l)}_{\ell})^2 \right)\Big(\sigma^2_{\ell} + \sigma^2_g + G\Big).
+\end{equation}
+Thus, the upper bound on $T_3$ becomes:
+\begin{equation}
+    \begin{aligned}
+        \mathbb{E}[T_3]
+        &\leq 6 \Bigg(L^2 \eta^2_g Q  \tau_{\max, K}^2  \Big(\sum_{i=0}^{Q-1} (\eta^{(i)}_{\ell})^2\Big) \Big(\sigma^2_{\ell} + \sigma^2_g + G\Big) + L^2 q \left(\sum_{i=0}^{q-1}  (\eta^{(i)}_{\ell})^2 \right)\Big(\sigma^2_{\ell} + \sigma^2_g+ G\Big) \Bigg) \\
+        &\leq 6  L^2 \Big(\sum_{i=0}^{Q-1} (\eta^{(i)}_{\ell})^2\Big)(\eta^2_g Q \tau_{\max, K}^2 + q )  \Big(\sigma^2_{\ell} + \sigma^2_g + G\Big) \\
+        &\leq 6  L^2 Q \Big(\sum_{i=0}^{Q-1} (\eta^{(i)}_{\ell})^2\Big)(\eta^2_g \tau_{\max, K}^2 + 1 )  \Big(\sigma^2_{\ell} + \sigma^2_g + G\Big).
+    \end{aligned}
+    \label{eq:T3_bound_final}
+\end{equation}
+Inserting the upper bound on $T_3$ into (\ref{eq:T1}), we have,
+\begin{equation}
+     \mathbb{E}[T_1] \leq -\frac{\eta_g}{2}\left(\sum_{q=0}^{Q-1} \eta^{(q)}_{\ell} \right) \norm{\nabla f(w^t)}^2 +  \sum_{q=0}^{Q-1} \frac{\eta_g\eta^{(q)}_{\ell}}{2} \mathbb{E}[T_3] -\sum_{q=0}^{Q-1} \frac{ \eta_g \eta^{(q)}_{\ell}}{2} \mathbb{E}_{\mathcal{H}} \norm{\frac{1}{m}\sum_{i=1}^m \nabla F_i(y^{t-\tau_i}_{i,q})}^2.
+\end{equation}
+Let $\alpha(Q):=\sum_{q=0}^{Q-1} \eta^{(q)}_{\ell}$ and $\beta(Q):=\sum_{q=0}^{Q-1} (\eta^{(q)}_{\ell})^2$. Then
+\begin{equation}
+    \mathbb{E}[T_1] \leq - \frac{\eta_g \alpha(Q)}{2} \norm{\nabla f(w^t)}^2 + 3 \eta_g L^2 Q \alpha(Q)  \beta(Q)\Big(\eta^2_g  \tau_{\max, K}^2 + 1 \Big)  \Big(\sigma^2_{\ell} + \sigma^2_g + G\Big) 
+    \underbrace{-\sum_{q=0}^{Q-1} \frac{ \eta_g \eta^{(q)}_{\ell}}{2} \mathbb{E}_{\mathcal{H}} \norm{\frac{1}{m}\sum_{i=1}^m \nabla F_i(y^{t-\tau_i}_{i,q})}^2}_{T_4}.
+\label{eq:T1_final}
+\end{equation}
+
+To derive the upperbound on the R.H.S. of (\ref{eq:lipchitz_expansion}), we now need to upper bound $\mathbb{E}[T_2]$. We proceed by adding and subtracting the expected gradient within the norm,
+\begin{equation}
+    \begin{aligned}
+        \mathbb{E}[T_2] 
+        &= \mathbb{E} \Bigg[ \frac{L\eta^2_g}{2K^2}  \norm{\sum_{k\in \calS_t} \sum_{q=0}^{Q-1} \eta^{(q)}_{\ell} g_k(y^{t-\tau_k}_{k,q})}^2 \Bigg] \\
+        &= \mathbb{E} \Bigg[ \frac{L\eta^2_g}{2K^2}  \norm{\sum_{k\in \calS_t} \sum_{q=0}^{Q-1} \eta^{(q)}_{\ell}\left(g_k(y^{t-\tau_k}_{k,q}) - \nabla F_k(y^{t-\tau_k}_{k,q}) \right) + \sum_{k\in \calS_t} \sum_{q=0}^{Q-1} \eta^{(q)}_{\ell} \nabla F_k(y^{t-\tau_k}_{k,q}) }^2 \Bigg] \\
+        &\overset{\mathrm{(A.)}}{=}  \frac{L\eta^2_g}{2K^2} \mathbb{E} \norm{\sum_{k\in \calS_t} \sum_{q=0}^{Q-1}  \eta^{(q)}_{\ell}\left(g_k(y^{t-\tau_k}_{k,q}) - \nabla F_k(y^{t-\tau_k}_{k,q}) \right) }^2 +  \frac{L\eta^2_g}{2K^2} \mathbb{E}   \norm{\sum_{k\in \calS_t} \sum_{q=0}^{Q-1}  \eta^{(q)}_{\ell} \nabla F_k(y^{t-\tau_k}_{k,q}) }^2 \\
+        &\overset{\mathrm{(B.)}}{=}  \frac{L\eta^2_g}{2} \sum_{k\in \calS_t} \sum_{q=0}^{Q-1} (\eta^{(q)}_{\ell})^2 \mathbb{E} \norm{\left(g_k(y^{t-\tau_k}_{k,q}) - \nabla F_k(y^{t-\tau_k}_{k,q}) \right) }^2 +  \frac{L\eta^2_g}{2K^2} \mathbb{E}   \norm{\sum_{k\in \calS_t} \sum_{q=0}^{Q-1}  \eta^{(q)}_{\ell} \nabla F_k(y^{t-\tau_k}_{k,q}) }^2 \\
+        &\leq  \frac{L\eta_g^2 \beta(Q) \sigma^2_{\ell}}{2} + \frac{LQ\eta_g^2}{2K} \sum_{k\in \calS_t} \sum_{q=0}^{Q-1}  (\eta^{(q)}_{\ell})^2\mathbb{E}_{\mathcal{H}} \mathbb{E}_{k\sim[m] | \mathcal{H}}\norm{ \nabla F_k(y^{t-\tau_k}_{k,q}) }^2 \\
+        &=  \frac{L\eta_g^2 \beta(Q) \sigma^2_{\ell}}{2} + \frac{LQ\eta_g^2}{2K} \sum_{k\in \calS_t} \sum_{q=0}^{Q-1}  (\eta^{(q)}_{\ell})^2\mathbb{E}_{\mathcal{H}} \Bigg[ \frac{1}{m}\sum_{i=1}^m\norm{ \nabla F_i(y^{t-\tau_i}_{i,q}) }^2 \Bigg] \\
+        &=  \frac{L\eta_g^2 \beta(Q) \sigma^2_{\ell}}{2} + \underbrace{\frac{LQ\eta_g^2}{2m}  \sum_{q=0}^{Q-1}  \sum_{i=1}^m (\eta^{(q)}_{\ell})^2 \mathbb{E}_{\mathcal{H}} \Bigg[ \norm{ \nabla F_i(y^{t-\tau_i}_{i,q}) }^2 \Bigg]}_{T_5} \\        
+    \end{aligned}
+\label{eq:T2_final}
+\end{equation}
+where (A.) follows the unbiasedness of $g_k$, and (B.) follows from the fact that $g_k - \nabla F_k$ are independent and unbiased for $k \sim [m]$.
+To produce an upperbound on $\mathbb{E}[T_1 + T2]$, we need to make sure $T_4 + T_5 \leq 0$.
+\begin{equation}
+    \begin{aligned}
+        &\big(T_4 + T_5\big) \\ =&  -\sum_{q=0}^{Q-1} \frac{ \eta_g \eta^{(q)}_{\ell}}{2} \mathbb{E}_{\mathcal{H}} \norm{\frac{1}{m}\sum_{i=1}^m \nabla F_i(y^{t-\tau_i}_{i,q})}^2 + \frac{LQ\eta_g^2}{2m}  \sum_{q=0}^{Q-1}  \sum_{i=1}^m (\eta^{(q)}_{\ell})^2 \mathbb{E}_{\mathcal{H}}  \norm{ \nabla F_i(y^{t-\tau_i}_{i,q}) }^2  \\      
+        =& -\sum_{q=0}^{Q-1}\sum_{i=1}^m  \frac{\eta_g \eta^{(q)}_{\ell}}{2m} \mathbb{E}_{\mathcal{H}}  \norm{ \nabla F_i(y^{t-\tau_i}_{i,q})}^2 + \frac{LQ\eta_g^2}{2m}  \sum_{q=0}^{Q-1}  \sum_{i=1}^m (\eta^{(q)}_{\ell})^2 \mathbb{E}_{\mathcal{H}}  \norm{ \nabla F_i(y^{t-\tau_i}_{i,q}) }^2  \\
+        =& \sum_{q=0}^{Q-1}\sum_{i=1}^m \Big( -\frac{\eta_g \eta^{(q)}_{\ell}}{2m} + \frac{LQ\eta_g^2 (\eta^{(q)}_{\ell})^2}{2m}  \Big) \mathbb{E}_{\mathcal{H}}  \norm{ \nabla F_i(y^{t-\tau_i}_{i,q})}^2 
+    \end{aligned}
+    \label{eq:local_lr_condition}
+\end{equation}
+To ensure $T_4 + T_5 \leq 0$, it is sufficient to choose $\eta_g \eta^{(q)}_{\ell} Q \leq \frac{1}{L}$ for all local steps $q=0,\cdots,Q-1$.
+
+
+Now, plugging (\ref{eq:T1_final}), (\ref{eq:T2_final}) and (\ref{eq:local_lr_condition}) into     (\ref{eq:lipchitz_expansion}),
+
+\begin{equation}
+        \mathbb{E}[f(w^{t+1})] \leq  \mathbb{E}[f(w^t)] - \frac{\eta_g \alpha(Q)}{2} \norm{\nabla f(w^t)}^2 + 3\eta_g L^2 Q \alpha(Q)  \beta(Q)\Big(\eta^2_g \tau_{\max, K}^2 + 1 \Big)  \Big(\sigma^2_{\ell} + \sigma^2_g + G\Big) 
+        + \frac{L}{2} \eta^2_g \beta(Q)    \sigma^2_{\ell}
+    \label{eq:obj_bound}
+\end{equation}
+Summing up $t$ from $1$ to $T$ and rearrange, yields
+\begin{equation}
+    \begin{aligned}
+        \sum_{t=0}^{T-1} \eta_g  \alpha(Q)\norm{\nabla f(w^t)}^2 &\leq   \sum_{t=0}^{T-1} 2 \Big(\mathbb{E}[f(w^t)]  - \mathbb{E}[f(w^{t+1})] \Big)  + 3\sum_{t=0}^{T-1} \eta_g L^2  Q \alpha(Q)  \beta(Q)\Big(\eta^2_g  \tau_{\max, K}^2 + 1 \Big)  \Big(\sigma^2_{\ell} + \sigma^2_g + G\Big) \\
+        &+  \frac{L}{2} \eta^2_g \beta(Q)   \sigma^2_{\ell}\\
+        &\leq 2 \Big(f(w^0) - f(w^*) \Big) + 3\sum_{t=0}^{T-1} \eta_g L^2 \alpha(Q)  \beta(Q)\Big(\eta^2_g  \tau_{\max, K}^2 + Q \Big)  \Big(\sigma^2_{\ell} + \sigma^2_g + G\Big) 
+        +  \frac{L}{2}\eta^2_g \beta(Q)  \sigma^2_{\ell}\\
+    \end{aligned}
+\end{equation}
+Thus we have
+\begin{equation}
+        \frac{1}{T} \sum_{t=0}^{T-1} \norm{\nabla f(w^t)}^2
+        \leq \frac{2 \Big(f(w^0) - f(w^*) \Big)}{\eta_g \alpha(Q) T} + 3 L^2 Q  \beta(Q)\Big(\eta^2_g \tau_{\max, K}^2 + 1 \Big)  \Big(\sigma^2_{\ell} + \sigma^2_g +  G\Big)       +\frac{L}{2}\frac{\eta_g \beta(Q) }{ \alpha(Q)}   \sigma^2_{\ell} 
+\end{equation}
+\end{proof}
+
+
+% To preserve the anonymity, please include acknowledgments \emph{only} in the camera-ready papers.
+
+
+
+
+
+
+\end{document}

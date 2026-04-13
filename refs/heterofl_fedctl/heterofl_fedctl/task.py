@@ -172,6 +172,11 @@ def train(
     criterion = nn.CrossEntropyLoss().to(device)
     optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9)
     model.train()
+    print(
+        f"{log_prefix or '[heterofl]'} train:enter "
+        f"device={device} epochs={epochs} batches={len(trainloader)}",
+        flush=True,
+    )
     running_loss = 0.0
     steps = 0
     for epoch in range(epochs):
@@ -180,13 +185,52 @@ def train(
         epoch_steps = 0
         for batch_idx, (images, labels) in enumerate(trainloader, start=1):
             batch_start = time.perf_counter()
+            if batch_idx == 1:
+                print(
+                    f"{log_prefix or '[heterofl]'} train:first_batch fetched "
+                    f"images_shape={tuple(images.shape)} labels_shape={tuple(labels.shape)} "
+                    f"images_dtype={images.dtype} labels_dtype={labels.dtype}",
+                    flush=True,
+                )
             images = images.to(device)
             labels = labels.to(device)
+            if batch_idx == 1:
+                print(
+                    f"{log_prefix or '[heterofl]'} train:first_batch on_device "
+                    f"elapsed_s={time.perf_counter() - batch_start:.2f}",
+                    flush=True,
+                )
             optimizer.zero_grad()
             logits = model(images)
+            if batch_idx == 1:
+                print(
+                    f"{log_prefix or '[heterofl]'} train:first_batch forward_done "
+                    f"logits_shape={tuple(logits.shape)} "
+                    f"elapsed_s={time.perf_counter() - batch_start:.2f}",
+                    flush=True,
+                )
             loss = criterion(logits, labels)
+            if batch_idx == 1:
+                print(
+                    f"{log_prefix or '[heterofl]'} train:first_batch loss_done "
+                    f"loss={float(loss.item()):.6f} "
+                    f"elapsed_s={time.perf_counter() - batch_start:.2f}",
+                    flush=True,
+                )
             loss.backward()
+            if batch_idx == 1:
+                print(
+                    f"{log_prefix or '[heterofl]'} train:first_batch backward_done "
+                    f"elapsed_s={time.perf_counter() - batch_start:.2f}",
+                    flush=True,
+                )
             optimizer.step()
+            if batch_idx == 1:
+                print(
+                    f"{log_prefix or '[heterofl]'} train:first_batch step_done "
+                    f"elapsed_s={time.perf_counter() - batch_start:.2f}",
+                    flush=True,
+                )
             loss_value = float(loss.item())
             running_loss += loss_value
             steps += 1
