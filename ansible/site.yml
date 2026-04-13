@@ -1,9 +1,15 @@
 ---
-- name: Baseline packages on all RPis
+- name: Apply network policy on all RPis
   hosts: all
   become: true
   roles:
-    - role: common
+    - role: network_policy
+
+- name: Apply base system configuration on all RPis
+  hosts: all
+  become: true
+  roles:
+    - role: base_system
 
 - name: Configure Tailscale on selected nodes
   hosts: tailscale_nodes
@@ -125,6 +131,15 @@
         - submit_tokens | length > 0
         - submit_aws_shared_credentials_file | length > 0
         - submit_aws_config_file | length > 0
+
+    - name: Check reverse-proxied submit service login page
+      ansible.builtin.uri:
+        url: http://127.0.0.1/ui/login
+        method: GET
+        headers:
+          Host: "{{ submit_reverse_proxy_server_name }}"
+        status_code: 200
+      when: submit_reverse_proxy_enabled | default(false)
 
 - name: Validate Tailscale connectivity
   hosts: tailscale_nodes

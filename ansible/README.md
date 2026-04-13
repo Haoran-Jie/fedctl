@@ -1,6 +1,6 @@
 # Ansible Cluster Automation for fedctl
 
-This directory automates your hardware deployment so you can scale from 4 RPis to 24 RPis without manual SSH per node.
+This directory automates your hardware deployment so you can scale from a small test set to the current cluster without manual SSH per node.
 
 ## Topology encoded in inventory
 
@@ -9,16 +9,15 @@ This directory automates your hardware deployment so you can scale from 4 RPis t
 - `2` submit clients (`rpi5-006` to `rpi5-007`)
 - `3` superlink clients (`rpi5-008` to `rpi5-010`)
 - `14` rpi5 supernode clients (`rpi5-011` to `rpi5-024`)
-- `6` rpi4 supernode clients (`rpi4-001` to `rpi4-006`)
+- `10` rpi4 supernode clients (`rpi4-001` to `rpi4-010`)
 
 If your IPs differ, edit inventory host vars.
 
 - `ansible_host`: how Ansible/SSH reaches the node
+- `tailscale_ip`: out-of-band fallback address for recovery access
 - `cluster_node_ip`: the cluster LAN IP that Nomad and the local registry should advertise/use
 
-When you are remote and connecting over Tailscale, set:
-- `ansible_host=<tailscale-ip>`
-- `cluster_node_ip=<local 192.168.x.x IP>`
+The current inventory uses the campus Ethernet IP as `ansible_host` and retains the Tailscale address separately as `tailscale_ip`.
 
 ## What this playbook manages
 

@@ -7,3 +7,13 @@
   ansible.builtin.systemd:
     name: fedctl-submit
     state: restarted
+
+- name: Reload nginx
+  ansible.builtin.systemd:
+    name: nginx
+    state: reloaded
+
+- name: Restart nginx
+  ansible.builtin.systemd:
+    name: nginx
+    state: restarted

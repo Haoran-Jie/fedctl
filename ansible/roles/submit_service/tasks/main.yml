@@ -3,6 +3,7 @@
   ansible.builtin.apt:
     name:
       - git
+      - nginx
       - python3
       - python3-pip
       - python3-venv
@@ -147,3 +148,43 @@
     enabled: true
     state: started
     daemon_reload: true
+
+- name: Write nginx site for submit service
+  ansible.builtin.template:
+    src: fedctl-submit.nginx.conf.j2
+    dest: /etc/nginx/sites-available/fedctl-submit
+    owner: root
+    group: root
+    mode: "0644"
+  when: submit_reverse_proxy_enabled | default(false)
+  notify: Reload nginx
+
+- name: Enable nginx site for submit service
+  ansible.builtin.file:
+    src: /etc/nginx/sites-available/fedctl-submit
+    dest: /etc/nginx/sites-enabled/fedctl-submit
+    state: link
+  when: submit_reverse_proxy_enabled | default(false)
+  notify: Reload nginx
+
+- name: Disable default nginx site
+  ansible.builtin.file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  when: submit_reverse_proxy_enabled | default(false)
+  notify: Reload nginx
+
+- name: Validate nginx configuration
+  ansible.builtin.command:
+    argv:
+      - nginx
+      - -t
+  changed_when: false
+  when: submit_reverse_proxy_enabled | default(false)
+
+- name: Ensure nginx enabled and started
+  ansible.builtin.systemd:
+    name: nginx
+    enabled: true
+    state: started
+  when: submit_reverse_proxy_enabled | default(false)

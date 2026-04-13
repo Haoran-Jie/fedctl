@@ -9,7 +9,7 @@ nomad_advertise_ip: "{{ cluster_node_ip | default(ansible_host) }}"
 # Cluster control-plane addressing derived from inventory.
 cluster_nomad_server_host: "{{ hostvars[groups['nomad_servers'][0]].cluster_node_ip | default(hostvars[groups['nomad_servers'][0]].ansible_host) }}"
 cluster_registry_hostport: "{{ cluster_nomad_server_host }}:5000"
-cluster_registry_tailscale_hostport: "{{ hostvars[groups['registry_hosts'][0]].ansible_host }}:5000"
+cluster_registry_tailscale_hostport: "{{ hostvars[groups['registry_hosts'][0]].tailscale_ip | default(hostvars[groups['registry_hosts'][0]].ansible_host) }}:5000"
 
 # Keep list in sync with your server quorum.
 nomad_server_rpc_endpoints:
@@ -21,7 +21,7 @@ docker_insecure_registries:
   - "{{ cluster_registry_tailscale_hostport }}"
 
 # Provisioning network preference. Campus Ethernet is now the intended primary
-# path, so disable the legacy Wi-Fi-first tuning in the common role.
+# path, so disable the legacy Wi-Fi-first tuning in the network_policy role.
 network_prefer_wifi: false
 network_wifi_route_metric: 700
 network_eth_route_metric: 50

@@ -135,7 +135,7 @@ sudo apt upgrade -y
 sudo apt install -y git curl unzip ca-certificates python3 python3-pip python3-venv
 ```
 
-This roughly matches the baseline package intent already automated by the `common` role in [ansible/roles/common/tasks/main.yml](/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/ansible/roles/common/tasks/main.yml).
+This roughly matches the baseline package intent now automated by the `base_system` role in [/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/ansible/roles/base_system/tasks/main.yml](/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/ansible/roles/base_system/tasks/main.yml).
 
 If you are going to let Ansible handle everything immediately after first boot, you can keep manual package setup minimal.
 

@@ -16,3 +16,5 @@ nomad_device_type: "rpi"
 nomad_client_enable_docker: true
 nomad_client_enable_docker_socket: false
 nomad_docker_allow_caps: []
+nomad_docker_pull_activity_timeout: "15m"
+nomad_docker_image_pull_timeout: "30m"

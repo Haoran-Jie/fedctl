@@ -22,6 +22,8 @@ client {
 {% if nomad_client_enable_docker | bool %}
 plugin "docker" {
   config {
+    pull_activity_timeout = "{{ nomad_docker_pull_activity_timeout }}"
+    image_pull_timeout    = "{{ nomad_docker_image_pull_timeout }}"
 {% if nomad_docker_allow_caps | length > 0 %}
     allow_caps = {{ nomad_docker_allow_caps | to_json }}
 {% endif %}
