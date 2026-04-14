@@ -49,6 +49,9 @@ from datetime import datetime, timezone
 class _RepoDeployConfig:
     supernodes: dict[str, object]
     supernode_resources: dict[str, object]
+    superexec_clientapp_resources: dict[str, object]
+    superexec_serverapp_resources: dict[str, object]
+    superlink_resources: dict[str, object]
     superexec_env: dict[str, str]
     network_profiles: dict[str, object]
     network_ingress_profiles: dict[str, object]
@@ -124,6 +127,9 @@ def run_deploy(
     repo_defaults = _repo_deploy_config(repo_cfg)
     repo_supernodes = repo_defaults.supernodes
     repo_supernode_resources = repo_defaults.supernode_resources
+    repo_superexec_clientapp_resources = repo_defaults.superexec_clientapp_resources
+    repo_superexec_serverapp_resources = repo_defaults.superexec_serverapp_resources
+    repo_superlink_resources = repo_defaults.superlink_resources
     repo_superexec_env = repo_defaults.superexec_env
     runtime_superexec_env = _runtime_superexec_env()
     if runtime_superexec_env:
@@ -199,6 +205,21 @@ def run_deploy(
                 resources_by_type[str(key)] = {"cpu": cpu, "mem": mem}
         if not resources_by_type:
             resources_by_type = None
+    superexec_clientapp_resources = _normalize_single_resource(
+        repo_superexec_clientapp_resources,
+        default_cpu=1000,
+        default_mem=1024,
+    )
+    superexec_serverapp_resources = _normalize_single_resource(
+        repo_superexec_serverapp_resources,
+        default_cpu=1000,
+        default_mem=1024,
+    )
+    superlink_resources = _normalize_single_resource(
+        repo_superlink_resources,
+        default_cpu=500,
+        default_mem=256,
+    )
 
     if dry_run:
         exp_name = _resolve_experiment_name(experiment)
@@ -232,6 +253,9 @@ def run_deploy(
             netem_image=repo_network_image if isinstance(repo_network_image, str) else None,
             resources_by_type=resources_by_type,
             default_resources=default_resources,
+            superlink_resources=superlink_resources,
+            superexec_serverapp_resources=superexec_serverapp_resources,
+            superexec_clientapp_resources=superexec_clientapp_resources,
             netem_serverapp=netem_serverapp,
             netem_clientapp=netem_clientapp,
             superexec_env=repo_superexec_env,
@@ -382,6 +406,9 @@ def run_deploy(
             supernode_image=supernode_image,
             resources_by_type=resources_by_type,
             default_resources=default_resources,
+            superlink_resources=superlink_resources,
+            superexec_serverapp_resources=superexec_serverapp_resources,
+            superexec_clientapp_resources=superexec_clientapp_resources,
             netem_serverapp=netem_serverapp,
             netem_clientapp=netem_clientapp,
             superexec_env=repo_superexec_env,
@@ -471,6 +498,9 @@ def _repo_deploy_config(repo_cfg: dict[str, object]) -> _RepoDeployConfig:
     superexec = _as_dict(deploy.get("superexec"))
     superexec_env = _as_string_dict(_as_dict(superexec.get("env")))
     supernode_resources = _as_dict(resources.get("supernode"))
+    superexec_clientapp_resources = _as_dict(resources.get("superexec_clientapp"))
+    superexec_serverapp_resources = _as_dict(resources.get("superexec_serverapp"))
+    superlink_resources = _as_dict(resources.get("superlink"))
     network = _as_dict(deploy.get("network"))
     network_profiles = _as_dict(network.get("profiles"))
     network_ingress_profiles = _as_dict(network.get("ingress_profiles"))
@@ -479,6 +509,9 @@ def _repo_deploy_config(repo_cfg: dict[str, object]) -> _RepoDeployConfig:
     return _RepoDeployConfig(
         supernodes=supernodes,
         supernode_resources=supernode_resources,
+        superexec_clientapp_resources=superexec_clientapp_resources,
+        superexec_serverapp_resources=superexec_serverapp_resources,
+        superlink_resources=superlink_resources,
         superexec_env=superexec_env,
         network_profiles=network_profiles,
         network_ingress_profiles=network_ingress_profiles,
@@ -514,6 +547,21 @@ def _as_string_dict(value: dict[str, object]) -> dict[str, str]:
         if text:
             resolved[key] = text
     return resolved
+
+
+def _normalize_single_resource(
+    raw: dict[str, object],
+    *,
+    default_cpu: int,
+    default_mem: int,
+) -> dict[str, int]:
+    source = raw
+    nested_default = _as_dict(raw.get("default"))
+    if nested_default:
+        source = nested_default
+    cpu = source.get("cpu", default_cpu)
+    mem = source.get("mem", default_mem)
+    return {"cpu": int(cpu), "mem": int(mem)}
 
 
 def _runtime_superexec_env() -> dict[str, str]:

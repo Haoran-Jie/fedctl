@@ -406,33 +406,39 @@ def _submission_requirements(submission: dict[str, Any]) -> list[dict[str, Any]]
     if total_supernodes <= 0:
         total_supernodes = 0
 
-    resources = _repo_supernode_resources()
-    default_res = resources.get("default", {"cpu": 500, "mem": 512})
+    supernode_resources = _repo_resource_overrides("supernode")
+    default_supernode_res = supernode_resources.get("default", {"cpu": 500, "mem": 512})
+    clientapp_resources = _repo_resource_overrides("superexec_clientapp")
+    default_clientapp_res = clientapp_resources.get("default", {"cpu": 1000, "mem": 1024})
+    superlink_res = _repo_default_resource("superlink", cpu=500, mem=256)
+    serverapp_res = _repo_default_resource("superexec_serverapp", cpu=1000, mem=1024)
 
     requirements: list[dict[str, Any]] = []
     if isinstance(supernodes, dict) and supernodes:
         for device_type, count in supernodes.items():
-            res = resources.get(device_type, default_res)
+            supernode_res = supernode_resources.get(device_type, default_supernode_res)
+            clientapp_res = clientapp_resources.get(device_type, default_clientapp_res)
             requirements.append(
                 {
                     "name": f"compute-node:{device_type}",
                     "node_class": "node",
                     "device_type": device_type,
-                    "cpu": res.get("cpu", 500) + 1000,
-                    "mem": res.get("mem", 512) + 1024,
+                    "cpu": supernode_res.get("cpu", 500) + clientapp_res.get("cpu", 1000),
+                    "mem": supernode_res.get("mem", 512) + clientapp_res.get("mem", 1024),
                     "count": count,
                     "strict": not allow_oversubscribe,
                 }
             )
     elif total_supernodes > 0:
-        res = default_res
+        supernode_res = default_supernode_res
+        clientapp_res = default_clientapp_res
         requirements.append(
             {
                 "name": "compute-node",
                 "node_class": "node",
                 "device_type": None,
-                "cpu": res.get("cpu", 500) + 1000,
-                "mem": res.get("mem", 512) + 1024,
+                "cpu": supernode_res.get("cpu", 500) + clientapp_res.get("cpu", 1000),
+                "mem": supernode_res.get("mem", 512) + clientapp_res.get("mem", 1024),
                 "count": total_supernodes,
                 "strict": not allow_oversubscribe,
             }
@@ -443,8 +449,8 @@ def _submission_requirements(submission: dict[str, Any]) -> list[dict[str, Any]]
             "name": "superlink",
             "node_class": "link",
             "device_type": None,
-            "cpu": 500,
-            "mem": 256,
+            "cpu": superlink_res["cpu"],
+            "mem": superlink_res["mem"],
             "count": 1,
             "strict": False,
         }
@@ -454,8 +460,8 @@ def _submission_requirements(submission: dict[str, Any]) -> list[dict[str, Any]]
             "name": "superexec-serverapp",
             "node_class": "link",
             "device_type": None,
-            "cpu": 1000,
-            "mem": 1024,
+            "cpu": serverapp_res["cpu"],
+            "mem": serverapp_res["mem"],
             "count": 1,
             "strict": False,
         }
@@ -718,7 +724,7 @@ def _parse_int(value: str) -> int | None:
         return None
 
 
-def _repo_supernode_resources() -> dict[str, dict[str, int]]:
+def _repo_resource_overrides(name: str) -> dict[str, dict[str, int]]:
     data = load_repo_config_data()
     deploy = data.get("deploy", {}) if isinstance(data.get("deploy"), dict) else {}
     resources = (
@@ -726,13 +732,25 @@ def _repo_supernode_resources() -> dict[str, dict[str, int]]:
         if isinstance(deploy.get("resources"), dict)
         else {}
     )
-    supernode = (
-        resources.get("supernode", {})
-        if isinstance(resources.get("supernode"), dict)
-        else {}
-    )
+    raw = resources.get(name, {})
     cleaned: dict[str, dict[str, int]] = {}
-    for key, val in supernode.items():
+
+    if isinstance(raw, dict):
+        top_level_cpu = _parse_int(raw.get("cpu"))
+        top_level_mem = _parse_int(raw.get("mem"))
+        if top_level_cpu is not None or top_level_mem is not None:
+            entry: dict[str, int] = {}
+            if top_level_cpu is not None:
+                entry["cpu"] = top_level_cpu
+            if top_level_mem is not None:
+                entry["mem"] = top_level_mem
+            if entry:
+                cleaned["default"] = entry
+
+    if not isinstance(raw, dict):
+        return cleaned
+
+    for key, val in raw.items():
         if not isinstance(val, dict):
             continue
         cpu = _parse_int(val.get("cpu"))
@@ -745,6 +763,15 @@ def _repo_supernode_resources() -> dict[str, dict[str, int]]:
         if entry:
             cleaned[str(key)] = entry
     return cleaned
+
+
+def _repo_default_resource(name: str, *, cpu: int, mem: int) -> dict[str, int]:
+    overrides = _repo_resource_overrides(name)
+    default_entry = overrides.get("default", {})
+    return {
+        "cpu": int(default_entry.get("cpu", cpu)),
+        "mem": int(default_entry.get("mem", mem)),
+    }
 
 
 def _repo_allow_oversubscribe_default() -> bool:

@@ -34,8 +34,10 @@ class SuperNodesSpec:
 @dataclass(frozen=True)
 class SuperExecSpec:
     image: str
-    cpu: int = 1000
-    memory_mb: int = 1024
+    serverapp_cpu: int = 1000
+    serverapp_memory_mb: int = 1024
+    clientapp_cpu: int = 1000
+    clientapp_memory_mb: int = 1024
     user: str = "root"
     flwr_dir: str = "/tmp/.flwr"
     node_class_link: str = "link"
@@ -72,17 +74,43 @@ def default_deploy_spec(
     supernode_image: str | None = None,
     resources_by_type: dict[str, dict[str, int]] | None = None,
     default_resources: dict[str, int] | None = None,
+    superlink_resources: dict[str, int] | None = None,
+    superexec_serverapp_resources: dict[str, int] | None = None,
+    superexec_clientapp_resources: dict[str, int] | None = None,
     netem_serverapp: bool = True,
     netem_clientapp: bool = True,
     superexec_env: dict[str, str] | None = None,
 ) -> DeploySpec:
+    superlink_cpu = int((superlink_resources or {}).get("cpu", SuperLinkSpec.cpu))
+    superlink_memory_mb = int(
+        (superlink_resources or {}).get("mem", SuperLinkSpec.memory_mb)
+    )
+    superexec_serverapp_cpu = int(
+        (superexec_serverapp_resources or {}).get("cpu", SuperExecSpec.serverapp_cpu)
+    )
+    superexec_serverapp_memory_mb = int(
+        (superexec_serverapp_resources or {}).get(
+            "mem", SuperExecSpec.serverapp_memory_mb
+        )
+    )
+    superexec_clientapp_cpu = int(
+        (superexec_clientapp_resources or {}).get("cpu", SuperExecSpec.clientapp_cpu)
+    )
+    superexec_clientapp_memory_mb = int(
+        (superexec_clientapp_resources or {}).get(
+            "mem", SuperExecSpec.clientapp_memory_mb
+        )
+    )
     return DeploySpec(
         datacenter="dc1",
         namespace=namespace,
         experiment=experiment,
         flwr_version=flwr_version,
         insecure=True,
-        superlink=SuperLinkSpec(),
+        superlink=SuperLinkSpec(
+            cpu=superlink_cpu,
+            memory_mb=superlink_memory_mb,
+        ),
         supernodes=SuperNodesSpec(
             count=num_supernodes,
             by_type=supernodes_by_type,
@@ -96,6 +124,10 @@ def default_deploy_spec(
         ),
         superexec=SuperExecSpec(
             image=image,
+            serverapp_cpu=superexec_serverapp_cpu,
+            serverapp_memory_mb=superexec_serverapp_memory_mb,
+            clientapp_cpu=superexec_clientapp_cpu,
+            clientapp_memory_mb=superexec_clientapp_memory_mb,
             netem_serverapp=netem_serverapp,
             netem_clientapp=netem_clientapp,
             env=superexec_env,

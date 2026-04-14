@@ -461,6 +461,142 @@ def test_dispatcher_marks_running_submission_failed_when_nomad_job_missing(
     assert updated["error_message"] == "Nomad job missing"
 
 
+def test_submission_requirements_use_configured_clientapp_resources_by_device(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        dispatcher_mod,
+        "load_repo_config_data",
+        lambda: {
+            "deploy": {
+                "resources": {
+                    "supernode": {
+                        "default": {"cpu": 500, "mem": 512},
+                        "rpi4": {"cpu": 400, "mem": 256},
+                        "rpi5": {"cpu": 700, "mem": 768},
+                    },
+                    "superexec_clientapp": {
+                        "default": {"cpu": 1000, "mem": 1024},
+                        "rpi4": {"cpu": 250, "mem": 128},
+                        "rpi5": {"cpu": 600, "mem": 512},
+                    },
+                }
+            }
+        },
+    )
+
+    reqs = dispatcher_mod._submission_requirements({"args": _typed_supernode_args()})
+
+    assert reqs[0]["name"] == "compute-node:rpi4"
+    assert reqs[0]["cpu"] == 650
+    assert reqs[0]["mem"] == 384
+    assert reqs[1]["name"] == "compute-node:rpi5"
+    assert reqs[1]["cpu"] == 1300
+    assert reqs[1]["mem"] == 1280
+
+
+def test_submission_requirements_allow_flat_clientapp_resource_config(monkeypatch) -> None:
+    monkeypatch.setattr(
+        dispatcher_mod,
+        "load_repo_config_data",
+        lambda: {
+            "deploy": {
+                "resources": {
+                    "supernode": {
+                        "default": {"cpu": 500, "mem": 512},
+                    },
+                    "superexec_clientapp": {"cpu": 750, "mem": 640},
+                }
+            }
+        },
+    )
+
+    reqs = dispatcher_mod._submission_requirements(
+        {"args": ["-m", "fedctl.submit.runner", "--num-supernodes", "3"]}
+    )
+
+    compute_req = next(req for req in reqs if req["name"] == "compute-node")
+    assert compute_req["cpu"] == 1250
+    assert compute_req["mem"] == 1152
+
+
+def test_submission_requirements_fallback_to_legacy_clientapp_defaults(monkeypatch) -> None:
+    monkeypatch.setattr(
+        dispatcher_mod,
+        "load_repo_config_data",
+        lambda: {
+            "deploy": {
+                "resources": {
+                    "supernode": {
+                        "default": {"cpu": 500, "mem": 512},
+                    },
+                }
+            }
+        },
+    )
+
+    reqs = dispatcher_mod._submission_requirements({"args": _typed_supernode_args()})
+
+    assert reqs[0]["cpu"] == 1500
+    assert reqs[0]["mem"] == 1536
+    assert reqs[1]["cpu"] == 1500
+    assert reqs[1]["mem"] == 1536
+
+
+def test_submission_requirements_use_configured_superlink_and_serverapp_resources(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        dispatcher_mod,
+        "load_repo_config_data",
+        lambda: {
+            "deploy": {
+                "resources": {
+                    "supernode": {"default": {"cpu": 500, "mem": 512}},
+                    "superexec_clientapp": {"cpu": 1000, "mem": 1024},
+                    "superlink": {"cpu": 800, "mem": 384},
+                    "superexec_serverapp": {"cpu": 1200, "mem": 1536},
+                }
+            }
+        },
+    )
+
+    reqs = dispatcher_mod._submission_requirements({"args": _typed_supernode_args()})
+
+    superlink_req = next(req for req in reqs if req["name"] == "superlink")
+    serverapp_req = next(req for req in reqs if req["name"] == "superexec-serverapp")
+    assert superlink_req["cpu"] == 800
+    assert superlink_req["mem"] == 384
+    assert serverapp_req["cpu"] == 1200
+    assert serverapp_req["mem"] == 1536
+
+
+def test_submission_requirements_fallback_to_legacy_superlink_and_serverapp_defaults(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        dispatcher_mod,
+        "load_repo_config_data",
+        lambda: {
+            "deploy": {
+                "resources": {
+                    "supernode": {"default": {"cpu": 500, "mem": 512}},
+                    "superexec_clientapp": {"cpu": 1000, "mem": 1024},
+                }
+            }
+        },
+    )
+
+    reqs = dispatcher_mod._submission_requirements({"args": _typed_supernode_args()})
+
+    superlink_req = next(req for req in reqs if req["name"] == "superlink")
+    serverapp_req = next(req for req in reqs if req["name"] == "superexec-serverapp")
+    assert superlink_req["cpu"] == 500
+    assert superlink_req["mem"] == 256
+    assert serverapp_req["cpu"] == 1000
+    assert serverapp_req["mem"] == 1024
+
+
 def test_dispatcher_marks_running_submission_failed_when_allocs_empty_and_job_missing(
     tmp_path, monkeypatch
 ) -> None:

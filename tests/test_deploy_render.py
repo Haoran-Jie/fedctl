@@ -103,6 +103,26 @@ def test_render_deploy_superexec_jobs() -> None:
     assert "FEDCTL_WAIT_CLIENT_IO_TIMEOUT_S" in client_cfg["args"][0]
 
 
+def test_render_deploy_uses_overridden_runtime_resources() -> None:
+    spec = default_deploy_spec(
+        num_supernodes=1,
+        image="example/superexec:latest",
+        experiment="exp-test",
+        superlink_resources={"cpu": 700, "mem": 384},
+        superexec_serverapp_resources={"cpu": 1500, "mem": 2048},
+        superexec_clientapp_resources={"cpu": 900, "mem": 768},
+    )
+    rendered = render_deploy(spec)
+
+    superlink_task = rendered.superlink["Job"]["TaskGroups"][0]["Tasks"][0]
+    serverapp_task = rendered.superexec_serverapp["Job"]["TaskGroups"][0]["Tasks"][0]
+    clientapp_task = rendered.superexec_clientapps[0]["Job"]["TaskGroups"][0]["Tasks"][0]
+
+    assert superlink_task["Resources"] == {"CPU": 700, "MemoryMB": 384}
+    assert serverapp_task["Resources"] == {"CPU": 1500, "MemoryMB": 2048}
+    assert clientapp_task["Resources"] == {"CPU": 900, "MemoryMB": 768}
+
+
 def test_render_deploy_keeps_clientapp_colocated_with_pinned_supernode() -> None:
     placements = [
         SupernodePlacement(device_type="rpi4", instance_idx=1, node_id="node-rpi4-a"),

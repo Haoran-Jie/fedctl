@@ -190,3 +190,21 @@ def test_repo_deploy_config_extracts_spread_across_hosts() -> None:
 
     assert repo_defaults.allow_oversubscribe is True
     assert repo_defaults.spread_across_hosts is True
+
+
+def test_repo_deploy_config_extracts_experiment_side_resource_overrides() -> None:
+    repo_defaults = _repo_deploy_config(
+        {
+            "deploy": {
+                "resources": {
+                    "superexec_clientapp": {"cpu": 900, "mem": 768},
+                    "superexec_serverapp": {"cpu": 1200, "mem": 1536},
+                    "superlink": {"cpu": 600, "mem": 320},
+                }
+            }
+        }
+    )
+
+    assert repo_defaults.superexec_clientapp_resources == {"cpu": 900, "mem": 768}
+    assert repo_defaults.superexec_serverapp_resources == {"cpu": 1200, "mem": 1536}
+    assert repo_defaults.superlink_resources == {"cpu": 600, "mem": 320}

@@ -127,13 +127,32 @@ In `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Com
 
 For typed supernode requests, the dispatcher models each compute node as:
 - supernode reservation from repo config
-- plus paired clientapp overhead
+- plus paired clientapp overhead from repo config
 
-In the current compute-main config, that means a per-node bundle of:
-- `1500 CPU`
-- `1536 MB`
+The active compute-main config currently sets that combined per-node bundle to:
+- `3000 CPU`
+- `3072 MB`
 
-Those bundle sizes are fixed from config, but eligibility is evaluated against live Nomad node inventory.
+That comes from:
+- `supernode = 1000 CPU / 1024 MB`
+- `superexec_clientapp = 2000 CPU / 2048 MB`
+
+Additional experiment-side queue reservations are also config-driven:
+- `superexec_serverapp`
+- `superlink`
+
+Those values now come from the repo config with legacy fallbacks matching the deploy-spec defaults, while eligibility is still evaluated against live Nomad node inventory.
+
+The actual Nomad runtime `Resources` for:
+- `superexec-clientapp`
+- `superexec-serverapp`
+- `superlink`
+
+now also flow from the same repo-config keys through the deploy path. Queue accounting and runtime reservations should stay aligned unless a live image or service deployment is stale.
+
+Current active link-side resources in the compute-main config are:
+- `superexec_serverapp = 2000 CPU / 2048 MB`
+- `superlink = 1000 CPU / 1024 MB`
 
 ### Blocked reasons
 

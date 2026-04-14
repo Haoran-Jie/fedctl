@@ -12,9 +12,12 @@ deploy:
     spread_across_hosts: true
   resources:
     supernode:
-      default: { cpu: 500, mem: 512 }
-      rpi4: { cpu: 500, mem: 512 }
-      rpi5: { cpu: 500, mem: 512 }
+      default: { cpu: 1000, mem: 1024 }
+      rpi4: { cpu: 1000, mem: 1024 }
+      rpi5: { cpu: 1000, mem: 1024 }
+    superexec_clientapp: { cpu: 2000, mem: 2048 }
+    superexec_serverapp: { cpu: 2000, mem: 2048 }
+    superlink: { cpu: 1000, mem: 1024 }
   network:
     image: "REPLACE_NETEM_IMAGE"
     default_profile: none

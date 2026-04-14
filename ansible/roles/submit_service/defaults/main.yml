@@ -26,6 +26,16 @@ submit_cluster_repo_config:
   deploy:
     placement:
       allow_oversubscribe: true
+    resources:
+      superexec_clientapp:
+        cpu: 2000
+        mem: 2048
+      superexec_serverapp:
+        cpu: 2000
+        mem: 2048
+      superlink:
+        cpu: 1000
+        mem: 1024
 
 submit_nomad_endpoint: >-
   http://{{ hostvars[groups['nomad_servers'][0]].cluster_node_ip | default(hostvars[groups['nomad_servers'][0]].ansible_host) }}:4646

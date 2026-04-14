@@ -656,8 +656,8 @@ def _superexec_serverapp_context(spec: DeploySpec) -> dict[str, Any]:
         "template_data": _nomad_service_env(
             naming.service_superlink_serverappio(spec.experiment), "SERVERAPP_IO"
         ),
-        "cpu": spec.superexec.cpu,
-        "memory_mb": spec.superexec.memory_mb,
+        "cpu": spec.superexec.serverapp_cpu,
+        "memory_mb": spec.superexec.serverapp_memory_mb,
         "user": user,
         "env": env,
         "cap_add": cap_add,
@@ -777,8 +777,8 @@ def _superexec_clientapp_context(
             ),
             "CLIENT_IO",
         ),
-        "cpu": spec.superexec.cpu,
-        "memory_mb": spec.superexec.memory_mb,
+        "cpu": spec.superexec.clientapp_cpu,
+        "memory_mb": spec.superexec.clientapp_memory_mb,
         "user": user,
         "env": env,
         "cap_add": cap_add,
