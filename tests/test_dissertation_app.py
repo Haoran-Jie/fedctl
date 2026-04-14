@@ -246,7 +246,8 @@ def test_compute_heterogeneity_config_tree_contains_fiarse_families() -> None:
     expected = [
         config_root / "smoke" / "compute_heterogeneity" / "fashion_mnist_mlp" / "fiarse.toml",
         config_root / "compute_heterogeneity" / "main" / "fashion_mnist_cnn" / "fiarse.toml",
-        config_root / "compute_heterogeneity" / "main" / "cifar10_cnn" / "fiarse.toml",
+        config_root / "compute_heterogeneity" / "main" / "cifar10_cnn" / "iid" / "fiarse.toml",
+        config_root / "compute_heterogeneity" / "main" / "cifar10_cnn" / "noniid" / "fiarse.toml",
         config_root / "compute_heterogeneity" / "ablations" / "capacity_design" / "four_levels" / "fashion_mnist_cnn" / "fiarse.toml",
         config_root / "compute_heterogeneity" / "ablations" / "robustness_extension" / "preresnet18" / "cifar10_preresnet18" / "fiarse.toml",
         config_root / "compute_heterogeneity" / "ablations" / "method_mechanisms" / "fiarse_thresholds" / "cifar10_cnn" / "fiarse_global.toml",
@@ -1603,6 +1604,18 @@ def test_all_active_experiment_configs_set_required_keys() -> None:
     for path in non_iid_paths:
         data = tomllib.loads(path.read_text())
         assert data["data"]["partitioning"] == "label-skew-balanced", str(path)
+    main_noniid_paths = [
+        path
+        for path in config_paths
+        if "compute_heterogeneity" in path.parts and "noniid" in path.parts
+    ]
+    assert main_noniid_paths
+    for path in main_noniid_paths:
+        data = tomllib.loads(path.read_text())
+        assert data["data"]["partitioning"] == "dirichlet", str(path)
+        assert data["data"]["partitioning-dirichlet-alpha"] == 0.3, str(path)
+        assert data["server"]["fraction-train"] == 0.5, str(path)
+        assert data["server"]["min-train-nodes"] == 10, str(path)
 
 
 def test_experiment_config_tree_matches_study_matrix() -> None:
@@ -1614,9 +1627,14 @@ def test_experiment_config_tree_matches_study_matrix() -> None:
         "compute_heterogeneity/main/fashion_mnist_cnn/fedavg.toml",
         "compute_heterogeneity/main/fashion_mnist_cnn/heterofl.toml",
         "compute_heterogeneity/main/fashion_mnist_cnn/fedrolex.toml",
-        "compute_heterogeneity/main/cifar10_cnn/fedavg.toml",
-        "compute_heterogeneity/main/cifar10_cnn/heterofl.toml",
-        "compute_heterogeneity/main/cifar10_cnn/fedrolex.toml",
+        "compute_heterogeneity/main/cifar10_cnn/iid/fedavg.toml",
+        "compute_heterogeneity/main/cifar10_cnn/iid/heterofl.toml",
+        "compute_heterogeneity/main/cifar10_cnn/iid/fedrolex.toml",
+        "compute_heterogeneity/main/cifar10_cnn/iid/fiarse.toml",
+        "compute_heterogeneity/main/cifar10_cnn/noniid/fedavg.toml",
+        "compute_heterogeneity/main/cifar10_cnn/noniid/heterofl.toml",
+        "compute_heterogeneity/main/cifar10_cnn/noniid/fedrolex.toml",
+        "compute_heterogeneity/main/cifar10_cnn/noniid/fiarse.toml",
         "compute_heterogeneity/ablations/capacity_design/four_levels/fashion_mnist_cnn/heterofl.toml",
         "compute_heterogeneity/ablations/capacity_design/four_levels/fashion_mnist_cnn/fedrolex.toml",
         "compute_heterogeneity/ablations/capacity_design/fixed_pair_interpolation/cifar10_cnn/a/heterofl.toml",
@@ -1708,6 +1726,22 @@ def test_new_paper_inspired_configs_encode_expected_values() -> None:
     assert low_heterogeneity["data"]["partitioning"] == "label-skew-balanced"
     assert low_heterogeneity["data"]["partitioning-num-labels"] == 5
 
+    main_noniid = tomllib.loads(
+        (
+            config_root
+            / "compute_heterogeneity"
+            / "main"
+            / "cifar10_cnn"
+            / "noniid"
+            / "fedrolex.toml"
+        ).read_text()
+    )
+    assert main_noniid["server"]["num-server-rounds"] == 40
+    assert main_noniid["server"]["fraction-train"] == 0.5
+    assert main_noniid["server"]["min-train-nodes"] == 10
+    assert main_noniid["data"]["partitioning"] == "dirichlet"
+    assert main_noniid["data"]["partitioning-dirichlet-alpha"] == 0.3
+
     participation = tomllib.loads(
         (
             config_root
@@ -1784,17 +1818,25 @@ def test_main_study_configs_match_balanced_twelve_node_plan() -> None:
 
     for path in compute_paths:
         data = tomllib.loads(path.read_text())
-        is_cifar10 = path.parent.name == "cifar10_cnn"
-        expected_rounds = 20 if is_cifar10 else 15
+        is_cifar10 = "cifar10_cnn" in path.parts
+        is_main_cifar10_noniid = (
+            "compute_heterogeneity" in path.parts
+            and "main" in path.parts
+            and "cifar10_cnn" in path.parts
+            and "noniid" in path.parts
+        )
+        expected_rounds = 40 if is_main_cifar10_noniid else (20 if is_cifar10 else 15)
         expected_train_examples = 2500 if is_cifar10 else 5000
         expected_test_examples = 500 if is_cifar10 else 834
         assert data["server"]["num-server-rounds"] == expected_rounds, str(path)
         expected_nodes = 20 if is_cifar10 else 12
+        expected_min_nodes = 10 if is_main_cifar10_noniid else expected_nodes
+        expected_fraction = 0.5 if is_main_cifar10_noniid else 1.0
         assert data["server"]["min-available-nodes"] == expected_nodes, str(path)
-        assert data["server"]["min-train-nodes"] == expected_nodes, str(path)
-        assert data["server"]["min-evaluate-nodes"] == expected_nodes, str(path)
-        assert data["server"]["fraction-train"] == 1.0, str(path)
-        assert data["server"]["fraction-evaluate"] == 1.0, str(path)
+        assert data["server"]["min-train-nodes"] == expected_min_nodes, str(path)
+        assert data["server"]["min-evaluate-nodes"] == expected_min_nodes, str(path)
+        assert data["server"]["fraction-train"] == expected_fraction, str(path)
+        assert data["server"]["fraction-evaluate"] == expected_fraction, str(path)
         assert data["client"]["local-epochs"] == (3 if is_cifar10 else 1), str(path)
         assert data["client"]["learning-rate"] == (0.05 if is_cifar10 else 0.01), str(path)
         assert data["devices"]["rpi4"]["batch-size"] == 8, str(path)

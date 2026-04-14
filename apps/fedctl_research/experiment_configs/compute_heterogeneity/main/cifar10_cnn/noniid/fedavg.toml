@@ -1,15 +1,15 @@
 [experiment]
-method = "fiarse"
+method = "fedavg"
 task = "cifar10_cnn"
 seeds = [1337, 1338, 1339]
 
 [server]
-num-server-rounds = 20
-fraction-train = 1.0
-fraction-evaluate = 1.0
+num-server-rounds = 40
+fraction-train = 0.5
+fraction-evaluate = 0.5
 min-available-nodes = 20
-min-train-nodes = 20
-min-evaluate-nodes = 20
+min-train-nodes = 10
+min-evaluate-nodes = 10
 capability-discovery-timeout-s = 180.0
 
 [client]
@@ -18,32 +18,27 @@ learning-rate = 0.05
 batch-size = 32
 
 [data]
-partitioning = "iid"
+partitioning = "dirichlet"
 partitioning-num-labels = 2
-partitioning-dirichlet-alpha = 0.1
+partitioning-dirichlet-alpha = 0.3
 masked-cross-entropy = "auto"
 
 [model]
 global-model-rate = 1.0
-default-model-rate = 0.125
+default-model-rate = 1.0
 
 [capacity]
 model-split-mode = "fix"
 model-rate-levels = [1.0, 0.5, 0.25, 0.125]
 model-rate-proportions = [0.25, 0.25, 0.25, 0.25]
-heterofl-device-type-allocations = "rpi4:0.125@5,0.25@5;rpi5:0.5@5,1.0@5"
-
-[fiarse]
-selection-mode = "structured-magnitude"
-threshold-mode = "global"
 
 [wandb]
 enabled = true
-group = "compute_heterogeneity-main-cifar10_cnn"
-tags = ["compute_heterogeneity", "main", "cifar10_cnn", "fiarse"]
+group = "compute_heterogeneity-main-cifar10_cnn-noniid"
+tags = ["compute_heterogeneity", "main", "cifar10_cnn", "noniid", "fedavg"]
 
 [devices.rpi4]
-model-rate = 0.25
+model-rate = 1.0
 batch-size = 8
 max-train-examples = 2500
 max-test-examples = 500

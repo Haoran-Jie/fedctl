@@ -57,6 +57,56 @@ def _sanitize_config(run_config: Mapping[str, object]) -> dict[str, object]:
     return sanitized
 
 
+_ROUND_SYSTEM_KEYS = {
+    "round-sampled-nodes": "round_system/sampled_nodes",
+    "round-successful-train-replies": "round_system/successful_train_replies",
+    "round-failed-train-replies": "round_system/failed_train_replies",
+    "round-successful-eval-replies": "round_system/successful_eval_replies",
+    "round-failed-eval-replies": "round_system/failed_eval_replies",
+    "round-train-duration-s": "round_system/train_duration_s",
+    "round-client-eval-duration-s": "round_system/client_eval_duration_s",
+    "round-server-eval-duration-s": "round_system/server_eval_duration_s",
+}
+
+_ROUND_CLIENT_STATS_KEYS = {
+    "round-train-client-duration-mean-s": "round_client_stats/train_duration_mean_s",
+    "round-train-client-duration-min-s": "round_client_stats/train_duration_min_s",
+    "round-train-client-duration-max-s": "round_client_stats/train_duration_max_s",
+    "round-train-client-duration-std-s": "round_client_stats/train_duration_std_s",
+    "round-train-straggler-gap-s": "round_client_stats/train_straggler_gap_s",
+    "round-eval-client-duration-mean-s": "round_client_stats/eval_duration_mean_s",
+    "round-eval-client-duration-min-s": "round_client_stats/eval_duration_min_s",
+    "round-eval-client-duration-max-s": "round_client_stats/eval_duration_max_s",
+    "round-eval-client-duration-std-s": "round_client_stats/eval_duration_std_s",
+}
+
+_ROUND_COST_KEYS = {
+    "round_avg_params": "round_cost/avg_params",
+    "round_avg_size_mb": "round_cost/avg_size_mb",
+    "round_avg_flops": "round_cost/avg_flops",
+    "round_total_client_flops": "round_cost/total_client_flops",
+    "round_avg_model_rate": "round_cost/avg_model_rate",
+}
+
+
+def _system_metric_alias_payload(metrics: Mapping[str, int | float]) -> dict[str, int | float]:
+    payload: dict[str, int | float] = {}
+    for key, value in metrics.items():
+        alias = _ROUND_SYSTEM_KEYS.get(key)
+        if alias is None:
+            alias = _ROUND_CLIENT_STATS_KEYS.get(key)
+        if alias is None:
+            alias = _ROUND_COST_KEYS.get(key)
+        if alias is not None:
+            payload[alias] = value
+            continue
+
+        device_type, _, suffix = key.partition("_")
+        if _ and device_type:
+            payload[f"round_device/{device_type}/{suffix}"] = value
+    return payload
+
+
 class ExperimentLogger:
     """No-op base logger."""
 
@@ -179,7 +229,18 @@ class WandbExperimentLogger(ExperimentLogger):
         self._log("eval_server", server_round, metrics)
 
     def log_system_metrics(self, server_round: int, metrics: MetricRecord | Mapping[str, Any] | None) -> None:
-        self._log("system", server_round, metrics)
+        if self.disabled:
+            return
+        resolved = _metric_record_to_dict(metrics)
+        payload = {f"system/{key}": value for key, value in resolved.items()}
+        payload.update(_system_metric_alias_payload(resolved))
+        if not payload:
+            return
+        payload["server_round"] = server_round
+        try:
+            self.run.log(payload, step=server_round)
+        except Exception as exc:  # pragma: no cover - defensive guard for live W&B runtime
+            self._disable("log payload system", exc)
 
     def log_progress_metrics(self, step: int, metrics: MetricRecord | Mapping[str, Any] | None) -> None:
         self._log("progress", step, metrics, axis_key="client_trip")
@@ -211,6 +272,7 @@ class WandbExperimentLogger(ExperimentLogger):
         result: Any,
     ) -> None:
         self._set_summary_value("runtime/total_server_s", total_runtime_s)
+        self._set_summary_value("run_system/total_server_s", total_runtime_s)
         train_metrics_clientapp = getattr(result, "train_metrics_clientapp", {})
         if isinstance(train_metrics_clientapp, Mapping) and train_metrics_clientapp:
             last_round = max(int(round_id) for round_id in train_metrics_clientapp)

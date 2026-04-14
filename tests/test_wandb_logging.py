@@ -69,7 +69,7 @@ def test_create_experiment_logger_uses_run_config_and_env(monkeypatch) -> None:
     monkeypatch.setenv("FEDCTL_EXPERIMENT", "demo-exp")
     monkeypatch.setenv(
         "FEDCTL_EXPERIMENT_CONFIG",
-        "apps/fedctl_research/experiment_configs/compute_heterogeneity/main/cifar10_cnn/fedrolex.toml",
+        "apps/fedctl_research/experiment_configs/compute_heterogeneity/main/cifar10_cnn/iid/fedrolex.toml",
     )
     monkeypatch.setenv("FEDCTL_REPO_CONFIG_LABEL", "none")
     monkeypatch.setenv("FEDCTL_SUBMISSION_ID", "sub-20260409-3017")
@@ -140,7 +140,14 @@ def test_wandb_experiment_logger_logs_and_finishes(monkeypatch) -> None:
     logger.log_train_metrics(1, {"train-loss": 0.5, "num-examples": 32})
     logger.log_client_eval_metrics(1, {"eval-acc": 0.75})
     logger.log_server_eval_metrics(1, {"eval-acc": 0.8, "eval-loss": 0.4})
-    logger.log_system_metrics(1, {"round-train-duration-s": 3.2, "round_avg_flops": 1234})
+    logger.log_system_metrics(
+        1,
+        {
+            "round-train-duration-s": 3.2,
+            "round_avg_flops": 1234,
+            "rpi4_examples_per_second_mean": 12.5,
+        },
+    )
     logger.log_model_catalog(
         {
             "full": {"param_count": 100, "model_size_mb": 1.25, "flops_estimate": 200},
@@ -163,7 +170,12 @@ def test_wandb_experiment_logger_logs_and_finishes(monkeypatch) -> None:
     assert run.logged[1][0]["eval_client/eval-acc"] == 0.75
     assert run.logged[2][0]["eval_server/eval-loss"] == 0.4
     assert run.logged[3][0]["system/round-train-duration-s"] == 3.2
+    assert run.logged[3][0]["round_system/train_duration_s"] == 3.2
+    assert run.logged[3][0]["round_cost/avg_flops"] == 1234
+    assert run.logged[3][0]["round_device/rpi4/examples_per_second_mean"] == 12.5
+    assert run.logged[3][0]["server_round"] == 1
     assert run.summary["runtime/total_server_s"] == 12.5
+    assert run.summary["run_system/total_server_s"] == 12.5
     assert run.summary["model/full/param_count"] == 100
     assert run.summary["model/rate_0.25/flops_estimate"] == 60
     assert run.summary["final/train/train-loss"] == 0.5
