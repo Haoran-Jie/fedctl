@@ -112,6 +112,8 @@ class Dispatcher:
         free_nodes = _node_free_resources(inventory_nodes) if inventory_nodes else []
         running = self._storage.list_submissions(limit=200, statuses=["running"])
         for submission in running:
+            if not _submission_uses_strict_queue_reservation(submission):
+                continue
             reserved, reason = _reserve_submission_capacity(
                 submission,
                 free_nodes,
@@ -478,6 +480,17 @@ def _submission_requirements(submission: dict[str, Any]) -> list[dict[str, Any]]
         }
     )
     return requirements
+
+
+def _submission_uses_strict_queue_reservation(submission: dict[str, Any]) -> bool:
+    args = submission.get("args") or []
+    if not isinstance(args, list):
+        args = []
+    parsed = _parse_runner_args(args)
+    allow_oversubscribe = parsed.get("allow_oversubscribe")
+    if allow_oversubscribe is None:
+        allow_oversubscribe = _repo_allow_oversubscribe_default()
+    return not bool(allow_oversubscribe)
 
 
 def _check_requirement(
