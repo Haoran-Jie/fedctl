@@ -17,6 +17,7 @@ from flwr.serverapp.strategy import FedAvg
 from flwr.serverapp.strategy.fedavg import sample_nodes
 
 from fedctl_research.costs import summarize_round_costs
+from fedctl_research.metrics import normalize_metric_mapping
 from fedctl_research.methods.assignment import ModelRateAssigner
 from fedctl_research.result_artifacts import ResultArtifactLogger
 from fedctl_research.wandb_logging import ExperimentLogger
@@ -254,6 +255,8 @@ class HeteroFLStrategy(FedAvg):
         aggregated_state = finalize_aggregation(self._global_state_for_round, sums, counts)
         array_record = ArrayRecord(aggregated_state)
         metrics = self.train_metrics_aggr_fn([message.content for message in valid_replies], self.weighted_by_key)
+        if metrics is not None:
+            metrics = MetricRecord(normalize_metric_mapping(dict(metrics)))
         train_metrics = dict(metrics) if metrics is not None else {}
         valid_count = len(valid_replies)
         self._accepted_train_replies_total += valid_count
@@ -346,6 +349,8 @@ class HeteroFLStrategy(FedAvg):
         reply_list = list(replies)
         metrics = super().aggregate_evaluate(server_round, reply_list)
         valid_replies, _ = self._check_and_log_replies(reply_list, is_train=False)
+        if metrics is not None:
+            metrics = MetricRecord(normalize_metric_mapping(dict(metrics)))
         eval_metrics = dict(metrics) if metrics is not None else {}
         valid_count = len(valid_replies)
         system_metrics = {

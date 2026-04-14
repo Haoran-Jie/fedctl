@@ -39,6 +39,7 @@ class _FakeWandbModule:
         self.runs: list[_FakeWandbRun] = []
         self.fail_finish = fail_finish
         self.fail_summary_after = fail_summary_after
+        self.tables: list[_FakeTable] = []
 
     def init(self, **kwargs):
         run = _FakeWandbRun(
@@ -48,6 +49,11 @@ class _FakeWandbModule:
         )
         self.runs.append(run)
         return run
+
+    def Table(self, *, columns, data):
+        table = _FakeTable(columns=columns, data=data)
+        self.tables.append(table)
+        return table
 
 
 class _FakeSummary(dict[str, object]):
@@ -61,6 +67,12 @@ class _FakeSummary(dict[str, object]):
             raise RuntimeError("wandb summary write failed")
         self.write_count += 1
         super().__setitem__(key, value)
+
+
+class _FakeTable:
+    def __init__(self, *, columns, data) -> None:
+        self.columns = list(columns)
+        self.data = list(data)
 
 
 def test_create_experiment_logger_uses_run_config_and_env(monkeypatch) -> None:
@@ -282,3 +294,57 @@ def test_wandb_retry_attempts_keep_same_canonical_key_but_distinct_names(monkeyp
     assert first_run.init_kwargs["name"] == "demo-exp-fedbuff-cifar10_cnn-n8-split-1x100-sub1001"
     assert second_run.init_kwargs["name"] == "demo-exp-fedbuff-cifar10_cnn-n8-split-1x100-sub1002"
     assert first.canonical_key == second.canonical_key
+
+
+def test_wandb_logger_logs_submodel_client_table(monkeypatch) -> None:
+    fake_wandb = _FakeWandbModule()
+    monkeypatch.setitem(sys.modules, "wandb", fake_wandb)
+    monkeypatch.setenv("FEDCTL_EXPERIMENT", "demo-exp")
+
+    context = SimpleNamespace(
+        run_config={
+            "method": "heterofl",
+            "task": "cifar10_cnn",
+            "min-available-nodes": 20,
+            "model-rate-levels": "1.0,0.5,0.25,0.125",
+            "model-rate-proportions": "0.25,0.25,0.25,0.25",
+            "wandb-enabled": True,
+            "wandb-project": "fedctl",
+        }
+    )
+
+    logger = create_experiment_logger(context)
+    logger.log_submodel_client_events(
+        20,
+        [
+            {
+                "scope": "local_client",
+                "server_step": 20,
+                "node_id": 1,
+                "device_type": "rpi4",
+                "model_rate": 0.25,
+                "client_model_rate": 0.25,
+                "eval_acc": 0.8,
+            },
+            {
+                "scope": "local_client",
+                "server_step": 20,
+                "node_id": 2,
+                "device_type": "rpi5",
+                "model_rate": 0.25,
+                "client_model_rate": 1.0,
+                "eval_acc": 0.6,
+            },
+        ],
+    )
+
+    run = fake_wandb.runs[0]
+    assert len(run.logged) == 1
+    payload, step = run.logged[0]
+    assert step == 20
+    assert payload["server_step"] == 20
+    table = payload["submodel/local_client_table"]
+    assert isinstance(table, _FakeTable)
+    assert "client_model_rate" in table.columns
+    assert "model_rate" in table.columns
+    assert len(table.data) == 2

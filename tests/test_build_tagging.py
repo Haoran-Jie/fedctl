@@ -58,6 +58,55 @@ def test_default_image_tag_changes_when_context_changes(tmp_path: Path) -> None:
     assert before != after
 
 
+def test_default_image_tag_ignores_non_package_files(tmp_path: Path) -> None:
+    project_root = tmp_path / "project"
+    _write(project_root / "pyproject.toml", '[project]\nname = "demo"\nversion = "0.1.0"\n')
+    _write(project_root / "src" / "demo.py", 'print("hello")\n')
+    _write(project_root / "experiment.toml", 'method = "heterofl"\n')
+
+    before = default_image_tag(
+        "demo-project",
+        context_root=project_root,
+        dockerfile_contents="FROM scratch\nCOPY . .\n",
+        flwr_version="1.27.0",
+    )
+
+    _write(project_root / "experiment.toml", 'method = "fedrolex"\n')
+
+    after = default_image_tag(
+        "demo-project",
+        context_root=project_root,
+        dockerfile_contents="FROM scratch\nCOPY . .\n",
+        flwr_version="1.27.0",
+    )
+
+    assert before == after
+
+
+def test_default_image_tag_changes_when_pyproject_changes(tmp_path: Path) -> None:
+    project_root = tmp_path / "project"
+    _write(project_root / "pyproject.toml", '[project]\nname = "demo"\nversion = "0.1.0"\n')
+    _write(project_root / "src" / "demo.py", 'print("hello")\n')
+
+    before = default_image_tag(
+        "demo-project",
+        context_root=project_root,
+        dockerfile_contents="FROM scratch\nCOPY . .\n",
+        flwr_version="1.27.0",
+    )
+
+    _write(project_root / "pyproject.toml", '[project]\nname = "demo"\nversion = "0.2.0"\n')
+
+    after = default_image_tag(
+        "demo-project",
+        context_root=project_root,
+        dockerfile_contents="FROM scratch\nCOPY . .\n",
+        flwr_version="1.27.0",
+    )
+
+    assert before != after
+
+
 def test_default_image_tag_changes_when_dockerfile_changes(tmp_path: Path) -> None:
     project_root = tmp_path / "project"
     _write(project_root / "pyproject.toml", '[project]\nname = "demo"\nversion = "0.1.0"\n')

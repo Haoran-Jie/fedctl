@@ -17,6 +17,7 @@ from flwr.serverapp import Grid
 from flwr.serverapp.strategy.fedavg import sample_nodes
 
 from fedctl_research.costs import summarize_round_costs
+from fedctl_research.metrics import normalize_metric_mapping
 from fedctl_research.methods.heterofl.strategy import HeteroFLStrategy
 
 
@@ -185,6 +186,8 @@ class FiarseStrategy(HeteroFLStrategy):
 
         array_record = ArrayRecord(aggregated_state)
         metrics = self.train_metrics_aggr_fn([message.content for message in valid_replies], self.weighted_by_key)
+        if metrics is not None:
+            metrics = MetricRecord(normalize_metric_mapping(dict(metrics)))
         train_metrics = dict(metrics) if metrics is not None else {}
         valid_count = len(valid_replies)
         self._accepted_train_replies_total += valid_count

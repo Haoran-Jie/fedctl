@@ -52,7 +52,9 @@ from fedctl_research.methods.runtime import (  # noqa: E402
     build_partition_request,
     build_typed_partition_plan,
     central_evaluate_fn,
+    run_submodel_evaluations,
 )
+from fedctl_research.metrics import normalize_metric_mapping  # noqa: E402
 from fedctl_research.partitioning import (  # noqa: E402
     BalancedLabelSkewPartitioner,
     DeviceCorrelatedLabelSkewPartitioner,
@@ -76,6 +78,8 @@ class _Logger:
         self.eval_calls: list[tuple[int, dict[str, float | int]]] = []
         self.server_eval_calls: list[tuple[int, dict[str, float | int]]] = []
         self.system_calls: list[tuple[int, dict[str, float | int]]] = []
+        self.summary_calls: list[dict[str, float | int]] = []
+        self.submodel_client_event_calls: list[tuple[int, list[dict[str, object]]]] = []
 
     def log_train_metrics(self, server_round: int, metrics) -> None:
         self.train_calls.append((server_round, dict(metrics or {})))
@@ -89,6 +93,12 @@ class _Logger:
     def log_system_metrics(self, server_round: int, metrics) -> None:
         self.system_calls.append((server_round, dict(metrics or {})))
 
+    def log_summary_metrics(self, metrics) -> None:
+        self.summary_calls.append(dict(metrics or {}))
+
+    def log_submodel_client_events(self, server_step: int, rows) -> None:
+        self.submodel_client_event_calls.append((server_step, [dict(row) for row in rows]))
+
 
 class _ArtifactLogger:
     def __init__(self) -> None:
@@ -96,6 +106,7 @@ class _ArtifactLogger:
         self.client_evals: list[dict[str, float | int | str]] = []
         self.server_steps: list[dict[str, float | int | str]] = []
         self.evaluations: list[dict[str, float | int | str]] = []
+        self.submodel_evaluations: list[dict[str, float | int | str]] = []
 
     def log_client_update_event(self, payload) -> None:
         self.client_updates.append(dict(payload))
@@ -108,6 +119,9 @@ class _ArtifactLogger:
 
     def log_evaluation_event(self, payload) -> None:
         self.evaluations.append(dict(payload))
+
+    def log_submodel_evaluation_event(self, payload) -> None:
+        self.submodel_evaluations.append(dict(payload))
 
 
 def _make_message(
@@ -302,6 +316,20 @@ def test_fedavg_aggregate_train_logs_summary_metrics() -> None:
     assert system_metrics["round-sampled-nodes"] == 2
     assert system_metrics["round-successful-train-replies"] == 2
     assert "round_avg_params" in system_metrics
+
+
+def test_normalize_metric_mapping_rounds_model_rate_noise() -> None:
+    normalized = normalize_metric_mapping(
+        {
+            "model-rate": 1.0000000000000002,
+            "round-model-rate-avg": 0.25000000000000006,
+            "train-loss": 0.123456789,
+        }
+    )
+
+    assert normalized["model-rate"] == 1.0
+    assert normalized["round-model-rate-avg"] == 0.25
+    assert normalized["train-loss"] == 0.123456789
 
 
 def test_fedavg_aggregate_train_logs_duration_stats() -> None:
@@ -1532,6 +1560,115 @@ def test_sync_strategy_logs_per_client_eval_events() -> None:
     assert first["node_id"] == 1
     assert first["device_type"] == "rpi5"
     assert first["eval_acc"] == pytest.approx(0.8)
+
+
+def test_run_submodel_evaluations_logs_per_client_local_events(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _FakeTask:
+        name = "fake_task"
+
+        def build_model_for_rate(self, model_rate: float, *, global_model_rate: float = 1.0):
+            return {"model_rate": model_rate, "global_model_rate": global_model_rate}
+
+        def load_model_state(self, model, state_dict) -> None:
+            model["state_dict"] = state_dict
+
+        def load_centralized_test_dataset(self, batch_size: int = 256, *, seed: int | None = None):
+            return ["fake_loader", seed]
+
+        def test(self, model, testloader, device: str):
+            return 0.2, 0.9
+
+    monkeypatch.setattr("fedctl_research.methods.runtime.resolve_task", lambda _name: _FakeTask())
+    monkeypatch.setattr(
+        "fedctl_research.methods.heterofl.slicing.slice_state_dict",
+        lambda state_dict, param_idx: OrderedDict(state_dict),
+    )
+
+    class _Grid:
+        def get_node_ids(self):
+            return [1, 2]
+
+        def send_and_receive(self, messages, timeout: float):
+            del timeout
+            replies = []
+            metrics_by_node = {
+                1: {"eval-acc": 0.8, "eval-loss": 0.4, "num-examples": 100},
+                2: {"eval-acc": 0.6, "eval-loss": 0.7, "num-examples": 120},
+            }
+            for message in messages:
+                node_id = int(message.metadata.dst_node_id)
+                replies.append(
+                    _make_message(
+                        node_id=node_id,
+                        group_id=message.metadata.group_id,
+                        metrics=metrics_by_node[node_id],
+                        message_type="evaluate",
+                    )
+                )
+            return replies
+
+    rate_assigner = ModelRateAssigner(
+            mode="fix",
+            default_model_rate=0.25,
+            explicit_rate_by_node_id={},
+            explicit_rate_by_partition_id={},
+            rate_by_device_type={"rpi4": 0.25, "rpi5": 1.0},
+            device_type_by_node_id={1: "rpi4", 2: "rpi5"},
+            partition_id_by_node_id={},
+            dynamic_levels=(1.0, 0.5, 0.25, 0.125),
+            dynamic_proportions=(0.25, 0.25, 0.25, 0.25),
+            device_type_allocations={},
+            seed=1337,
+    )
+    partition_plan = {
+        1: {"partition-device-type": "rpi4", "typed-partition-idx": 0, "typed-partition-count": 1},
+        2: {"partition-device-type": "rpi5", "typed-partition-idx": 0, "typed-partition-count": 1},
+    }
+    rate_assigner.set_typed_partition_plan(partition_plan)
+
+    strategy = SimpleNamespace(
+        rate_assigner=rate_assigner,
+        partition_plan_by_node_id=partition_plan,
+        build_param_indices=lambda global_state, *, model_rate, server_round: {},
+    )
+    logger = _Logger()
+    artifact_logger = _ArtifactLogger()
+
+    context = SimpleNamespace(
+        run_config={
+            "task": "fake_task",
+            "global-model-rate": 1.0,
+            "submodel-local-eval-enabled": True,
+            "model-rate-levels": "1.0,0.5,0.25,0.125",
+        },
+        node_config={},
+    )
+
+    run_submodel_evaluations(
+        grid=_Grid(),
+        context=context,
+        strategy=strategy,
+        arrays=ArrayRecord(OrderedDict({"w": torch.tensor([1.0])})),
+        method_label="heterofl",
+        experiment_logger=logger,
+        artifact_logger=artifact_logger,
+        server_step=7,
+    )
+
+    local_client_events = [
+        event
+        for event in artifact_logger.submodel_evaluations
+        if event["scope"] == "local_client" and event["model_rate"] == pytest.approx(0.25)
+    ]
+    assert len(local_client_events) == 2
+    by_node = {int(event["node_id"]): event for event in local_client_events}
+    assert by_node[1]["device_type"] == "rpi4"
+    assert by_node[1]["client_model_rate"] == pytest.approx(0.25)
+    assert by_node[1]["typed_partition_idx"] == 0
+    assert by_node[2]["device_type"] == "rpi5"
+    assert by_node[2]["client_model_rate"] == pytest.approx(1.0)
+    assert by_node[2]["eval_acc"] == pytest.approx(0.6)
+    assert logger.submodel_client_event_calls
 
 
 def test_derive_seed_is_stable_and_partition_specific() -> None:

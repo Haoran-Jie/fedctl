@@ -13,6 +13,7 @@ from flwr.serverapp import Grid
 from flwr.serverapp.strategy import FedAvg
 
 from fedctl_research.costs import summarize_round_costs
+from fedctl_research.metrics import normalize_metric_mapping
 from fedctl_research.result_artifacts import ResultArtifactLogger
 from fedctl_research.wandb_logging import ExperimentLogger
 
@@ -155,6 +156,8 @@ class SyncLoggingMixin:
         arrays, metrics = super().aggregate_train(server_round, reply_list)
         valid_replies, _ = self._check_and_log_replies(reply_list, is_train=True)
         self._accepted_train_replies_total += len(valid_replies)
+        if metrics is not None:
+            metrics = MetricRecord(normalize_metric_mapping(dict(metrics)))
         train_metrics = dict(metrics) if metrics is not None else {}
         train_durations = [
             float(message.content["metrics"]["train-duration-s"])
@@ -235,6 +238,8 @@ class SyncLoggingMixin:
         reply_list = list(replies)
         metrics = super().aggregate_evaluate(server_round, reply_list)
         valid_replies, _ = self._check_and_log_replies(reply_list, is_train=False)
+        if metrics is not None:
+            metrics = MetricRecord(normalize_metric_mapping(dict(metrics)))
         eval_metrics = dict(metrics) if metrics is not None else {}
         system_metrics = {
             "round-successful-eval-replies": len(valid_replies),

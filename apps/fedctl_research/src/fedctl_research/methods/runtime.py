@@ -521,6 +521,15 @@ def run_submodel_evaluations(
     )
     node_ids = sorted(int(node_id) for node_id in grid.get_node_ids())
     partition_plan_by_node_id = getattr(strategy, "partition_plan_by_node_id", {})
+    device_type_by_node_id = getattr(getattr(strategy, "rate_assigner", None), "device_type_by_node_id", {})
+    assigned_rate_by_node: dict[int, float] = {}
+    if node_ids:
+        rate_assigner = getattr(strategy, "rate_assigner", None)
+        if rate_assigner is not None and hasattr(rate_assigner, "assign_for_round"):
+            assigned_rate_by_node = {
+                int(node_id): float(rate)
+                for node_id, rate in rate_assigner.assign_for_round(list(node_ids), server_step).items()
+            }
     local_eval_enabled = get_optional_bool(context.run_config, "submodel-local-eval-enabled")
     if local_eval_enabled is None:
         local_eval_enabled = False
@@ -553,6 +562,7 @@ def run_submodel_evaluations(
         global_loss, global_acc = task.test(global_model, testloader, device="cpu")
 
         local_metric = None
+        local_replies: list[Message] = []
         if local_eval_enabled and node_ids:
             messages = [
                 Message(
@@ -574,7 +584,8 @@ def run_submodel_evaluations(
                 )
                 for node_id in node_ids
             ]
-            local_metric = _aggregate_eval_replies(list(grid.send_and_receive(messages, timeout=3600.0)))
+            local_replies = list(grid.send_and_receive(messages, timeout=3600.0))
+            local_metric = _aggregate_eval_replies(local_replies)
 
         rate_token = _format_rate_token(model_rate)
         summary_metrics[f"submodel/global/rate_{rate_token}/eval-acc"] = float(global_acc)
@@ -601,6 +612,33 @@ def run_submodel_evaluations(
                     "num_examples": int(local_metric["num-examples"]),
                 }
             )
+            wandb_rows: list[dict[str, object]] = []
+            for reply in local_replies:
+                if reply.has_error() or "metrics" not in reply.content:
+                    continue
+                metrics = reply.content["metrics"]
+                node_id = int(reply.metadata.src_node_id)
+                payload = {
+                    "scope": "local_client",
+                    "server_step": int(server_step),
+                    "node_id": node_id,
+                    "device_type": str(device_type_by_node_id.get(node_id, "unknown")),
+                    "model_rate": float(model_rate),
+                    "client_model_rate": float(assigned_rate_by_node.get(node_id, model_rate)),
+                    "eval_acc": float(metrics["eval-acc"]),
+                    "eval_loss": float(metrics["eval-loss"]),
+                    "num_examples": int(metrics["num-examples"]),
+                }
+                payload.update(
+                    {
+                        str(key).replace("-", "_"): value
+                        for key, value in partition_plan_by_node_id.get(node_id, {}).items()
+                    }
+                )
+                artifact_logger.log_submodel_evaluation_event(payload)
+                wandb_rows.append(payload)
+            if wandb_rows:
+                experiment_logger.log_submodel_client_events(server_step, wandb_rows)
 
     experiment_logger.log_summary_metrics(summary_metrics)
 

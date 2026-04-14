@@ -78,7 +78,7 @@ def _context_hash(
     digest.update(b"\0dockerfile\0")
     digest.update(dockerfile_contents.encode("utf-8"))
 
-    for path in sorted(_walk_context_files(context_root)):
+    for path in sorted(_hash_input_files(context_root)):
         rel = path.relative_to(context_root).as_posix()
         digest.update(b"\0file\0")
         digest.update(rel.encode("utf-8"))
@@ -93,7 +93,19 @@ def _context_hash(
     return digest.hexdigest()[:12]
 
 
-def _walk_context_files(root: Path) -> list[Path]:
+def _hash_input_files(root: Path) -> list[Path]:
+    pyproject = root / "pyproject.toml"
+    src_dir = root / "src"
+
+    if pyproject.exists() and src_dir.is_dir():
+        files = [pyproject]
+        files.extend(_walk_tree_files(src_dir))
+        return files
+
+    return _walk_tree_files(root)
+
+
+def _walk_tree_files(root: Path) -> list[Path]:
     files: list[Path] = []
     for path in root.rglob("*"):
         if path.is_file():

@@ -22,6 +22,7 @@ from fedctl_research.config import (
     get_optional_str,
     get_task_name,
 )
+from fedctl_research.metrics import normalize_metric_mapping
 
 
 def _metric_record_to_dict(metrics: MetricRecord | Mapping[str, Any] | None) -> dict[str, int | float]:
@@ -36,7 +37,7 @@ def _metric_record_to_dict(metrics: MetricRecord | Mapping[str, Any] | None) -> 
             resolved[str(key)] = value
         elif isinstance(value, float):
             resolved[str(key)] = value
-    return resolved
+    return normalize_metric_mapping(resolved)
 
 
 def _parse_tags(raw: str | None) -> list[str]:
@@ -146,6 +147,13 @@ class ExperimentLogger:
     def log_summary_metrics(self, metrics: Mapping[str, Any] | None) -> None:
         del metrics
 
+    def log_submodel_client_events(
+        self,
+        server_step: int,
+        rows: list[Mapping[str, Any]],
+    ) -> None:
+        del server_step, rows
+
     def log_run_summary(
         self,
         *,
@@ -161,6 +169,7 @@ class ExperimentLogger:
 @dataclass
 class WandbExperimentLogger(ExperimentLogger):
     run: Any
+    wandb_module: Any | None = None
     submission_id: str = ""
     canonical_key: str = ""
     attempt_id: str = ""
@@ -264,6 +273,27 @@ class WandbExperimentLogger(ExperimentLogger):
     def log_summary_metrics(self, metrics: Mapping[str, Any] | None) -> None:
         for key, value in _metric_record_to_dict(metrics).items():
             self._set_summary_value(key, value)
+
+    def log_submodel_client_events(
+        self,
+        server_step: int,
+        rows: list[Mapping[str, Any]],
+    ) -> None:
+        if self.disabled or not rows or self.wandb_module is None:
+            return
+        try:
+            columns = sorted({str(key) for row in rows for key in row.keys()})
+            data = [[row.get(column) for column in columns] for row in rows]
+            table = self.wandb_module.Table(columns=columns, data=data)
+            self.run.log(
+                {
+                    "submodel/local_client_table": table,
+                    "server_step": int(server_step),
+                },
+                step=int(server_step),
+            )
+        except Exception as exc:  # pragma: no cover - defensive guard for live W&B runtime
+            self._disable("log submodel client table", exc)
 
     def log_run_summary(
         self,
@@ -467,6 +497,7 @@ def create_experiment_logger(context: Context) -> ExperimentLogger:
     log(INFO, "wandb enabled: project=%s entity=%s mode=%s run=%s", project, entity, mode, run.name)
     logger = WandbExperimentLogger(
         run=run,
+        wandb_module=wandb,
         submission_id=identity.submission_id,
         canonical_key=identity.canonical_key,
         attempt_id=identity.attempt_id,
