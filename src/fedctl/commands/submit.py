@@ -13,6 +13,7 @@ from typing import Iterable
 
 from rich.text import Text
 import httpx
+import tomlkit
 
 from fedctl.config.io import load_config
 from fedctl.config.merge import get_effective_config
@@ -26,7 +27,11 @@ from fedctl.config.repo import (
 from fedctl.nomad.client import NomadClient
 from fedctl.nomad.errors import NomadConnectionError, NomadHTTPError, NomadTLSError
 from fedctl.project.errors import ProjectError
-from fedctl.project.experiment_config import extract_seed_sweep, resolve_experiment_config
+from fedctl.project.experiment_config import (
+    extract_seed_sweep,
+    materialize_run_config,
+    resolve_experiment_config,
+)
 from fedctl.project.flwr_inspect import inspect_flwr_project
 from fedctl.submit.artifact import ArtifactUploadError, upload_artifact
 from fedctl.submit.client import SubmitServiceClient, SubmitServiceError
@@ -109,9 +114,20 @@ def run_submit(
         num_supernodes = info.local_sim_num_supernodes
         _print_ok(f"Using num-supernodes={num_supernodes}")
 
-    exp_name = normalize_experiment_name(
-        experiment or f"{project_name}-{_timestamp_compact()}"
-    )
+    try:
+        resolved_experiment_config = resolve_experiment_config(info.root, experiment_config)
+        exp_name = normalize_experiment_name(
+            experiment
+            or _default_submit_experiment_name(
+                project_name=project_name,
+                resolved_experiment_config=resolved_experiment_config,
+                run_config_overrides=run_config_overrides,
+                seed=seed,
+            )
+        )
+    except ProjectError as exc:
+        console.print(f"[red]✗ Experiment config error:[/red] {exc}")
+        return 1
     if seed is None:
         try:
             seed_sweep = extract_seed_sweep(info.root, experiment_config)
@@ -146,11 +162,6 @@ def run_submit(
                 artifact_store=artifact_store,
                 priority=priority,
             )
-    try:
-        resolved_experiment_config = resolve_experiment_config(info.root, experiment_config)
-    except ProjectError as exc:
-        console.print(f"[red]✗ Experiment config error:[/red] {exc}")
-        return 1
     repo_resolution = resolve_repo_config(
         repo_config=repo_config,
         include_profile=True,
@@ -1371,6 +1382,76 @@ def _submit_service_client(
 
 def _timestamp_compact() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+
+
+def _default_submit_experiment_name(
+    *,
+    project_name: str,
+    resolved_experiment_config: object,
+    run_config_overrides: list[str] | None,
+    seed: int | None,
+) -> str:
+    config_path = getattr(resolved_experiment_config, "resolved_path", None)
+    if not isinstance(config_path, Path):
+        return f"{project_name}-{_timestamp_compact()}"
+    try:
+        materialized = materialize_run_config(
+            base_path=config_path,
+            run_config_overrides=run_config_overrides,
+        )
+    except ProjectError:
+        raise
+    effective_path = materialized or config_path
+    try:
+        data = tomlkit.parse(effective_path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise ProjectError(f"Experiment config not readable: {effective_path}") from exc
+    except Exception as exc:
+        raise ProjectError(f"Experiment config not parseable: {effective_path}") from exc
+
+    method = _experiment_name_token(data.get("method"))
+    task = _experiment_name_token(data.get("task"))
+    parts = [token for token in (task, method) if token]
+
+    node_count = _experiment_node_count(data)
+    if node_count is not None:
+        parts.append(f"n{node_count}")
+
+    seed_value = seed if seed is not None else _experiment_seed(data)
+    if seed_value is not None:
+        parts.append(f"seed{seed_value}")
+
+    return "-".join(parts) if parts else f"{project_name}-{_timestamp_compact()}"
+
+
+def _experiment_name_token(value: object) -> str:
+    if value is None:
+        return ""
+    raw = str(value).strip()
+    if not raw:
+        return ""
+    return re.sub(r"[^A-Za-z0-9._-]+", "-", raw).strip("-")
+
+
+def _experiment_node_count(data: dict[str, object]) -> int | None:
+    for key in ("min-available-nodes", "min-train-nodes", "min-evaluate-nodes"):
+        value = data.get(key)
+        try:
+            count = int(value)
+        except (TypeError, ValueError):
+            continue
+        if count > 0:
+            return count
+    return None
+
+
+def _experiment_seed(data: dict[str, object]) -> int | None:
+    value = data.get("seed")
+    try:
+        seed = int(value)
+    except (TypeError, ValueError):
+        return None
+    return seed if seed >= 0 else None
 
 
 def _record_submission_state(

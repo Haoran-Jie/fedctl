@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 
 
 _NOMAD_SERVICE_NAME_MAX = 63
@@ -8,7 +9,8 @@ _TRUNCATION_HASH_LEN = 8
 
 
 def _nomad_service_name(exp: str, suffix: str) -> str:
-    candidate = f"{exp}{suffix}"
+    exp_token = _rfc1123_label_token(exp)
+    candidate = f"{exp_token}{suffix}"
     if len(candidate) <= _NOMAD_SERVICE_NAME_MAX:
         return candidate
 
@@ -22,6 +24,12 @@ def _nomad_service_name(exp: str, suffix: str) -> str:
         exp_prefix = exp[:available]
     digest = hashlib.sha1(candidate.encode("utf-8")).hexdigest()[:_TRUNCATION_HASH_LEN]
     return f"{exp_prefix}-{digest}{suffix}"
+
+
+def _rfc1123_label_token(value: str) -> str:
+    token = re.sub(r"[^a-z0-9-]+", "-", value.lower())
+    token = re.sub(r"-{2,}", "-", token).strip("-")
+    return token or "exp"
 
 
 def job_superlink(exp: str) -> str:

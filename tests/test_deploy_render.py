@@ -230,6 +230,23 @@ def test_nomad_service_names_stay_within_length_limit_for_long_experiment_names(
     assert len(set(service_names)) == len(service_names)
 
 
+def test_nomad_service_names_are_rfc1123_safe() -> None:
+    exp = "cifar10_cnn-FIARSE-n20-seed1337"
+
+    service_names = [
+        naming.service_superlink_serverappio(exp),
+        naming.service_superlink_fleet(exp),
+        naming.service_superlink_control(exp),
+        naming.service_supernode_clientappio(exp, 1, "rpi4"),
+    ]
+
+    assert all("_" not in name for name in service_names)
+    assert all(name == name.lower() for name in service_names)
+    assert naming.service_superlink_serverappio(exp).startswith(
+        "cifar10-cnn-fiarse-n20-seed1337-"
+    )
+
+
 def test_render_deploy_long_experiment_uses_length_safe_service_names() -> None:
     exp = "smoke-fedavg-fmnist-mlp-debug-seed1337"
     spec = default_deploy_spec(
