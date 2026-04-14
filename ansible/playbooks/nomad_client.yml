@@ -1,0 +1,7 @@
+---
+- name: Configure Nomad client nodes
+  hosts: nomad_clients
+  become: true
+  roles:
+    - role: nomad
+      nomad_role: client

@@ -1,0 +1,7 @@
+---
+- name: Configure Nomad server nodes
+  hosts: nomad_servers
+  become: true
+  roles:
+    - role: nomad
+      nomad_role: server

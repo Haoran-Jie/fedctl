@@ -1,0 +1,6 @@
+---
+- name: Deploy submit service
+  hosts: submit_service
+  become: true
+  roles:
+    - role: submit_service

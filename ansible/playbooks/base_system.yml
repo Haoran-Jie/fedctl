@@ -1,0 +1,6 @@
+---
+- name: Apply base system configuration on all RPis
+  hosts: all
+  become: true
+  roles:
+    - role: base_system

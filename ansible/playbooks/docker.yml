@@ -1,0 +1,6 @@
+---
+- name: Configure Docker on Nomad clients
+  hosts: nomad_clients:registry_hosts
+  become: true
+  roles:
+    - role: docker

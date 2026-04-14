@@ -1,0 +1,6 @@
+---
+- name: Apply network policy on all RPis
+  hosts: all
+  become: true
+  roles:
+    - role: network_policy

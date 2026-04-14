@@ -9,6 +9,7 @@
 
 ## Active
 
+- [x] Split monolithic Ansible `site.yml` into focused playbooks so targeted operations do not run unrelated plays on overlapping hosts.
 - [x] Move artifact presign TTL control to submit-service config instead of client-side hardcoded defaults.
 - [x] Narrow SuperExec image hashing to project code inputs so experiment-config changes do not churn tags.
 - [ ] Redeploy the submit service so live queue accounting uses the revised experiment-side resource values.
@@ -26,6 +27,7 @@
 - Default submit experiment names stay short: `task-method-n<nodes>-seed<seed>`.
 - SuperExec image hashing now prefers project-local `pyproject.toml` plus `src/`, along with rendered Dockerfile contents and Flower version, instead of hashing the full build context tree.
 - Artifact presign TTL is now intended to be server-managed through submit-service environment config, with the client omitting `expires` unless explicitly overridden.
+- `ansible/site.yml` is now an orchestration-only entrypoint that imports focused playbooks under `ansible/playbooks/`, including dedicated `submit_service.yml` and `validate.yml`.
 
 ## Review
 

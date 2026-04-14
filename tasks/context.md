@@ -154,6 +154,18 @@ Current active link-side resources in the compute-main config are:
 - `superexec_serverapp = 2000 CPU / 2048 MB`
 - `superlink = 1000 CPU / 1024 MB`
 
+## Ansible Layout
+
+The Ansible roles remain the stable unit of configuration. Operational cleanup should happen at the playbook level, not by duplicating or deleting roles.
+
+Current convention:
+- `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/ansible/site.yml` is an orchestration entrypoint only
+- focused operational entrypoints live under `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/ansible/playbooks`
+- `submit_service.yml` is the preferred path for submit-service-only changes
+- `validate.yml` is the preferred path for standalone readiness checks
+
+Do not rely on `site.yml --limit <group>` for targeted maintenance on hosts that belong to multiple inventory groups. Use the focused playbooks directly.
+
 ### Blocked reasons
 
 Blocked reasons are user-facing. Current wording should describe actual queue semantics rather than internal implementation jargon.

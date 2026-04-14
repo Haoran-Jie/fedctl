@@ -19,7 +19,7 @@ If your IPs differ, edit inventory host vars.
 
 The current inventory uses the campus Ethernet IP as `ansible_host` and retains the Tailscale address separately as `tailscale_ip`.
 
-## What this playbook manages
+## What these playbooks manage
 
 - Base packages on all nodes.
 - Hostname normalization and time sync on all nodes.
@@ -28,7 +28,20 @@ The current inventory uses the campus Ethernet IP as `ansible_host` and retains 
 - Local Docker registry deploy on `registry_hosts`.
 - Optional Tailscale install/join on `tailscale_nodes`.
 - Submit service deploy (git checkout, venv deps, env file, systemd service) on `submit_service` hosts.
-- Final readiness validation for Nomad, registry, and submit service.
+- Final readiness validation for Nomad, registry, submit service, and Tailscale.
+
+## Playbook layout
+
+- `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/ansible/site.yml`
+  - orchestration entrypoint for a full cluster rollout
+- `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/ansible/playbooks/submit_service.yml`
+  - submit-service only
+- `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/ansible/playbooks/validate.yml`
+  - validation only
+- other files under `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/ansible/playbooks/`
+  - focused deploy slices by concern
+
+This avoids using `site.yml --limit <group>` for targeted maintenance on hosts that belong to multiple groups.
 
 ## Prerequisites
 
@@ -52,12 +65,12 @@ If your sudo does not require a password, omit `--ask-become-pass`.
 
 ## Safe rollout strategy
 
-Run in slices first:
+Run targeted playbooks instead of limiting the monolithic site playbook:
 ```bash
-ansible-playbook -i inventories/prod/hosts.ini site.yml --limit rpi5-005 --ask-become-pass
-ansible-playbook -i inventories/prod/hosts.ini site.yml --limit nomad_submit_clients --ask-become-pass
-ansible-playbook -i inventories/prod/hosts.ini site.yml --limit nomad_superlink_clients --ask-become-pass
-ansible-playbook -i inventories/prod/hosts.ini site.yml --limit nomad_supernode_clients --ask-become-pass
+ansible-playbook -i inventories/prod/hosts.ini playbooks/submit_service.yml --ask-become-pass
+ansible-playbook -i inventories/prod/hosts.ini playbooks/validate.yml --ask-become-pass
+ansible-playbook -i inventories/prod/hosts.ini playbooks/nomad_server.yml --ask-become-pass
+ansible-playbook -i inventories/prod/hosts.ini playbooks/nomad_client.yml --ask-become-pass
 ```
 
 ## Scaling later
@@ -68,6 +81,20 @@ ansible-playbook -i inventories/prod/hosts.ini site.yml --ask-become-pass
 ```
 
 No playbook changes are needed for role-balanced scaling.
+
+## Common targeted operations
+
+Submit service only:
+```bash
+cd ansible
+ANSIBLE_LOCAL_TEMP=/tmp/ansible-local ANSIBLE_SSH_CONTROL_PATH_DIR=/tmp/ansible-cp ../.venv/bin/ansible-playbook -i inventories/prod/hosts.ini playbooks/submit_service.yml
+```
+
+Validation only:
+```bash
+cd ansible
+ANSIBLE_LOCAL_TEMP=/tmp/ansible-local ANSIBLE_SSH_CONTROL_PATH_DIR=/tmp/ansible-cp ../.venv/bin/ansible-playbook -i inventories/prod/hosts.ini playbooks/validate.yml
+```
 
 ## Variables you should edit
 
