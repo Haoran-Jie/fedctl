@@ -57,3 +57,7 @@ done
 - For exact-allocation experiments, do not make capability discovery depend on repeated retries against live nodes; prefer one-shot discovery plus an explicit deploy-plan fallback, because retry loops can stall startup even when the cluster inventory is otherwise correct.
 - `allow_oversubscribe: false` is only a deploy-time placement rule; it does not serialize queued submissions. If the user wants "job B waits until job A is completed", implement that in the submit-service dispatcher by reserving node capacity for active submissions before dispatching the queue.
 - When the repo already has an Ansible role for service deployment, do not fall back to ad hoc SSH/systemd restart instructions as the primary path; commit, push, and use the checked-in playbook.
+- When Nomad rejects a rendered service name, check RFC1123 character validity as well as length; shortening the experiment token alone does not fix invalid underscores or uppercase characters.
+- When a method config knob no longer affects real behavior after an implementation refactor, remove it from the public config surface instead of keeping a decorative option that implies a false algorithmic choice.
+
+- For submit-service queue gating, `allow_oversubscribe: false` must reserve whole experiment nodes, not just subtract requested CPU/RAM. Real Pi nodes can have enough spare resources to host two experiments on the same node, so resource-only strict checks are too weak for exclusive node reservation semantics.

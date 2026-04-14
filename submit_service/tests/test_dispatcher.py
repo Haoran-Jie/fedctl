@@ -69,7 +69,7 @@ def _create_submission(
     )
 
 
-def _inventory_nodes() -> list[dict[str, object]]:
+def _inventory_nodes(*, node_cpu: int = 2000, node_mem: int = 2048) -> list[dict[str, object]]:
     nodes: list[dict[str, object]] = []
     for idx in range(10):
         nodes.append(
@@ -79,8 +79,8 @@ def _inventory_nodes() -> list[dict[str, object]]:
                 "node_class": "node",
                 "device_type": "rpi4",
                 "resources": {
-                    "total_cpu": 2000,
-                    "total_mem": 2048,
+                    "total_cpu": node_cpu,
+                    "total_mem": node_mem,
                     "used_cpu": 0,
                     "used_mem": 0,
                 },
@@ -94,8 +94,8 @@ def _inventory_nodes() -> list[dict[str, object]]:
                 "node_class": "node",
                 "device_type": "rpi5",
                 "resources": {
-                    "total_cpu": 2000,
-                    "total_mem": 2048,
+                    "total_cpu": node_cpu,
+                    "total_mem": node_mem,
                     "used_cpu": 0,
                     "used_mem": 0,
                 },
@@ -227,6 +227,53 @@ def test_dispatcher_blocks_when_running_submission_already_reserves_all_nodes(
         dispatcher_mod,
         "_inventory_snapshot",
         lambda inventory: (_inventory_nodes(), None),
+    )
+
+    dispatched_ids: list[str] = []
+
+    def fake_dispatch(storage_obj, submission, cfg):
+        dispatched_ids.append(submission["id"])
+        return dispatcher_mod.DispatchResult(submitted=True)
+
+    monkeypatch.setattr(dispatcher_mod, "dispatch_submission", fake_dispatch)
+
+    dispatcher = dispatcher_mod.Dispatcher(storage, _cfg(db_path))
+    dispatcher.run_once()
+
+    assert dispatched_ids == []
+    updated = storage.get_submission("sub-queued")
+    assert updated["status"] == "blocked"
+    assert updated["blocked_reason"] == "node-bundle:rpi4: need 10, have 0"
+
+
+def test_dispatcher_blocks_second_submission_even_when_nodes_have_spare_resources(
+    tmp_path, monkeypatch
+) -> None:
+    db_path = tmp_path / "submit.db"
+    storage = Storage(StorageConfig(db_url=f"sqlite:///{db_path}"))
+    storage.init_db()
+
+    _create_submission(
+        storage,
+        submission_id="sub-running",
+        status="running",
+        created_at="2026-01-01T00:00:00+00:00",
+        priority=50,
+        args=_typed_supernode_args(),
+    )
+    _create_submission(
+        storage,
+        submission_id="sub-queued",
+        status="queued",
+        created_at="2026-01-01T00:00:01+00:00",
+        priority=50,
+        args=_typed_supernode_args(),
+    )
+
+    monkeypatch.setattr(
+        dispatcher_mod,
+        "_inventory_snapshot",
+        lambda inventory: (_inventory_nodes(node_cpu=6000, node_mem=6144), None),
     )
 
     dispatched_ids: list[str] = []

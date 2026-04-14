@@ -580,7 +580,7 @@ def _reserve_strict(
         return False
     for idx in range(count):
         node = candidates[idx]
-        _decrement_node(node, cpu, mem)
+        _reserve_node_exclusive(node)
     return True
 
 
@@ -612,6 +612,11 @@ def _decrement_node(node: dict[str, Any], cpu: int, mem: int) -> None:
         node["free_cpu"] = max(int(free_cpu) - cpu, 0)
     if free_mem is not None:
         node["free_mem"] = max(int(free_mem) - mem, 0)
+
+
+def _reserve_node_exclusive(node: dict[str, Any]) -> None:
+    node["free_cpu"] = 0
+    node["free_mem"] = 0
 
 
 def _free_sort_key(node: dict[str, Any]) -> tuple[int, int]:

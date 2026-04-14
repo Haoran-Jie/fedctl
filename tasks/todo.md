@@ -1,4 +1,175 @@
 
+# Submit Dispatcher Reservation Debug Plan
+
+- [x] Inspect the current dispatcher reservation logic and confirm the intended non-oversubscribe queue behavior.
+- [x] Inspect the live submit-service state on `rpi5-024` and the active concurrent submissions.
+- [x] Identify the root cause for concurrent 20-node dispatch and implement the fix.
+- [ ] Verify the dispatcher locally and confirm the live service is running the corrected code.
+
+## Review
+
+- Verified on `rpi5-024` that the submit-service is running in `queue` mode and the concurrent submissions in the live SQLite state both carry `--supernodes rpi4=10 --supernodes rpi5=10 --no-allow-oversubscribe`, so the issue is not stale deployment or missing queue metadata.
+- Queried the live `/v1/nodes` inventory and confirmed the same `rpi4`/`rpi5` nodes are hosting allocations from both active 20-node experiments at once. Nomad still reports spare CPU and memory on those nodes, which explains why the old dispatcher logic incorrectly let the second submission through.
+- Root cause: `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/submit_service/app/workers/dispatcher.py` treated `allow_oversubscribe: false` as a strict CPU/memory check only. That semantics is too weak for experiment queueing because a node can still have spare resources while already being reserved by another active experiment.
+- Fixed `_reserve_strict(...)` so strict node-bundle reservations now consume the entire node for queue gating instead of only decrementing the requested bundle resources. This matches the intended meaning of `allow_oversubscribe: false` for experiment scheduling.
+- Added a regression in `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/submit_service/tests/test_dispatcher.py` that models the live condition: each node has enough free CPU/memory for two bundles, but a queued second 20-node submission must still be blocked once a first strict 20-node submission is running.
+- Verification:
+  - `python3 -m py_compile submit_service/app/workers/dispatcher.py submit_service/tests/test_dispatcher.py`
+  - `./.venv/bin/pytest submit_service/tests/test_dispatcher.py -q`
+  - result: `7 passed`
+
+
+# FIARSE Global Threshold Fix Plan
+
+- [x] Inspect the current FIARSE global-threshold implementation and existing slicing tests.
+- [x] Change global thresholding to rank channels by raw magnitude across layers.
+- [x] Add a targeted regression proving low-magnitude outliers are not selected over larger-magnitude channels.
+- [x] Verify the slicing module and targeted test file locally.
+
+## Review
+
+- Updated `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/apps/fedctl_research/src/fedctl_research/methods/fiarse/slicing.py` so `threshold_mode = "global"` now ranks channels by their raw magnitude scores across layers, which is the intended paper-aligned behavior for a global TopK-style threshold.
+- The previous implementation used mean-centered salience in global mode, which could promote unusually small channels simply because they were far from the mean. That is no longer possible.
+- Added a focused regression in `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/tests/test_dissertation_app.py` asserting that global thresholding prefers `[100, 99]` over a low outlier `[1]` in a minimal FIARSE slicing example.
+- Verification:
+  - `python -m py_compile apps/fedctl_research/src/fedctl_research/methods/fiarse/slicing.py tests/test_dissertation_app.py`
+  - passed
+  - `./.venv/bin/pytest tests/test_dissertation_app.py -q`
+  - `1 skipped` in this local environment because the test file is gated by `pytest.importorskip("torch")`
+
+# Content-Addressed Image Tagging Plan
+
+- [x] Inspect the current image-tagging path and identify why submit builds churn tags.
+- [x] Replace timestamp-based fallback tagging in the shared build path with a deterministic build-context hash.
+- [x] Hash the actual image inputs used by build-and-record: filtered context tree bytes plus rendered Dockerfile content and Flower version.
+- [x] Add focused tests for deterministic tags and content-sensitive tag changes.
+- [x] Verify the tagging path and focused tests locally.
+
+## Review
+
+- Updated `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/src/fedctl/build/tagging.py` so the default image tag now prefers a deterministic `ctx-<hash>` suffix computed from the actual build inputs instead of falling back to a timestamp when `.git` is unavailable.
+- The content hash covers:
+  - the full extracted build context tree passed to Docker
+  - the rendered Dockerfile contents
+  - the Flower version
+- Updated `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/src/fedctl/commands/build.py` so `build_and_record(...)` passes the build context and rendered Dockerfile into the shared tag generator. This means submit-runner builds from uploaded archives now reuse stable tags when the archive contents are unchanged.
+- Updated `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/tests/test_build_registry_override.py` for the expanded tag-generator signature and added new coverage in `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/tests/test_build_tagging.py` proving:
+  - identical context + Dockerfile + Flower version yields the same tag
+  - changing context bytes changes the tag
+  - changing Dockerfile contents changes the tag
+- Verification:
+  - `python3 -m py_compile src/fedctl/build/tagging.py src/fedctl/commands/build.py tests/test_build_registry_override.py tests/test_build_tagging.py`
+  - `./.venv/bin/pytest tests/test_build_registry_override.py tests/test_build_tagging.py -q`
+  - result: `4 passed`
+
+# Capability Discovery Log Formatting Plan
+
+- [x] Inspect the capability-discovery logging calls in the shared runtime.
+- [x] Align the node and device-type fields with fixed-width formatting for easier vertical scanning in live logs.
+- [x] Keep the existing capability payload content unchanged.
+- [x] Verify the runtime module and shared dissertation test file locally.
+
+## Review
+
+- Updated `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/apps/fedctl_research/src/fedctl_research/methods/runtime.py` so capability-discovery logs now format:
+  - `node` as a fixed-width right-aligned field
+  - `device_type` as a fixed-width left-aligned field
+- The same node-width formatting is now used for capability-discovery error and missing-record lines, so the whole discovery block lines up vertically in the logs.
+- This is a log-formatting-only change; the discovery logic and payload contents are unchanged.
+- Verification:
+  - `python3 -m py_compile apps/fedctl_research/src/fedctl_research/methods/runtime.py`
+  - `./.venv/bin/pytest tests/test_dissertation_app.py -q`
+  - result: `58 passed`
+
+# FIARSE Selection-Mode Cleanup Plan
+
+- [x] Inspect every remaining use of `fiarse-selection-mode` in config, strategy wiring, and tests.
+- [x] Remove `fiarse-selection-mode` from the supported config surface and FIARSE strategy wiring.
+- [x] Update stale normalization tests that still construct FIARSE configs with `selection-mode`.
+- [x] Verify the affected config/runtime files and focused test suites locally.
+
+## Review
+
+- Removed the redundant `fiarse-selection-mode` surface from:
+  - `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/apps/fedctl_research/src/fedctl_research/config.py`
+  - `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/apps/fedctl_research/pyproject.toml`
+  - `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/src/fedctl/project/experiment_config.py`
+- Removed the unused FIARSE strategy plumbing and summary logging from:
+  - `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/apps/fedctl_research/src/fedctl_research/methods/fiarse/__init__.py`
+  - `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/apps/fedctl_research/src/fedctl_research/methods/fiarse/strategy.py`
+- Updated `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/tests/test_experiment_config.py` so the nested normalization fixture reflects the cleaned FIARSE config surface.
+- The effective FIARSE knobs are now the ones that actually change behavior:
+  - `fiarse-threshold-mode`
+  - `fiarse-global-learning-rate`
+- Verification:
+  - `python3 -m py_compile apps/fedctl_research/src/fedctl_research/config.py apps/fedctl_research/src/fedctl_research/methods/fiarse/__init__.py apps/fedctl_research/src/fedctl_research/methods/fiarse/strategy.py src/fedctl/project/experiment_config.py tests/test_experiment_config.py`
+  - `./.venv/bin/pytest tests/test_experiment_config.py -q`
+  - `./.venv/bin/pytest tests/test_dissertation_app.py -q`
+  - results: `10 passed`, `58 passed`
+
+# Nomad Service Naming Plan
+
+- [x] Inspect the Nomad render path and identify whether the failure is due to length, invalid characters, or both.
+- [x] Fix the shared service-name helper so rendered Nomad service names are RFC1123-safe.
+- [x] Add focused deploy-render coverage for experiment names containing underscores and uppercase characters.
+- [x] Verify the naming helper and deploy-render tests locally.
+
+## Review
+
+- Updated `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/src/fedctl/deploy/naming.py` so Nomad service names now sanitize the experiment token to lowercase RFC1123-safe labels before applying the existing length-safe truncation/hash logic.
+- This fixes the actual failing case from the deploy logs: `cifar10_cnn-fiarse-n20-seed1337-superlink-serverappio` was only 53 characters long, but Nomad rejected it because the underscore in `cifar10_cnn` is not RFC1123-valid for a service name.
+- Added focused coverage in `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/tests/test_deploy_render.py` asserting that service names derived from experiment names like `cifar10_cnn-FIARSE-n20-seed1337` are lowercase, underscore-free, and still preserve the expected service suffixes.
+- Verification:
+  - `python3 -m py_compile src/fedctl/deploy/naming.py tests/test_deploy_render.py`
+  - `./.venv/bin/pytest tests/test_deploy_render.py -q`
+
+# Submit Auto-Exp Naming Plan
+
+- [x] Inspect the submit command path and confirm where the experiment name is resolved.
+- [x] Generate a default experiment name from the resolved experiment config only when `--exp` is omitted.
+- [x] Preserve explicit `--exp` behavior unchanged.
+- [x] Add focused submit-command tests for generated-vs-explicit experiment names.
+- [x] Verify the submit command module and targeted tests locally.
+
+## Review
+
+- Updated `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/src/fedctl/commands/submit.py` so `fedctl submit run` now derives a default experiment name from the resolved experiment config when the user does not pass `--exp`.
+- The generated name uses the same compact signature discussed for run naming:
+  - `task`
+  - `method`
+  - node count as `n<k>` from the effective run config
+  - `seed<k>` when a single seed is part of the effective run config or CLI invocation
+- The generated submit experiment name intentionally omits the capacity-split token so the downstream Nomad job/service names stay within RFC 1123 length limits.
+- Explicit `--exp` still wins unchanged; the new logic only applies when `experiment=None`.
+- The submit path now treats config parsing/materialization failures as ordinary experiment-config errors instead of letting them escape as an unhandled exception.
+- Updated `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/tests/test_submit_artifact.py` with targeted coverage for:
+  - omitted `--exp` producing a config-derived experiment name
+  - explicit `--exp` overriding that generated name
+- Verification:
+  - `python -m py_compile src/fedctl/commands/submit.py tests/test_submit_artifact.py`
+  - `./.venv/bin/pytest tests/test_submit_artifact.py -q`
+  - result: `7 passed`
+
+# W&B Run Naming Plan
+
+- [x] Inspect the current experiment and W&B run naming path.
+- [x] Add config-derived run naming fields for task, method, node count, and capacity split.
+- [x] Update the W&B logger tests to pin the new naming shape.
+- [x] Verify the logger module and tests locally.
+
+## Review
+
+- Updated `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/apps/fedctl_research/src/fedctl_research/wandb_logging.py` so W&B run names now append a compact config signature derived from the run config:
+  - node count as `n<k>` from `min-available-nodes`/related keys
+  - capacity split as `split-<rate>x<pct>_...` from `model-rate-levels` and `model-rate-proportions`
+- The canonical key stored in W&B metadata now includes the same `node-count/capacity-split` signature, so retries for the same experimental condition still share one canonical identity while each submission attempt keeps its own distinct run name.
+- This change does not override the submit-side experiment name passed with `--exp`; it only makes the W&B run naming and metadata more informative.
+- Updated `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/tests/test_wandb_logging.py` to assert the new name and canonical-key format.
+- Verification:
+  - `python -m py_compile apps/fedctl_research/src/fedctl_research/wandb_logging.py tests/test_wandb_logging.py`
+  - `./.venv/bin/pytest tests/test_wandb_logging.py -q`
+  - result: `5 passed`
+
 # Submit Queue Reservation Plan
 
 - [x] Inspect the submit-service dispatcher and confirm where queue admission decisions are made.
@@ -737,3 +908,18 @@
 - [x] Revert the seed-image staging path now that the fix is committed and pushed; use a fast git checkout on the registry host instead
 - [x] Make capability discovery retry missing nodes so exact fixed allocations can survive a single slow reply
 - [ ] Accept OCI index manifests in seed_images registry probes
+
+## 2026-04-14 FIARSE parity fix
+- [x] Inspect current FIARSE runtime and reference sparse-mask logic
+- [x] Add FIARSE-specific sparse masking utilities and config surface
+- [x] Replace FIARSE client/server path with full-model masked train/eval and sparse delta aggregation
+- [x] Update FIARSE submodel evaluation to use masked full-model evaluation
+- [x] Verify with compile/tests and record results
+Review:
+- Completed FIARSE parity pass at the method boundary instead of the shared dense-width task path.
+- Added full-model sparse masking utilities, FIARSE-specific client train/eval handlers, FIARSE sparse-delta server aggregation, and explicit fiarse-global-learning-rate config support.
+- Verification: `python3 -m py_compile` passed for the FIARSE modules/runtime/config/tests; `./.venv/bin/pytest tests/test_experiment_config.py -q` passed (`10 passed`); `./.venv/bin/pytest tests/test_dissertation_app.py -q` is still skipped in this environment because `.venv` does not include `torch`.
+Review:
+- Cleaned the remaining failures in `tests/test_dissertation_app.py` by fixing one real slicer bug for PreResNet residual shortcuts and updating stale test expectations to match the current config tree and Flower APIs.
+- Installed `torch` and `torchvision` into the local `.venv` to execute the torch-gated test file locally.
+- Verification: `./.venv/bin/pytest /Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/tests/test_dissertation_app.py -q` now passes (`58 passed`).
