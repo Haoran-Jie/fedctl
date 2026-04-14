@@ -12,13 +12,14 @@ from .submissions import authenticate
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+DEFAULT_PRESIGN_TTL = 21600
 
 
 class PresignRequest(BaseModel):
     bucket: str = Field(min_length=1)
     key: str = Field(min_length=1)
     method: Literal["GET", "PUT"]
-    expires: int = Field(default=1800, ge=60, le=86400)
+    expires: int | None = Field(default=None, ge=60, le=86400)
 
 
 class PresignResponse(BaseModel):
@@ -40,6 +41,13 @@ def _s3_client():
     return session.client("s3", endpoint_url=endpoint)
 
 
+def _default_presign_ttl() -> int:
+    raw = os.environ.get("FEDCTL_PRESIGN_TTL", "").strip()
+    if not raw:
+        return DEFAULT_PRESIGN_TTL
+    return int(raw)
+
+
 @router.post("/v1/presign", response_model=PresignResponse)
 def presign(
     payload: PresignRequest,
@@ -53,7 +61,7 @@ def presign(
         url = client.generate_presigned_url(
             op,
             Params={"Bucket": payload.bucket, "Key": payload.key},
-            ExpiresIn=payload.expires,
+            ExpiresIn=payload.expires if payload.expires is not None else _default_presign_ttl(),
         )
     except Exception as exc:
         logger.warning("presign failed: %s", exc)

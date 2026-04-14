@@ -11,6 +11,9 @@ class ArtifactUploadError(RuntimeError):
     pass
 
 
+DEFAULT_PRESIGN_TTL = 21600
+
+
 def upload_artifact(
     archive_path: Path,
     artifact_store: str,
@@ -115,7 +118,7 @@ def _upload_s3_presign(
     except Exception as exc:
         raise ArtifactUploadError(f"S3 upload failed: {exc}") from exc
 
-    expires = int(os.environ.get("FEDCTL_PRESIGN_TTL", "1800"))
+    expires = _presign_ttl_or_default()
     try:
         url = client.generate_presigned_url(
             "get_object",
@@ -140,7 +143,7 @@ def _upload_via_presign_service(
         token = os.environ.get("SUBMIT_SERVICE_TOKEN")
     if token:
         headers["Authorization"] = f"Bearer {token}"
-    expires = int(os.environ.get("FEDCTL_PRESIGN_TTL", "1800"))
+    expires = _configured_presign_ttl()
     put_url = _fetch_presign_url(
         presign_endpoint,
         headers=headers,
@@ -178,14 +181,15 @@ def _fetch_presign_url(
     bucket: str,
     key: str,
     method: str,
-    expires: int,
+    expires: int | None,
 ) -> str:
     payload = {
         "bucket": bucket,
         "key": key,
         "method": method,
-        "expires": expires,
     }
+    if expires is not None:
+        payload["expires"] = expires
     try:
         response = httpx.post(presign_endpoint, json=payload, headers=headers, timeout=10.0)
     except httpx.HTTPError as exc:
@@ -220,3 +224,14 @@ def _maybe_tgz_url(url: str, archive_path: Path) -> str:
     if suffix in {".tar.gz", ".tgz"}:
         return f"tgz::{url}"
     return url
+
+
+def _configured_presign_ttl() -> int | None:
+    raw = os.environ.get("FEDCTL_PRESIGN_TTL")
+    if raw is None or not raw.strip():
+        return None
+    return int(raw)
+
+
+def _presign_ttl_or_default() -> int:
+    return _configured_presign_ttl() or DEFAULT_PRESIGN_TTL

@@ -7,12 +7,14 @@
 - Verify behavior, not just syntax. Prefer focused tests, live logs, and real deployment checks.
 - When a checked-in Ansible path exists, use it instead of ad hoc operational steps.
 - Do not relax ignore rules for `tasks/` or `apps/fedctl_research/experiment_configs/` without explicit confirmation; if tracked files under ignored paths need committing, use targeted `git add -f` instead.
+- `.gitignore` does not untrack files that are already committed; to keep `tasks/` local-only, remove them with `git rm --cached` and only rewrite history if you explicitly want old commits purged.
 
 ## Deployment and Submit
 
 - If a submit-time stack trace points into `/usr/local/lib/python3.11/site-packages/fedctl/...`, reseed `fedctl-submit:latest` before assuming the local fix is live.
 - For cluster registry pushes, prefer the registry-host path over laptop Docker insecure-registry workarounds.
 - Distinguish the explicit repo config used by `submit run` from the default/profile config used by `submit status` and `submit logs`.
+- Before assuming an environment variable is already wired in Ansible, check both `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/ansible/group_vars/submit_service.yml` and `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/ansible/roles/submit_service/templates/fedctl-submit.env.j2`.
 - For submit-service queue gating, `allow_oversubscribe: false` must reserve whole experiment nodes, not just subtract CPU/memory.
 - User-facing blocked reasons should describe actual queue semantics. Prefer `compute-node:*` over internal terms like `node-bundle`.
 

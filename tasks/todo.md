@@ -9,6 +9,8 @@
 
 ## Active
 
+- [x] Move artifact presign TTL control to submit-service config instead of client-side hardcoded defaults.
+- [x] Narrow SuperExec image hashing to project code inputs so experiment-config changes do not churn tags.
 - [ ] Redeploy the submit service so live queue accounting uses the revised experiment-side resource values.
 - [ ] Reseed the submit image so `submit run` renders Nomad jobs with the revised runtime resource values.
 - [ ] Verify one live submission shows the expected `Resources` and matching queue accounting.
@@ -22,6 +24,8 @@
 - Actual Nomad runtime resources flow from the same repo-config keys instead of staying hardcoded in deploy spec defaults.
 - Active compute-main resource targets now reserve enough capacity for two `supernode + clientapp` bundles per `rpi4` while leaving explicit headroom.
 - Default submit experiment names stay short: `task-method-n<nodes>-seed<seed>`.
+- SuperExec image hashing now prefers project-local `pyproject.toml` plus `src/`, along with rendered Dockerfile contents and Flower version, instead of hashing the full build context tree.
+- Artifact presign TTL is now intended to be server-managed through submit-service environment config, with the client omitting `expires` unless explicitly overridden.
 
 ## Review
 

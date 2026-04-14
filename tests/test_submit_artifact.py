@@ -52,6 +52,42 @@ def test_upload_artifact_uses_explicit_presign_service(
     }
 
 
+def test_fetch_presign_url_omits_expires_when_ttl_unset(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    class FakeResponse:
+        status_code = 200
+
+        @staticmethod
+        def json() -> dict[str, str]:
+            return {"url": "https://signed.example/object"}
+
+    def fake_post(url, json, headers, timeout):
+        captured["url"] = url
+        captured["json"] = json
+        captured["headers"] = headers
+        captured["timeout"] = timeout
+        return FakeResponse()
+
+    monkeypatch.setattr(artifact.httpx, "post", fake_post)
+
+    url = artifact._fetch_presign_url(
+        "http://submit.example:8080/v1/presign",
+        headers={"Authorization": "Bearer token"},
+        bucket="fedctl-submits",
+        key="fedctl-submits/project.tar.gz",
+        method="GET",
+        expires=None,
+    )
+
+    assert url == "https://signed.example/object"
+    assert captured["json"] == {
+        "bucket": "fedctl-submits",
+        "key": "fedctl-submits/project.tar.gz",
+        "method": "GET",
+    }
+
+
 def test_run_submit_passes_submit_service_context_to_artifact_upload(
     monkeypatch, tmp_path: Path
 ) -> None:
