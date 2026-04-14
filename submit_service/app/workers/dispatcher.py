@@ -377,11 +377,15 @@ def _reserve_submission_capacity(
 ) -> tuple[bool, str | None]:
     if inventory_error:
         return False, inventory_error
+    reasons: list[str] = []
     for req in _submission_requirements(submission):
         ok, reason = _check_requirement(free_nodes, req)
         if not ok:
-            return False, reason
+            if reason:
+                reasons.append(reason)
 
+    if reasons:
+        return False, "; ".join(reasons)
     return True, None
 
 
@@ -411,7 +415,7 @@ def _submission_requirements(submission: dict[str, Any]) -> list[dict[str, Any]]
             res = resources.get(device_type, default_res)
             requirements.append(
                 {
-                    "name": f"node-bundle:{device_type}",
+                    "name": f"compute-node:{device_type}",
                     "node_class": "node",
                     "device_type": device_type,
                     "cpu": res.get("cpu", 500) + 1000,
@@ -424,7 +428,7 @@ def _submission_requirements(submission: dict[str, Any]) -> list[dict[str, Any]]
         res = default_res
         requirements.append(
             {
-                "name": "node-bundle",
+                "name": "compute-node",
                 "node_class": "node",
                 "device_type": None,
                 "cpu": res.get("cpu", 500) + 1000,

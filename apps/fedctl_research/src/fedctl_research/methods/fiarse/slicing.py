@@ -126,7 +126,8 @@ def _resolve_output_indices(
     flattened_scores: list[torch.Tensor] = []
     owners: list[tuple[str, int]] = []
     for plan in layer_plans:
-        scores = _global_salience_scores(plan["raw_scores"])
+        # Paper-style global thresholding ranks channels by raw magnitude across layers.
+        scores = plan["raw_scores"]
         flattened_scores.append(scores)
         owners.extend((str(plan["key"]), index) for index in range(int(scores.numel())))
     all_scores = torch.cat(flattened_scores, dim=0)
@@ -140,7 +141,7 @@ def _resolve_output_indices(
     resolved: dict[str, torch.Tensor] = {}
     for plan in layer_plans:
         key = str(plan["key"])
-        scores = _global_salience_scores(plan["raw_scores"])
+        scores = plan["raw_scores"]
         local_keep = int(plan["local_output_size"])
         chosen = list(dict.fromkeys(selected.get(key, [])))
         if len(chosen) > local_keep:
@@ -162,11 +163,3 @@ def _topk_sorted_indices(scores: torch.Tensor, k: int) -> torch.Tensor:
         return torch.arange(int(scores.numel()), device=scores.device)
     indices = torch.topk(scores, k=k).indices
     return indices.sort().values
-
-
-def _global_salience_scores(scores: torch.Tensor) -> torch.Tensor:
-    centered = (scores - scores.mean()).abs()
-    scale = centered.max()
-    if float(scale) <= 0.0:
-        return centered
-    return centered / scale

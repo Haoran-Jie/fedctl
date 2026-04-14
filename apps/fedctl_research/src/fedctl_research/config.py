@@ -132,12 +132,15 @@ def get_fedbuff_staleness_alpha(run_config: Mapping[str, object]) -> float:
     return float(run_config.get("fedbuff-staleness-alpha", 0.5))
 
 
-def get_fiarse_selection_mode(run_config: Mapping[str, object]) -> str:
-    return str(run_config.get("fiarse-selection-mode", "structured-magnitude")).strip().lower() or "structured-magnitude"
-
-
 def get_fiarse_threshold_mode(run_config: Mapping[str, object]) -> str:
     return str(run_config.get("fiarse-threshold-mode", "global")).strip().lower() or "global"
+
+
+def get_fiarse_global_learning_rate(run_config: Mapping[str, object]) -> float:
+    value = run_config.get("fiarse-global-learning-rate")
+    if value is None:
+        return 1.0
+    return float(value)
 
 
 def parse_csv_floats(value: str | object | None) -> tuple[float, ...]:

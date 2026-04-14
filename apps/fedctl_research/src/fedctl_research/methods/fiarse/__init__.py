@@ -1,4 +1,4 @@
-"""FIARSE-lite method implementation using structured importance-aware slicing."""
+"""FIARSE method implementation using full-model sparse masking."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from flwr.serverapp import Grid
 
 from fedctl_research.config import (
     device_rate_map,
-    get_fiarse_selection_mode,
+    get_fiarse_global_learning_rate,
     get_fiarse_threshold_mode,
     get_float,
     get_model_rate_levels,
@@ -19,8 +19,9 @@ from fedctl_research.config import (
     resolve_device_type_for_context,
 )
 from fedctl_research.methods.assignment import ModelRateAssigner
-from fedctl_research.methods.runtime import client_evaluate, client_train, query_capabilities, run_server_loop
+from fedctl_research.methods.runtime import query_capabilities, run_server_loop
 
+from .runtime import client_evaluate_fiarse, client_train_fiarse
 from .strategy import FiarseStrategy
 
 
@@ -42,11 +43,23 @@ def query_app(msg: Message, context: Context) -> Message:
 
 
 def train_app(msg: Message, context: Context) -> Message:
-    return client_train(msg, context, method_label="fiarse", resolve_model_rate=_fallback_model_rate)
+    return client_train_fiarse(
+        msg,
+        context,
+        method_label="fiarse",
+        resolve_model_rate=_fallback_model_rate,
+        threshold_mode=get_fiarse_threshold_mode(context.run_config),
+    )
 
 
 def evaluate_app(msg: Message, context: Context) -> Message:
-    return client_evaluate(msg, context, method_label="fiarse", resolve_model_rate=_fallback_model_rate)
+    return client_evaluate_fiarse(
+        msg,
+        context,
+        method_label="fiarse",
+        resolve_model_rate=_fallback_model_rate,
+        threshold_mode=get_fiarse_threshold_mode(context.run_config),
+    )
 
 
 def run_server(grid: Grid, context: Context) -> None:
@@ -74,6 +87,6 @@ def run_server(grid: Grid, context: Context) -> None:
             seed=context.run_config.get("seed"),
         ),
         global_model_rate=get_float(context.run_config, "global-model-rate"),
-        selection_mode=get_fiarse_selection_mode(context.run_config),
         threshold_mode=get_fiarse_threshold_mode(context.run_config),
+        global_learning_rate=get_fiarse_global_learning_rate(context.run_config),
     )

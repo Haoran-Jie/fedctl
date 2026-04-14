@@ -33,7 +33,7 @@ def test_build_and_record_prefers_env_registry_override(
     monkeypatch.setattr(
         build_cmd,
         "default_image_tag",
-        lambda project_name, repo_root=None, registry=None: f"{registry}/{project_name}-superexec:testtag",
+        lambda project_name, repo_root=None, context_root=None, dockerfile_contents=None, flwr_version=None, registry=None: f"{registry}/{project_name}-superexec:testtag",
     )
     monkeypatch.setattr(build_cmd, "render_dockerfile", lambda _: "FROM scratch\n")
 

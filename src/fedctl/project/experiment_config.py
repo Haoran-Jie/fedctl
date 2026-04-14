@@ -79,10 +79,10 @@ _SECTION_KEY_MAP: dict[str, dict[str, str]] = {
         "fedbuff-staleness-alpha": "fedbuff-staleness-alpha",
     },
     "fiarse": {
-        "selection-mode": "fiarse-selection-mode",
         "threshold-mode": "fiarse-threshold-mode",
-        "fiarse-selection-mode": "fiarse-selection-mode",
+        "global-learning-rate": "fiarse-global-learning-rate",
         "fiarse-threshold-mode": "fiarse-threshold-mode",
+        "fiarse-global-learning-rate": "fiarse-global-learning-rate",
     },
     "evaluation": {
         "client-eval-enabled": "client-eval-enabled",

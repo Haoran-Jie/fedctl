@@ -1,3 +1,35 @@
+# Submit Blocked Reason Reporting Plan
+
+- [x] Inspect the strict reservation blocked-reason path in the submit-service dispatcher.
+- [x] Change requirement checking to accumulate all unsatisfied bundle reasons instead of returning only the first failure.
+- [x] Update dispatcher tests to assert combined blocked reasons for typed `rpi4` and `rpi5` reservations.
+- [x] Verify the focused dispatcher test suite and confirm the exact blocked-reason string.
+
+## Review
+
+- Updated `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/submit_service/app/workers/dispatcher.py` so `_reserve_submission_capacity(...)` keeps evaluating submission requirements after the first failed bundle and returns a single `; `-joined blocked-reason string covering every unsatisfied requirement.
+- Renamed the user-facing strict compute requirement label from `node-bundle` to `compute-node` in `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/submit_service/app/workers/dispatcher.py`, since the queue is gating whole compute nodes rather than an internal bundle concept.
+- Updated `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/submit_service/tests/test_dispatcher.py` so the strict typed-supernode regressions now expect `compute-node:rpi4: need 10, have 0; compute-node:rpi5: need 10, have 0`.
+- Verification:
+  - `python3 -m py_compile submit_service/app/workers/dispatcher.py submit_service/tests/test_dispatcher.py`
+  - `./.venv/bin/pytest submit_service/tests/test_dispatcher.py -q`
+  - result: `7 passed`
+
+# FedAvg Baseline Fairness Check Plan
+
+- [x] Inspect the FedAvg baseline strategy/runtime and identify the exact control being implemented.
+- [x] Compare FedAvgBaseline to HeteroFL with all clients at full capacity and check config/hyperparameter parity.
+- [x] Summarize whether the comparison is fair and note any remaining caveats.
+
+## Review
+
+- `FedAvgBaseline` in `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/apps/fedctl_research/src/fedctl_research/methods/fedavg/strategy.py` is a thin logging wrapper around Flower `FedAvg`; it does not introduce any method-specific model extraction or optimizer changes.
+- `run_server_loop(...)` wires both `FedAvgBaseline` and `HeteroFLStrategy` with the same shared defaults from `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/apps/fedctl_research/src/fedctl_research/methods/runtime.py`: same client train/eval functions, same `weighted_by_key="num-examples"`, same server round counts, same client optimizer hyperparameters from the experiment config.
+- On the client side, `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/apps/fedctl_research/src/fedctl_research/methods/fedavg/__init__.py` resolves the model rate from `config["model-rate"]` if present, otherwise from `global-model-rate`. Because `FedAvgBaseline` never sets a narrower `model-rate`, clients train the full model at `global-model-rate = 1.0`.
+- `HeteroFLStrategy` in `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/apps/fedctl_research/src/fedctl_research/methods/heterofl/strategy.py` reduces to the same effective behavior when every client is assigned `model-rate = 1.0`: it slices the full state with an all-parameters index and aggregates with the same example-weighted partial averaging, which becomes ordinary FedAvg when all parameters are present.
+- The current compute-main configs keep the main optimization hyperparameters aligned between `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/apps/fedctl_research/experiment_configs/compute_heterogeneity/main/cifar10_cnn/fedavg.toml` and `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/apps/fedctl_research/experiment_configs/compute_heterogeneity/main/cifar10_cnn/heterofl.toml`: `20` rounds, full participation, `20` nodes, `local-epochs = 3`, `learning-rate = 0.05`, same batch-size policy, same IID partitioning, same max train/test examples per device.
+- Residual caveats: the `fedavg.toml` file still carries a `[capacity]` section even though the FedAvg method does not use heterogeneous rates, and `capability-discovery-timeout-s` differs (`180.0` vs `300`). Those do not change the optimization logic, but they are avoidable asymmetries if you want the cleanest baseline story.
+
 
 # Submit Dispatcher Reservation Debug Plan
 
@@ -923,3 +955,36 @@ Review:
 - Cleaned the remaining failures in `tests/test_dissertation_app.py` by fixing one real slicer bug for PreResNet residual shortcuts and updating stale test expectations to match the current config tree and Flower APIs.
 - Installed `torch` and `torchvision` into the local `.venv` to execute the torch-gated test file locally.
 - Verification: `./.venv/bin/pytest /Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/tests/test_dissertation_app.py -q` now passes (`58 passed`).
+
+## 2026-04-14 Repo Context Review
+- [x] Review `tasks/lessons.md` for project-specific workflow constraints and recent failure patterns.
+- [x] Inspect top-level repo structure and key package metadata.
+- [x] Read the core overview docs for the control plane, experiment app, and cluster operations.
+- [x] Check the current git worktree state so follow-on edits avoid unrelated changes.
+- [x] Summarize the repository context for the next task.
+
+## Review
+
+- Confirmed the repo is split along a clear boundary:
+  - `src/fedctl/` owns the generic CLI, deploy/render logic, submit-runner flow, config normalization, and state handling.
+  - `apps/fedctl_research/` owns dissertation methods, benchmark task/runtime code, experiment configs, and deployment-side repo presets.
+  - `submit_service/` is a separate FastAPI queue/API/UI service for queued runs and archived logs.
+  - `ansible/` owns real cluster provisioning, registry seeding, and submit-service deployment.
+- The main architectural rule repeated across docs is:
+  - experiment config = scientific definition
+  - repo config = deployment definition
+- The active dissertation story is organized around two headline families in `docs/experiment_plan.md`:
+  - compute heterogeneity: `fedavg`, `heterofl`, `fedrolex`, `fiarse`
+  - network heterogeneity: `fedavg`, `fedavgm`, `fedbuff`, `fedstaleweight`
+- The repo is currently dirty. Existing modifications are already present in the experiment app, FIARSE path, dispatcher/tests, build path, and this task tracker, plus several untracked files under `refs/FIARSE/` and tests. Any follow-on change should treat those as pre-existing unless explicitly asked to reconcile them.
+
+## 2026-04-14 Ignore FIARSE Ref And Commit Dirty Files
+- [x] Inspect the current dirty worktree and top-level ignore rules.
+- [x] Add a minimal ignore rule for `refs/FIARSE/`.
+- [x] Verify the resulting git status and staged scope.
+- [x] Commit the current dirty worktree with a clear message.
+
+## Review
+
+- Requested scope is to keep `refs/FIARSE/` out of version control and then commit the current dirty worktree rather than splitting it into smaller logical commits.
+- Verified that `git check-ignore` now matches `refs/FIARSE/`, and the staged scope contains the full existing dirty tree without that ignored ref directory.

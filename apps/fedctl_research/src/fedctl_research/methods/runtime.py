@@ -50,6 +50,15 @@ def _experiment_name() -> str:
     return os.environ.get("FEDCTL_EXPERIMENT", "experiment")
 
 
+def _capability_node_label(node_id: object) -> str:
+    return f"{node_id:>20}"
+
+
+def _capability_device_label(device_type: object) -> str:
+    value = str(device_type) if device_type is not None else "-"
+    return f"{value:<7}"
+
+
 def create_result_artifact_logger(context: Context) -> ResultArtifactLogger:
     return ResultArtifactLogger(
         experiment=_experiment_name(),
@@ -491,10 +500,13 @@ def run_submodel_evaluations(
     artifact_logger: ResultArtifactLogger,
     server_step: int,
 ) -> None:
-    if not hasattr(strategy, "build_param_indices"):
+    if method_label != "fiarse" and not hasattr(strategy, "build_param_indices"):
         return
 
-    from fedctl_research.methods.heterofl.slicing import slice_state_dict
+    if method_label != "fiarse":
+        from fedctl_research.methods.heterofl.slicing import slice_state_dict
+    else:
+        from fedctl_research.methods.fiarse.masking import apply_hard_mask_in_place, build_threshold_map
 
     task = resolve_task(get_str(context.run_config, "task"))
     global_model_rate = get_float(context.run_config, "global-model-rate")
@@ -523,11 +535,21 @@ def run_submodel_evaluations(
     for model_rate in eval_rates:
         if model_rate > global_model_rate:
             continue
-        param_idx = strategy.build_param_indices(final_state, model_rate=model_rate, server_round=server_step)
-        local_state = slice_state_dict(final_state, param_idx)
-
-        global_model = task.build_model_for_rate(model_rate, global_model_rate=global_model_rate)
-        task.load_model_state(global_model, local_state)
+        if method_label == "fiarse":
+            local_state = OrderedDict((key, value.detach().clone()) for key, value in final_state.items())
+            global_model = task.build_model_for_rate(global_model_rate, global_model_rate=global_model_rate)
+            task.load_model_state(global_model, local_state)
+            threshold_map = build_threshold_map(
+                global_model,
+                model_rate=model_rate,
+                threshold_mode=str(context.run_config.get("fiarse-threshold-mode", "global")),
+            )
+            apply_hard_mask_in_place(global_model, threshold_map=threshold_map)
+        else:
+            param_idx = strategy.build_param_indices(final_state, model_rate=model_rate, server_round=server_step)
+            local_state = slice_state_dict(final_state, param_idx)
+            global_model = task.build_model_for_rate(model_rate, global_model_rate=global_model_rate)
+            task.load_model_state(global_model, local_state)
         global_loss, global_acc = task.test(global_model, testloader, device="cpu")
 
         local_metric = None
@@ -599,60 +621,49 @@ def discover_node_capabilities(grid: Grid, context: Context) -> tuple[dict[int, 
 
     discovered: dict[int, str] = {}
     partition_ids: dict[int, int] = {}
-    pending_node_ids = set(all_node_ids)
-    request_template = RecordDict({"capability-request": ConfigRecord({"request": "device-type"})})
-    while pending_node_ids:
-        elapsed = time.monotonic() - started
-        if elapsed >= timeout_s:
-            break
-        request_timeout = max(1.0, min(10.0, timeout_s - elapsed))
-        messages = [
-            Message(
-                content=request_template,
-                message_type=MessageType.QUERY,
-                dst_node_id=node_id,
-                group_id="capability-discovery",
+    messages = [
+        Message(
+            content=RecordDict({"capability-request": ConfigRecord({"request": "device-type"})}),
+            message_type=MessageType.QUERY,
+            dst_node_id=node_id,
+            group_id="capability-discovery",
+        )
+        for node_id in all_node_ids
+    ]
+    replies = list(grid.send_and_receive(messages, timeout=timeout_s))
+    log(INFO, "capability discovery: sent=%s replies=%s", len(messages), len(replies))
+
+    for reply in replies:
+        if reply.has_error():
+            log(
+                INFO,
+                "capability discovery: node=%s error=%s",
+                _capability_node_label(reply.metadata.src_node_id),
+                reply.error,
             )
-            for node_id in sorted(pending_node_ids)
-        ]
-        replies = list(grid.send_and_receive(messages, timeout=request_timeout))
+            continue
+        capabilities = reply.content.get("capabilities")
+        if not isinstance(capabilities, ConfigRecord):
+            log(
+                INFO,
+                "capability discovery: node=%s missing capabilities record",
+                _capability_node_label(reply.metadata.src_node_id),
+            )
+            continue
+        src_node_id = reply.metadata.src_node_id
+        device_type = capabilities.get("device-type")
+        partition_id = capabilities.get("partition-id")
         log(
             INFO,
-            "capability discovery: sent=%s replies=%s pending=%s",
-            len(messages),
-            len(replies),
-            len(pending_node_ids),
+            "capability discovery: node=%s device_type=%s capabilities=%s",
+            _capability_node_label(src_node_id),
+            _capability_device_label(device_type),
+            dict(capabilities),
         )
-
-        responded_node_ids: set[int] = set()
-        for reply in replies:
-            if reply.has_error():
-                log(INFO, "capability discovery: node=%s error=%s", reply.metadata.src_node_id, reply.error)
-                continue
-            capabilities = reply.content.get("capabilities")
-            if not isinstance(capabilities, ConfigRecord):
-                log(INFO, "capability discovery: node=%s missing capabilities record", reply.metadata.src_node_id)
-                continue
-            src_node_id = reply.metadata.src_node_id
-            device_type = capabilities.get("device-type")
-            partition_id = capabilities.get("partition-id")
-            log(INFO, "capability discovery: node=%s device_type=%s capabilities=%s", src_node_id, device_type, dict(capabilities))
-            if isinstance(device_type, str) and device_type:
-                discovered[src_node_id] = device_type
-            if partition_id is not None and str(partition_id).strip():
-                partition_ids[src_node_id] = int(str(partition_id))
-            responded_node_ids.add(src_node_id)
-
-        pending_node_ids.difference_update(responded_node_ids)
-        if pending_node_ids:
-            log(INFO, "capability discovery: retrying pending nodes=%s", sorted(pending_node_ids))
-            time.sleep(1.0)
-
-    if pending_node_ids:
-        raise RuntimeError(
-            "Timed out waiting for capability discovery replies from nodes: "
-            f"{sorted(pending_node_ids)}"
-        )
+        if isinstance(device_type, str) and device_type:
+            discovered[src_node_id] = device_type
+        if partition_id is not None and str(partition_id).strip():
+            partition_ids[src_node_id] = int(str(partition_id))
 
     discovered.update(parse_node_device_type_map(context.run_config.get("heterofl-node-device-types", "")))
     log(INFO, "capability discovery: final node->device map=%s", discovered)

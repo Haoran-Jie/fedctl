@@ -10,7 +10,7 @@ fraction-evaluate = 1.0
 min-available-nodes = 20
 min-train-nodes = 20
 min-evaluate-nodes = 20
-capability-discovery-timeout-s = 120.0
+capability-discovery-timeout-s = 300
 
 [client]
 local-epochs = 3

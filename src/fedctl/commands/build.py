@@ -52,11 +52,16 @@ def build_and_record(
         include_profile=True,
     ).data
     registry = _env_image_registry() or get_image_registry(repo_cfg)
-    image_tag = image or default_image_tag(
-        info.project_name, repo_root=info.root, registry=registry
-    )
     dockerfile = render_dockerfile(flwr_version)
     context_dir = Path(context) if context else info.root
+    image_tag = image or default_image_tag(
+        info.project_name,
+        repo_root=info.root,
+        context_root=context_dir,
+        dockerfile_contents=dockerfile,
+        flwr_version=flwr_version,
+        registry=registry,
+    )
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         dockerfile_path = Path(tmp_dir) / "Dockerfile"

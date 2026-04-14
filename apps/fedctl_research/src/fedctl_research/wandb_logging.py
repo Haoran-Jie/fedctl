@@ -14,7 +14,14 @@ from flwr.common import MetricRecord
 from flwr.common.logger import log
 from logging import INFO, WARNING
 
-from fedctl_research.config import get_method_name, get_optional_bool, get_optional_str, get_task_name
+from fedctl_research.config import (
+    get_method_name,
+    get_model_rate_levels,
+    get_model_rate_proportions,
+    get_optional_bool,
+    get_optional_str,
+    get_task_name,
+)
 
 
 def _metric_record_to_dict(metrics: MetricRecord | Mapping[str, Any] | None) -> dict[str, int | float]:
@@ -291,15 +298,46 @@ def _attempt_id(submission_id: str) -> str:
     return f"sub{tail}"
 
 
+def _node_count_label(run_config: Mapping[str, object]) -> str:
+    for key in ("min-available-nodes", "min-train-nodes", "min-evaluate-nodes"):
+        value = run_config.get(key)
+        try:
+            count = int(value)
+        except (TypeError, ValueError):
+            continue
+        if count > 0:
+            return f"n{count}"
+    return "n?"
+
+
+def _rate_token(value: float) -> str:
+    text = f"{value:.6f}".rstrip("0").rstrip(".")
+    return text.replace(".", "p") if text else "0"
+
+
+def _capacity_split_label(run_config: Mapping[str, object]) -> str:
+    levels = get_model_rate_levels(run_config)
+    proportions = get_model_rate_proportions(run_config)
+    pairs = []
+    for level, proportion in zip(levels, proportions, strict=False):
+        pct = int(round(proportion * 100))
+        pairs.append(f"{_rate_token(level)}x{pct}")
+    if not pairs:
+        return "split-unknown"
+    return "split-" + "_".join(pairs)
+
+
 def _resolve_run_identity(run_config: Mapping[str, object]) -> _RunIdentity:
     method = get_method_name(run_config)
     task = get_task_name(run_config)
     seed = _seed_label(run_config)
     submission_id = _submission_id()
     attempt_started_at = _attempt_started_at()
+    node_count = _node_count_label(run_config)
+    capacity_split = _capacity_split_label(run_config)
     canonical_key = (
         f"{_study_key(os.environ.get('FEDCTL_EXPERIMENT_CONFIG'))}"
-        f"/{task}/{method}/seed{seed}/profile-{_repo_config_label()}"
+        f"/{task}/{method}/{node_count}/{capacity_split}/seed{seed}/profile-{_repo_config_label()}"
     )
     return _RunIdentity(
         canonical_key=canonical_key,
@@ -340,13 +378,19 @@ def create_experiment_logger(context: Context) -> ExperimentLogger:
         "entity": entity,
         "group": group,
         "mode": mode,
-        "name": f"{experiment}-{method}-{task}-{identity.attempt_id}",
+        "name": (
+            f"{experiment}-{method}-{task}-"
+            f"{_node_count_label(run_config)}-{_capacity_split_label(run_config)}-"
+            f"{identity.attempt_id}"
+        ),
         "tags": sorted(set(tags + [method, task, experiment])),
         "config": {
             **_sanitize_config(run_config),
             "fedctl_experiment": experiment,
             "fedctl_method": method,
             "fedctl_task": task,
+            "fedctl_node_count_label": _node_count_label(run_config),
+            "fedctl_capacity_split_label": _capacity_split_label(run_config),
             "fedctl_flwr_home": os.environ.get("FLWR_HOME", ""),
             "fedctl_submission_id": identity.submission_id,
             "fedctl_canonical_key": identity.canonical_key,

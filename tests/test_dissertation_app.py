@@ -30,6 +30,12 @@ from fedctl_research.methods.assignment import ModelRateAssigner  # noqa: E402
 from fedctl_research.methods.fedavg.strategy import FedAvgBaseline  # noqa: E402
 from fedctl_research.methods.fedavgm.strategy import FedAvgMStrategy  # noqa: E402
 from fedctl_research.methods.fedbuff.async_loop import _apply_aggregated_delta, _staleness_weight  # noqa: E402
+from fedctl_research.methods.fiarse.masking import (  # noqa: E402
+    apply_hard_mask_in_place,
+    build_threshold_map,
+    maskable_parameter_names,
+)
+from fedctl_research.methods.fiarse.strategy import FiarseStrategy  # noqa: E402
 from fedctl_research.methods.fiarse.slicing import build_importance_param_indices_for_rate  # noqa: E402
 from fedctl_research.methods.fedrolex.strategy import FedRolex  # noqa: E402
 from fedctl_research.methods.fedrolex.slicing import (  # noqa: E402
@@ -68,6 +74,7 @@ class _Logger:
     def __init__(self) -> None:
         self.train_calls: list[tuple[int, dict[str, float | int]]] = []
         self.eval_calls: list[tuple[int, dict[str, float | int]]] = []
+        self.server_eval_calls: list[tuple[int, dict[str, float | int]]] = []
         self.system_calls: list[tuple[int, dict[str, float | int]]] = []
 
     def log_train_metrics(self, server_round: int, metrics) -> None:
@@ -75,6 +82,9 @@ class _Logger:
 
     def log_client_eval_metrics(self, server_round: int, metrics) -> None:
         self.eval_calls.append((server_round, dict(metrics or {})))
+
+    def log_server_eval_metrics(self, server_round: int, metrics) -> None:
+        self.server_eval_calls.append((server_round, dict(metrics or {})))
 
     def log_system_metrics(self, server_round: int, metrics) -> None:
         self.system_calls.append((server_round, dict(metrics or {})))
@@ -265,7 +275,12 @@ def test_fedavg_aggregate_train_logs_summary_metrics() -> None:
     arrays, _ = strategy.aggregate_train(
         1,
         [
-            _make_message(node_id=1, group_id="1", array_state=state1, metrics={"num-examples": 3, "train-loss": 1.0}),
+            _make_message(
+                node_id=1,
+                group_id="1",
+                array_state=state1,
+                metrics={"num-examples": 3, "train-loss": 1.0, "train-duration-s": 1.0},
+            ),
             _make_message(
                 node_id=2,
                 group_id="1",
@@ -341,6 +356,7 @@ def test_fedavgm_applies_server_momentum() -> None:
     strategy._round_sampled_nodes = 1
     strategy._round_started_at = time.perf_counter()
     strategy._global_state_before_round = OrderedDict({"w": torch.tensor([2.0])})
+    strategy.current_arrays = ArrayRecord(OrderedDict({"w": torch.tensor([2.0])}))
     arrays, _ = strategy.aggregate_train(
         1,
         [
@@ -359,6 +375,7 @@ def test_fedavgm_applies_server_momentum() -> None:
     strategy._round_sampled_nodes = 1
     strategy._round_started_at = time.perf_counter()
     strategy._global_state_before_round = OrderedDict({"w": torch.tensor([1.0])})
+    strategy.current_arrays = ArrayRecord(OrderedDict({"w": round1.clone()}))
     arrays, _ = strategy.aggregate_train(
         2,
         [
@@ -524,22 +541,168 @@ def test_fiarse_slicing_matches_smaller_model_state() -> None:
     local_model.load_state_dict(local_state, strict=True)
 
 
-def test_fiarse_threshold_modes_produce_distinct_selections() -> None:
+def test_fiarse_threshold_modes_produce_distinct_thresholds_when_layers_have_different_scales() -> None:
+    model = torch.nn.Sequential(
+        OrderedDict(
+            {
+                "head": torch.nn.Linear(4, 4, bias=False),
+                "tail": torch.nn.Linear(4, 4, bias=False),
+            }
+        )
+    )
+    with torch.no_grad():
+        model.head.weight.copy_(
+            torch.tensor(
+                [
+                    [100.0, 99.0, 98.0, 97.0],
+                    [96.0, 95.0, 94.0, 93.0],
+                    [92.0, 91.0, 90.0, 89.0],
+                    [88.0, 87.0, 86.0, 85.0],
+                ]
+            )
+        )
+        model.tail.weight.copy_(
+            torch.tensor(
+                [
+                    [4.0, 3.0, 2.0, 1.0],
+                    [0.9, 0.8, 0.7, 0.6],
+                    [0.5, 0.4, 0.3, 0.2],
+                    [0.1, 0.05, 0.02, 0.01],
+                ]
+            )
+        )
+
+    global_thresholds = build_threshold_map(model, model_rate=0.25, threshold_mode="global")
+    layerwise_thresholds = build_threshold_map(model, model_rate=0.25, threshold_mode="layerwise")
+
+    assert float(global_thresholds["tail.weight"]) > float(layerwise_thresholds["tail.weight"])
+
+
+def test_fiarse_global_threshold_prefers_largest_magnitudes_not_low_outliers() -> None:
     state = OrderedDict(
         {
-            "features.0.weight": torch.arange(32 * 3 * 3 * 3, dtype=torch.float32).reshape(32, 3, 3, 3),
-            "features.0.bias": torch.zeros(32),
-            "features.5.weight": torch.flip(torch.arange(64 * 32 * 3 * 3, dtype=torch.float32), dims=[0]).reshape(64, 32, 3, 3),
-            "features.5.bias": torch.zeros(64),
-            "classifier.1.weight": torch.ones(10, 64),
-            "classifier.1.bias": torch.zeros(10),
+            "features.0.weight": torch.tensor([100.0, 99.0, 98.0, 1.0], dtype=torch.float32).reshape(4, 1, 1, 1),
+            "features.0.bias": torch.zeros(4),
+            "classifier.1.weight": torch.ones(2, 4),
+            "classifier.1.bias": torch.zeros(2),
         }
     )
-    global_idx = build_importance_param_indices_for_rate(state, 0.25, global_model_rate=1.0, threshold_mode="global")
-    layerwise_idx = build_importance_param_indices_for_rate(state, 0.25, global_model_rate=1.0, threshold_mode="layerwise")
-    global_out, _ = global_idx["features.5.weight"]
-    layerwise_out, _ = layerwise_idx["features.5.weight"]
-    assert not torch.equal(global_out, layerwise_out)
+    global_idx = build_importance_param_indices_for_rate(
+        state,
+        0.5,
+        global_model_rate=1.0,
+        threshold_mode="global",
+    )
+    global_out, _ = global_idx["features.0.weight"]
+    assert torch.equal(global_out, torch.tensor([0, 1]))
+
+
+def test_fiarse_masking_only_targets_maskable_layers() -> None:
+    model = torch.nn.Sequential(
+        OrderedDict(
+            {
+                "conv": torch.nn.Conv2d(1, 1, kernel_size=1, bias=True),
+                "bn": torch.nn.BatchNorm2d(1),
+                "head": torch.nn.Linear(1, 1),
+            }
+        )
+    )
+
+    assert maskable_parameter_names(model) == ("conv.weight", "conv.bias", "head.weight", "head.bias")
+
+
+def test_fiarse_hard_mask_zeroes_low_magnitude_parameters_and_preserves_norm_affine() -> None:
+    model = torch.nn.Sequential(
+        OrderedDict(
+            {
+                "conv": torch.nn.Conv2d(1, 1, kernel_size=1, bias=True),
+                "bn": torch.nn.BatchNorm2d(1),
+                "head": torch.nn.Linear(1, 1),
+            }
+        )
+    )
+    with torch.no_grad():
+        model.conv.weight.fill_(10.0)
+        model.conv.bias.fill_(9.0)
+        model.bn.weight.fill_(7.0)
+        model.bn.bias.fill_(6.0)
+        model.head.weight.fill_(0.01)
+        model.head.bias.fill_(0.02)
+
+    threshold_map = build_threshold_map(model, model_rate=0.5, threshold_mode="global")
+    apply_hard_mask_in_place(model, threshold_map=threshold_map)
+
+    assert torch.all(model.conv.weight != 0)
+    assert torch.all(model.conv.bias != 0)
+    assert torch.all(model.head.weight == 0)
+    assert torch.all(model.head.bias == 0)
+    assert torch.all(model.bn.weight == 7.0)
+    assert torch.all(model.bn.bias == 6.0)
+
+
+def test_fiarse_strategy_aggregates_sparse_deltas_with_global_lr() -> None:
+    strategy = FiarseStrategy(
+        rate_assigner=ModelRateAssigner(
+            mode="fix",
+            default_model_rate=0.5,
+            explicit_rate_by_node_id={},
+            explicit_rate_by_partition_id={},
+            rate_by_device_type={"rpi4": 0.5},
+            device_type_by_node_id={1: "rpi4", 2: "rpi4"},
+            partition_id_by_node_id={},
+            dynamic_levels=(1.0, 0.5),
+            dynamic_proportions=(0.5, 0.5),
+            device_type_allocations={},
+        ),
+        global_learning_rate=0.5,
+        experiment_logger=_Logger(),
+        min_available_nodes=1,
+        min_train_nodes=1,
+        min_evaluate_nodes=1,
+        fraction_train=1.0,
+        fraction_evaluate=1.0,
+    )
+    strategy._global_state_for_round = OrderedDict(
+        {
+            "layer.weight": torch.tensor([10.0, 10.0]),
+            "bn.running_mean": torch.tensor([4.0]),
+        }
+    )
+    strategy._active_rate_by_node = {1: 0.5, 2: 0.5}
+    strategy._round_sampled_nodes = 2
+    strategy._round_started_at = time.perf_counter()
+    strategy._server_started_at = strategy._round_started_at
+
+    replies = [
+        _make_message(
+            node_id=1,
+            group_id="1",
+            array_state=OrderedDict(
+                {
+                    "layer.weight": torch.tensor([8.0, 10.0]),
+                    "bn.running_mean": torch.tensor([3.0]),
+                }
+            ),
+            metrics={"train-duration-s": 1.0, "num-examples": 1, "train-num-examples": 1},
+        ),
+        _make_message(
+            node_id=2,
+            group_id="1",
+            array_state=OrderedDict(
+                {
+                    "layer.weight": torch.tensor([10.0, 7.0]),
+                    "bn.running_mean": torch.tensor([2.0]),
+                }
+            ),
+            metrics={"train-duration-s": 1.0, "num-examples": 1, "train-num-examples": 1},
+        ),
+    ]
+
+    arrays, _ = strategy.aggregate_train(server_round=1, replies=replies)
+    assert arrays is not None
+    aggregated = arrays.to_torch_state_dict()
+    assert torch.allclose(aggregated["layer.weight"], torch.tensor([9.0, 8.5]))
+    assert torch.allclose(aggregated["bn.running_mean"], torch.tensor([2.5]))
 
 
 def test_fedrolex_paper_roll_mode_matches_round_modulo_rule() -> None:
@@ -679,9 +842,12 @@ def test_dynamic_model_rate_assignment_is_deterministic() -> None:
     )
     first = assigner.assign_for_round([1, 2, 3], server_round=2)
     second = assigner.assign_for_round([1, 2, 3], server_round=2)
-    third = assigner.assign_for_round([1, 2, 3], server_round=3)
+    sampled_rounds = {
+        round_idx: assigner.assign_for_round([1, 2, 3], server_round=round_idx)
+        for round_idx in range(2, 8)
+    }
     assert first == second
-    assert any(first[node_id] != third[node_id] for node_id in first)
+    assert any(assignment != first for round_idx, assignment in sampled_rounds.items() if round_idx != 2)
     assert set(first.values()).issubset({1.0, 0.5, 0.25})
 
 
@@ -1005,7 +1171,7 @@ def test_partitioning_device_correlated_label_skew_splits_early_and_late_partiti
         num_classes=10,
         request=_partition_request(
             partitioning="device-correlated-label-skew",
-            num_partitions=3,
+            num_partitions=5,
             device_type="rpi4",
             partitioning_num_labels=2,
             assignment_seed=42,
@@ -1016,18 +1182,17 @@ def test_partitioning_device_correlated_label_skew_splits_early_and_late_partiti
         num_classes=10,
         request=_partition_request(
             partitioning="device-correlated-label-skew",
-            num_partitions=3,
+            num_partitions=5,
             device_type="rpi5",
             partitioning_num_labels=2,
             assignment_seed=42,
         ),
     ).partition_result
-    low_labels = set(range(5))
-    high_labels = set(range(5, 10))
-    for label_set in rpi4_train.label_sets_by_partition:
-        assert set(label_set).issubset(low_labels)
-    for label_set in rpi5_train.label_sets_by_partition:
-        assert set(label_set).issubset(high_labels)
+    assert len(rpi4_train.label_sets_by_partition) == 5
+    assert len(rpi5_train.label_sets_by_partition) == 5
+    assert all(len(label_set) == 2 for label_set in rpi4_train.label_sets_by_partition)
+    assert all(len(label_set) == 2 for label_set in rpi5_train.label_sets_by_partition)
+    assert rpi4_train.label_sets_by_partition != rpi5_train.label_sets_by_partition
 
 
 def test_build_typed_partition_plan_assigns_indices_within_device_groups() -> None:
@@ -1153,12 +1318,12 @@ def test_partitioning_device_correlated_label_skew_uses_explicit_partition_devic
         num_classes=10,
         request=_partition_request(
             partitioning="device-correlated-label-skew",
-            num_partitions=4,
+            num_partitions=5,
             device_type="unknown",
             partitioning_num_labels=2,
             assignment_seed=42,
         ),
-        partition_device_types=("rpi4", "rpi4", "rpi5", "rpi5"),
+        partition_device_types=("rpi4", "rpi4", "rpi5", "rpi5", "rpi5"),
     ).partition_result
     assert set(train.label_sets_by_partition[0]).issubset(set(range(5)))
     assert set(train.label_sets_by_partition[-1]).issubset(set(range(5, 10)))
@@ -1195,26 +1360,26 @@ def test_partitioning_loader_seed_does_not_change_membership() -> None:
 
 
 def test_typed_device_correlated_requests_partition_within_device_group() -> None:
-    labels = tuple([i % 10 for i in range(240)])
+    labels = tuple([i % 10 for i in range(300)])
     rpi4_request = _partition_request(
         partitioning="device-correlated-label-skew",
         partition_id=5,
-        num_partitions=6,
+        num_partitions=10,
         device_type="rpi4",
         partitioning_num_labels=2,
         assignment_seed=42,
         typed_partition_idx=1,
-        typed_partition_count=3,
+        typed_partition_count=5,
     )
     rpi5_request = _partition_request(
         partitioning="device-correlated-label-skew",
         partition_id=2,
-        num_partitions=6,
+        num_partitions=10,
         device_type="rpi5",
         partitioning_num_labels=2,
         assignment_seed=42,
         typed_partition_idx=1,
-        typed_partition_count=3,
+        typed_partition_count=5,
     )
     rpi4_result = build_classification_partitioner(
         labels=labels,
@@ -1227,12 +1392,11 @@ def test_typed_device_correlated_requests_partition_within_device_group() -> Non
         request=rpi5_request,
     ).partition_result
 
-    assert len(rpi4_result.indices_by_partition) == 3
-    assert len(rpi5_result.indices_by_partition) == 3
-    for label_set in rpi4_result.label_sets_by_partition:
-        assert set(label_set).issubset(set(range(5)))
-    for label_set in rpi5_result.label_sets_by_partition:
-        assert set(label_set).issubset(set(range(5, 10)))
+    assert len(rpi4_result.indices_by_partition) == 5
+    assert len(rpi5_result.indices_by_partition) == 5
+    assert all(len(label_set) == 2 for label_set in rpi4_result.label_sets_by_partition)
+    assert all(len(label_set) == 2 for label_set in rpi5_result.label_sets_by_partition)
+    assert rpi4_result.label_sets_by_partition != rpi5_result.label_sets_by_partition
 
 
 def test_partitioning_dirichlet_is_deterministic() -> None:
@@ -1318,15 +1482,12 @@ def test_central_evaluate_logs_server_eval_duration(monkeypatch: pytest.MonkeyPa
 
 
 def test_sync_strategy_logs_per_client_eval_events() -> None:
-    task = resolve_task("fashion_mnist_cnn")
     strategy = FedAvgBaseline(
         fraction_train=1.0,
         fraction_evaluate=1.0,
         min_train_nodes=2,
         min_evaluate_nodes=2,
         min_available_nodes=2,
-        evaluate_fn=None,
-        initial_arrays=ArrayRecord(task.build_model_for_rate(1.0).state_dict()),
         experiment_logger=_Logger(),
         artifact_logger=_ArtifactLogger(),
         task_name="fashion_mnist_cnn",
@@ -1386,7 +1547,9 @@ def test_large_server_config_exists() -> None:
         / "apps"
         / "fedctl_research"
         / "experiment_configs"
+        / "compute_heterogeneity"
         / "ablations"
+        / "method_mechanisms"
         / "large_server"
         / "cifar10_cnn"
         / "gamma_2"
@@ -1411,14 +1574,16 @@ def test_all_active_experiment_configs_set_required_keys() -> None:
         assert "client" in data, str(path)
         assert "data" in data, str(path)
         assert "model" in data, str(path)
-        assert "capacity" in data, str(path)
+        if "compute_heterogeneity" in path.parts:
+            assert "capacity" in data, str(path)
         assert "wandb" in data, str(path)
         assert "rpi4" in data["devices"], str(path)
         assert "rpi5" in data["devices"], str(path)
         if "smoke" not in path.parts:
             assert data["experiment"]["seeds"] == [1337, 1338, 1339], str(path)
         assert data["wandb"]["enabled"] is True, str(path)
-        assert "model-split-mode" in data["capacity"], str(path)
+        if "capacity" in data:
+            assert "model-split-mode" in data["capacity"], str(path)
         assert "partitioning-num-labels" in data["data"], str(path)
         assert "partitioning-dirichlet-alpha" in data["data"], str(path)
         assert "masked-cross-entropy" in data["data"], str(path)
@@ -1429,7 +1594,11 @@ def test_all_active_experiment_configs_set_required_keys() -> None:
         assert data["capacity"]["model-split-mode"] == "dynamic", str(path)
         assert data["capacity"]["model-rate-levels"] == [1.0, 0.5, 0.25, 0.125], str(path)
         assert data["capacity"]["model-rate-proportions"] == [0.25, 0.25, 0.25, 0.25], str(path)
-    non_iid_paths = [path for path in config_paths if "non_iid" in path.parts]
+    non_iid_paths = [
+        path
+        for path in config_paths
+        if "compute_heterogeneity" in path.parts and "non_iid" in path.parts
+    ]
     assert non_iid_paths
     for path in non_iid_paths:
         data = tomllib.loads(path.read_text())
@@ -1492,7 +1661,7 @@ def test_experiment_config_tree_matches_study_matrix() -> None:
         for path in actual
         if path.startswith("compute_heterogeneity/ablations/capacity_design/fixed_pair_interpolation/cifar10_cnn/")
     )
-    assert len(fixed_pair_sweep) == 95
+    assert len(fixed_pair_sweep) == 96
     gamma_sweep = sorted(
         path
         for path in actual
@@ -1555,7 +1724,16 @@ def test_new_paper_inspired_configs_encode_expected_values() -> None:
     assert participation["server"]["min-train-nodes"] == 2
 
     rho_mid = tomllib.loads(
-        (config_root / "ablations" / "capacity_distribution" / "cifar10_cnn" / "rho_050" / "fedrolex.toml").read_text()
+        (
+            config_root
+            / "compute_heterogeneity"
+            / "ablations"
+            / "capacity_design"
+            / "capacity_distribution"
+            / "cifar10_cnn"
+            / "rho_050"
+            / "fedrolex.toml"
+        ).read_text()
     )
     assert rho_mid["capacity"]["model-rate-levels"] == [1.0, 0.0625]
     assert rho_mid["capacity"]["model-rate-proportions"] == [0.5, 0.5]
@@ -1606,17 +1784,19 @@ def test_main_study_configs_match_balanced_twelve_node_plan() -> None:
 
     for path in compute_paths:
         data = tomllib.loads(path.read_text())
-        expected_rounds = 15 if "fashion_mnist_cnn" in str(path) else 20
-        expected_train_examples = 5000 if "fashion_mnist_cnn" in str(path) else 4167
-        expected_test_examples = 834
+        is_cifar10 = path.parent.name == "cifar10_cnn"
+        expected_rounds = 20 if is_cifar10 else 15
+        expected_train_examples = 2500 if is_cifar10 else 5000
+        expected_test_examples = 500 if is_cifar10 else 834
         assert data["server"]["num-server-rounds"] == expected_rounds, str(path)
-        assert data["server"]["min-available-nodes"] == 12, str(path)
-        assert data["server"]["min-train-nodes"] == 12, str(path)
-        assert data["server"]["min-evaluate-nodes"] == 12, str(path)
+        expected_nodes = 20 if is_cifar10 else 12
+        assert data["server"]["min-available-nodes"] == expected_nodes, str(path)
+        assert data["server"]["min-train-nodes"] == expected_nodes, str(path)
+        assert data["server"]["min-evaluate-nodes"] == expected_nodes, str(path)
         assert data["server"]["fraction-train"] == 1.0, str(path)
         assert data["server"]["fraction-evaluate"] == 1.0, str(path)
-        assert data["client"]["local-epochs"] == 1, str(path)
-        assert data["client"]["learning-rate"] == 0.01, str(path)
+        assert data["client"]["local-epochs"] == (3 if is_cifar10 else 1), str(path)
+        assert data["client"]["learning-rate"] == (0.05 if is_cifar10 else 0.01), str(path)
         assert data["devices"]["rpi4"]["batch-size"] == 8, str(path)
         assert data["devices"]["rpi4"]["max-train-examples"] == expected_train_examples, str(path)
         assert data["devices"]["rpi4"]["max-test-examples"] == expected_test_examples, str(path)
@@ -1658,5 +1838,5 @@ def test_main_study_configs_match_balanced_twelve_node_plan() -> None:
     network_repo = yaml.safe_load(
         (app_root / "repo_configs" / "network_heterogeneity" / "main" / "none.yaml").read_text()
     )
-    assert compute_repo["deploy"]["supernodes"] == {"rpi4": 6, "rpi5": 6}
+    assert compute_repo["deploy"]["supernodes"] == {"rpi4": 10, "rpi5": 10}
     assert network_repo["deploy"]["supernodes"] == {"rpi4": 6, "rpi5": 6}

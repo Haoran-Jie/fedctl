@@ -15,6 +15,7 @@ submit_service/state/*.db
 ansible/group_vars/tailscale_nodes.local.yml
 writeup/
 refs/heterofl/
+refs/FIARSE/
 refs/heterofl_fedctl/data/
 refs/FedRolex-main
 tasks/

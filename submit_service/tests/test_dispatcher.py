@@ -144,6 +144,10 @@ def _typed_supernode_args() -> list[str]:
     ]
 
 
+def _all_typed_bundle_blocked_reason() -> str:
+    return "compute-node:rpi4: need 10, have 0; compute-node:rpi5: need 10, have 0"
+
+
 def test_dispatcher_respects_priority_and_age_order(tmp_path, monkeypatch) -> None:
     db_path = tmp_path / "submit.db"
     storage = Storage(StorageConfig(db_url=f"sqlite:///{db_path}"))
@@ -243,7 +247,7 @@ def test_dispatcher_blocks_when_running_submission_already_reserves_all_nodes(
     assert dispatched_ids == []
     updated = storage.get_submission("sub-queued")
     assert updated["status"] == "blocked"
-    assert updated["blocked_reason"] == "node-bundle:rpi4: need 10, have 0"
+    assert updated["blocked_reason"] == _all_typed_bundle_blocked_reason()
 
 
 def test_dispatcher_blocks_second_submission_even_when_nodes_have_spare_resources(
@@ -290,7 +294,7 @@ def test_dispatcher_blocks_second_submission_even_when_nodes_have_spare_resource
     assert dispatched_ids == []
     updated = storage.get_submission("sub-queued")
     assert updated["status"] == "blocked"
-    assert updated["blocked_reason"] == "node-bundle:rpi4: need 10, have 0"
+    assert updated["blocked_reason"] == _all_typed_bundle_blocked_reason()
 
 
 def test_dispatcher_releases_queue_once_previous_submission_completed(
@@ -318,7 +322,7 @@ def test_dispatcher_releases_queue_once_previous_submission_completed(
     )
     storage.update_submission(
         "sub-queued",
-        {"blocked_reason": "node-bundle:rpi4: need 10, have 0"},
+        {"blocked_reason": _all_typed_bundle_blocked_reason()},
     )
 
     monkeypatch.setattr(

@@ -80,6 +80,9 @@ def test_create_experiment_logger_uses_run_config_and_env(monkeypatch) -> None:
             "method": "fedrolex",
             "task": "cifar10_cnn",
             "seed": 1337,
+            "min-available-nodes": 20,
+            "model-rate-levels": "1.0,0.5,0.25,0.125",
+            "model-rate-proportions": "0.25,0.25,0.25,0.25",
             "wandb-enabled": True,
             "wandb-project": "fedctl",
             "wandb-entity": "samueljie",
@@ -97,11 +100,13 @@ def test_create_experiment_logger_uses_run_config_and_env(monkeypatch) -> None:
     assert init_kwargs["entity"] == "samueljie"
     assert init_kwargs["group"] == "mixed-cluster"
     assert set(init_kwargs["tags"]) >= {"demo-exp", "fedrolex", "cifar10_cnn", "dissertation"}
-    assert init_kwargs["name"] == "demo-exp-fedrolex-cifar10_cnn-sub3017"
+    assert init_kwargs["name"] == "demo-exp-fedrolex-cifar10_cnn-n20-split-1x25_0p5x25_0p25x25_0p125x25-sub3017"
     assert init_kwargs["config"]["fedctl_submission_id"] == "sub-20260409-3017"
     assert init_kwargs["config"]["fedctl_canonical_key"] == (
-        "compute-main/cifar10_cnn/fedrolex/seed1337/profile-none"
+        "compute-main/cifar10_cnn/fedrolex/n20/split-1x25_0p5x25_0p25x25_0p125x25/seed1337/profile-none"
     )
+    assert init_kwargs["config"]["fedctl_node_count_label"] == "n20"
+    assert init_kwargs["config"]["fedctl_capacity_split_label"] == "split-1x25_0p5x25_0p25x25_0p125x25"
     assert init_kwargs["config"]["fedctl_attempt_status"] == "running"
     assert init_kwargs["config"]["fedctl_attempt_started_at"] == "2026-04-09T10:00:00Z"
 
@@ -123,6 +128,9 @@ def test_wandb_experiment_logger_logs_and_finishes(monkeypatch) -> None:
             "method": "heterofl",
             "task": "fashion_mnist_cnn",
             "seed": 1337,
+            "min-available-nodes": 12,
+            "model-rate-levels": "1.0,0.5,0.25,0.125,0.0625",
+            "model-rate-proportions": "0.2,0.2,0.2,0.2,0.2",
             "wandb-enabled": True,
             "wandb-project": "fedctl",
         }
@@ -163,7 +171,7 @@ def test_wandb_experiment_logger_logs_and_finishes(monkeypatch) -> None:
     assert run.summary["final/eval_server/eval-acc"] == 0.8
     assert run.summary["fedctl_submission_id"] == "sub-20260409-1462"
     assert run.summary["fedctl_canonical_key"] == (
-        "compute-main/fashion_mnist_cnn/heterofl/seed1337/profile-none"
+        "compute-main/fashion_mnist_cnn/heterofl/n12/split-1x20_0p5x20_0p25x20_0p125x20_0p0625x20/seed1337/profile-none"
     )
     assert run.summary["fedctl_attempt_status"] == "completed"
     assert run.summary["fedctl_attempt_started_at"] == "2026-04-09T11:00:00Z"
@@ -179,6 +187,9 @@ def test_wandb_finish_failure_is_non_fatal(monkeypatch) -> None:
         run_config={
             "method": "fedavg",
             "task": "fashion_mnist_mlp",
+            "min-available-nodes": 12,
+            "model-rate-levels": "1.0",
+            "model-rate-proportions": "1.0",
             "wandb-enabled": True,
             "wandb-project": "fedctl",
         }
@@ -201,6 +212,9 @@ def test_wandb_summary_failure_disables_future_logging(monkeypatch) -> None:
         run_config={
             "method": "fedavg",
             "task": "fashion_mnist_mlp",
+            "min-available-nodes": 12,
+            "model-rate-levels": "1.0",
+            "model-rate-proportions": "1.0",
             "wandb-enabled": True,
             "wandb-project": "fedctl",
         }
@@ -232,6 +246,9 @@ def test_wandb_retry_attempts_keep_same_canonical_key_but_distinct_names(monkeyp
             "method": "fedbuff",
             "task": "cifar10_cnn",
             "seed": 1337,
+            "min-available-nodes": 8,
+            "model-rate-levels": "1.0",
+            "model-rate-proportions": "1.0",
             "wandb-enabled": True,
             "wandb-project": "fedctl",
         }
@@ -245,11 +262,11 @@ def test_wandb_retry_attempts_keep_same_canonical_key_but_distinct_names(monkeyp
     first_run = fake_wandb.runs[0]
     second_run = fake_wandb.runs[1]
     assert first_run.init_kwargs["config"]["fedctl_canonical_key"] == (
-        "network-main/cifar10_cnn/fedbuff/seed1337/profile-none"
+        "network-main/cifar10_cnn/fedbuff/n8/split-1x100/seed1337/profile-none"
     )
     assert second_run.init_kwargs["config"]["fedctl_canonical_key"] == (
-        "network-main/cifar10_cnn/fedbuff/seed1337/profile-none"
+        "network-main/cifar10_cnn/fedbuff/n8/split-1x100/seed1337/profile-none"
     )
-    assert first_run.init_kwargs["name"] == "demo-exp-fedbuff-cifar10_cnn-sub1001"
-    assert second_run.init_kwargs["name"] == "demo-exp-fedbuff-cifar10_cnn-sub1002"
+    assert first_run.init_kwargs["name"] == "demo-exp-fedbuff-cifar10_cnn-n8-split-1x100-sub1001"
+    assert second_run.init_kwargs["name"] == "demo-exp-fedbuff-cifar10_cnn-n8-split-1x100-sub1002"
     assert first.canonical_key == second.canonical_key

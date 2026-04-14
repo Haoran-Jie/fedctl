@@ -27,8 +27,16 @@ def build_param_indices_for_rate(
     param_idx: ParamIndex = OrderedDict()
     prev_output_idx: torch.Tensor | None = None
     prev_full_output_size: int | None = None
+    residual_block_inputs: dict[str, tuple[torch.Tensor, int]] = {}
 
     for key, value in global_state.items():
+        if key.endswith(".bn1.weight"):
+            block_prefix = key[: -len(".bn1.weight")]
+            if prev_output_idx is not None and prev_full_output_size is not None:
+                residual_block_inputs[block_prefix] = (
+                    prev_output_idx,
+                    prev_full_output_size,
+                )
         if key == final_classifier_weight:
             assert prev_output_idx is not None
             assert prev_full_output_size is not None
@@ -47,7 +55,21 @@ def build_param_indices_for_rate(
 
         if key.endswith("weight"):
             if value.ndim > 1:
-                input_idx = _infer_input_idx(value, prev_output_idx, prev_full_output_size)
+                shortcut_marker = ".shortcut."
+                if shortcut_marker in key:
+                    block_prefix = key.split(shortcut_marker, 1)[0]
+                    block_input = residual_block_inputs.get(block_prefix)
+                    if block_input is not None:
+                        shortcut_prev_output_idx, shortcut_prev_full_output_size = block_input
+                        input_idx = _infer_input_idx(
+                            value,
+                            shortcut_prev_output_idx,
+                            shortcut_prev_full_output_size,
+                        )
+                    else:
+                        input_idx = _infer_input_idx(value, prev_output_idx, prev_full_output_size)
+                else:
+                    input_idx = _infer_input_idx(value, prev_output_idx, prev_full_output_size)
                 output_size = value.size(0)
                 local_output_size = max(1, int(torch.ceil(torch.tensor(output_size * scale)).item()))
                 output_idx = torch.arange(output_size, device=value.device)[:local_output_size]
