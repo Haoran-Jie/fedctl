@@ -74,3 +74,20 @@ def test_plan_supernodes_uses_all_available_nodes_without_off_by_one() -> None:
         SupernodePlacement(device_type="rpi4", instance_idx=1, node_id="node-a"),
         SupernodePlacement(device_type="rpi4", instance_idx=2, node_id="node-b"),
     ]
+
+
+def test_plan_supernodes_spread_across_hosts_pins_nodes_even_when_oversubscribed() -> None:
+    nodes = [
+        {"ID": "node-a", "Name": "rpi4-001"},
+        {"ID": "node-b", "Name": "rpi4-002"},
+    ]
+    placements = plan_supernodes(
+        counts={"rpi4": 2},
+        allow_oversubscribe=True,
+        spread_across_hosts=True,
+        nodes=nodes,
+    )
+    assert placements == [
+        SupernodePlacement(device_type="rpi4", instance_idx=1, node_id="node-a"),
+        SupernodePlacement(device_type="rpi4", instance_idx=2, node_id="node-b"),
+    ]

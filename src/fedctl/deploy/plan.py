@@ -38,13 +38,15 @@ def plan_supernodes(
     *,
     counts: dict[str, int],
     allow_oversubscribe: bool,
+    spread_across_hosts: bool = False,
     nodes: list[dict[str, Any]] | None,
 ) -> list[SupernodePlacement]:
     placements: list[SupernodePlacement] = []
     for device_type, count in counts.items():
         if count == 0:
             continue
-        if allow_oversubscribe:
+        requires_host_placement = spread_across_hosts or not allow_oversubscribe
+        if not requires_host_placement:
             for idx in range(1, count + 1):
                 placements.append(
                     SupernodePlacement(
@@ -56,7 +58,7 @@ def plan_supernodes(
             continue
 
         if nodes is None:
-            raise ValueError("Node inventory required for non-oversubscribed placement.")
+            raise ValueError("Node inventory required for host-pinned placement.")
         available = _nodes_by_type(nodes, device_type)
         if len(available) < count:
             raise ValueError(

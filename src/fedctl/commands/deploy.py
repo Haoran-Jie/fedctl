@@ -59,6 +59,7 @@ class _RepoDeployConfig:
     network_image: str | None
     network_apply: dict[str, object]
     allow_oversubscribe: object
+    spread_across_hosts: object
 
 
 _RUNTIME_SUPEREXEC_ENV_KEYS = (
@@ -136,6 +137,7 @@ def run_deploy(
     repo_network_image = repo_defaults.network_image
     repo_network_apply = repo_defaults.network_apply
     repo_allow_oversubscribe = repo_defaults.allow_oversubscribe
+    repo_spread_across_hosts = repo_defaults.spread_across_hosts
 
     supernodes = supernodes or []
     supernodes_by_type = None
@@ -159,6 +161,7 @@ def run_deploy(
 
     if allow_oversubscribe is None:
         allow_oversubscribe = bool(repo_allow_oversubscribe)
+    spread_across_hosts = bool(repo_spread_across_hosts)
 
     netem_serverapp = True
     netem_clientapp = True
@@ -168,9 +171,9 @@ def run_deploy(
         if "superexec_clientapp" in repo_network_apply:
             netem_clientapp = bool(repo_network_apply.get("superexec_clientapp"))
 
-    if dry_run and supernodes_by_type and not allow_oversubscribe:
+    if dry_run and supernodes_by_type and (not allow_oversubscribe or spread_across_hosts):
         console.print(
-            "[red]✗ Non-oversubscribed placement requires live inventory (no dry-run).[/red]"
+            "[red]✗ Host-pinned placement requires live inventory (no dry-run).[/red]"
         )
         return 1
 
@@ -275,11 +278,13 @@ def run_deploy(
 
         placements = None
         if supernodes_by_type:
-            nodes = None if allow_oversubscribe else client.nodes(detailed=True)
+            needs_inventory = spread_across_hosts or not allow_oversubscribe
+            nodes = client.nodes(detailed=True) if needs_inventory else None
             try:
                 placements = plan_supernodes(
                     counts=supernodes_by_type,
                     allow_oversubscribe=allow_oversubscribe,
+                    spread_across_hosts=spread_across_hosts,
                     nodes=nodes if isinstance(nodes, list) else None,
                 )
             except ValueError as exc:
@@ -484,6 +489,7 @@ def _repo_deploy_config(repo_cfg: dict[str, object]) -> _RepoDeployConfig:
         network_image=_as_optional_str(network.get("image")),
         network_apply=network_apply,
         allow_oversubscribe=placement.get("allow_oversubscribe"),
+        spread_across_hosts=placement.get("spread_across_hosts"),
     )
 
 

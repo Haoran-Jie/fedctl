@@ -174,3 +174,19 @@ def test_repo_deploy_config_extracts_superexec_env_map() -> None:
         "WANDB_PROJECT": "fedctl",
         "WANDB_ENTITY": "samueljie",
     }
+
+
+def test_repo_deploy_config_extracts_spread_across_hosts() -> None:
+    repo_defaults = _repo_deploy_config(
+        {
+            "deploy": {
+                "placement": {
+                    "allow_oversubscribe": True,
+                    "spread_across_hosts": True,
+                }
+            }
+        }
+    )
+
+    assert repo_defaults.allow_oversubscribe is True
+    assert repo_defaults.spread_across_hosts is True

@@ -103,6 +103,33 @@ def test_render_deploy_superexec_jobs() -> None:
     assert "FEDCTL_WAIT_CLIENT_IO_TIMEOUT_S" in client_cfg["args"][0]
 
 
+def test_render_deploy_keeps_clientapp_colocated_with_pinned_supernode() -> None:
+    placements = [
+        SupernodePlacement(device_type="rpi4", instance_idx=1, node_id="node-rpi4-a"),
+    ]
+    spec = default_deploy_spec(
+        num_supernodes=1,
+        image="example/superexec:latest",
+        experiment="exp-test",
+        supernodes_by_type={"rpi4": 1},
+        allow_oversubscribe=True,
+        placements=placements,
+    )
+    rendered = render_deploy(spec)
+
+    supernode_constraints = rendered.supernodes["Job"]["TaskGroups"][0]["Constraints"]
+    client_constraints = rendered.superexec_clientapps[0]["Job"]["TaskGroups"][0]["Constraints"]
+
+    assert any(
+        c.get("LTarget") == "${node.unique.id}" and c.get("RTarget") == "node-rpi4-a"
+        for c in supernode_constraints
+    )
+    assert any(
+        c.get("LTarget") == "${node.unique.id}" and c.get("RTarget") == "node-rpi4-a"
+        for c in client_constraints
+    )
+
+
 def test_render_deploy_superexec_jobs_include_custom_env() -> None:
     spec = default_deploy_spec(
         num_supernodes=1,
