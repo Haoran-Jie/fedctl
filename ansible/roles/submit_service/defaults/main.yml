@@ -6,7 +6,7 @@ submit_venv_path: "/opt/fedctl/.venv"
 submit_db_url: "sqlite:////opt/fedctl/submit_service/state/submit.db"
 submit_dispatch_mode: "queue"
 submit_autopurge_completed_after_s: 0
-submit_presign_ttl: 21600
+submit_presign_ttl: 43200
 submit_allow_unauth: false
 submit_bind_host: "0.0.0.0"
 submit_bind_port: 8080
