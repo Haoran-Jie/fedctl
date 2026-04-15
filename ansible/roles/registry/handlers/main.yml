@@ -1,0 +1,6 @@
+---
+- name: Restart registry container
+  ansible.builtin.command: docker restart {{ registry_container_name }}
+  register: registry_restart
+  changed_when: "'{{ registry_container_name }}' in registry_restart.stdout"
+  when: registry_inspect is defined and registry_inspect.rc == 0 and not (registry_recreate_required | default(false))

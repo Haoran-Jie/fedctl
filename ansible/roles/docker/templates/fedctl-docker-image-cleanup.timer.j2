@@ -1,0 +1,10 @@
+[Unit]
+Description=Run fedctl Docker image cleanup daily
+
+[Timer]
+OnCalendar=*-*-* {{ docker_image_cleanup_schedule }}:00
+Persistent=true
+Unit={{ docker_image_cleanup_service_name }}.service
+
+[Install]
+WantedBy=timers.target

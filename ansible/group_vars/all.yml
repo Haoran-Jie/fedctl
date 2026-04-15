@@ -20,6 +20,17 @@ docker_insecure_registries:
   - "{{ cluster_registry_hostport }}"
   - "{{ cluster_registry_tailscale_hostport }}"
 
+# Local registry retention defaults. This keeps the registry catalog manageable,
+# but does not reclaim blob storage until a future offline GC maintenance step.
+registry_delete_enabled: true
+registry_retention_enabled: true
+registry_retention_keep_tags: 10
+registry_retention_keep_latest: true
+registry_retention_repo_patterns:
+  - "*-superexec"
+registry_retention_schedule: "03:30"
+registry_retention_dry_run: false
+
 # Provisioning network preference. Campus Ethernet is now the intended primary
 # path, so disable the legacy Wi-Fi-first tuning in the network_policy role.
 network_prefer_wifi: false

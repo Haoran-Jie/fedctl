@@ -7,6 +7,24 @@
     group: root
     mode: "0755"
 
+- name: Ensure registry config directory exists
+  ansible.builtin.file:
+    path: "{{ registry_config_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Render registry config
+  ansible.builtin.template:
+    src: config.yml.j2
+    dest: "{{ registry_config_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+  register: registry_config_template
+  notify: Restart registry container
+
 - name: Check existing registry container
   ansible.builtin.command: "docker inspect {{ registry_container_name }}"
   register: registry_inspect
@@ -23,21 +41,36 @@
   register: registry_pull
   changed_when: "'Downloaded newer image' in registry_pull.stdout or 'Status: Downloaded newer image' in registry_pull.stdout"
 
-- name: Ensure registry restart policy is always
-  ansible.builtin.command: "docker update --restart always {{ registry_container_name }}"
-  when:
-    - registry_inspect.rc == 0
-    - registry_container_details.HostConfig.RestartPolicy.Name != 'always'
-  register: registry_update
-  changed_when: "'registry' in registry_update.stdout"
+- name: Determine whether registry container must be recreated
+  ansible.builtin.set_fact:
+    registry_recreate_required: >-
+      {{
+        registry_inspect.rc == 0 and (
+          registry_container_details.Config.Image != registry_image or
+          (
+            registry_container_details.Mounts | default([])
+            | selectattr('Destination', 'equalto', '/var/lib/registry')
+            | selectattr('Source', 'equalto', registry_data_dir)
+            | list
+            | length
+          ) == 0 or
+          (
+            registry_container_details.Mounts | default([])
+            | selectattr('Destination', 'equalto', '/etc/docker/registry/config.yml')
+            | selectattr('Source', 'equalto', registry_config_path)
+            | list
+            | length
+          ) == 0
+        )
+      }}
 
-- name: Ensure existing registry container is running
-  ansible.builtin.command: "docker start {{ registry_container_name }}"
+- name: Remove registry container when recreation is required
+  ansible.builtin.command: "docker rm -f {{ registry_container_name }}"
   when:
     - registry_inspect.rc == 0
-    - not registry_container_details.State.Running
-  register: registry_start
-  changed_when: "'{{ registry_container_name }}' in registry_start.stdout"
+    - registry_recreate_required | bool
+  register: registry_remove
+  changed_when: "'{{ registry_container_name }}' in registry_remove.stdout"
 
 - name: Create registry container when absent
   ansible.builtin.command: >-
@@ -46,5 +79,91 @@
     --restart always
     -p {{ registry_port }}:5000
     -v {{ registry_data_dir }}:/var/lib/registry
+    -v {{ registry_config_path }}:/etc/docker/registry/config.yml:ro
     {{ registry_image }}
-  when: registry_inspect.rc != 0
+  when: registry_inspect.rc != 0 or registry_recreate_required | bool
+
+- name: Ensure registry restart policy is always
+  ansible.builtin.command: "docker update --restart always {{ registry_container_name }}"
+  when:
+    - registry_inspect.rc == 0
+    - not (registry_recreate_required | bool)
+    - registry_container_details.HostConfig.RestartPolicy.Name != 'always'
+  register: registry_update
+  changed_when: "'registry' in registry_update.stdout"
+
+- name: Ensure existing registry container is running
+  ansible.builtin.command: "docker start {{ registry_container_name }}"
+  when:
+    - registry_inspect.rc == 0
+    - not (registry_recreate_required | bool)
+    - not registry_container_details.State.Running
+  register: registry_start
+  changed_when: "'{{ registry_container_name }}' in registry_start.stdout"
+
+- name: Install registry retention script
+  ansible.builtin.copy:
+    src: registry_retention.py
+    dest: "{{ registry_retention_script_path }}"
+    owner: root
+    group: root
+    mode: "0755"
+  when: registry_retention_enabled | bool
+
+- name: Install registry retention service
+  ansible.builtin.template:
+    src: fedctl-registry-retention.service.j2
+    dest: "/etc/systemd/system/{{ registry_retention_service_name }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  when: registry_retention_enabled | bool
+
+- name: Install registry retention timer
+  ansible.builtin.template:
+    src: fedctl-registry-retention.timer.j2
+    dest: "/etc/systemd/system/{{ registry_retention_service_name }}.timer"
+    owner: root
+    group: root
+    mode: "0644"
+  when: registry_retention_enabled | bool
+
+- name: Enable and start registry retention timer
+  ansible.builtin.systemd:
+    name: "{{ registry_retention_service_name }}.timer"
+    enabled: true
+    state: started
+    daemon_reload: true
+  when: registry_retention_enabled | bool
+
+- name: Disable registry retention timer when cleanup is disabled
+  ansible.builtin.systemd:
+    name: "{{ registry_retention_service_name }}.timer"
+    enabled: false
+    state: stopped
+    daemon_reload: true
+  failed_when: false
+  when: not (registry_retention_enabled | bool)
+
+- name: Remove registry retention timer when cleanup is disabled
+  ansible.builtin.file:
+    path: "/etc/systemd/system/{{ registry_retention_service_name }}.timer"
+    state: absent
+  when: not (registry_retention_enabled | bool)
+
+- name: Remove registry retention service when cleanup is disabled
+  ansible.builtin.file:
+    path: "/etc/systemd/system/{{ registry_retention_service_name }}.service"
+    state: absent
+  when: not (registry_retention_enabled | bool)
+
+- name: Remove registry retention script when cleanup is disabled
+  ansible.builtin.file:
+    path: "{{ registry_retention_script_path }}"
+    state: absent
+  when: not (registry_retention_enabled | bool)
+
+- name: Reload systemd after removing registry retention units
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: not (registry_retention_enabled | bool)

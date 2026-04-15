@@ -75,3 +75,66 @@
     group: root
     mode: "0644"
   notify: Restart docker
+
+- name: Determine whether Docker image cleanup is enabled for this host
+  ansible.builtin.set_fact:
+    docker_image_cleanup_effective: >-
+      {{
+        (docker_image_cleanup_enabled | bool)
+        and (
+          (docker_image_cleanup_node_classes | default([]) | length == 0)
+          or ((nomad_node_class | default('')) in (docker_image_cleanup_node_classes | default([])))
+        )
+      }}
+
+- name: Install Docker image cleanup service
+  ansible.builtin.template:
+    src: fedctl-docker-image-cleanup.service.j2
+    dest: "/etc/systemd/system/{{ docker_image_cleanup_service_name }}.service"
+    owner: root
+    group: root
+    mode: "0644"
+  when: docker_image_cleanup_effective | bool
+
+- name: Install Docker image cleanup timer
+  ansible.builtin.template:
+    src: fedctl-docker-image-cleanup.timer.j2
+    dest: "/etc/systemd/system/{{ docker_image_cleanup_service_name }}.timer"
+    owner: root
+    group: root
+    mode: "0644"
+  when: docker_image_cleanup_effective | bool
+
+- name: Enable and start Docker image cleanup timer
+  ansible.builtin.systemd:
+    name: "{{ docker_image_cleanup_service_name }}.timer"
+    enabled: true
+    state: started
+    daemon_reload: true
+  when: docker_image_cleanup_effective | bool
+
+- name: Disable Docker image cleanup timer when cleanup is not enabled for this host
+  ansible.builtin.systemd:
+    name: "{{ docker_image_cleanup_service_name }}.timer"
+    enabled: false
+    state: stopped
+    daemon_reload: true
+  failed_when: false
+  when: not (docker_image_cleanup_effective | bool)
+
+- name: Remove Docker image cleanup timer when cleanup is not enabled for this host
+  ansible.builtin.file:
+    path: "/etc/systemd/system/{{ docker_image_cleanup_service_name }}.timer"
+    state: absent
+  when: not (docker_image_cleanup_effective | bool)
+
+- name: Remove Docker image cleanup service when cleanup is not enabled for this host
+  ansible.builtin.file:
+    path: "/etc/systemd/system/{{ docker_image_cleanup_service_name }}.service"
+    state: absent
+  when: not (docker_image_cleanup_effective | bool)
+
+- name: Reload systemd after removing Docker image cleanup units
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: not (docker_image_cleanup_effective | bool)

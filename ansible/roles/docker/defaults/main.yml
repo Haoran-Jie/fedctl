@@ -1,0 +1,6 @@
+---
+docker_image_cleanup_enabled: false
+docker_image_cleanup_node_classes: []
+docker_image_cleanup_until: "24h"
+docker_image_cleanup_schedule: "04:00"
+docker_image_cleanup_service_name: "fedctl-docker-image-cleanup"

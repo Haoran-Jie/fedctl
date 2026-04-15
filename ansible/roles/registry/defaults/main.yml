@@ -3,3 +3,16 @@ registry_container_name: "registry"
 registry_image: "registry:2"
 registry_port: 5000
 registry_data_dir: "/opt/registry/data"
+registry_config_dir: "/etc/fedctl/registry"
+registry_config_path: "{{ registry_config_dir }}/config.yml"
+registry_delete_enabled: true
+registry_retention_enabled: true
+registry_retention_registry_url: "http://127.0.0.1:{{ registry_port }}"
+registry_retention_keep_tags: 10
+registry_retention_keep_latest: true
+registry_retention_repo_patterns:
+  - "*-superexec"
+registry_retention_schedule: "03:30"
+registry_retention_dry_run: false
+registry_retention_script_path: "/usr/local/bin/fedctl-registry-retention.py"
+registry_retention_service_name: "fedctl-registry-retention"

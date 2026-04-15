@@ -1,0 +1,10 @@
+[Unit]
+Description=Run fedctl registry retention cleanup daily
+
+[Timer]
+OnCalendar=*-*-* {{ registry_retention_schedule }}:00
+Persistent=true
+Unit={{ registry_retention_service_name }}.service
+
+[Install]
+WantedBy=timers.target

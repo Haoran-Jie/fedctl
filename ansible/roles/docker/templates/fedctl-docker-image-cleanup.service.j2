@@ -1,0 +1,9 @@
+[Unit]
+Description=fedctl Docker image cleanup
+After=docker.service
+Wants=docker.service
+
+[Service]
+Type=oneshot
+Environment=FEDCTL_DOCKER_CLEANUP_UNTIL={{ docker_image_cleanup_until }}
+ExecStart=/bin/sh -lc '/usr/bin/docker container prune --force --filter "until=$FEDCTL_DOCKER_CLEANUP_UNTIL" && /usr/bin/docker image prune -a --force --filter "until=$FEDCTL_DOCKER_CLEANUP_UNTIL"'

@@ -18,3 +18,9 @@ nomad_docker_allow_caps:
   - "setpcap"
   - "setuid"
   - "sys_chroot"
+
+docker_image_cleanup_enabled: true
+docker_image_cleanup_node_classes:
+  - "submit"
+docker_image_cleanup_until: "24h"
+docker_image_cleanup_schedule: "04:00"

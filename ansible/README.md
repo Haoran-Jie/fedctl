@@ -26,8 +26,10 @@ The current inventory uses the campus Ethernet IP as `ansible_host` and retains 
 - Nomad install/config/service on servers and clients.
 - Docker install + insecure registry merge on all Nomad clients and registry hosts.
 - Local Docker registry deploy on `registry_hosts`.
+- Local registry tag retention on `registry_hosts` for `*-superexec` repositories.
 - Optional Tailscale install/join on `tailscale_nodes`.
 - Submit service deploy (git checkout, venv deps, env file, systemd service) on `submit_service` hosts.
+- Scheduled Docker cleanup on submit nodes only.
 - Final readiness validation for Nomad, registry, submit service, and Tailscale.
 
 ## Playbook layout
@@ -38,6 +40,8 @@ The current inventory uses the campus Ethernet IP as `ansible_host` and retains 
   - submit-service only
 - `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/ansible/playbooks/validate.yml`
   - validation only
+- `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/ansible/playbooks/submit_client_cleanup.yml`
+  - submit-node Docker cleanup only
 - other files under `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/ansible/playbooks/`
   - focused deploy slices by concern
 
@@ -96,15 +100,42 @@ cd ansible
 ANSIBLE_LOCAL_TEMP=/tmp/ansible-local ANSIBLE_SSH_CONTROL_PATH_DIR=/tmp/ansible-cp ../.venv/bin/ansible-playbook -i inventories/prod/hosts.ini playbooks/validate.yml
 ```
 
+Registry only:
+```bash
+cd ansible
+ANSIBLE_LOCAL_TEMP=/tmp/ansible-local ANSIBLE_SSH_CONTROL_PATH_DIR=/tmp/ansible-cp ../.venv/bin/ansible-playbook -i inventories/prod/hosts.ini playbooks/registry.yml
+```
+
+Nomad clients only:
+```bash
+cd ansible
+ANSIBLE_LOCAL_TEMP=/tmp/ansible-local ANSIBLE_SSH_CONTROL_PATH_DIR=/tmp/ansible-cp ../.venv/bin/ansible-playbook -i inventories/prod/hosts.ini playbooks/nomad_client.yml
+```
+
+Submit-node Docker cleanup only:
+```bash
+cd ansible
+ANSIBLE_LOCAL_TEMP=/tmp/ansible-local ANSIBLE_SSH_CONTROL_PATH_DIR=/tmp/ansible-cp ../.venv/bin/ansible-playbook -i inventories/prod/hosts.ini playbooks/submit_client_cleanup.yml
+```
+
 ## Variables you should edit
 
 - `group_vars/all.yml`
   - `nomad_server_rpc_endpoints`
   - `docker_insecure_registries`
+  - `registry_retention_keep_tags`
+  - `registry_retention_repo_patterns`
+  - `registry_retention_schedule`
+  - `registry_retention_dry_run`
 - `group_vars/tailscale_nodes.yml`
   - `tailscale_enabled`
   - `tailscale_auth_key`
   - `tailscale_enable_ssh`
+- `group_vars/nomad_clients.yml`
+  - `docker_image_cleanup_enabled`
+  - `docker_image_cleanup_node_classes`
+  - `docker_image_cleanup_until`
+  - `docker_image_cleanup_schedule`
 - Optional local-only file:
   - `group_vars/tailscale_nodes.local.yml`
   - git-ignored
@@ -151,4 +182,41 @@ To force a rebuild:
 ```bash
 cd ansible
 ANSIBLE_LOCAL_TEMP=/tmp/ansible-local ANSIBLE_SSH_CONTROL_PATH_DIR=/tmp/ansible-cp ../.venv/bin/ansible-playbook -i inventories/prod/hosts.ini seed_images.yml -e submit_runner_image_seed_force=true
+```
+
+## Automated image cleanup
+
+The current automation intentionally separates two concerns:
+
+- Registry-side retention on `registry_hosts`
+  - enables the registry delete API
+  - deletes old `*-superexec` tags by policy
+  - keeps `latest` plus the 10 newest tags per matching repository
+- Node-side Docker cleanup on submit nodes
+  - prunes stopped containers older than 24h
+  - prunes unused images older than 24h
+
+Default schedules:
+
+- registry retention: daily at `03:30`
+- submit-node Docker cleanup: daily at `04:00`
+
+Important limitation:
+
+- This does **not** run `registry garbage-collect`.
+- Old blobs may remain under `/opt/registry/data` until a future offline maintenance window is introduced.
+
+Dry-run the registry retention policy on the registry host:
+```bash
+ssh rpi@128.232.61.111 'sudo FEDCTL_DRY_RUN=true /usr/bin/env python3 /usr/local/bin/fedctl-registry-retention.py'
+```
+
+Run the registry retention service immediately:
+```bash
+ssh rpi@128.232.61.111 'sudo systemctl start fedctl-registry-retention.service'
+```
+
+Run the submit-node Docker cleanup service immediately on a submit node:
+```bash
+ssh rpi@128.232.61.93 'sudo systemctl start fedctl-docker-image-cleanup.service'
 ```

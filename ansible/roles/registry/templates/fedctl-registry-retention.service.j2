@@ -1,0 +1,13 @@
+[Unit]
+Description=fedctl registry retention cleanup
+After=docker.service network-online.target
+Wants=docker.service network-online.target
+
+[Service]
+Type=oneshot
+Environment=FEDCTL_REGISTRY_URL={{ registry_retention_registry_url }}
+Environment=FEDCTL_KEEP_TAGS={{ registry_retention_keep_tags }}
+Environment=FEDCTL_KEEP_LATEST={{ registry_retention_keep_latest | bool | ternary('true', 'false') }}
+Environment=FEDCTL_DRY_RUN={{ registry_retention_dry_run | bool | ternary('true', 'false') }}
+Environment=FEDCTL_REPO_PATTERNS={{ registry_retention_repo_patterns | join(',') }}
+ExecStart=/usr/bin/env python3 {{ registry_retention_script_path }}
