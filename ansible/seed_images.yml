@@ -31,7 +31,6 @@
         status_code:
           - 200
           - 404
-      delegate_to: localhost
       become: false
       run_once: true
       register: submit_runner_manifest
@@ -58,6 +57,5 @@
             application/vnd.docker.distribution.manifest.list.v2+json,
             application/vnd.oci.image.index.v1+json
         status_code: 200
-      delegate_to: localhost
       become: false
       run_once: true
