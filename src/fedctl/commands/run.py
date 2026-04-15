@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import time
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -11,11 +12,16 @@ from fedctl.commands.build import build_and_record
 from fedctl.commands.configure import run_configure
 from fedctl.commands.deploy import run_deploy
 from fedctl.commands.destroy import run_destroy
+from fedctl.config.io import load_config
+from fedctl.config.merge import get_effective_config
 from fedctl.constants import DEFAULT_FLWR_VERSION
+from fedctl.deploy import naming
 from fedctl.project.errors import ProjectError
 from datetime import datetime, timezone
 
 from fedctl.deploy.spec import normalize_experiment_name
+from fedctl.nomad.client import NomadClient
+from fedctl.nomad.errors import NomadHTTPError
 from fedctl.project.flwr_inspect import inspect_flwr_project
 from fedctl.build.state import load_project_build
 from fedctl.build.build import image_exists, pull_image
@@ -84,9 +90,7 @@ def run_run(
         num_supernodes = info.local_sim_num_supernodes
         _print_ok(f"Using num-supernodes={num_supernodes}")
 
-    exp_name = normalize_experiment_name(
-        experiment or f"{project_name}-{_timestamp_compact()}"
-    )
+    exp_name = resolve_run_experiment_name(project_name=project_name, experiment=experiment)
     _print_ok(f"Experiment: {exp_name}")
     if seed is None:
         try:
@@ -281,6 +285,7 @@ def run_run(
             f"{src_dir}{os.pathsep}{existing_pythonpath}" if existing_pythonpath else str(src_dir)
         )
 
+    return_code = 1
     try:
         result = subprocess.run(cmd, check=False, env=env)
         return_code = result.returncode
@@ -291,6 +296,20 @@ def run_run(
         console.print("[red]✗ flwr CLI not found.[/red] Ensure Flower is installed.")
         return 1
     finally:
+        if (
+            return_code == 0
+            and federation == "remote-deployment"
+            and not stream
+        ):
+            wait_code = _wait_for_remote_run_completion(
+                experiment=exp_name,
+                profile=profile,
+                endpoint=endpoint,
+                namespace=namespace,
+                token=token,
+            )
+            if wait_code != 0:
+                return_code = wait_code
         if pre_cleanup:
             try:
                 pre_cleanup()
@@ -318,6 +337,11 @@ def run_run(
 
 def _timestamp_compact() -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+
+
+def resolve_run_experiment_name(*, project_name: str | None, experiment: str | None) -> str:
+    base_project = project_name or "project"
+    return normalize_experiment_name(experiment or f"{base_project}-{_timestamp_compact()}")
 
 
 def _timestamp_iso() -> str:
@@ -366,6 +390,136 @@ def _build_run_config_overrides(
     if seed is not None:
         overrides.append(f"seed={seed}")
     return overrides
+
+
+def _wait_for_remote_run_completion(
+    *,
+    experiment: str,
+    profile: str | None,
+    endpoint: str | None,
+    namespace: str | None,
+    token: str | None,
+    poll_interval_s: float = 5.0,
+) -> int:
+    console.print(
+        "[cyan]Wait[/cyan] [bold]-[/bold] Monitoring remote server run until completion"
+    )
+    client = _nomad_client_for_run_wait(
+        profile=profile,
+        endpoint=endpoint,
+        namespace=namespace,
+        token=token,
+    )
+    job_name = naming.job_superexec_serverapp(experiment)
+    task_name = job_name
+    last_status: str | None = None
+    try:
+        while True:
+            alloc = _latest_serverapp_alloc(client, job_name)
+            if alloc is None:
+                status = "waiting for serverapp allocation"
+                if status != last_status:
+                    console.print(f"[yellow]Note:[/yellow] {status}")
+                    last_status = status
+                time.sleep(poll_interval_s)
+                continue
+            detail = _allocation_detail_or_none(client, alloc)
+            summary = _serverapp_completion_summary(
+                alloc=detail or alloc,
+                task_name=task_name,
+            )
+            if summary["status"] != last_status:
+                console.print(f"[cyan]Status:[/cyan] {summary['status']}")
+                last_status = str(summary["status"])
+            if bool(summary["active"]):
+                time.sleep(poll_interval_s)
+                continue
+            if bool(summary["success"]):
+                _print_ok("Remote server run completed")
+                return 0
+            console.print(
+                f"[red]✗ Remote server run failed.[/red] {summary['status']}"
+            )
+            return 1
+    finally:
+        client.close()
+
+
+def _nomad_client_for_run_wait(
+    *,
+    profile: str | None,
+    endpoint: str | None,
+    namespace: str | None,
+    token: str | None,
+) -> NomadClient:
+    cfg = load_config()
+    eff = get_effective_config(
+        cfg,
+        profile_name=profile,
+        endpoint=endpoint,
+        namespace=namespace,
+        token=token,
+    )
+    return NomadClient(eff)
+
+
+def _latest_serverapp_alloc(client: NomadClient, job_name: str) -> dict[str, object] | None:
+    try:
+        allocs = client.job_allocations(job_name)
+    except NomadHTTPError as exc:
+        if exc.status_code == 404:
+            return None
+        raise
+    return _latest_alloc(allocs)
+
+
+def _allocation_detail_or_none(
+    client: NomadClient, alloc: dict[str, object]
+) -> dict[str, object] | None:
+    alloc_id = alloc.get("ID")
+    if not isinstance(alloc_id, str) or not alloc_id:
+        return None
+    try:
+        detail = client.allocation(alloc_id)
+    except NomadHTTPError:
+        return None
+    return detail if isinstance(detail, dict) else None
+
+
+def _serverapp_completion_summary(
+    *, alloc: dict[str, object], task_name: str
+) -> dict[str, object]:
+    client_status = str(alloc.get("ClientStatus") or "").lower()
+    task_states = alloc.get("TaskStates")
+    task_info = task_states.get(task_name) if isinstance(task_states, dict) else None
+    if not isinstance(task_info, dict) and isinstance(task_states, dict) and len(task_states) == 1:
+        task_info = next(iter(task_states.values()))
+    task_state = str(task_info.get("State") or "").lower() if isinstance(task_info, dict) else ""
+    task_failed = bool(task_info.get("Failed")) if isinstance(task_info, dict) else False
+
+    if client_status in {"pending", "running"} or task_state in {"pending", "running"}:
+        return {
+            "active": True,
+            "success": False,
+            "status": f"client={client_status or 'unknown'} task={task_state or 'unknown'}",
+        }
+    if client_status == "complete":
+        return {
+            "active": False,
+            "success": True,
+            "status": f"client={client_status} task={task_state or 'dead'}",
+        }
+    if task_state == "dead" and not task_failed and client_status not in {"failed", "lost"}:
+        return {
+            "active": False,
+            "success": True,
+            "status": f"client={client_status or 'complete'} task={task_state}",
+        }
+    return {
+        "active": False,
+        "success": False,
+        "status": f"client={client_status or 'unknown'} task={task_state or 'unknown'} failed={task_failed}",
+    }
 
 
 def _run_seed_sweep(
