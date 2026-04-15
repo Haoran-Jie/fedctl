@@ -473,6 +473,24 @@ def _latest_serverapp_alloc(client: NomadClient, job_name: str) -> dict[str, obj
     return _latest_alloc(allocs)
 
 
+def _latest_alloc(allocs: object) -> dict[str, object] | None:
+    if not isinstance(allocs, list) or not allocs:
+        return None
+    candidates = [alloc for alloc in allocs if isinstance(alloc, dict)]
+    if not candidates:
+        return None
+    candidates.sort(key=_alloc_sort_key, reverse=True)
+    return candidates[0]
+
+
+def _alloc_sort_key(alloc: dict[str, object]) -> int:
+    for key in ("ModifyTime", "CreateTime"):
+        value = alloc.get(key)
+        if isinstance(value, int):
+            return value
+    return 0
+
+
 def _allocation_detail_or_none(
     client: NomadClient, alloc: dict[str, object]
 ) -> dict[str, object] | None:

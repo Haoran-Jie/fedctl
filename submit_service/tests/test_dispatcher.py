@@ -846,3 +846,61 @@ def test_dispatcher_marks_running_submission_failed_when_allocs_empty_and_job_mi
     updated = storage.get_submission("sub-empty-allocs")
     assert updated["status"] == "failed"
     assert updated["error_message"] == "Nomad job missing"
+
+
+def test_dispatcher_keeps_submission_running_when_nomad_restarts_runner(
+    tmp_path, monkeypatch
+) -> None:
+    db_path = tmp_path / "submit.db"
+    storage = Storage(StorageConfig(db_url=f"sqlite:///{db_path}"))
+    storage.init_db()
+    _create_submission(
+        storage,
+        submission_id="sub-restarting",
+        status="running",
+        created_at="2026-01-01T00:00:00+00:00",
+        priority=50,
+    )
+    storage.update_submission(
+        "sub-restarting",
+        {
+            "nomad_job_id": "sub-restarting",
+            "started_at": dispatcher_mod.utcnow().isoformat(),
+            "namespace": "default",
+        },
+    )
+
+    class FakeNomadClient:
+        def __init__(self, *args, **kwargs):
+            return None
+
+        def job_allocations(self, job_id: str):
+            return [
+                {"ID": "failed-alloc", "ModifyTime": 20, "ClientStatus": "failed"},
+                {"ID": "running-alloc", "ModifyTime": 10, "ClientStatus": "running"},
+            ]
+
+        def close(self):
+            return None
+
+    monkeypatch.setattr(dispatcher_mod, "NomadClient", FakeNomadClient)
+    monkeypatch.setattr(dispatcher_mod, "_inventory_snapshot", lambda inventory: ([], None))
+    monkeypatch.setattr(
+        dispatcher_mod,
+        "_reserve_submission_capacity",
+        lambda submission, free_nodes, inventory_error: (True, None),
+    )
+
+    cfg = _cfg(db_path)
+    cfg = SubmitConfig(
+        **{
+            **cfg.__dict__,
+            "nomad_endpoint": "http://nomad.example:4646",
+        }
+    )
+    dispatcher = dispatcher_mod.Dispatcher(storage, cfg)
+    dispatcher.run_once()
+
+    updated = storage.get_submission("sub-restarting")
+    assert updated["status"] == "running"
+    assert updated["error_message"] is None

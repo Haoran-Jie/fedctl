@@ -126,3 +126,17 @@ def test_run_run_skips_remote_wait_when_streaming(monkeypatch, tmp_path: Path) -
     )
 
     assert status == 0
+
+
+def test_latest_serverapp_alloc_selects_latest_allocation() -> None:
+    class FakeClient:
+        def job_allocations(self, job_name: str):
+            assert job_name == "demo-serverapp"
+            return [
+                {"ID": "older", "ModifyTime": 10},
+                {"ID": "newer", "ModifyTime": 20},
+            ]
+
+    alloc = run_module._latest_serverapp_alloc(FakeClient(), "demo-serverapp")
+
+    assert alloc == {"ID": "newer", "ModifyTime": 20}

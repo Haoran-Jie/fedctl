@@ -195,8 +195,7 @@ class Dispatcher:
                 continue
             finally:
                 client.close()
-            alloc = _latest_alloc(allocs)
-            status = _alloc_status(alloc)
+            status = _submission_alloc_status(allocs)
             if status == "complete":
                 self._storage.set_status(
                     submission["id"],
@@ -297,6 +296,18 @@ def _latest_alloc(allocs: object) -> dict[str, Any] | None:
         return None
     candidates.sort(key=_alloc_sort_key, reverse=True)
     return candidates[0]
+
+
+def _submission_alloc_status(allocs: object) -> str | None:
+    if not isinstance(allocs, list) or not allocs:
+        return None
+    candidates = [alloc for alloc in allocs if isinstance(alloc, dict)]
+    if not candidates:
+        return None
+    statuses = {_alloc_status(alloc) for alloc in candidates}
+    if "running" in statuses or "pending" in statuses:
+        return "running"
+    return _alloc_status(_latest_alloc(candidates))
 
 
 def _alloc_sort_key(alloc: dict[str, Any]) -> int:
