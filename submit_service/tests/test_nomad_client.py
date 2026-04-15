@@ -29,3 +29,12 @@ def test_decode_alloc_logs_response_preserves_plain_text() -> None:
     decoded = _decode_alloc_logs_response(text)
 
     assert decoded == text
+
+
+def test_decode_alloc_logs_response_handles_concatenated_json_payloads() -> None:
+    part1 = {"Data": base64.b64encode(b"hello ").decode("ascii"), "Offset": 6}
+    part2 = {"Data": base64.b64encode(b"world\n").decode("ascii"), "Offset": 12}
+
+    decoded = _decode_alloc_logs_response(json.dumps(part1) + json.dumps(part2))
+
+    assert decoded == "hello world\n"

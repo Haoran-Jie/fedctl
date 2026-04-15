@@ -55,7 +55,10 @@ class NomadClient:
 
         ct = r.headers.get("content-type", "")
         if "application/json" in ct:
-            return r.json()
+            try:
+                return r.json()
+            except ValueError:
+                return r.text
         return r.text
 
     def _get(self, path: str, params: Dict[str, str] | None = None) -> Any:
@@ -202,10 +205,9 @@ class NomadClient:
 def _decode_alloc_logs_response(data: Any) -> str:
     payload = data
     if isinstance(data, str):
-        try:
-            payload = json.loads(data)
-        except ValueError:
-            return data
+        payload = _coalesce_alloc_log_payload(data)
+        if isinstance(payload, str):
+            return payload
     if isinstance(payload, dict):
         raw = payload.get("Data")
         if isinstance(raw, str):
@@ -215,3 +217,37 @@ def _decode_alloc_logs_response(data: Any) -> str:
                 return raw
         return str(payload)
     return payload if isinstance(payload, str) else str(payload)
+
+
+def _coalesce_alloc_log_payload(data: str) -> Any:
+    try:
+        return json.loads(data)
+    except ValueError:
+        decoder = json.JSONDecoder()
+        chunks: list[dict[str, Any]] = []
+        idx = 0
+        while idx < len(data):
+            while idx < len(data) and data[idx].isspace():
+                idx += 1
+            if idx >= len(data):
+                break
+            try:
+                payload, idx = decoder.raw_decode(data, idx)
+            except ValueError:
+                return data
+            if not isinstance(payload, dict):
+                return data
+            chunks.append(payload)
+        if not chunks:
+            return data
+        if len(chunks) == 1:
+            return chunks[0]
+        merged = dict(chunks[-1])
+        encoded_parts = []
+        for chunk in chunks:
+            raw = chunk.get("Data")
+            if not isinstance(raw, str):
+                return data
+            encoded_parts.append(raw)
+        merged["Data"] = "".join(encoded_parts)
+        return merged
