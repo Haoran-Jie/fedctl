@@ -1858,6 +1858,26 @@ def test_derive_seed_is_stable_and_partition_specific() -> None:
     assert seed_a != seed_c
 
 
+def test_submodel_local_eval_defaults_on_for_submodel_methods() -> None:
+    from fedctl_research.config import get_submodel_local_eval_enabled
+
+    assert get_submodel_local_eval_enabled({"method": "heterofl"}) is True
+    assert get_submodel_local_eval_enabled({"method": "fedrolex"}) is True
+    assert get_submodel_local_eval_enabled({"method": "fiarse"}) is True
+    assert get_submodel_local_eval_enabled({"method": "fedavg"}) is False
+
+
+def test_submodel_local_eval_explicit_flag_overrides_default() -> None:
+    from fedctl_research.config import get_submodel_local_eval_enabled
+
+    assert get_submodel_local_eval_enabled(
+        {"method": "fiarse", "submodel-local-eval-enabled": False}
+    ) is False
+    assert get_submodel_local_eval_enabled(
+        {"method": "fedavg", "submodel-local-eval-enabled": True}
+    ) is True
+
+
 def test_large_server_config_exists() -> None:
     config_path = (
         Path(__file__).resolve().parents[1]

@@ -35,7 +35,7 @@ model-rate-proportions = [0.25, 0.25, 0.25, 0.25]
 [wandb]
 enabled = true
 group = "compute_heterogeneity-main-cifar10_cnn"
-tags = ["compute_heterogeneity", "main", "cifar10_cnn", "fedavg"]
+tags = ["compute_heterogeneity", "main", "cifar10_cnn", "fedavg", "iid"]
 
 [devices.rpi4]
 model-rate = 1.0

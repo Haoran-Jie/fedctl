@@ -36,7 +36,7 @@ heterofl-device-type-allocations = "rpi4:0.125@5,0.25@5;rpi5:0.5@5,1.0@5"
 [wandb]
 enabled = true
 group = "compute_heterogeneity-main-cifar10_cnn"
-tags = ["compute_heterogeneity", "main", "cifar10_cnn", "heterofl"]
+tags = ["compute_heterogeneity", "main", "cifar10_cnn", "heterofl", "iid"]
 
 [devices.rpi4]
 model-rate = 0.25

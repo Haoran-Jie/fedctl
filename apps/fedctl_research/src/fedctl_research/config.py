@@ -100,6 +100,14 @@ def get_final_client_eval_enabled(run_config: Mapping[str, object]) -> bool:
     return False if value is None else value
 
 
+def get_submodel_local_eval_enabled(run_config: Mapping[str, object]) -> bool:
+    value = get_optional_bool(run_config, "submodel-local-eval-enabled")
+    if value is not None:
+        return value
+    method = get_method_name(run_config)
+    return method in {"heterofl", "fedrolex", "fiarse"}
+
+
 def get_fedavgm_momentum(run_config: Mapping[str, object]) -> float:
     return float(run_config.get("fedavgm-server-momentum", 0.9))
 

@@ -39,7 +39,7 @@ threshold-mode = "global"
 [wandb]
 enabled = true
 group = "compute_heterogeneity-main-cifar10_cnn"
-tags = ["compute_heterogeneity", "main", "cifar10_cnn", "fiarse"]
+tags = ["compute_heterogeneity", "main", "cifar10_cnn", "fiarse", "iid"]
 
 [devices.rpi4]
 model-rate = 0.25

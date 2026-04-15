@@ -28,6 +28,7 @@ from fedctl_research.config import (
     get_partitioning_num_labels,
     get_str,
     get_submodel_eval_rates,
+    get_submodel_local_eval_enabled,
     parse_node_device_type_map,
     resolve_device_type_for_context,
     resolve_instance_idx,
@@ -530,9 +531,7 @@ def run_submodel_evaluations(
                 int(node_id): float(rate)
                 for node_id, rate in rate_assigner.assign_for_round(list(node_ids), server_step).items()
             }
-    local_eval_enabled = get_optional_bool(context.run_config, "submodel-local-eval-enabled")
-    if local_eval_enabled is None:
-        local_eval_enabled = False
+    local_eval_enabled = get_submodel_local_eval_enabled(context.run_config)
     summary_metrics: dict[str, float] = {}
     strategy_eval_rates = getattr(strategy, "submodel_eval_rates", None)
     eval_rates = (

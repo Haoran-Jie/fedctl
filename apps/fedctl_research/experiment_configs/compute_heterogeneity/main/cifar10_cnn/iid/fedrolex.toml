@@ -40,7 +40,7 @@ overlap = ""
 [wandb]
 enabled = true
 group = "compute_heterogeneity-main-cifar10_cnn"
-tags = ["compute_heterogeneity", "main", "cifar10_cnn", "fedrolex"]
+tags = ["compute_heterogeneity", "main", "cifar10_cnn", "fedrolex", "iid"]
 
 [devices.rpi4]
 model-rate = 0.25
