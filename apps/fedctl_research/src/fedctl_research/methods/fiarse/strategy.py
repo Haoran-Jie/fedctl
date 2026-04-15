@@ -113,6 +113,8 @@ class FiarseStrategy(HeteroFLStrategy):
         sample_size = max(num_nodes, self.min_evaluate_nodes)
         node_ids, num_total = sample_nodes(grid, self.min_available_nodes, sample_size)
         log(INFO, "configure_evaluate: Sampled %s nodes (out of %s)", len(node_ids), len(num_total))
+        self._eval_started_at = time.perf_counter()
+        self._eval_sampled_nodes = len(node_ids)
 
         base_config = ConfigRecord(dict(config))
         base_config["server-round"] = server_round

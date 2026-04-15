@@ -57,11 +57,13 @@ from fedctl_research.methods.runtime import (  # noqa: E402
 from fedctl_research.metrics import normalize_metric_mapping  # noqa: E402
 from fedctl_research.partitioning import (  # noqa: E402
     BalancedLabelSkewPartitioner,
+    ClassificationPartitionResult,
     DeviceCorrelatedLabelSkewPartitioner,
     DirichletPartitioner,
     IidPartitioner,
     PartitionRequest,
     build_classification_partitioner,
+    build_classification_partition_bundle,
     partitioners,
 )
 from fedctl_research.runtime.classification import (  # noqa: E402
@@ -1388,6 +1390,68 @@ def test_partitioning_loader_seed_does_not_change_membership() -> None:
     assert result_a.class_probabilities == result_b.class_probabilities
 
 
+def test_partition_bundle_reuses_cached_assignments_when_only_loader_seed_changes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fedctl_research.partitioning import classification_partitioner as module
+
+    class _Dataset(torch.utils.data.Dataset):
+        def __init__(self, values: list[int]) -> None:
+            self.values = values
+            self.targets = values
+
+        def __len__(self) -> int:
+            return len(self.values)
+
+        def __getitem__(self, index: int):
+            return torch.tensor([float(self.values[index])]), int(self.targets[index])
+
+    module._build_partition_results.cache_clear()
+    calls: list[tuple[tuple[int, ...], int | None]] = []
+
+    def _fake_build_classification_partitioner(*, labels, num_classes, request, **kwargs):
+        del num_classes, kwargs
+        calls.append((tuple(labels), request.loader_seed))
+        indices = tuple((idx,) for idx in range(request.num_partitions))
+        label_sets = tuple((int(labels[idx]),) for idx in range(request.num_partitions))
+        return SimpleNamespace(
+            partition_result=ClassificationPartitionResult(
+                indices_by_partition=indices,
+                label_sets_by_partition=label_sets,
+                class_probabilities=None,
+            )
+        )
+
+    monkeypatch.setattr(module, "build_classification_partitioner", _fake_build_classification_partitioner)
+    trainset = _Dataset([0, 1, 2, 3])
+    testset = _Dataset([0, 1, 2, 3])
+    request_a = _partition_request(partitioning="dirichlet", num_partitions=4, loader_seed=1, assignment_seed=99)
+    request_b = _partition_request(partitioning="dirichlet", num_partitions=4, loader_seed=2, assignment_seed=99)
+
+    build_classification_partition_bundle(
+        trainset=trainset,
+        testset=testset,
+        num_classes=4,
+        batch_size=2,
+        request=request_a,
+        max_train_examples=None,
+        max_test_examples=None,
+    )
+    build_classification_partition_bundle(
+        trainset=trainset,
+        testset=testset,
+        num_classes=4,
+        batch_size=2,
+        request=request_b,
+        max_train_examples=None,
+        max_test_examples=None,
+    )
+
+    assert len(calls) == 2
+    assert all(loader_seed is None for _, loader_seed in calls)
+    module._build_partition_results.cache_clear()
+
+
 def test_typed_device_correlated_requests_partition_within_device_group() -> None:
     labels = tuple([i % 10 for i in range(300)])
     rpi4_request = _partition_request(
@@ -1560,6 +1624,121 @@ def test_sync_strategy_logs_per_client_eval_events() -> None:
     assert first["node_id"] == 1
     assert first["device_type"] == "rpi5"
     assert first["eval_acc"] == pytest.approx(0.8)
+
+
+def test_sync_strategy_uses_eval_phase_state_for_eval_system_metrics() -> None:
+    logger = _Logger()
+    strategy = FedAvgBaseline(
+        fraction_train=1.0,
+        fraction_evaluate=1.0,
+        min_train_nodes=2,
+        min_evaluate_nodes=2,
+        min_available_nodes=2,
+        experiment_logger=logger,
+        task_name="fashion_mnist_cnn",
+        global_model_rate=1.0,
+    )
+    strategy._round_sampled_nodes = 9
+    strategy._round_started_at = time.perf_counter() - 5.0
+    strategy._eval_sampled_nodes = 2
+    strategy._eval_started_at = time.perf_counter() - 0.05
+
+    strategy.aggregate_evaluate(
+        server_round=1,
+        replies=[
+            _make_message(
+                node_id=1,
+                group_id="eval",
+                metrics={
+                    "eval-acc": 0.8,
+                    "eval-loss": 0.5,
+                    "eval-duration-s": 0.1,
+                    "eval-num-examples": 100,
+                    "num-examples": 100,
+                },
+                message_type="evaluate",
+            ),
+            _make_message(
+                node_id=2,
+                group_id="eval",
+                metrics={
+                    "eval-acc": 0.6,
+                    "eval-loss": 0.7,
+                    "eval-duration-s": 0.2,
+                    "eval-num-examples": 120,
+                    "num-examples": 120,
+                },
+                message_type="evaluate",
+            ),
+        ],
+    )
+
+    _, system_metrics = logger.system_calls[-1]
+    assert system_metrics["round-failed-eval-replies"] == 0
+    assert 0.0 <= float(system_metrics["round-client-eval-duration-s"]) < 1.0
+
+
+def test_heterofl_strategy_uses_eval_phase_state_for_eval_system_metrics() -> None:
+    logger = _Logger()
+    assigner = ModelRateAssigner(
+        mode="fix",
+        default_model_rate=1.0,
+        explicit_rate_by_node_id={},
+        explicit_rate_by_partition_id={},
+        rate_by_device_type={"rpi4": 0.25, "rpi5": 1.0},
+        device_type_by_node_id={1: "rpi4", 2: "rpi5"},
+        partition_id_by_node_id={},
+        dynamic_levels=(1.0,),
+        dynamic_proportions=(1.0,),
+    )
+    strategy = HeteroFLStrategy(
+        rate_assigner=assigner,
+        weighted_by_key="num-examples",
+        min_available_nodes=2,
+        min_train_nodes=2,
+        min_evaluate_nodes=2,
+        fraction_train=1.0,
+        fraction_evaluate=1.0,
+        experiment_logger=logger,
+    )
+    strategy._round_sampled_nodes = 11
+    strategy._round_started_at = time.perf_counter() - 6.0
+    strategy._eval_sampled_nodes = 2
+    strategy._eval_started_at = time.perf_counter() - 0.05
+
+    strategy.aggregate_evaluate(
+        server_round=1,
+        replies=[
+            _make_message(
+                node_id=1,
+                group_id="eval",
+                metrics={
+                    "eval-acc": 0.8,
+                    "eval-loss": 0.5,
+                    "eval-duration-s": 0.1,
+                    "eval-num-examples": 100,
+                    "num-examples": 100,
+                },
+                message_type="evaluate",
+            ),
+            _make_message(
+                node_id=2,
+                group_id="eval",
+                metrics={
+                    "eval-acc": 0.6,
+                    "eval-loss": 0.7,
+                    "eval-duration-s": 0.2,
+                    "eval-num-examples": 120,
+                    "num-examples": 120,
+                },
+                message_type="evaluate",
+            ),
+        ],
+    )
+
+    _, system_metrics = logger.system_calls[-1]
+    assert system_metrics["round-failed-eval-replies"] == 0
+    assert 0.0 <= float(system_metrics["round-client-eval-duration-s"]) < 1.0
 
 
 def test_run_submodel_evaluations_logs_per_client_local_events(monkeypatch: pytest.MonkeyPatch) -> None:

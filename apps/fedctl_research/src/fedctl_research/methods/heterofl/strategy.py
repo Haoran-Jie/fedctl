@@ -59,8 +59,10 @@ class HeteroFLStrategy(FedAvg):
         self.partition_plan_by_node_id: dict[int, dict[str, int | str]] = {}
         self._global_state_for_round: OrderedDict[str, object] | None = None
         self._round_started_at: float | None = None
+        self._eval_started_at: float | None = None
         self._server_started_at: float | None = None
         self._round_sampled_nodes: int = 0
+        self._eval_sampled_nodes: int = 0
         self._accepted_train_replies_total: int = 0
 
     def summary(self) -> None:
@@ -114,6 +116,8 @@ class HeteroFLStrategy(FedAvg):
         sample_size = max(num_nodes, self.min_evaluate_nodes)
         node_ids, num_total = sample_nodes(grid, self.min_available_nodes, sample_size)
         log(INFO, "configure_evaluate: Sampled %s nodes (out of %s)", len(node_ids), len(num_total))
+        self._eval_started_at = time.perf_counter()
+        self._eval_sampled_nodes = len(node_ids)
 
         base_config = ConfigRecord(dict(config))
         base_config["server-round"] = server_round
@@ -355,9 +359,9 @@ class HeteroFLStrategy(FedAvg):
         valid_count = len(valid_replies)
         system_metrics = {
             "round-successful-eval-replies": valid_count,
-            "round-failed-eval-replies": self._round_sampled_nodes - valid_count,
+            "round-failed-eval-replies": self._eval_sampled_nodes - valid_count,
             "round-client-eval-duration-s": (
-                time.perf_counter() - self._round_started_at if self._round_started_at is not None else 0.0
+                time.perf_counter() - self._eval_started_at if self._eval_started_at is not None else 0.0
             ),
         }
         eval_durations = [

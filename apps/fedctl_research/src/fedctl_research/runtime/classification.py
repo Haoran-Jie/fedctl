@@ -64,8 +64,8 @@ def train_classifier(
         epoch_loss = 0.0
         epoch_steps = 0
         for batch_idx, (images, labels) in enumerate(trainloader, start=1):
-            batch_start = time.perf_counter()
             if batch_idx == 1:
+                batch_start = time.perf_counter()
                 print(
                     f"{prefix} train:first_batch fetched "
                     f"images_shape={tuple(images.shape)} labels_shape={tuple(labels.shape)} "
@@ -119,12 +119,6 @@ def train_classifier(
             steps += 1
             epoch_loss += loss_value
             epoch_steps += 1
-            print(
-                f"{prefix} train:batch_done "
-                f"epoch={epoch + 1}/{epochs} batch={batch_idx}/{len(trainloader)} "
-                f"loss={loss_value:.6f} elapsed_s={time.perf_counter() - batch_start:.2f}",
-                flush=True,
-            )
         print(
             f"{prefix} train:epoch_done "
             f"epoch={epoch + 1}/{epochs} avg_loss={epoch_loss / max(epoch_steps, 1):.6f} "

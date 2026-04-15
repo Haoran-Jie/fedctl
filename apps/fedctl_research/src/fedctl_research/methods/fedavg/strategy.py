@@ -41,8 +41,10 @@ class SyncLoggingMixin:
         self.device_type_by_node_id = dict(device_type_by_node_id or {})
         self.partition_plan_by_node_id: dict[int, dict[str, int | str]] = {}
         self._round_started_at: float | None = None
+        self._eval_started_at: float | None = None
         self._server_started_at: float | None = None
         self._round_sampled_nodes: int = 0
+        self._eval_sampled_nodes: int = 0
         self._accepted_train_replies_total: int = 0
         self._global_state_before_round: OrderedDict[str, object] | None = None
 
@@ -84,7 +86,9 @@ class SyncLoggingMixin:
     ) -> Iterable[Message]:
         if not self.client_eval_enabled:
             return []
+        self._eval_started_at = time.perf_counter()
         messages = list(super().configure_evaluate(server_round, arrays, config, grid))
+        self._eval_sampled_nodes = len(messages)
         return self._inject_partition_plan(messages)
 
     def set_node_capabilities(self, device_type_by_node_id: dict[int, str]) -> None:
@@ -243,9 +247,9 @@ class SyncLoggingMixin:
         eval_metrics = dict(metrics) if metrics is not None else {}
         system_metrics = {
             "round-successful-eval-replies": len(valid_replies),
-            "round-failed-eval-replies": self._round_sampled_nodes - len(valid_replies),
+            "round-failed-eval-replies": self._eval_sampled_nodes - len(valid_replies),
             "round-client-eval-duration-s": (
-                time.perf_counter() - self._round_started_at if self._round_started_at is not None else 0.0
+                time.perf_counter() - self._eval_started_at if self._eval_started_at is not None else 0.0
             ),
         }
         eval_durations = [

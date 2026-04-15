@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from functools import cached_property
+from functools import cached_property, lru_cache
 from typing import TypeAlias
 
 import numpy as np
@@ -141,6 +141,9 @@ def partitioners() -> dict[str, ClassificationPartitionerClass]:
 
 
 def labels_tuple(dataset: Dataset) -> tuple[int, ...]:
+    cached = getattr(dataset, "_fedctl_labels_tuple", None)
+    if cached is not None:
+        return cached
     if hasattr(dataset, "targets"):
         raw = getattr(dataset, "targets")
     elif hasattr(dataset, "target"):
@@ -148,8 +151,11 @@ def labels_tuple(dataset: Dataset) -> tuple[int, ...]:
     else:
         raise AttributeError("Dataset does not expose .targets or .target")
     if isinstance(raw, torch.Tensor):
-        return tuple(int(item) for item in raw.tolist())
-    return tuple(int(item) for item in list(raw))
+        labels = tuple(int(item) for item in raw.tolist())
+    else:
+        labels = tuple(int(item) for item in list(raw))
+    setattr(dataset, "_fedctl_labels_tuple", labels)
+    return labels
 
 
 def build_classification_partitioner(
@@ -188,7 +194,7 @@ def build_classification_partition_bundle(
         train_labels=labels_tuple(trainset),
         test_labels=labels_tuple(testset),
         num_classes=num_classes,
-        request=request,
+        request=_assignment_request(request),
     )
     effective_partition_id = request.effective_partition_id
 
@@ -229,6 +235,7 @@ def build_classification_partition_bundle(
     )
 
 
+@lru_cache(maxsize=32)
 def _build_partition_results(
     *,
     train_labels: tuple[int, ...],
@@ -236,11 +243,10 @@ def _build_partition_results(
     num_classes: int,
     request: PartitionRequest,
 ) -> tuple[ClassificationPartitionResult, ClassificationPartitionResult]:
-    base_request = _assignment_request(request)
     train_partitioner = build_classification_partitioner(
         labels=train_labels,
         num_classes=num_classes,
-        request=base_request,
+        request=request,
     )
     train_result = train_partitioner.partition_result
 
@@ -252,7 +258,7 @@ def _build_partition_results(
     test_partitioner = build_classification_partitioner(
         labels=test_labels,
         num_classes=num_classes,
-        request=base_request,
+        request=request,
         label_sets=train_result.label_sets_by_partition,
         class_probabilities=class_probabilities,
     )
@@ -268,5 +274,5 @@ def _assignment_request(request: PartitionRequest) -> PartitionRequest:
         partitioning_num_labels=request.partitioning_num_labels,
         partitioning_dirichlet_alpha=request.partitioning_dirichlet_alpha,
         assignment_seed=request.effective_assignment_seed,
-        loader_seed=request.loader_seed,
+        loader_seed=None,
     )
