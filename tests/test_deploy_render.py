@@ -294,6 +294,24 @@ def test_nomad_service_names_are_rfc1123_safe() -> None:
     )
 
 
+def test_nomad_service_names_remain_rfc1123_safe_after_truncation() -> None:
+    exp = "appliances_energy_mlp-heterofl-n20-seed1337"
+
+    service_names = [
+        naming.service_superlink_serverappio(exp),
+        naming.service_superlink_fleet(exp),
+        naming.service_superlink_control(exp),
+        naming.service_supernode_clientappio(exp, 1, "rpi5"),
+    ]
+
+    assert all(len(name) <= 63 for name in service_names)
+    assert all("_" not in name for name in service_names)
+    assert all(name == name.lower() for name in service_names)
+    assert naming.service_superlink_serverappio(exp).startswith(
+        "appliances-energy-mlp-heterofl"
+    )
+
+
 def test_render_deploy_long_experiment_uses_length_safe_service_names() -> None:
     exp = "smoke-fedavg-fmnist-mlp-debug-seed1337"
     spec = default_deploy_spec(

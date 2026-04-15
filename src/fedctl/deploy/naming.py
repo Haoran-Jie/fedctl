@@ -19,9 +19,9 @@ def _nomad_service_name(exp: str, suffix: str) -> str:
         digest = hashlib.sha1(candidate.encode("utf-8")).hexdigest()[:_TRUNCATION_HASH_LEN]
         return f"{digest}{suffix}"[:_NOMAD_SERVICE_NAME_MAX]
 
-    exp_prefix = exp[:available].rstrip("-")
+    exp_prefix = exp_token[:available].rstrip("-")
     if not exp_prefix:
-        exp_prefix = exp[:available]
+        exp_prefix = exp_token[:available]
     digest = hashlib.sha1(candidate.encode("utf-8")).hexdigest()[:_TRUNCATION_HASH_LEN]
     return f"{exp_prefix}-{digest}{suffix}"
 
