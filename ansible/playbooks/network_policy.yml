@@ -2,5 +2,7 @@
 - name: Apply network policy on all RPis
   hosts: all
   become: true
+  vars_files:
+    - ../group_vars/all.yml
   roles:
     - role: network_policy

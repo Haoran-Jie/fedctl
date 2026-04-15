@@ -2,5 +2,8 @@
 - name: Configure Docker on Nomad clients
   hosts: nomad_clients:registry_hosts
   become: true
+  vars_files:
+    - ../group_vars/all.yml
+    - ../group_vars/nomad_clients.yml
   roles:
     - role: docker

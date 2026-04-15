@@ -2,6 +2,10 @@
 - name: Validate Nomad server and client readiness
   hosts: nomad_servers
   become: true
+  vars_files:
+    - ../group_vars/all.yml
+    - ../group_vars/nomad_servers.yml
+    - ../group_vars/nomad_clients.yml
   tasks:
     - name: Check Nomad leader endpoint
       ansible.builtin.uri:
@@ -42,6 +46,8 @@
 - name: Validate local Docker registry
   hosts: registry_hosts
   become: true
+  vars_files:
+    - ../group_vars/all.yml
   tasks:
     - name: Check registry API endpoint
       ansible.builtin.uri:
@@ -52,6 +58,9 @@
 - name: Validate submit service
   hosts: submit_service
   become: true
+  vars_files:
+    - ../group_vars/all.yml
+    - ../group_vars/submit_service.yml
   tasks:
     - name: Check submit service login page
       ansible.builtin.uri:

@@ -2,5 +2,7 @@
 - name: Configure local Docker registry
   hosts: registry_hosts
   become: true
+  vars_files:
+    - ../group_vars/all.yml
   roles:
     - role: registry

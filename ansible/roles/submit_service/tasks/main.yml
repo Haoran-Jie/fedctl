@@ -26,6 +26,42 @@
     group: "{{ ansible_user }}"
     recurse: true
 
+- name: Check whether submit repository already exists
+  ansible.builtin.stat:
+    path: "{{ submit_repo_dir }}/.git"
+  register: submit_repo_git_dir
+
+- name: Read existing submit repository origin URL
+  ansible.builtin.command:
+    argv:
+      - git
+      - -C
+      - "{{ submit_repo_dir }}"
+      - config
+      - --get
+      - remote.origin.url
+  register: submit_repo_origin_url
+  changed_when: false
+  failed_when: false
+  become: false
+  when: submit_repo_git_dir.stat.exists
+
+- name: Rewrite submit repository origin URL when it differs from configured repo
+  ansible.builtin.command:
+    argv:
+      - git
+      - -C
+      - "{{ submit_repo_dir }}"
+      - remote
+      - set-url
+      - origin
+      - "{{ submit_repo_url }}"
+  become: false
+  when:
+    - submit_repo_git_dir.stat.exists
+    - submit_repo_origin_url.stdout | trim | length > 0
+    - submit_repo_origin_url.stdout | trim != submit_repo_url
+
 - name: Check out fedctl repository
   ansible.builtin.git:
     repo: "{{ submit_repo_url }}"

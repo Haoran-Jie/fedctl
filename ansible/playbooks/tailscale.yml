@@ -2,6 +2,9 @@
 - name: Configure Tailscale on selected nodes
   hosts: tailscale_nodes
   become: true
+  vars_files:
+    - ../group_vars/all.yml
+    - ../group_vars/tailscale_nodes.yml
   pre_tasks:
     - name: Load local Tailscale secrets when present
       ansible.builtin.include_vars:

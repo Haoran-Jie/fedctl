@@ -2,5 +2,8 @@
 - name: Deploy submit service
   hosts: submit_service
   become: true
+  vars_files:
+    - ../group_vars/all.yml
+    - ../group_vars/submit_service.yml
   roles:
     - role: submit_service
