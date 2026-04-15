@@ -112,12 +112,11 @@ class Dispatcher:
         free_nodes = _node_free_resources(inventory_nodes) if inventory_nodes else []
         running = self._storage.list_submissions(limit=200, statuses=["running"])
         for submission in running:
-            if not _submission_uses_strict_queue_reservation(submission):
-                continue
-            reserved, reason = _reserve_submission_capacity(
+            reserved, reason = _reserve_running_submission_capacity(
                 submission,
                 free_nodes,
                 inventory_error,
+                inventory_nodes,
             )
             if not reserved:
                 logger.warning(
@@ -372,15 +371,37 @@ def _capacity_allows(
     return _reserve_submission_capacity(submission, candidate_nodes, inventory_error)
 
 
+def _reserve_running_submission_capacity(
+    submission: dict[str, Any],
+    free_nodes: list[dict[str, Any]],
+    inventory_error: str | None,
+    inventory_nodes: list[dict[str, Any]] | None,
+) -> tuple[bool, str | None]:
+    if _submission_uses_strict_queue_reservation(submission):
+        return _reserve_submission_capacity(submission, free_nodes, inventory_error)
+    pending_requirements = _pending_soft_submission_requirements(submission, inventory_nodes)
+    if not pending_requirements:
+        return True, None
+    return _reserve_requirements(pending_requirements, free_nodes, inventory_error)
+
+
 def _reserve_submission_capacity(
     submission: dict[str, Any],
+    free_nodes: list[dict[str, Any]],
+    inventory_error: str | None,
+) -> tuple[bool, str | None]:
+    return _reserve_requirements(_submission_requirements(submission), free_nodes, inventory_error)
+
+
+def _reserve_requirements(
+    requirements: list[dict[str, Any]],
     free_nodes: list[dict[str, Any]],
     inventory_error: str | None,
 ) -> tuple[bool, str | None]:
     if inventory_error:
         return False, inventory_error
     reasons: list[str] = []
-    for req in _submission_requirements(submission):
+    for req in requirements:
         ok, reason = _check_requirement(free_nodes, req)
         if not ok:
             if reason:
@@ -491,6 +512,108 @@ def _submission_uses_strict_queue_reservation(submission: dict[str, Any]) -> boo
     if allow_oversubscribe is None:
         allow_oversubscribe = _repo_allow_oversubscribe_default()
     return not bool(allow_oversubscribe)
+
+
+def _pending_soft_submission_requirements(
+    submission: dict[str, Any],
+    inventory_nodes: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    if not inventory_nodes:
+        return _submission_requirements(submission)
+
+    visible_job_ids = _visible_running_job_ids(inventory_nodes)
+    jobs_by_group = _submission_job_ids_by_group(submission)
+    submission_id = submission.get("id")
+    requirements = _submission_requirements(submission)
+    pending: list[dict[str, Any]] = []
+    for req in requirements:
+        if _requirement_is_visible(
+            requirement=req,
+            submission_id=submission_id if isinstance(submission_id, str) else None,
+            jobs_by_group=jobs_by_group,
+            visible_job_ids=visible_job_ids,
+        ):
+            continue
+        pending.append(req)
+    return pending
+
+
+def _requirement_is_visible(
+    *,
+    requirement: dict[str, Any],
+    submission_id: str | None,
+    jobs_by_group: dict[str, set[str]],
+    visible_job_ids: set[str],
+) -> bool:
+    name = str(requirement.get("name") or "")
+    if name == "submit-runner":
+        return bool(submission_id) and submission_id in visible_job_ids
+    if name.startswith("compute-node"):
+        return _group_jobs_visible(jobs_by_group, "supernodes", visible_job_ids) and _group_jobs_visible(
+            jobs_by_group,
+            "superexec_clientapps",
+            visible_job_ids,
+        )
+    if name == "superlink":
+        return _group_jobs_visible(jobs_by_group, "superlink", visible_job_ids)
+    if name == "superexec-serverapp":
+        return _group_jobs_visible(jobs_by_group, "superexec_serverapp", visible_job_ids)
+    return False
+
+
+def _group_jobs_visible(
+    jobs_by_group: dict[str, set[str]],
+    group: str,
+    visible_job_ids: set[str],
+) -> bool:
+    job_ids = jobs_by_group.get(group, set())
+    return bool(job_ids) and job_ids.issubset(visible_job_ids)
+
+
+def _submission_job_ids_by_group(submission: dict[str, Any]) -> dict[str, set[str]]:
+    jobs = submission.get("jobs")
+    if not isinstance(jobs, dict):
+        return {}
+    result: dict[str, set[str]] = {}
+    for group, payload in jobs.items():
+        if not isinstance(group, str):
+            continue
+        job_ids = _job_ids_from_payload(payload)
+        if job_ids:
+            result[group] = job_ids
+    return result
+
+
+def _job_ids_from_payload(payload: object) -> set[str]:
+    result: set[str] = set()
+    if isinstance(payload, dict):
+        job_id = payload.get("job_id")
+        if isinstance(job_id, str) and job_id:
+            result.add(job_id)
+        targets = payload.get("targets")
+        if isinstance(targets, list):
+            for target in targets:
+                if not isinstance(target, dict):
+                    continue
+                target_job_id = target.get("job_id")
+                if isinstance(target_job_id, str) and target_job_id:
+                    result.add(target_job_id)
+    return result
+
+
+def _visible_running_job_ids(inventory_nodes: list[dict[str, Any]]) -> set[str]:
+    visible: set[str] = set()
+    for node in inventory_nodes:
+        allocations = node.get("allocations")
+        if not isinstance(allocations, dict):
+            continue
+        running_jobs = allocations.get("running_jobs")
+        if not isinstance(running_jobs, list):
+            continue
+        for job_id in running_jobs:
+            if isinstance(job_id, str) and job_id:
+                visible.add(job_id)
+    return visible
 
 
 def _check_requirement(

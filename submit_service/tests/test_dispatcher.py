@@ -156,8 +156,60 @@ def _typed_supernode_args_soft() -> list[str]:
     ]
 
 
+def _submission_jobs_report(experiment: str = "exp") -> dict[str, object]:
+    return {
+        "superlink": {
+            "job_id": f"{experiment}-superlink",
+            "targets": [{"index": 1, "job_id": f"{experiment}-superlink", "task": f"{experiment}-superlink"}],
+        },
+        "supernodes": {
+            "job_id": f"{experiment}-supernodes",
+            "targets": [{"index": 1, "job_id": f"{experiment}-supernodes", "task": f"{experiment}-supernodes"}],
+        },
+        "superexec_serverapp": {
+            "job_id": f"{experiment}-serverapp",
+            "targets": [{"index": 1, "job_id": f"{experiment}-serverapp", "task": f"{experiment}-serverapp"}],
+        },
+        "superexec_clientapps": {
+            "targets": [
+                {"index": idx + 1, "job_id": f"{experiment}-clientapp-{idx + 1}", "task": f"{experiment}-clientapp-{idx + 1}"}
+                for idx in range(20)
+            ]
+        },
+    }
+
+
 def _all_typed_bundle_blocked_reason() -> str:
     return "compute-node:rpi4: need 10, have 0; compute-node:rpi5: need 10, have 0"
+
+
+def _patch_live_queue_resources(monkeypatch) -> None:
+    monkeypatch.setattr(
+        dispatcher_mod,
+        "_repo_resource_overrides",
+        lambda name: (
+            {
+                "default": {"cpu": 1000, "mem": 1024},
+                "rpi4": {"cpu": 1000, "mem": 1024},
+                "rpi5": {"cpu": 1000, "mem": 1024},
+            }
+            if name == "supernode"
+            else {"default": {"cpu": 2000, "mem": 2048}}
+            if name == "superexec_clientapp"
+            else {}
+        ),
+    )
+    monkeypatch.setattr(
+        dispatcher_mod,
+        "_repo_default_resource",
+        lambda name, cpu, mem: (
+            {"cpu": 1000, "mem": 1024}
+            if name == "superlink"
+            else {"cpu": 2000, "mem": 2048}
+            if name == "superexec_serverapp"
+            else {"cpu": cpu, "mem": mem}
+        ),
+    )
 
 
 def test_dispatcher_respects_priority_and_age_order(tmp_path, monkeypatch) -> None:
@@ -315,6 +367,7 @@ def test_dispatcher_does_not_double_count_running_soft_submission_capacity(
     db_path = tmp_path / "submit.db"
     storage = Storage(StorageConfig(db_url=f"sqlite:///{db_path}"))
     storage.init_db()
+    _patch_live_queue_resources(monkeypatch)
 
     _create_submission(
         storage,
@@ -323,6 +376,10 @@ def test_dispatcher_does_not_double_count_running_soft_submission_capacity(
         created_at="2026-01-01T00:00:00+00:00",
         priority=50,
         args=_typed_supernode_args_soft(),
+    )
+    storage.update_submission(
+        "sub-running",
+        {"jobs": _submission_jobs_report("exp-soft-running")},
     )
     _create_submission(
         storage,
@@ -339,6 +396,20 @@ def test_dispatcher_does_not_double_count_running_soft_submission_capacity(
             resources = node["resources"]
             resources["used_cpu"] = 3000
             resources["used_mem"] = 3072
+            node["allocations"] = {
+                "running_jobs": ["exp-soft-running-supernodes"],
+            }
+        elif node.get("node_class") == "link":
+            node["allocations"] = {
+                "running_jobs": ["exp-soft-running-superlink", "exp-soft-running-serverapp"],
+            }
+        elif node.get("node_class") == "submit":
+            node["allocations"] = {
+                "running_jobs": [
+                    "sub-running",
+                    *[f"exp-soft-running-clientapp-{idx}" for idx in range(1, 21)],
+                ],
+            }
 
     monkeypatch.setattr(
         dispatcher_mod,
@@ -358,6 +429,65 @@ def test_dispatcher_does_not_double_count_running_soft_submission_capacity(
     dispatcher.run_once()
 
     assert dispatched_ids == ["sub-queued"]
+
+
+def test_dispatcher_temporarily_reserves_running_soft_submission_until_child_jobs_visible(
+    tmp_path, monkeypatch
+) -> None:
+    db_path = tmp_path / "submit.db"
+    storage = Storage(StorageConfig(db_url=f"sqlite:///{db_path}"))
+    storage.init_db()
+    _patch_live_queue_resources(monkeypatch)
+
+    _create_submission(
+        storage,
+        submission_id="sub-running",
+        status="running",
+        created_at="2026-01-01T00:00:00+00:00",
+        priority=50,
+        args=_typed_supernode_args_soft(),
+    )
+    storage.update_submission(
+        "sub-running",
+        {"jobs": _submission_jobs_report("exp-soft-starting")},
+    )
+    _create_submission(
+        storage,
+        submission_id="sub-queued",
+        status="queued",
+        created_at="2026-01-01T00:00:01+00:00",
+        priority=50,
+        args=_typed_supernode_args_soft(),
+    )
+
+    nodes = _inventory_nodes(node_cpu=5000, node_mem=5000)
+    for node in nodes:
+        if node.get("node_class") == "submit":
+            node["allocations"] = {"running_jobs": ["sub-running"]}
+        else:
+            node["allocations"] = {"running_jobs": []}
+
+    monkeypatch.setattr(
+        dispatcher_mod,
+        "_inventory_snapshot",
+        lambda inventory: (nodes, None),
+    )
+
+    dispatched_ids: list[str] = []
+
+    def fake_dispatch(storage_obj, submission, cfg):
+        dispatched_ids.append(submission["id"])
+        return dispatcher_mod.DispatchResult(submitted=True)
+
+    monkeypatch.setattr(dispatcher_mod, "dispatch_submission", fake_dispatch)
+
+    dispatcher = dispatcher_mod.Dispatcher(storage, _cfg(db_path))
+    dispatcher.run_once()
+
+    assert dispatched_ids == []
+    updated = storage.get_submission("sub-queued")
+    assert updated["status"] == "blocked"
+    assert "compute-node:rpi4: need cpu 30000, available 20000" in str(updated["blocked_reason"])
 
 
 def test_dispatcher_releases_queue_once_previous_submission_completed(
