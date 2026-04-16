@@ -13,6 +13,7 @@ from fedctl_research.config import (
     get_model_rate_levels,
     get_model_rate_proportions,
     get_model_split_mode,
+    lookup_or_default,
     parse_device_type_allocations,
     parse_partition_rate_map,
     parse_node_rate_map,
@@ -72,9 +73,11 @@ def run_server(grid: Grid, context: Context) -> None:
         rate_assigner=ModelRateAssigner(
             mode=get_model_split_mode(context.run_config),
             default_model_rate=get_float(context.run_config, "default-model-rate"),
-            explicit_rate_by_node_id=parse_node_rate_map(context.run_config.get("heterofl-node-rates", "")),
+            explicit_rate_by_node_id=parse_node_rate_map(
+                lookup_or_default(context.run_config, "heterofl-node-rates", "")
+            ),
             explicit_rate_by_partition_id=parse_partition_rate_map(
-                context.run_config.get("heterofl-partition-rates", "")
+                lookup_or_default(context.run_config, "heterofl-partition-rates", "")
             ),
             rate_by_device_type=device_rate_map(context.run_config),
             device_type_by_node_id={},
@@ -82,9 +85,9 @@ def run_server(grid: Grid, context: Context) -> None:
             dynamic_levels=get_model_rate_levels(context.run_config),
             dynamic_proportions=get_model_rate_proportions(context.run_config),
             device_type_allocations=parse_device_type_allocations(
-                context.run_config.get("heterofl-device-type-allocations", "")
+                lookup_or_default(context.run_config, "heterofl-device-type-allocations", "")
             ),
-            seed=context.run_config.get("seed"),
+            seed=lookup_or_default(context.run_config, "seed", None),
         ),
         global_model_rate=get_float(context.run_config, "global-model-rate"),
         threshold_mode=get_fiarse_threshold_mode(context.run_config),

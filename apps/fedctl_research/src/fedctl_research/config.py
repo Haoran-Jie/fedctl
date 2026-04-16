@@ -9,12 +9,39 @@ from flwr.app import Context
 
 
 DEFAULT_MODEL_RATE_LEVELS = (1.0, 0.5, 0.25, 0.125, 0.0625)
+_MISSING = object()
+
+
+def _lookup_raw(run_config: Mapping[str, object], key: str) -> object:
+    getter = getattr(run_config, "get", None)
+    if callable(getter):
+        try:
+            value = getter(key, _MISSING)
+        except TypeError:
+            try:
+                value = getter(key)
+            except Exception:
+                value = _MISSING
+        except Exception:
+            value = _MISSING
+        if value is not _MISSING:
+            return value
+    try:
+        return run_config[key]
+    except Exception:
+        return _MISSING
 
 
 def _get_required(run_config: Mapping[str, object], key: str) -> object:
-    if key not in run_config:
+    value = _lookup_raw(run_config, key)
+    if value is _MISSING:
         raise KeyError(f"Missing run_config key: {key}")
-    return run_config[key]
+    return value
+
+
+def lookup_or_default(run_config: Mapping[str, object], key: str, default: object) -> object:
+    value = _lookup_raw(run_config, key)
+    return default if value is _MISSING else value
 
 
 def get_int(run_config: Mapping[str, object], key: str) -> int:
@@ -22,7 +49,9 @@ def get_int(run_config: Mapping[str, object], key: str) -> int:
 
 
 def get_optional_int(run_config: Mapping[str, object], key: str) -> int | None:
-    value = run_config.get(key)
+    value = _lookup_raw(run_config, key)
+    if value is _MISSING:
+        return None
     return None if value is None else int(value)
 
 
@@ -31,8 +60,8 @@ def get_float(run_config: Mapping[str, object], key: str) -> float:
 
 
 def get_optional_float(run_config: Mapping[str, object], key: str) -> float | None:
-    value = run_config.get(key)
-    if value is None:
+    value = _lookup_raw(run_config, key)
+    if value is _MISSING or value is None:
         return None
     raw = str(value).strip()
     if raw == "":
@@ -45,16 +74,16 @@ def get_str(run_config: Mapping[str, object], key: str) -> str:
 
 
 def get_optional_str(run_config: Mapping[str, object], key: str) -> str | None:
-    value = run_config.get(key)
-    if value is None:
+    value = _lookup_raw(run_config, key)
+    if value is _MISSING or value is None:
         return None
     raw = str(value).strip()
     return raw if raw else None
 
 
 def get_optional_bool(run_config: Mapping[str, object], key: str) -> bool | None:
-    value = run_config.get(key)
-    if value is None:
+    value = _lookup_raw(run_config, key)
+    if value is _MISSING or value is None:
         return None
     if isinstance(value, bool):
         return value
@@ -67,27 +96,39 @@ def get_optional_bool(run_config: Mapping[str, object], key: str) -> bool | None
 
 
 def get_method_name(run_config: Mapping[str, object]) -> str:
-    return str(run_config.get("method", "heterofl")).strip() or "heterofl"
+    return str(lookup_or_default(run_config, "method", "heterofl")).strip() or "heterofl"
 
 
 def get_task_name(run_config: Mapping[str, object]) -> str:
-    return str(run_config.get("task", "fashion_mnist_mlp")).strip() or "fashion_mnist_mlp"
+    return str(lookup_or_default(run_config, "task", "fashion_mnist_mlp")).strip() or "fashion_mnist_mlp"
+
+
+def get_optimizer_name(run_config: Mapping[str, object]) -> str:
+    return str(lookup_or_default(run_config, "optimizer", "sgd")).strip().lower() or "sgd"
 
 
 def get_model_split_mode(run_config: Mapping[str, object]) -> str:
-    return str(run_config.get("model-split-mode", "fix")).strip().lower() or "fix"
+    return str(lookup_or_default(run_config, "model-split-mode", "fix")).strip().lower() or "fix"
 
 
 def get_partitioning_num_labels(run_config: Mapping[str, object]) -> int:
-    return int(run_config.get("partitioning-num-labels", 2))
+    return int(lookup_or_default(run_config, "partitioning-num-labels", 2))
 
 
 def get_partitioning_dirichlet_alpha(run_config: Mapping[str, object]) -> float:
-    return float(run_config.get("partitioning-dirichlet-alpha", 0.1))
+    return float(lookup_or_default(run_config, "partitioning-dirichlet-alpha", 0.1))
+
+
+def get_partitioning_continuous_column(run_config: Mapping[str, object]) -> str | None:
+    return get_optional_str(run_config, "partitioning-continuous-column")
+
+
+def get_partitioning_continuous_strictness(run_config: Mapping[str, object]) -> float:
+    return float(lookup_or_default(run_config, "partitioning-continuous-strictness", 0.5))
 
 
 def get_masked_cross_entropy_mode(run_config: Mapping[str, object]) -> str:
-    return str(run_config.get("masked-cross-entropy", "auto")).strip().lower() or "auto"
+    return str(lookup_or_default(run_config, "masked-cross-entropy", "auto")).strip().lower() or "auto"
 
 
 def get_client_eval_enabled(run_config: Mapping[str, object]) -> bool:
@@ -100,6 +141,15 @@ def get_final_client_eval_enabled(run_config: Mapping[str, object]) -> bool:
     return False if value is None else value
 
 
+def get_target_score(run_config: Mapping[str, object]) -> float | None:
+    return get_optional_float(run_config, "target-score")
+
+
+def get_stop_on_target_score(run_config: Mapping[str, object]) -> bool:
+    value = get_optional_bool(run_config, "stop-on-target-score")
+    return False if value is None else value
+
+
 def get_submodel_local_eval_enabled(run_config: Mapping[str, object]) -> bool:
     value = get_optional_bool(run_config, "submodel-local-eval-enabled")
     if value is not None:
@@ -109,11 +159,11 @@ def get_submodel_local_eval_enabled(run_config: Mapping[str, object]) -> bool:
 
 
 def get_fedavgm_momentum(run_config: Mapping[str, object]) -> float:
-    return float(run_config.get("fedavgm-server-momentum", 0.9))
+    return float(lookup_or_default(run_config, "fedavgm-server-momentum", 0.9))
 
 
 def get_fedbuff_buffer_size(run_config: Mapping[str, object]) -> int:
-    return int(run_config.get("fedbuff-buffer-size", 10))
+    return int(lookup_or_default(run_config, "fedbuff-buffer-size", 10))
 
 
 def get_fedbuff_train_concurrency(run_config: Mapping[str, object]) -> int | None:
@@ -121,32 +171,35 @@ def get_fedbuff_train_concurrency(run_config: Mapping[str, object]) -> int | Non
 
 
 def get_fedbuff_poll_interval_s(run_config: Mapping[str, object]) -> float:
-    return float(run_config.get("fedbuff-poll-interval-s", 1.0))
+    return float(lookup_or_default(run_config, "fedbuff-poll-interval-s", 1.0))
 
 
 def get_fedbuff_num_server_steps(run_config: Mapping[str, object]) -> int:
-    return int(run_config.get("fedbuff-num-server-steps", 3))
+    return int(lookup_or_default(run_config, "fedbuff-num-server-steps", 3))
 
 
 def get_fedbuff_evaluate_every_steps(run_config: Mapping[str, object]) -> int:
-    return int(run_config.get("fedbuff-evaluate-every-steps", 1))
+    return int(lookup_or_default(run_config, "fedbuff-evaluate-every-steps", 1))
 
 
 def get_fedbuff_staleness_weighting(run_config: Mapping[str, object]) -> str:
-    return str(run_config.get("fedbuff-staleness-weighting", "polynomial")).strip().lower() or "polynomial"
+    return (
+        str(lookup_or_default(run_config, "fedbuff-staleness-weighting", "polynomial")).strip().lower()
+        or "polynomial"
+    )
 
 
 def get_fedbuff_staleness_alpha(run_config: Mapping[str, object]) -> float:
-    return float(run_config.get("fedbuff-staleness-alpha", 0.5))
+    return float(lookup_or_default(run_config, "fedbuff-staleness-alpha", 0.5))
 
 
 def get_fiarse_threshold_mode(run_config: Mapping[str, object]) -> str:
-    return str(run_config.get("fiarse-threshold-mode", "global")).strip().lower() or "global"
+    return str(lookup_or_default(run_config, "fiarse-threshold-mode", "global")).strip().lower() or "global"
 
 
 def get_fiarse_global_learning_rate(run_config: Mapping[str, object]) -> float:
-    value = run_config.get("fiarse-global-learning-rate")
-    if value is None:
+    value = _lookup_raw(run_config, "fiarse-global-learning-rate")
+    if value is _MISSING or value is None:
         return 1.0
     return float(value)
 
@@ -161,7 +214,7 @@ def parse_csv_floats(value: str | object | None) -> tuple[float, ...]:
 
 
 def get_model_rate_levels(run_config: Mapping[str, object]) -> tuple[float, ...]:
-    parsed = parse_csv_floats(run_config.get("model-rate-levels"))
+    parsed = parse_csv_floats(lookup_or_default(run_config, "model-rate-levels", None))
     return parsed if parsed else DEFAULT_MODEL_RATE_LEVELS
 
 
@@ -174,8 +227,8 @@ def get_submodel_eval_rates(run_config: Mapping[str, object]) -> tuple[float, ..
             0.5,
             1.0,
             *get_model_rate_levels(run_config),
-            float(run_config.get("default-model-rate", 1.0)),
-            float(run_config.get("global-model-rate", 1.0)),
+            float(lookup_or_default(run_config, "default-model-rate", 1.0)),
+            float(lookup_or_default(run_config, "global-model-rate", 1.0)),
         )
         if rate > 0
     }
@@ -184,7 +237,7 @@ def get_submodel_eval_rates(run_config: Mapping[str, object]) -> tuple[float, ..
 
 def get_model_rate_proportions(run_config: Mapping[str, object]) -> tuple[float, ...]:
     levels = get_model_rate_levels(run_config)
-    parsed = parse_csv_floats(run_config.get("model-rate-proportions"))
+    parsed = parse_csv_floats(lookup_or_default(run_config, "model-rate-proportions", None))
     if not parsed:
         uniform = 1.0 / len(levels)
         return tuple(uniform for _ in levels)

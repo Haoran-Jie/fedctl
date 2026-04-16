@@ -21,6 +21,7 @@ from fedctl_research.config import (
     get_optional_bool,
     get_optional_str,
     get_task_name,
+    lookup_or_default,
 )
 from fedctl_research.metrics import normalize_metric_mapping
 
@@ -123,6 +124,11 @@ class ExperimentLogger:
         self, server_round: int, metrics: MetricRecord | Mapping[str, Any] | None
     ) -> None:
         del server_round, metrics
+
+    def log_server_eval_trip_metrics(
+        self, client_trip: int, metrics: MetricRecord | Mapping[str, Any] | None
+    ) -> None:
+        del client_trip, metrics
 
     def log_system_metrics(self, server_round: int, metrics: MetricRecord | Mapping[str, Any] | None) -> None:
         del server_round, metrics
@@ -236,6 +242,11 @@ class WandbExperimentLogger(ExperimentLogger):
         self, server_round: int, metrics: MetricRecord | Mapping[str, Any] | None
     ) -> None:
         self._log("eval_server", server_round, metrics)
+
+    def log_server_eval_trip_metrics(
+        self, client_trip: int, metrics: MetricRecord | Mapping[str, Any] | None
+    ) -> None:
+        self._log("eval_server_trip", client_trip, metrics, axis_key="client_trip")
 
     def log_system_metrics(self, server_round: int, metrics: MetricRecord | Mapping[str, Any] | None) -> None:
         if self.disabled:
@@ -353,8 +364,12 @@ def _repo_config_label() -> str:
     return value or "default"
 
 
+def _profile_tag() -> str:
+    return f"profile-{_repo_config_label()}"
+
+
 def _seed_label(run_config: Mapping[str, object]) -> str:
-    seed = run_config.get("seed")
+    seed = lookup_or_default(run_config, "seed", None)
     if isinstance(seed, int):
         return str(seed)
     if isinstance(seed, str) and seed.isdigit():
@@ -392,7 +407,7 @@ def _attempt_id(submission_id: str) -> str:
 
 def _node_count_label(run_config: Mapping[str, object]) -> str:
     for key in ("min-available-nodes", "min-train-nodes", "min-evaluate-nodes"):
-        value = run_config.get(key)
+        value = lookup_or_default(run_config, key, None)
         try:
             count = int(value)
         except (TypeError, ValueError):
@@ -473,14 +488,15 @@ def create_experiment_logger(context: Context) -> ExperimentLogger:
         "name": (
             f"{experiment}-{method}-{task}-"
             f"{_node_count_label(run_config)}-{_capacity_split_label(run_config)}-"
-            f"{identity.attempt_id}"
+            f"{_profile_tag()}-{identity.attempt_id}"
         ),
-        "tags": sorted(set(tags + [method, task, experiment])),
+        "tags": sorted(set(tags + [method, task, experiment, _profile_tag()])),
         "config": {
             **_sanitize_config(run_config),
             "fedctl_experiment": experiment,
             "fedctl_method": method,
             "fedctl_task": task,
+            "fedctl_repo_config_label": _repo_config_label(),
             "fedctl_node_count_label": _node_count_label(run_config),
             "fedctl_capacity_split_label": _capacity_split_label(run_config),
             "fedctl_flwr_home": os.environ.get("FLWR_HOME", ""),

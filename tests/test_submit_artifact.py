@@ -317,6 +317,118 @@ model-rate-proportions = [0.25, 0.25, 0.25, 0.25]
     assert payload["submit_request"]["options"]["experiment"] == expected
 
 
+def test_run_submit_auto_generated_experiment_includes_network_profile_label(
+    monkeypatch, tmp_path: Path
+) -> None:
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    experiment_config = project_root / "experiment.toml"
+    experiment_config.write_text(
+        """
+[experiment]
+method = "fedbuff"
+task = "cifar10_cnn"
+seed = 1337
+
+[server]
+min-available-nodes = 20
+
+[data]
+partitioning = "dirichlet"
+partitioning-dirichlet-alpha = 0.3
+
+[capacity]
+model-rate-levels = [1.0]
+model-rate-proportions = [1.0]
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    archive = tmp_path / "project.tar.gz"
+    archive.write_bytes(b"artifact-bytes")
+    captured: dict[str, object] = {}
+    repo_cfg_path = tmp_path / "main_network_heterogeneity_mild.yaml"
+
+    monkeypatch.setattr(
+        submit_cmd,
+        "inspect_flwr_project",
+        lambda _: SimpleNamespace(
+            project_name="demo-project",
+            local_sim_num_supernodes=None,
+            root=project_root,
+        ),
+    )
+    monkeypatch.setattr(
+        submit_cmd,
+        "resolve_repo_config",
+        lambda **_: SimpleNamespace(
+            data={
+                "deploy": {"network": {"default_profile": "mild"}},
+                "submit": {
+                    "image": "submit-image:latest",
+                    "artifact_store": "s3+presign://fedctl-submits/fedctl-submits",
+                    "endpoint": "http://submit.example:8080",
+                    "token": "token-from-config",
+                },
+            },
+            path=repo_cfg_path,
+        ),
+    )
+
+    class FakeSubmitClient:
+        endpoint = "http://submit.example:8080"
+        token = "token-from-client"
+
+        def create_submission(self, payload):
+            captured["submission_payload"] = payload
+            return {"submission_id": "sub-123"}
+
+    monkeypatch.setattr(submit_cmd, "_submit_service_client", lambda **_: FakeSubmitClient())
+    monkeypatch.setattr(submit_cmd, "_build_project_archive", lambda *_, **__: archive)
+    monkeypatch.setattr(
+        submit_cmd,
+        "upload_artifact",
+        lambda *_, **__: "https://signed.example/get-object",
+    )
+    monkeypatch.setattr(submit_cmd, "load_config", lambda: object())
+    monkeypatch.setattr(
+        submit_cmd,
+        "get_effective_config",
+        lambda _: SimpleNamespace(namespace="default"),
+    )
+
+    status = submit_cmd.run_submit(
+        path=str(project_root),
+        experiment_config="experiment.toml",
+        flwr_version="1.25.0",
+        image="superexec-image:latest",
+        no_cache=False,
+        platform=None,
+        context=None,
+        push=False,
+        num_supernodes=20,
+        auto_supernodes=True,
+        supernodes=None,
+        net=None,
+        allow_oversubscribe=None,
+        repo_config=str(repo_cfg_path),
+        experiment=None,
+        timeout_seconds=120,
+        federation="remote-deployment",
+        stream=True,
+        verbose=False,
+        destroy=True,
+        submit_image=None,
+        artifact_store=None,
+        priority=50,
+    )
+
+    assert status == 0
+    payload = captured["submission_payload"]
+    assert "-profile-mild-" in payload["experiment"]
+    assert payload["submit_request"]["options"]["experiment"] == payload["experiment"]
+
+
 def test_submit_generated_experiment_name_distinguishes_config_variants(
     tmp_path: Path,
 ) -> None:

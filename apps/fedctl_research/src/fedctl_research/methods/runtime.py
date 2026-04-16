@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections import OrderedDict
+from dataclasses import dataclass
 from collections.abc import Mapping
 import os
 import time
@@ -13,6 +14,7 @@ import torch
 from flwr.app import ArrayRecord, ConfigRecord, Context, Message, MessageType, MetricRecord, RecordDict
 from flwr.common.logger import log
 from flwr.serverapp import Grid
+from flwr.serverapp.strategy import Result
 
 from fedctl_research.config import (
     get_client_eval_enabled,
@@ -21,14 +23,20 @@ from fedctl_research.config import (
     get_int,
     get_masked_cross_entropy_mode,
     get_model_rate_levels,
+    get_optimizer_name,
     get_optional_bool,
     get_optional_float,
     get_optional_int,
+    get_partitioning_continuous_column,
+    get_partitioning_continuous_strictness,
     get_partitioning_dirichlet_alpha,
     get_partitioning_num_labels,
+    get_stop_on_target_score,
     get_str,
     get_submodel_eval_rates,
     get_submodel_local_eval_enabled,
+    get_target_score,
+    lookup_or_default,
     parse_node_device_type_map,
     resolve_device_type_for_context,
     resolve_instance_idx,
@@ -45,6 +53,157 @@ ResolveModelRateFn = Callable[[Message, Context], float]
 StrategyFactory = Callable[[Context, object], object]
 TypedPartitionPlanEntry = dict[str, int | str]
 TypedPartitionPlan = dict[int, TypedPartitionPlanEntry]
+
+
+def _task_score_name(task: object) -> str:
+    return str(getattr(task, "primary_score_name", "acc")).strip().lower() or "acc"
+
+
+def _task_score_label(task: object) -> str:
+    score_name = _task_score_name(task)
+    return "score" if score_name != "acc" else "acc"
+
+
+def _evaluation_metric_record(
+    task: object,
+    *,
+    loss: float,
+    score: float,
+    num_examples: int | None = None,
+    duration_s: float | None = None,
+    server_round: int | None = None,
+) -> MetricRecord:
+    score_name = _task_score_name(task)
+    metrics: dict[str, float | int] = {
+        "eval-loss": float(loss),
+        "eval-score": float(score),
+        "eval-acc": float(score),
+    }
+    if score_name != "acc":
+        metrics[f"eval-{score_name}"] = float(score)
+    if num_examples is not None:
+        metrics["num-examples"] = int(num_examples)
+        metrics["eval-num-examples"] = int(num_examples)
+    if duration_s is not None:
+        metrics["eval-duration-s"] = float(duration_s)
+    if server_round is not None:
+        metrics["server-round"] = int(server_round)
+    return MetricRecord(metrics)
+
+
+def _artifact_eval_payload(
+    task: object,
+    *,
+    loss: float,
+    score: float,
+) -> dict[str, float]:
+    score_name = _task_score_name(task)
+    payload = {
+        "eval_loss": float(loss),
+        "eval_score": float(score),
+        "eval_acc": float(score),
+    }
+    if score_name != "acc":
+        payload[f"eval_{score_name}"] = float(score)
+    return payload
+
+
+def _metric_score_value(task: object, metrics: Mapping[str, object]) -> float | None:
+    score_name = _task_score_name(task)
+    for key in (f"eval-{score_name}", "eval-score", "eval-acc"):
+        value = metrics.get(key)
+        if value is not None:
+            return float(value)
+    return None
+
+
+def _score_meets_target(*, direction: str, value: float, threshold: float) -> bool:
+    normalized_direction = str(direction).strip().lower() or "max"
+    if normalized_direction == "min":
+        return value <= threshold
+    return value >= threshold
+
+
+def _sync_client_trip_budget(run_config: Mapping[str, object]) -> int:
+    return get_int(run_config, "num-server-rounds") * get_int(run_config, "min-train-nodes")
+
+
+def _async_client_trip_budget(run_config: Mapping[str, object]) -> int:
+    return get_int(run_config, "fedbuff-num-server-steps") * get_int(run_config, "fedbuff-buffer-size")
+
+
+@dataclass
+class TargetStopController:
+    score_name: str
+    score_direction: str
+    threshold: float | None
+    stop_on_target: bool
+    client_trip_budget: int | None
+    reached: bool = False
+    client_trips_to_target: int | None = None
+    server_step_to_target: int | None = None
+    wall_clock_s_to_target: float | None = None
+
+    @classmethod
+    def from_task(
+        cls,
+        task: object,
+        run_config: Mapping[str, object],
+        *,
+        client_trip_budget: int | None,
+    ) -> "TargetStopController":
+        return cls(
+            score_name=_task_score_name(task),
+            score_direction=str(getattr(task, "primary_score_direction", "max")).strip().lower() or "max",
+            threshold=get_target_score(run_config),
+            stop_on_target=get_stop_on_target_score(run_config),
+            client_trip_budget=client_trip_budget,
+        )
+
+    @property
+    def enabled(self) -> bool:
+        return self.threshold is not None
+
+    def observe(
+        self,
+        *,
+        task: object,
+        server_step: int,
+        metrics: Mapping[str, object] | None,
+        progress_state: Mapping[str, object],
+    ) -> bool:
+        if not self.enabled or self.reached or metrics is None:
+            return False
+        score_value = _metric_score_value(task, metrics)
+        if score_value is None or self.threshold is None:
+            return False
+        if not _score_meets_target(direction=self.score_direction, value=score_value, threshold=self.threshold):
+            return False
+        self.reached = True
+        self.client_trips_to_target = int(progress_state.get("client_trips_total", 0))
+        self.server_step_to_target = int(server_step)
+        self.wall_clock_s_to_target = float(progress_state.get("wall_clock_s_since_start", 0.0))
+        return self.stop_on_target
+
+    def summary_metrics(self) -> dict[str, int | float | bool | str]:
+        if not self.enabled:
+            return {}
+        summary: dict[str, int | float | bool | str] = {
+            "target/score_name": self.score_name,
+            "target/score_threshold": float(self.threshold) if self.threshold is not None else 0.0,
+            "target/reached": self.reached,
+            "target/censored": not self.reached,
+        }
+        if self.client_trip_budget is not None:
+            summary["target/client_trip_budget"] = int(self.client_trip_budget)
+        if self.reached:
+            if self.client_trips_to_target is not None:
+                summary["target/client_trips_to_target"] = int(self.client_trips_to_target)
+            if self.server_step_to_target is not None:
+                summary["target/server_step_to_target"] = int(self.server_step_to_target)
+            if self.wall_clock_s_to_target is not None:
+                summary["target/wall_clock_s_to_target"] = float(self.wall_clock_s_to_target)
+        return summary
 
 
 def _experiment_name() -> str:
@@ -80,6 +239,10 @@ def client_prefix(context: Context, *, method_label: str) -> str:
 
 def client_log(context: Context, *, method_label: str, message: str) -> None:
     print(f"{client_prefix(context, method_label=method_label)} {message}", flush=True)
+
+
+def server_log(*, method_label: str, message: str) -> None:
+    print(f"[{method_label}][server] {message}", flush=True)
 
 
 def query_capabilities(msg: Message, context: Context) -> Message:
@@ -150,6 +313,8 @@ def build_partition_request(
         device_type=partition_device_type,
         partitioning_num_labels=get_partitioning_num_labels(context.run_config),
         partitioning_dirichlet_alpha=get_partitioning_dirichlet_alpha(context.run_config),
+        partitioning_continuous_column=get_partitioning_continuous_column(context.run_config),
+        partitioning_continuous_strictness=get_partitioning_continuous_strictness(context.run_config),
         assignment_seed=assignment_seed,
         loader_seed=loader_seed,
         typed_partition_idx=typed_partition_idx,
@@ -207,7 +372,10 @@ def client_train(
     client_log(
         context,
         method_label=method_label,
-        message=f"train:start model_rate={model_rate} lr={float(msg.content['config']['lr'])}",
+        message=(
+            f"train:start model_rate={model_rate} "
+            f"lr={float(msg.content['config']['lr'])} optimizer={get_optimizer_name(context.run_config)}"
+        ),
     )
 
     phase_start = time.perf_counter()
@@ -247,6 +415,7 @@ def client_train(
         get_int(context.run_config, "local-epochs"),
         float(msg.content["config"]["lr"]),
         device,
+        optimizer=get_optimizer_name(context.run_config),
         label_mask=bundle.label_mask,
         masked_cross_entropy=get_masked_cross_entropy_mode(context.run_config),
         partitioning=partitioning,
@@ -341,12 +510,12 @@ def client_evaluate(
     )
 
     phase_start = time.perf_counter()
-    loss, accuracy = task.test(model, bundle.testloader, device)
+    loss, score = task.test(model, bundle.testloader, device)
     client_log(
         context,
         method_label=method_label,
         message=(
-            f"eval:done loss={loss:.6f} acc={accuracy:.6f} "
+            f"eval:done loss={loss:.6f} {_task_score_label(task)}={score:.6f} "
             f"elapsed_s={time.perf_counter() - phase_start:.2f}"
         ),
     )
@@ -354,14 +523,12 @@ def client_evaluate(
 
     reply = RecordDict(
         {
-            "metrics": MetricRecord(
-                {
-                    "eval-loss": float(loss),
-                    "eval-acc": float(accuracy),
-                    "num-examples": bundle.num_test_examples,
-                    "eval-num-examples": bundle.num_test_examples,
-                    "eval-duration-s": float(eval_duration_s),
-                }
+            "metrics": _evaluation_metric_record(
+                task,
+                loss=float(loss),
+                score=float(score),
+                num_examples=bundle.num_test_examples,
+                duration_s=float(eval_duration_s),
             )
         }
     )
@@ -404,17 +571,22 @@ def central_evaluate_fn(
             global_model_rate=global_model_rate,
         )
         task.load_model_state(model, arrays.to_torch_state_dict())
-        loss, accuracy = task.test(model, testloader, device="cpu")
+        loss, score = task.test(model, testloader, device="cpu")
         eval_duration_s = time.perf_counter() - eval_started_at
-        metrics = MetricRecord(
-            {
-                "eval-loss": float(loss),
-                "eval-acc": float(accuracy),
-                "server-round": server_round,
-            }
+        metrics = _evaluation_metric_record(
+            task,
+            loss=float(loss),
+            score=float(score),
+            server_round=server_round,
         )
+        progress_payload: Mapping[str, int | float | str] = {}
+        if progress_provider is not None:
+            progress_payload = dict(progress_provider())
         if experiment_logger is not None:
             experiment_logger.log_server_eval_metrics(server_round, metrics)
+            client_trips_total = int(progress_payload.get("client_trips_total", 0))
+            if client_trips_total > 0:
+                experiment_logger.log_server_eval_trip_metrics(client_trips_total, metrics)
             experiment_logger.log_system_metrics(
                 server_round,
                 {"round-server-eval-duration-s": float(eval_duration_s)},
@@ -422,13 +594,22 @@ def central_evaluate_fn(
         if artifact_logger is not None:
             payload: dict[str, int | float | str] = {
                 "server_step": int(server_round),
-                "eval_loss": float(loss),
-                "eval_acc": float(accuracy),
                 "round_server_eval_duration_s": float(eval_duration_s),
             }
-            if progress_provider is not None:
-                payload.update(progress_provider())
+            payload.update(_artifact_eval_payload(task, loss=float(loss), score=float(score)))
+            payload.update(progress_payload)
             artifact_logger.log_evaluation_event(payload)
+        client_trips_total = int(progress_payload.get("client_trips_total", 0))
+        server_log(
+            method_label=method_label,
+            message=(
+                f"server_eval step={server_round}"
+                f" eval_{_task_score_label(task)}={float(score):.4f}"
+                f" eval_loss={float(loss):.4f}"
+                f" client_trips={client_trips_total}"
+                f" duration_s={float(eval_duration_s):.2f}"
+            ),
+        )
         if (
             grid is not None
             and strategy is not None
@@ -475,16 +656,17 @@ def _aggregate_eval_replies(replies: list[Message]) -> MetricRecord | None:
     if total_examples <= 0:
         return None
     loss = 0.0
-    acc = 0.0
+    score = 0.0
     for reply in valid:
         metrics = reply.content["metrics"]
         examples = int(metrics.get("num-examples", 0))
         loss += float(metrics.get("eval-loss", 0.0)) * examples
-        acc += float(metrics.get("eval-acc", 0.0)) * examples
+        score += float(metrics.get("eval-score", metrics.get("eval-acc", 0.0))) * examples
     return MetricRecord(
         {
             "eval-loss": loss / total_examples,
-            "eval-acc": acc / total_examples,
+            "eval-score": score / total_examples,
+            "eval-acc": score / total_examples,
             "num-examples": total_examples,
         }
     )
@@ -550,7 +732,7 @@ def run_submodel_evaluations(
             threshold_map = build_threshold_map(
                 global_model,
                 model_rate=model_rate,
-                threshold_mode=str(context.run_config.get("fiarse-threshold-mode", "global")),
+                threshold_mode=str(lookup_or_default(context.run_config, "fiarse-threshold-mode", "global")),
             )
             apply_hard_mask_in_place(global_model, threshold_map=threshold_map)
         else:
@@ -558,7 +740,7 @@ def run_submodel_evaluations(
             local_state = slice_state_dict(final_state, param_idx)
             global_model = task.build_model_for_rate(model_rate, global_model_rate=global_model_rate)
             task.load_model_state(global_model, local_state)
-        global_loss, global_acc = task.test(global_model, testloader, device="cpu")
+        global_loss, global_score = task.test(global_model, testloader, device="cpu")
 
         local_metric = None
         local_replies: list[Message] = []
@@ -587,27 +769,37 @@ def run_submodel_evaluations(
             local_metric = _aggregate_eval_replies(local_replies)
 
         rate_token = _format_rate_token(model_rate)
-        summary_metrics[f"submodel/global/rate_{rate_token}/eval-acc"] = float(global_acc)
+        summary_metrics[f"submodel/global/rate_{rate_token}/eval-score"] = float(global_score)
+        summary_metrics[f"submodel/global/rate_{rate_token}/eval-acc"] = float(global_score)
         summary_metrics[f"submodel/global/rate_{rate_token}/eval-loss"] = float(global_loss)
+        score_name = _task_score_name(task)
+        if score_name != "acc":
+            summary_metrics[f"submodel/global/rate_{rate_token}/eval-{score_name}"] = float(global_score)
         artifact_logger.log_submodel_evaluation_event(
             {
                 "scope": "global",
                 "server_step": int(server_step),
                 "model_rate": float(model_rate),
-                "eval_acc": float(global_acc),
-                "eval_loss": float(global_loss),
+                **_artifact_eval_payload(task, loss=float(global_loss), score=float(global_score)),
             }
         )
         if local_metric is not None:
-            summary_metrics[f"submodel/local/rate_{rate_token}/eval-acc"] = float(local_metric["eval-acc"])
+            local_score = float(local_metric.get("eval-score", local_metric["eval-acc"]))
+            summary_metrics[f"submodel/local/rate_{rate_token}/eval-score"] = local_score
+            summary_metrics[f"submodel/local/rate_{rate_token}/eval-acc"] = local_score
             summary_metrics[f"submodel/local/rate_{rate_token}/eval-loss"] = float(local_metric["eval-loss"])
+            if score_name != "acc":
+                summary_metrics[f"submodel/local/rate_{rate_token}/eval-{score_name}"] = local_score
             artifact_logger.log_submodel_evaluation_event(
                 {
                     "scope": "local",
                     "server_step": int(server_step),
                     "model_rate": float(model_rate),
-                    "eval_acc": float(local_metric["eval-acc"]),
-                    "eval_loss": float(local_metric["eval-loss"]),
+                    **_artifact_eval_payload(
+                        task,
+                        loss=float(local_metric["eval-loss"]),
+                        score=local_score,
+                    ),
                     "num_examples": int(local_metric["num-examples"]),
                 }
             )
@@ -624,8 +816,11 @@ def run_submodel_evaluations(
                     "device_type": str(device_type_by_node_id.get(node_id, "unknown")),
                     "model_rate": float(model_rate),
                     "client_model_rate": float(assigned_rate_by_node.get(node_id, model_rate)),
-                    "eval_acc": float(metrics["eval-acc"]),
-                    "eval_loss": float(metrics["eval-loss"]),
+                    **_artifact_eval_payload(
+                        task,
+                        loss=float(metrics["eval-loss"]),
+                        score=float(metrics.get("eval-score", metrics["eval-acc"])),
+                    ),
                     "num_examples": int(metrics["num-examples"]),
                 }
                 payload.update(
@@ -644,7 +839,7 @@ def run_submodel_evaluations(
 
 def discover_node_capabilities(grid: Grid, context: Context) -> tuple[dict[int, str], dict[int, int]]:
     min_available_nodes = get_int(context.run_config, "min-available-nodes")
-    timeout_s = float(context.run_config.get("capability-discovery-timeout-s", 120.0))
+    timeout_s = float(lookup_or_default(context.run_config, "capability-discovery-timeout-s", 120.0))
     started = time.monotonic()
 
     all_node_ids: list[int] = []
@@ -702,7 +897,9 @@ def discover_node_capabilities(grid: Grid, context: Context) -> tuple[dict[int, 
         if partition_id is not None and str(partition_id).strip():
             partition_ids[src_node_id] = int(str(partition_id))
 
-    discovered.update(parse_node_device_type_map(context.run_config.get("heterofl-node-device-types", "")))
+    discovered.update(
+        parse_node_device_type_map(lookup_or_default(context.run_config, "heterofl-node-device-types", ""))
+    )
     log(INFO, "capability discovery: final node->device map=%s", discovered)
     log(INFO, "capability discovery: final node->partition map=%s", partition_ids)
     return discovered, partition_ids
@@ -777,6 +974,116 @@ def run_final_client_evaluation(
     return strategy.aggregate_evaluate(server_step, replies)
 
 
+def _run_sync_strategy_rounds(
+    *,
+    grid: Grid,
+    method_label: str,
+    strategy: object,
+    initial_arrays: ArrayRecord,
+    num_server_rounds: int,
+    train_config: ConfigRecord,
+    evaluate_config: ConfigRecord,
+    evaluate_fn: Callable[[int, ArrayRecord], MetricRecord | None] | None,
+    target_controller: TargetStopController,
+    task: object,
+    progress_state: Mapping[str, object],
+    timeout: float = 3600.0,
+) -> tuple[Result, int]:
+    result = Result(arrays=initial_arrays)
+    arrays = initial_arrays
+    last_server_round = 0
+
+    if evaluate_fn is not None:
+        initial_eval = evaluate_fn(0, initial_arrays)
+        if initial_eval is not None:
+            result.evaluate_metrics_serverapp[0] = initial_eval
+            if target_controller.observe(
+                task=task,
+                server_step=0,
+                metrics=initial_eval,
+                progress_state=progress_state,
+            ):
+                return result, 0
+
+    for current_round in range(1, num_server_rounds + 1):
+        server_log(
+            method_label=method_label,
+            message=f"round_start round={current_round}/{num_server_rounds}",
+        )
+        train_replies = grid.send_and_receive(
+            messages=list(strategy.configure_train(current_round, arrays, train_config, grid)),
+            timeout=timeout,
+        )
+        train_successes = sum(1 for reply in train_replies if not reply.has_error())
+        train_failures = sum(1 for reply in train_replies if reply.has_error())
+        agg_arrays, agg_train_metrics = strategy.aggregate_train(current_round, train_replies)
+        if agg_arrays is not None:
+            arrays = agg_arrays
+            result.arrays = agg_arrays
+        if agg_train_metrics is not None:
+            result.train_metrics_clientapp[current_round] = agg_train_metrics
+        server_log(
+            method_label=method_label,
+            message=(
+                f"round_train_done round={current_round}"
+                f" success={train_successes}"
+                f" fail={train_failures}"
+                f" client_trips={int(progress_state.get('client_trips_total', 0))}"
+            ),
+        )
+
+        evaluate_replies = grid.send_and_receive(
+            messages=list(strategy.configure_evaluate(current_round, arrays, evaluate_config, grid)),
+            timeout=timeout,
+        )
+        eval_successes = sum(1 for reply in evaluate_replies if not reply.has_error())
+        eval_failures = sum(1 for reply in evaluate_replies if reply.has_error())
+        agg_evaluate_metrics = strategy.aggregate_evaluate(current_round, evaluate_replies)
+        if agg_evaluate_metrics is not None:
+            result.evaluate_metrics_clientapp[current_round] = agg_evaluate_metrics
+            score_value = _metric_score_value(task, agg_evaluate_metrics)
+            score_suffix = (
+                f" eval_{_task_score_label(task)}={float(score_value):.4f}"
+                if score_value is not None
+                else ""
+            )
+            server_log(
+                method_label=method_label,
+                message=(
+                    f"round_client_eval_done round={current_round}"
+                    f" success={eval_successes}"
+                    f" fail={eval_failures}"
+                    f"{score_suffix}"
+                ),
+            )
+
+        if evaluate_fn is not None:
+            server_eval_metrics = evaluate_fn(current_round, arrays)
+            if server_eval_metrics is not None:
+                result.evaluate_metrics_serverapp[current_round] = server_eval_metrics
+        last_server_round = current_round
+        if evaluate_fn is not None and current_round in result.evaluate_metrics_serverapp:
+            if target_controller.observe(
+                task=task,
+                server_step=current_round,
+                metrics=result.evaluate_metrics_serverapp[current_round],
+                progress_state=progress_state,
+            ):
+                server_log(
+                    method_label=method_label,
+                    message=(
+                        f"target_reached step={current_round}"
+                        f" client_trips={target_controller.client_trips_to_target}"
+                        f" threshold={target_controller.threshold:.4f}"
+                    ),
+                )
+                break
+
+    if len(result.arrays) == 0:
+        result.arrays = arrays
+    return result, last_server_round
+
+
 def run_server_loop(
     grid: Grid,
     context: Context,
@@ -813,7 +1120,13 @@ def run_server_loop(
         global_model_rate=global_model_rate,
     )
     initial_arrays = ArrayRecord(initial_model.state_dict())
-    train_config = ConfigRecord({"lr": get_float(context.run_config, "learning-rate"), "global-model-rate": global_model_rate})
+    train_config = ConfigRecord(
+        {
+            "lr": get_float(context.run_config, "learning-rate"),
+            "optimizer": get_optimizer_name(context.run_config),
+            "global-model-rate": global_model_rate,
+        }
+    )
     evaluate_config = ConfigRecord({"global-model-rate": global_model_rate})
     client_eval_enabled = get_client_eval_enabled(context.run_config)
     final_client_eval_enabled = get_final_client_eval_enabled(context.run_config)
@@ -837,23 +1150,33 @@ def run_server_loop(
     )
 
     num_server_rounds = get_int(context.run_config, "num-server-rounds")
-
-    result = strategy.start(
+    target_controller = TargetStopController.from_task(
+        task,
+        context.run_config,
+        client_trip_budget=_sync_client_trip_budget(context.run_config),
+    )
+    evaluate_fn = central_evaluate_fn(
+        context,
         grid=grid,
+        strategy=strategy,
+        method_label=method_label,
+        experiment_logger=experiment_logger,
+        artifact_logger=artifact_logger,
+        progress_provider=lambda: dict(progress_state),
+        num_server_rounds=num_server_rounds,
+    )
+    result, final_server_step = _run_sync_strategy_rounds(
+        grid=grid,
+        method_label=method_label,
+        strategy=strategy,
         initial_arrays=initial_arrays,
-        num_rounds=num_server_rounds,
+        num_server_rounds=num_server_rounds,
         train_config=train_config,
         evaluate_config=evaluate_config if client_eval_enabled else ConfigRecord({}),
-        evaluate_fn=central_evaluate_fn(
-            context,
-            grid=grid,
-            strategy=strategy,
-            method_label=method_label,
-            experiment_logger=experiment_logger,
-            artifact_logger=artifact_logger,
-            progress_provider=lambda: dict(progress_state),
-            num_server_rounds=num_server_rounds,
-        ),
+        evaluate_fn=evaluate_fn,
+        target_controller=target_controller,
+        task=task,
+        progress_state=progress_state,
     )
     train_history = getattr(result, "train_metrics_clientapp", {})
     if isinstance(train_history, Mapping):
@@ -870,16 +1193,19 @@ def run_server_loop(
             strategy=strategy,
             arrays=result.arrays,
             evaluate_config=evaluate_config,
-            server_step=num_server_rounds,
+            server_step=final_server_step,
         )
         if final_metrics is not None:
             evaluate_history = getattr(result, "evaluate_metrics_clientapp", None)
             if isinstance(evaluate_history, Mapping):
-                evaluate_history[num_server_rounds] = final_metrics
+                evaluate_history[final_server_step] = final_metrics
             experiment_logger.log_client_eval_metrics(
-                num_server_rounds,
+                final_server_step,
                 final_metrics,
             )
+    target_summary_metrics = target_controller.summary_metrics()
+    if target_summary_metrics:
+        experiment_logger.log_summary_metrics(target_summary_metrics)
     experiment_logger.log_run_summary(
         total_runtime_s=time.perf_counter() - total_start,
         result=result,
@@ -900,11 +1226,11 @@ def max_examples_for_device(
     split: str,
     device_type: str,
 ) -> int | None:
-    specific = context.run_config.get(f"{device_type}-max-{split}-examples")
+    specific = lookup_or_default(context.run_config, f"{device_type}-max-{split}-examples", None)
     if specific is not None:
         parsed = int(specific)
         return parsed if parsed > 0 else None
-    default = context.run_config.get(f"default-max-{split}-examples")
+    default = lookup_or_default(context.run_config, f"default-max-{split}-examples", None)
     if default is None:
         return None
     parsed = int(default)

@@ -60,9 +60,16 @@ def test_resolve_experiment_config_normalizes_nested_project_relative_file(tmp_p
                 "num-server-rounds = 3",
                 'fraction-train = 1.0',
                 "",
+                "[client]",
+                'optimizer = "adam"',
+                "",
                 "[capacity]",
                 'heterofl-partition-rates = "0:1.0,1:0.5"',
                 'heterofl-device-type-allocations = "rpi4:0.125@5,0.25@5;rpi5:0.5@5,1.0@5"',
+                "",
+                "[data]",
+                'partitioning-continuous-column = "Appliances"',
+                "partitioning-continuous-strictness = 0.5",
                 "",
                 "[devices.rpi4]",
                 "batch-size = 8",
@@ -82,6 +89,8 @@ def test_resolve_experiment_config_normalizes_nested_project_relative_file(tmp_p
                 "[evaluation]",
                 "client-eval-enabled = false",
                 "final-client-eval-enabled = true",
+                "target-score = 0.60",
+                "stop-on-target-score = true",
                 "",
                 "[wandb]",
                 "enabled = true",
@@ -103,11 +112,16 @@ def test_resolve_experiment_config_normalizes_nested_project_relative_file(tmp_p
     assert normalized["task"] == "fashion_mnist_cnn"
     assert normalized["seed"] == 1337
     assert normalized["num-server-rounds"] == 3
+    assert normalized["optimizer"] == "adam"
     assert normalized["heterofl-partition-rates"] == "0:1.0,1:0.5"
     assert (
         normalized["heterofl-device-type-allocations"]
         == "rpi4:0.125@5,0.25@5;rpi5:0.5@5,1.0@5"
     )
+    assert normalized["partitioning-continuous-column"] == "Appliances"
+    assert normalized["partitioning-continuous-strictness"] == 0.5
+    assert normalized["target-score"] == 0.60
+    assert normalized["stop-on-target-score"] is True
     assert normalized["rpi4-batch-size"] == 8
     assert normalized["rpi4-model-rate"] == 0.25
     assert normalized["fedavgm-server-momentum"] == 0.9

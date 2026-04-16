@@ -30,10 +30,13 @@ from fedctl_research.config import (
 )
 from fedctl_research.costs import build_model_catalog, summarize_round_costs
 from fedctl_research.methods.runtime import (
+    TargetStopController,
+    _async_client_trip_budget,
     build_typed_partition_plan,
     central_evaluate_fn,
     create_result_artifact_logger,
     discover_node_device_types,
+    server_log,
 )
 from fedctl_research.seeding import derive_seed, set_global_seed
 from fedctl_research.tasks.registry import resolve_task
@@ -118,16 +121,17 @@ def _aggregate_eval_metrics(replies: list[Message]) -> MetricRecord | None:
     if total_examples <= 0:
         return None
     loss = 0.0
-    acc = 0.0
+    score = 0.0
     for reply in valid:
         metrics = reply.content["metrics"]
         examples = int(metrics.get("num-examples", 0))
         loss += float(metrics.get("eval-loss", 0.0)) * examples
-        acc += float(metrics.get("eval-acc", 0.0)) * examples
+        score += float(metrics.get("eval-score", metrics.get("eval-acc", 0.0))) * examples
     return MetricRecord(
         {
             "eval-loss": loss / total_examples,
-            "eval-acc": acc / total_examples,
+            "eval-score": score / total_examples,
+            "eval-acc": score / total_examples,
             "num-examples": total_examples,
         }
     )
@@ -263,6 +267,11 @@ def run_fedbuff_server(
     client_trips_total = 0
     progress_state = {"wall_clock_s_since_start": 0.0, "client_trips_total": 0}
     result = _FedBuffResult(arrays=current_arrays)
+    target_controller = TargetStopController.from_task(
+        task,
+        context.run_config,
+        client_trip_budget=_async_client_trip_budget(context.run_config),
+    )
     evaluate = central_evaluate_fn(
         context,
         method_label=method_label,
@@ -273,6 +282,19 @@ def run_fedbuff_server(
     initial_eval = evaluate(0, current_arrays)
     if initial_eval is not None:
         result.evaluate_metrics_serverapp[0] = initial_eval
+        if target_controller.observe(
+            task=task,
+            server_step=0,
+            metrics=initial_eval,
+            progress_state=progress_state,
+        ):
+            experiment_logger.log_summary_metrics(target_controller.summary_metrics())
+            experiment_logger.log_run_summary(
+                total_runtime_s=time.perf_counter() - total_start,
+                result=result,
+            )
+            experiment_logger.finish()
+            return
 
     def dispatch_until_full() -> None:
         nonlocal node_cursor
@@ -304,8 +326,9 @@ def run_fedbuff_server(
             )
             busy_nodes.add(selected)
 
+    stop_requested = False
     dispatch_until_full()
-    while server_step < num_server_steps and inflight:
+    while server_step < num_server_steps and inflight and not stop_requested:
         replies = list(grid.pull_messages(list(inflight.keys())))
         if not replies:
             time.sleep(poll_interval_s)
@@ -532,15 +555,42 @@ def run_fedbuff_server(
                         **system_metrics,
                     }
                 )
+                server_log(
+                    method_label=method_label,
+                    message=(
+                        f"step_applied step={server_step}/{num_server_steps}"
+                        f" accepted_updates={len(buffered_updates)}"
+                        f" client_trips={client_trips_total}"
+                        f" inflight={len(inflight)}"
+                        f" staleness_mean={sum(staleness_values) / len(staleness_values):.2f}"
+                    ),
+                )
                 if server_step % evaluate_every_steps == 0:
                     eval_metrics = evaluate(server_step, current_arrays)
                     if eval_metrics is not None:
                         result.evaluate_metrics_serverapp[server_step] = eval_metrics
+                        if target_controller.observe(
+                            task=task,
+                            server_step=server_step,
+                            metrics=eval_metrics,
+                            progress_state=progress_state,
+                        ):
+                            server_log(
+                                method_label=method_label,
+                                message=(
+                                    f"target_reached step={server_step}"
+                                    f" client_trips={target_controller.client_trips_to_target}"
+                                    f" threshold={target_controller.threshold:.4f}"
+                                ),
+                            )
+                            stop_requested = True
                 buffered_updates.clear()
                 buffer_started_at = None
 
+                if stop_requested:
+                    break
             dispatch_until_full()
-            if server_step >= num_server_steps:
+            if server_step >= num_server_steps or stop_requested:
                 break
 
     if final_client_eval_enabled:
@@ -558,10 +608,6 @@ def run_fedbuff_server(
             result.evaluate_metrics_clientapp[server_step] = eval_metrics
             experiment_logger.log_client_eval_metrics(server_step, eval_metrics)
 
-    experiment_logger.log_run_summary(
-        total_runtime_s=time.perf_counter() - total_start,
-        result=result,
-    )
     total_device_updates = sum(cumulative_update_counts.values())
     experiment_logger.log_summary_metrics(
         {
@@ -582,5 +628,12 @@ def run_fedbuff_server(
                 else 0.0
             ),
         }
+    )
+    target_summary_metrics = target_controller.summary_metrics()
+    if target_summary_metrics:
+        experiment_logger.log_summary_metrics(target_summary_metrics)
+    experiment_logger.log_run_summary(
+        total_runtime_s=time.perf_counter() - total_start,
+        result=result,
     )
     experiment_logger.finish()

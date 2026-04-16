@@ -1,6 +1,15 @@
 from __future__ import annotations
 
-from fedctl.submit.runner import _LogArchiver, _latest_alloc_for_task, _truncate_log_text
+from pathlib import Path
+from types import SimpleNamespace
+
+from fedctl.submit import runner
+from fedctl.submit.runner import (
+    _LogArchiver,
+    _latest_alloc_for_task,
+    _log_archive_signature,
+    _truncate_log_text,
+)
 
 
 def test_log_archiver_builds_targets_for_default_topology() -> None:
@@ -55,3 +64,134 @@ def test_latest_alloc_for_task_prefers_matching_alloc() -> None:
 
     assert alloc is not None
     assert alloc["ID"] == "alloc-older-correct-task"
+
+
+def test_main_uses_effective_experiment_for_reporting_and_archiving(
+    monkeypatch, tmp_path: Path
+) -> None:
+    calls: dict[str, object] = {}
+
+    monkeypatch.setattr(runner, "_resolve_project_path", lambda path, project_dir: tmp_path)
+    monkeypatch.setattr(
+        runner,
+        "inspect_flwr_project",
+        lambda project_path: SimpleNamespace(
+            project_name="demo-project",
+            local_sim_num_supernodes=4,
+        ),
+    )
+    monkeypatch.setattr(
+        runner,
+        "resolve_run_experiment_name",
+        lambda *, project_name, experiment: "demo-project-20260415220000",
+    )
+
+    def fake_report_jobs(**kwargs):
+        calls["report_experiment"] = kwargs["experiment"]
+        calls["report_num_supernodes"] = kwargs["num_supernodes"]
+
+    class FakeUploader:
+        def __init__(self, **kwargs):
+            calls["uploader_experiment"] = kwargs["experiment"]
+            self.enabled = True
+
+        def start(self) -> None:
+            calls["uploader_started"] = True
+
+        def stop(self) -> None:
+            calls["uploader_stopped"] = True
+
+        def final_sweep(self) -> None:
+            calls["uploader_final_sweep"] = True
+
+    class FakeLogArchiver:
+        def __init__(self, **kwargs):
+            calls["archiver_experiment"] = kwargs["experiment"]
+            calls["archiver_num_supernodes"] = kwargs["num_supernodes"]
+            self.enabled = True
+            self.started = False
+            self.stopped = False
+
+        def start(self) -> None:
+            self.started = True
+            calls["archiver_started"] = True
+
+        def stop(self) -> None:
+            self.stopped = True
+            calls["archiver_stopped"] = True
+
+        def final_sweep(self) -> None:
+            calls["archiver_final_sweep"] = True
+
+    def fake_run_run(**kwargs):
+        calls["run_experiment"] = kwargs["experiment"]
+        return 0
+
+    monkeypatch.setattr(runner, "_report_jobs", fake_report_jobs)
+    monkeypatch.setattr(runner, "_ResultUploader", FakeUploader)
+    monkeypatch.setattr(runner, "_LogArchiver", FakeLogArchiver)
+    monkeypatch.setattr(runner, "run_run", fake_run_run)
+
+    monkeypatch.setenv("SUBMIT_SUBMISSION_ID", "sub-1")
+    monkeypatch.setenv("SUBMIT_SERVICE_ENDPOINT", "http://submit.example")
+    monkeypatch.setenv("SUBMIT_SERVICE_TOKEN", "token")
+    monkeypatch.setenv("FEDCTL_ENDPOINT", "http://nomad.example:4646")
+    monkeypatch.setenv("FEDCTL_RESULT_STORE", "s3://results")
+
+    status = runner.main(["--path", str(tmp_path), "--no-destroy"])
+
+    assert status == 0
+    assert calls["report_experiment"] == "demo-project-20260415220000"
+    assert calls["report_num_supernodes"] == 4
+    assert calls["uploader_experiment"] == "demo-project-20260415220000"
+    assert calls["archiver_experiment"] == "demo-project-20260415220000"
+    assert calls["archiver_num_supernodes"] == 4
+    assert calls["archiver_started"] is True
+    assert calls["archiver_stopped"] is True
+    assert calls["run_experiment"] == "demo-project-20260415220000"
+
+
+def test_log_archiver_reports_only_when_logs_change(monkeypatch) -> None:
+    posted: list[dict[str, object]] = []
+    archiver = _LogArchiver(
+        submission_id="sub-1",
+        submit_service_endpoint="http://submit.example",
+        submit_service_token="token",
+        experiment="exp-1",
+        num_supernodes=2,
+        supernodes=None,
+        endpoint="http://nomad.example:4646",
+        namespace="default",
+        token="nomad-token",
+    )
+    entries = [
+        {
+            "job": "submit",
+            "index": 1,
+            "job_id": "sub-1",
+            "task": "submit",
+            "stderr": False,
+            "content": "hello",
+        }
+    ]
+
+    monkeypatch.setattr(archiver, "_collect", lambda: entries.copy())
+
+    class FakeResponse:
+        status_code = 200
+        text = "ok"
+
+    def fake_post(url, json, headers, timeout):  # noqa: ANN001
+        posted.append(json)
+        return FakeResponse()
+
+    monkeypatch.setattr(runner.httpx, "post", fake_post)
+
+    archiver._archive_current(force=False)  # noqa: SLF001
+    archiver._archive_current(force=False)  # noqa: SLF001
+    archiver.final_sweep()
+
+    assert len(posted) == 2
+    assert posted[0]["logs_archive"]["entries"] == entries
+    assert posted[1]["logs_archive"]["entries"] == entries
+    assert _log_archive_signature(entries) == archiver._last_uploaded_signature  # noqa: SLF001

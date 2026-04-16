@@ -31,7 +31,7 @@ from fedctl.project.experiment_config import (
     materialize_run_config,
     resolve_experiment_config,
 )
-from fedctl.config.repo import resolve_repo_config_path
+from fedctl.config.repo import get_repo_config_label, resolve_repo_config
 from fedctl.project.flwr_config import resolve_flwr_home
 from fedctl.util.console import console
 
@@ -213,15 +213,18 @@ def run_run(
     deploy_num_supernodes = None if supernodes else num_supernodes
 
     _print_step(3, 5, "Deploy to Nomad")
-    resolved_repo_config = _resolve_run_repo_config(
+    resolved_repo = resolve_repo_config(
         repo_config=repo_config,
+        include_project_local=True,
         project_root=info.root,
     )
+    resolved_repo_config = str(resolved_repo.path) if resolved_repo.path else None
+    repo_config_label = get_repo_config_label(resolved_repo.data, path=resolved_repo.path)
     with _temporary_run_tracking_env(
         experiment_config=(
             resolved_experiment_config.runner_path if resolved_experiment_config else None
         ),
-        repo_config=resolved_repo_config,
+        repo_config_label=repo_config_label,
     ):
         deploy_status = run_deploy(
             dry_run=False,
@@ -350,15 +353,15 @@ def _timestamp_iso() -> str:
 
 @contextmanager
 def _temporary_run_tracking_env(
-    *, experiment_config: str | None, repo_config: str | None
+    *, experiment_config: str | None, repo_config_label: str | None
 ):
     updates = {
         "FEDCTL_ATTEMPT_STARTED_AT": os.environ.get("FEDCTL_ATTEMPT_STARTED_AT", _timestamp_iso()),
     }
     if experiment_config:
         updates["FEDCTL_EXPERIMENT_CONFIG"] = experiment_config
-    if repo_config:
-        updates["FEDCTL_REPO_CONFIG_LABEL"] = Path(repo_config).stem.replace("_", "-")
+    if repo_config_label:
+        updates["FEDCTL_REPO_CONFIG_LABEL"] = repo_config_label
     previous = {key: os.environ.get(key) for key in updates}
     os.environ.update(updates)
     try:
@@ -369,16 +372,6 @@ def _temporary_run_tracking_env(
                 os.environ.pop(key, None)
             else:
                 os.environ[key] = old_value
-
-
-def _resolve_run_repo_config(*, repo_config: str | None, project_root: Path) -> str | None:
-    if repo_config:
-        return repo_config
-    path = resolve_repo_config_path(
-        project_root=project_root,
-        include_project_local=True,
-    )
-    return str(path) if path else None
 
 
 def _build_run_config_overrides(

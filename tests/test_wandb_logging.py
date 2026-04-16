@@ -111,12 +111,22 @@ def test_create_experiment_logger_uses_run_config_and_env(monkeypatch) -> None:
     assert init_kwargs["project"] == "fedctl"
     assert init_kwargs["entity"] == "samueljie"
     assert init_kwargs["group"] == "mixed-cluster"
-    assert set(init_kwargs["tags"]) >= {"demo-exp", "fedrolex", "cifar10_cnn", "dissertation"}
-    assert init_kwargs["name"] == "demo-exp-fedrolex-cifar10_cnn-n20-split-1x25_0p5x25_0p25x25_0p125x25-sub3017"
+    assert set(init_kwargs["tags"]) >= {
+        "demo-exp",
+        "fedrolex",
+        "cifar10_cnn",
+        "dissertation",
+        "profile-none",
+    }
+    assert (
+        init_kwargs["name"]
+        == "demo-exp-fedrolex-cifar10_cnn-n20-split-1x25_0p5x25_0p25x25_0p125x25-profile-none-sub3017"
+    )
     assert init_kwargs["config"]["fedctl_submission_id"] == "sub-20260409-3017"
     assert init_kwargs["config"]["fedctl_canonical_key"] == (
         "compute-main/cifar10_cnn/fedrolex/n20/split-1x25_0p5x25_0p25x25_0p125x25/seed1337/profile-none"
     )
+    assert init_kwargs["config"]["fedctl_repo_config_label"] == "none"
     assert init_kwargs["config"]["fedctl_node_count_label"] == "n20"
     assert init_kwargs["config"]["fedctl_capacity_split_label"] == "split-1x25_0p5x25_0p25x25_0p125x25"
     assert init_kwargs["config"]["fedctl_attempt_status"] == "running"
@@ -152,6 +162,7 @@ def test_wandb_experiment_logger_logs_and_finishes(monkeypatch) -> None:
     logger.log_train_metrics(1, {"train-loss": 0.5, "num-examples": 32})
     logger.log_client_eval_metrics(1, {"eval-acc": 0.75})
     logger.log_server_eval_metrics(1, {"eval-acc": 0.8, "eval-loss": 0.4})
+    logger.log_server_eval_trip_metrics(17, {"eval-acc": 0.8, "eval-loss": 0.4})
     logger.log_system_metrics(
         1,
         {
@@ -160,6 +171,7 @@ def test_wandb_experiment_logger_logs_and_finishes(monkeypatch) -> None:
             "rpi4_examples_per_second_mean": 12.5,
         },
     )
+    logger.log_summary_metrics({"target/reached": True, "target/client_trips_to_target": 17})
     logger.log_model_catalog(
         {
             "full": {"param_count": 100, "model_size_mb": 1.25, "flops_estimate": 200},
@@ -177,19 +189,23 @@ def test_wandb_experiment_logger_logs_and_finishes(monkeypatch) -> None:
     logger.finish()
 
     run = fake_wandb.runs[0]
-    assert [step for _, step in run.logged] == [1, 1, 1, 1]
+    assert [step for _, step in run.logged] == [1, 1, 1, 17, 1]
     assert run.logged[0][0]["train/train-loss"] == 0.5
     assert run.logged[1][0]["eval_client/eval-acc"] == 0.75
     assert run.logged[2][0]["eval_server/eval-loss"] == 0.4
-    assert run.logged[3][0]["system/round-train-duration-s"] == 3.2
-    assert run.logged[3][0]["round_system/train_duration_s"] == 3.2
-    assert run.logged[3][0]["round_cost/avg_flops"] == 1234
-    assert run.logged[3][0]["round_device/rpi4/examples_per_second_mean"] == 12.5
-    assert run.logged[3][0]["server_round"] == 1
+    assert run.logged[3][0]["eval_server_trip/eval-loss"] == 0.4
+    assert run.logged[3][0]["client_trip"] == 17
+    assert run.logged[4][0]["system/round-train-duration-s"] == 3.2
+    assert run.logged[4][0]["round_system/train_duration_s"] == 3.2
+    assert run.logged[4][0]["round_cost/avg_flops"] == 1234
+    assert run.logged[4][0]["round_device/rpi4/examples_per_second_mean"] == 12.5
+    assert run.logged[4][0]["server_round"] == 1
     assert run.summary["runtime/total_server_s"] == 12.5
     assert run.summary["run_system/total_server_s"] == 12.5
     assert run.summary["model/full/param_count"] == 100
     assert run.summary["model/rate_0.25/flops_estimate"] == 60
+    assert run.summary["target/reached"] == 1
+    assert run.summary["target/client_trips_to_target"] == 17
     assert run.summary["final/train/train-loss"] == 0.5
     assert run.summary["final/eval_client/eval-acc"] == 0.75
     assert run.summary["final/eval_server/eval-acc"] == 0.8
@@ -291,8 +307,14 @@ def test_wandb_retry_attempts_keep_same_canonical_key_but_distinct_names(monkeyp
     assert second_run.init_kwargs["config"]["fedctl_canonical_key"] == (
         "network-main/cifar10_cnn/fedbuff/n8/split-1x100/seed1337/profile-none"
     )
-    assert first_run.init_kwargs["name"] == "demo-exp-fedbuff-cifar10_cnn-n8-split-1x100-sub1001"
-    assert second_run.init_kwargs["name"] == "demo-exp-fedbuff-cifar10_cnn-n8-split-1x100-sub1002"
+    assert (
+        first_run.init_kwargs["name"]
+        == "demo-exp-fedbuff-cifar10_cnn-n8-split-1x100-profile-none-sub1001"
+    )
+    assert (
+        second_run.init_kwargs["name"]
+        == "demo-exp-fedbuff-cifar10_cnn-n8-split-1x100-profile-none-sub1002"
+    )
     assert first.canonical_key == second.canonical_key
 
 
@@ -348,3 +370,80 @@ def test_wandb_logger_logs_submodel_client_table(monkeypatch) -> None:
     assert "client_model_rate" in table.columns
     assert "model_rate" in table.columns
     assert len(table.data) == 2
+
+
+def test_create_experiment_logger_tolerates_flower_mapping_missing_optional_keys(monkeypatch) -> None:
+    fake_wandb = _FakeWandbModule()
+    monkeypatch.setitem(sys.modules, "wandb", fake_wandb)
+    monkeypatch.setenv("FEDCTL_EXPERIMENT", "demo-exp")
+    monkeypatch.setenv(
+        "FEDCTL_EXPERIMENT_CONFIG",
+        "apps/fedctl_research/experiment_configs/network_heterogeneity/main/cifar10_cnn/fedavg.toml",
+    )
+    monkeypatch.setenv("FEDCTL_REPO_CONFIG_LABEL", "none")
+
+    class _WeirdRunConfig(dict):
+        def get(self, key, default=None):
+            if key in self:
+                return super().get(key, default)
+            raise KeyError(f"Key '{key}' is not present in the main dictionary")
+
+        def __getitem__(self, key):
+            if key in self:
+                return super().__getitem__(key)
+            raise KeyError(f"Key '{key}' is not present in the main dictionary")
+
+    context = SimpleNamespace(
+        run_config=_WeirdRunConfig(
+            {
+                "method": "fedavg",
+                "task": "cifar10_cnn",
+                "wandb-enabled": True,
+                "wandb-project": "fedctl",
+            }
+        )
+    )
+
+    logger = create_experiment_logger(context)
+
+    assert isinstance(logger, WandbExperimentLogger)
+    assert len(fake_wandb.runs) == 1
+    assert fake_wandb.runs[0].init_kwargs["name"].startswith("demo-exp-fedavg-cifar10_cnn-")
+
+
+def test_create_experiment_logger_tolerates_flower_mapping_get_without_default(monkeypatch) -> None:
+    fake_wandb = _FakeWandbModule()
+    monkeypatch.setitem(sys.modules, "wandb", fake_wandb)
+    monkeypatch.setenv("FEDCTL_EXPERIMENT", "demo-exp")
+    monkeypatch.setenv(
+        "FEDCTL_EXPERIMENT_CONFIG",
+        "apps/fedctl_research/experiment_configs/network_heterogeneity/main/cifar10_cnn/fedavg.toml",
+    )
+    monkeypatch.setenv("FEDCTL_REPO_CONFIG_LABEL", "none")
+
+    class _WeirdRunConfig(dict):
+        def get(self, key):
+            if key in self:
+                return super().get(key)
+            raise KeyError(f"Key '{key}' is not present in the main dictionary")
+
+        def __getitem__(self, key):
+            if key in self:
+                return super().__getitem__(key)
+            raise KeyError(f"Key '{key}' is not present in the main dictionary")
+
+    context = SimpleNamespace(
+        run_config=_WeirdRunConfig(
+            {
+                "method": "fedavg",
+                "task": "cifar10_cnn",
+                "wandb-enabled": True,
+                "wandb-project": "fedctl",
+            }
+        )
+    )
+
+    logger = create_experiment_logger(context)
+
+    assert isinstance(logger, WandbExperimentLogger)
+    assert len(fake_wandb.runs) == 1
