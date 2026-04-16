@@ -1413,6 +1413,9 @@ def _default_submit_experiment_name(
     method = _experiment_name_token(data.get("method"))
     task = _experiment_name_token(data.get("task"))
     parts = [token for token in (task, method) if token]
+    regime = _experiment_regime_token(data)
+    if regime:
+        parts.append(regime)
     parts.append(_experiment_config_token(effective_path))
 
     node_count = _experiment_node_count(data)
@@ -1433,6 +1436,15 @@ def _experiment_name_token(value: object) -> str:
     if not raw:
         return ""
     return re.sub(r"[^A-Za-z0-9._-]+", "-", raw).strip("-")
+
+
+def _experiment_regime_token(data: dict[str, object]) -> str:
+    partitioning = _experiment_name_token(data.get("partitioning"))
+    if not partitioning:
+        return ""
+    if partitioning == "iid":
+        return "iid"
+    return "noniid"
 
 
 def _experiment_config_token(path: Path) -> str:

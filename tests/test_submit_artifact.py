@@ -378,8 +378,8 @@ partitioning-continuous-strictness = 0.5
     )
 
     assert iid_name != noniid_name
-    assert iid_name.startswith("california_housing_mlp-fedavg-cfg")
-    assert noniid_name.startswith("california_housing_mlp-fedavg-cfg")
+    assert iid_name.startswith("california_housing_mlp-fedavg-iid-cfg")
+    assert noniid_name.startswith("california_housing_mlp-fedavg-noniid-cfg")
     assert iid_name.endswith("-n20-seed1337")
     assert noniid_name.endswith("-n20-seed1337")
 
