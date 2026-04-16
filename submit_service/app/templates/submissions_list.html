@@ -78,30 +78,30 @@
   <table class="data-table">
     <thead>
       <tr>
-        <th>ID</th>
-        <th>Project</th>
-        <th>Experiment</th>
-        <th>Status</th>
-        {% if principal and principal.role == 'admin' %}<th>Owner</th>{% endif %}
-        <th>Created</th>
-        <th>Finished</th>
-        <th>Blocked / error</th>
+        <th class="col-id">ID</th>
+        <th class="col-project">Project</th>
+        <th class="col-experiment">Experiment</th>
+        <th class="col-status">Status</th>
+        {% if principal and principal.role == 'admin' %}<th class="col-owner">Owner</th>{% endif %}
+        <th class="col-created">Created</th>
+        <th class="col-finished">Finished</th>
+        <th class="col-blocked">Blocked / error</th>
       </tr>
     </thead>
     <tbody>
       {% for row in rows %}
       <tr data-href="/ui/submissions/{{ row.id }}?return_to={{ return_to | urlencode }}">
-        <td>
+        <td class="cell-id" title="{{ row.id }}">
           <a class="primary-link" href="/ui/submissions/{{ row.id }}?return_to={{ return_to | urlencode }}">{{ row.id }}</a>
           <div class="table-subtext">{{ row.namespace }}</div>
         </td>
         <td>{{ row.project_name }}</td>
-        <td>{{ row.experiment }}</td>
+        <td class="cell-experiment" title="{{ row.experiment }}">{{ row.experiment }}</td>
         <td>{% set status = row.status %}{% include '_status_badge.html' %}</td>
         {% if principal and principal.role == 'admin' %}<td>{{ row.owner }}</td>{% endif %}
         <td>{% if row.created_at.iso %}<time datetime="{{ row.created_at.iso }}" title="{{ row.created_at.label }}" data-relative>{{ row.created_at.label }}</time>{% else %}{{ row.created_at.label }}{% endif %}</td>
         <td>{% if row.finished_at.iso %}<time datetime="{{ row.finished_at.iso }}" title="{{ row.finished_at.label }}" data-relative>{{ row.finished_at.label }}</time>{% else %}{{ row.finished_at.label }}{% endif %}</td>
-        <td class="wrap">{{ row.blocked_reason or '-' }}</td>
+        <td class="cell-blocked">{{ row.blocked_reason or '-' }}</td>
       </tr>
       {% endfor %}
     </tbody>
