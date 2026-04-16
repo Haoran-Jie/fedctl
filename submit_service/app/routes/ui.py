@@ -615,6 +615,7 @@ def _submission_detail_view(record: dict[str, Any], role: str) -> dict[str, Any]
         "created_at": _fmt_dt(record.get("created_at")),
         "started_at": _fmt_dt(record.get("started_at")),
         "finished_at": _fmt_dt(record.get("finished_at")),
+        "duration": _fmt_duration(record.get("started_at"), record.get("finished_at")),
         "nomad_job_id": record.get("nomad_job_id") or "-",
         "artifact_url": _link_entry_view(record.get("artifact_url")),
         "submit_image": record.get("submit_image") or "-",
@@ -998,17 +999,41 @@ def _inventory_command() -> str:
     return "fedctl submit inventory"
 
 
-def _fmt_dt(value: Any) -> str:
+def _parse_dt(value: Any) -> datetime | None:
     if value is None:
-        return "-"
+        return None
     if isinstance(value, datetime):
-        dt = value
-    else:
-        try:
-            dt = datetime.fromisoformat(str(value))
-        except ValueError:
-            return str(value)
-    return dt.strftime("%Y-%m-%d %H:%M:%S")
+        return value
+    try:
+        return datetime.fromisoformat(str(value))
+    except ValueError:
+        return None
+
+
+def _fmt_dt(value: Any) -> dict[str, str]:
+    dt = _parse_dt(value)
+    if dt is None:
+        label = str(value) if value is not None else "-"
+        return {"label": label, "iso": ""}
+    return {"label": dt.strftime("%Y-%m-%d %H:%M:%S"), "iso": dt.isoformat()}
+
+
+def _fmt_duration(start: Any, end: Any) -> str:
+    dt_start = _parse_dt(start)
+    if dt_start is None:
+        return "-"
+    dt_end = _parse_dt(end) or datetime.now(dt_start.tzinfo)
+    delta = dt_end - dt_start
+    total_seconds = int(delta.total_seconds())
+    if total_seconds < 0:
+        return "-"
+    hours, remainder = divmod(total_seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    if hours > 0:
+        return f"{hours}h {minutes}m {seconds}s"
+    if minutes > 0:
+        return f"{minutes}m {seconds}s"
+    return f"{seconds}s"
 
 
 def _render_logs_html(content: str | None) -> str:
