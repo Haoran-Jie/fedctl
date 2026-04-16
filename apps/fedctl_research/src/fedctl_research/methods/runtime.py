@@ -245,6 +245,57 @@ def server_log(*, method_label: str, message: str) -> None:
     print(f"[{method_label}][server] {message}", flush=True)
 
 
+def _metric_record_plain_dict(metrics: Mapping[str, object] | MetricRecord | None) -> dict[str, int | float]:
+    if metrics is None:
+        return {}
+    plain: dict[str, int | float] = {}
+    for key, value in dict(metrics).items():
+        if isinstance(value, bool):
+            plain[str(key)] = int(value)
+        elif isinstance(value, (int, float)):
+            plain[str(key)] = value
+    return plain
+
+
+def _log_sync_strategy_header(
+    *,
+    strategy: object,
+    num_server_rounds: int,
+    initial_arrays: ArrayRecord,
+    train_config: ConfigRecord,
+    evaluate_config: ConfigRecord,
+    min_train_nodes: int,
+    min_evaluate_nodes: int,
+    min_available_nodes: int,
+    fraction_train: float,
+    fraction_evaluate: float,
+) -> None:
+    try:
+        array_size_mb = sum(tensor.numel() * tensor.element_size() for tensor in initial_arrays.values()) / (1024 * 1024)
+    except Exception:
+        array_size_mb = 0.0
+    log(INFO, "Starting %s strategy:", strategy.__class__.__name__)
+    log(INFO, " ├── Number of rounds: %s", num_server_rounds)
+    log(INFO, " ├── ArrayRecord (%.2f MB)", array_size_mb)
+    log(INFO, " ├── ConfigRecord (train): %s", dict(train_config))
+    log(INFO, " ├── ConfigRecord (evaluate): %s", dict(evaluate_config))
+    log(INFO, " ├──> Sampling:")
+    log(INFO, " │ ├──Fraction: train (%.2f) | evaluate (%5.2f)", fraction_train, fraction_evaluate)
+    log(INFO, " │ ├──Minimum nodes: train (%s) | evaluate (%s)", min_train_nodes, min_evaluate_nodes)
+    log(INFO, " │ └──Minimum available nodes: %s", min_available_nodes)
+    log(INFO, " └──> Keys in records:")
+    log(INFO, " ├── Weighted by: 'num-examples'")
+    log(INFO, " ├── ArrayRecord key: 'arrays'")
+    log(INFO, " └── ConfigRecord key: 'config'")
+    log(INFO, "")
+
+
+def _log_sync_metric_record(*, label: str, metrics: Mapping[str, object] | MetricRecord | None) -> None:
+    if metrics is None:
+        return
+    log(INFO, " └──> %s: %s", label, _metric_record_plain_dict(metrics))
+
+
 def query_capabilities(msg: Message, context: Context) -> Message:
     reply = RecordDict(
         {
@@ -550,6 +601,7 @@ def central_evaluate_fn(
     artifact_logger: ResultArtifactLogger | None = None,
     progress_provider: Callable[[], Mapping[str, int | float | str]] | None = None,
     num_server_rounds: int | None = None,
+    emit_server_log: bool = True,
 ):
     task = resolve_task(get_str(context.run_config, "task"))
     base_seed = get_optional_int(context.run_config, "seed")
@@ -600,16 +652,17 @@ def central_evaluate_fn(
             payload.update(progress_payload)
             artifact_logger.log_evaluation_event(payload)
         client_trips_total = int(progress_payload.get("client_trips_total", 0))
-        server_log(
-            method_label=method_label,
-            message=(
-                f"server_eval step={server_round}"
-                f" eval_{_task_score_label(task)}={float(score):.4f}"
-                f" eval_loss={float(loss):.4f}"
-                f" client_trips={client_trips_total}"
-                f" duration_s={float(eval_duration_s):.2f}"
-            ),
-        )
+        if emit_server_log:
+            server_log(
+                method_label=method_label,
+                message=(
+                    f"server_eval step={server_round}"
+                    f" eval_{_task_score_label(task)}={float(score):.4f}"
+                    f" eval_loss={float(loss):.4f}"
+                    f" client_trips={client_trips_total}"
+                    f" duration_s={float(eval_duration_s):.2f}"
+                ),
+            )
         if (
             grid is not None
             and strategy is not None
@@ -997,6 +1050,7 @@ def _run_sync_strategy_rounds(
         initial_eval = evaluate_fn(0, initial_arrays)
         if initial_eval is not None:
             result.evaluate_metrics_serverapp[0] = initial_eval
+            log(INFO, "Initial global evaluation results: %s", _metric_record_plain_dict(initial_eval))
             if target_controller.observe(
                 task=task,
                 server_step=0,
@@ -1006,10 +1060,8 @@ def _run_sync_strategy_rounds(
                 return result, 0
 
     for current_round in range(1, num_server_rounds + 1):
-        server_log(
-            method_label=method_label,
-            message=f"round_start round={current_round}/{num_server_rounds}",
-        )
+        log(INFO, "")
+        log(INFO, "[ROUND %s/%s]", current_round, num_server_rounds)
         train_replies = grid.send_and_receive(
             messages=list(strategy.configure_train(current_round, arrays, train_config, grid)),
             timeout=timeout,
@@ -1022,15 +1074,17 @@ def _run_sync_strategy_rounds(
             result.arrays = agg_arrays
         if agg_train_metrics is not None:
             result.train_metrics_clientapp[current_round] = agg_train_metrics
-        server_log(
-            method_label=method_label,
-            message=(
-                f"round_train_done round={current_round}"
-                f" success={train_successes}"
-                f" fail={train_failures}"
-                f" client_trips={int(progress_state.get('client_trips_total', 0))}"
-            ),
-        )
+            _log_sync_metric_record(label="Aggregated MetricRecord", metrics=agg_train_metrics)
+        else:
+            server_log(
+                method_label=method_label,
+                message=(
+                    f"round_train_done round={current_round}"
+                    f" success={train_successes}"
+                    f" fail={train_failures}"
+                    f" client_trips={int(progress_state.get('client_trips_total', 0))}"
+                ),
+            )
 
         evaluate_replies = grid.send_and_receive(
             messages=list(strategy.configure_evaluate(current_round, arrays, evaluate_config, grid)),
@@ -1041,26 +1095,14 @@ def _run_sync_strategy_rounds(
         agg_evaluate_metrics = strategy.aggregate_evaluate(current_round, evaluate_replies)
         if agg_evaluate_metrics is not None:
             result.evaluate_metrics_clientapp[current_round] = agg_evaluate_metrics
-            score_value = _metric_score_value(task, agg_evaluate_metrics)
-            score_suffix = (
-                f" eval_{_task_score_label(task)}={float(score_value):.4f}"
-                if score_value is not None
-                else ""
-            )
-            server_log(
-                method_label=method_label,
-                message=(
-                    f"round_client_eval_done round={current_round}"
-                    f" success={eval_successes}"
-                    f" fail={eval_failures}"
-                    f"{score_suffix}"
-                ),
-            )
+            _log_sync_metric_record(label="Aggregated MetricRecord", metrics=agg_evaluate_metrics)
 
         if evaluate_fn is not None:
             server_eval_metrics = evaluate_fn(current_round, arrays)
             if server_eval_metrics is not None:
                 result.evaluate_metrics_serverapp[current_round] = server_eval_metrics
+                log(INFO, "Global evaluation")
+                _log_sync_metric_record(label="MetricRecord", metrics=server_eval_metrics)
         last_server_round = current_round
         if evaluate_fn is not None and current_round in result.evaluate_metrics_serverapp:
             if target_controller.observe(
@@ -1150,6 +1192,18 @@ def run_server_loop(
     )
 
     num_server_rounds = get_int(context.run_config, "num-server-rounds")
+    _log_sync_strategy_header(
+        strategy=strategy,
+        num_server_rounds=num_server_rounds,
+        initial_arrays=initial_arrays,
+        train_config=train_config,
+        evaluate_config=evaluate_config if client_eval_enabled else ConfigRecord({}),
+        min_train_nodes=get_int(context.run_config, "min-train-nodes"),
+        min_evaluate_nodes=get_int(context.run_config, "min-evaluate-nodes"),
+        min_available_nodes=get_int(context.run_config, "min-available-nodes"),
+        fraction_train=get_float(context.run_config, "fraction-train"),
+        fraction_evaluate=get_float(context.run_config, "fraction-evaluate"),
+    )
     target_controller = TargetStopController.from_task(
         task,
         context.run_config,
@@ -1164,6 +1218,7 @@ def run_server_loop(
         artifact_logger=artifact_logger,
         progress_provider=lambda: dict(progress_state),
         num_server_rounds=num_server_rounds,
+        emit_server_log=False,
     )
     result, final_server_step = _run_sync_strategy_rounds(
         grid=grid,
