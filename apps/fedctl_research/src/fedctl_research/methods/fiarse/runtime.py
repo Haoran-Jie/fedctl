@@ -12,18 +12,21 @@ from flwr.app import ArrayRecord, Context, Message, MetricRecord, RecordDict
 from fedctl_research.config import (
     get_int,
     get_masked_cross_entropy_mode,
+    get_optimizer_name,
     get_optional_int,
     get_str,
     resolve_device_type_for_context,
 )
 from fedctl_research.methods.runtime import (
+    _evaluation_metric_record,
+    _task_score_label,
     build_partition_request,
     client_log,
     client_prefix,
     max_examples_for_device,
     resolve_batch_size,
 )
-from fedctl_research.runtime.classification import masked_cross_entropy_loss, should_use_masked_cross_entropy
+from fedctl_research.runtime.classification import create_optimizer
 from fedctl_research.seeding import derive_seed, set_global_seed
 from fedctl_research.tasks.registry import resolve_task
 
@@ -64,7 +67,10 @@ def client_train_fiarse(
     client_log(
         context,
         method_label=method_label,
-        message=f"train:start model_rate={model_rate} lr={float(msg.content['config']['lr'])}",
+        message=(
+            f"train:start model_rate={model_rate} "
+            f"lr={float(msg.content['config']['lr'])} optimizer={get_optimizer_name(context.run_config)}"
+        ),
     )
 
     global_model_rate = float(msg.content["config"].get("global-model-rate", 1.0))
@@ -105,13 +111,13 @@ def client_train_fiarse(
         get_int(context.run_config, "local-epochs"),
         float(msg.content["config"]["lr"]),
         device,
+        optimizer=get_optimizer_name(context.run_config),
         model_rate=model_rate,
         threshold_mode=threshold_mode,
+        task=task,
         label_mask=bundle.label_mask,
-        use_masked_cross_entropy=should_use_masked_cross_entropy(
-            get_masked_cross_entropy_mode(context.run_config),
-            partitioning=partitioning,
-        ),
+        masked_cross_entropy=get_masked_cross_entropy_mode(context.run_config),
+        partitioning=partitioning,
         log_prefix=client_prefix(context, method_label=method_label),
     )
     client_log(
@@ -206,12 +212,12 @@ def client_evaluate_fiarse(
     )
 
     phase_start = time.perf_counter()
-    loss, accuracy = task.test(model, bundle.testloader, device)
+    loss, score = task.test(model, bundle.testloader, device)
     client_log(
         context,
         method_label=method_label,
         message=(
-            f"eval:done loss={loss:.6f} acc={accuracy:.6f} "
+            f"eval:done loss={loss:.6f} {_task_score_label(task)}={score:.6f} "
             f"elapsed_s={time.perf_counter() - phase_start:.2f}"
         ),
     )
@@ -219,14 +225,12 @@ def client_evaluate_fiarse(
 
     reply = RecordDict(
         {
-            "metrics": MetricRecord(
-                {
-                    "eval-loss": float(loss),
-                    "eval-acc": float(accuracy),
-                    "num-examples": bundle.num_test_examples,
-                    "eval-num-examples": bundle.num_test_examples,
-                    "eval-duration-s": float(eval_duration_s),
-                }
+            "metrics": _evaluation_metric_record(
+                task,
+                loss=float(loss),
+                score=float(score),
+                num_examples=bundle.num_test_examples,
+                duration_s=float(eval_duration_s),
             )
         }
     )
@@ -245,15 +249,17 @@ def _train_sparse_masked_classifier(
     lr: float,
     device: torch.device | str,
     *,
+    optimizer: str,
     model_rate: float,
     threshold_mode: str,
+    task,
     label_mask: torch.Tensor | None,
-    use_masked_cross_entropy: bool,
+    masked_cross_entropy: str,
+    partitioning: str,
     log_prefix: str,
 ) -> float:
     model.to(device)
-    criterion = nn.CrossEntropyLoss().to(device)
-    optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9)
+    optimizer_instance = create_optimizer(optimizer, model.parameters(), lr=lr)
     threshold_map = {
         name: value.to(device=device)
         for name, value in build_threshold_map(model, model_rate=model_rate, threshold_mode=threshold_mode).items()
@@ -275,7 +281,7 @@ def _train_sparse_masked_classifier(
         for batch_idx, (images, labels) in enumerate(trainloader, start=1):
             images = images.to(device)
             labels = labels.to(device)
-            optimizer.zero_grad()
+            optimizer_instance.zero_grad()
 
             masked_state = OrderedDict((name, tensor) for name, tensor in model.named_buffers())
             masked_state.update(
@@ -286,12 +292,15 @@ def _train_sparse_masked_classifier(
                 )
             )
             logits = functional_call(model, masked_state, (images,))
-            if use_masked_cross_entropy:
-                loss = masked_cross_entropy_loss(logits, labels, label_mask=label_mask_device)
-            else:
-                loss = criterion(logits, labels)
+            loss = task.compute_loss(
+                logits,
+                labels,
+                label_mask=label_mask_device,
+                masked_cross_entropy=masked_cross_entropy,
+                partitioning=partitioning,
+            )
             loss.backward()
-            optimizer.step()
+            optimizer_instance.step()
 
             loss_value = float(loss.item())
             running_loss += loss_value

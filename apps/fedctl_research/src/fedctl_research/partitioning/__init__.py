@@ -1,4 +1,4 @@
-"""Shared partitioning helpers for classification experiments."""
+"""Shared partitioning helpers for research experiments."""
 
 from fedctl_research.partitioning.base import Partitioner
 from fedctl_research.partitioning.balanced_label_skew_partitioner import (
@@ -11,6 +11,7 @@ from fedctl_research.partitioning.classification_partitioner import (
     build_classification_partition_bundle,
     partitioners,
 )
+from fedctl_research.partitioning.continuous_partitioner import ContinuousPartitioner
 from fedctl_research.partitioning.device_correlated_label_skew_partitioner import (
     DeviceCorrelatedLabelSkewPartitioner,
 )
@@ -22,6 +23,7 @@ __all__ = [
     "BalancedLabelSkewPartitioner",
     "ClassificationPartitionResult",
     "ClassificationPartitioner",
+    "ContinuousPartitioner",
     "DeviceCorrelatedLabelSkewPartitioner",
     "DirichletPartitioner",
     "IidPartitioner",

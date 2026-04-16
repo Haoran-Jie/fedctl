@@ -12,6 +12,8 @@ from fedctl_research.tasks.registry import resolve_task
 
 
 _INPUT_SHAPES: dict[str, tuple[int, ...]] = {
+    "appliances_energy_mlp": (1, 33),
+    "california_housing_mlp": (1, 8),
     "fashion_mnist_mlp": (1, 1, 28, 28),
     "fashion_mnist_cnn": (1, 1, 28, 28),
     "cifar10_cnn": (1, 3, 32, 32),
@@ -27,11 +29,16 @@ def _format_rate_key(model_rate: float) -> str:
 
 
 def _build_example_input(task_name: str) -> torch.Tensor:
-    try:
-        shape = _INPUT_SHAPES[task_name]
-    except KeyError as exc:
-        known = ", ".join(sorted(_INPUT_SHAPES))
-        raise ValueError(f"Unknown task '{task_name}' for cost estimation. Known tasks: {known}") from exc
+    task = resolve_task(task_name)
+    shape = getattr(task, "example_input_shape", None)
+    if shape is None:
+        try:
+            shape = _INPUT_SHAPES[task_name]
+        except KeyError as exc:
+            known = ", ".join(sorted(_INPUT_SHAPES))
+            raise ValueError(
+                f"Unknown task '{task_name}' for cost estimation. Known tasks: {known}"
+            ) from exc
     return torch.zeros(shape, dtype=torch.float32)
 
 

@@ -13,6 +13,8 @@ class PartitionRequest:
     device_type: str = "unknown"
     partitioning_num_labels: int = 2
     partitioning_dirichlet_alpha: float = 0.1
+    partitioning_continuous_column: str | None = None
+    partitioning_continuous_strictness: float = 0.5
     assignment_seed: int | None = None
     loader_seed: int | None = None
     typed_partition_idx: int | None = None
