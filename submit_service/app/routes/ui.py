@@ -591,6 +591,7 @@ def _submission_row_view(record: dict[str, Any], role: str) -> dict[str, Any]:
         "finished_at": _fmt_dt(record.get("finished_at")),
         "blocked_reason": record.get("blocked_reason") or record.get("error_message") or "",
         "namespace": record.get("namespace") or "-",
+        "priority": record.get("priority"),
     }
 
 
