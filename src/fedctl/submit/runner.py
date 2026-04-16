@@ -30,6 +30,7 @@ from fedctl.util.console import console
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
 _DEFAULT_MAX_ARCHIVED_LOG_CHARS = 2_000_000
+_DEFAULT_MAX_ARCHIVE_PAYLOAD_CHARS = 500_000
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -699,6 +700,7 @@ class _LogArchiver:
             if not entries:
                 logger.info("log archiver: no logs captured")
                 return
+            entries = _fit_archive_entries_to_payload_budget(entries)
             signature = _log_archive_signature(entries)
             if not force and signature == self._last_uploaded_signature:
                 logger.info("log archiver: no log changes detected")
@@ -1089,6 +1091,65 @@ def _archive_log_char_limit(max_chars: int | None = None) -> int:
     if parsed <= 0:
         return 0
     return parsed
+
+
+def _archive_payload_char_limit(max_chars: int | None = None) -> int:
+    if max_chars is not None and max_chars > 0:
+        return max_chars
+    raw = os.environ.get("FEDCTL_LOG_ARCHIVE_MAX_PAYLOAD_CHARS", "").strip()
+    if not raw:
+        return _DEFAULT_MAX_ARCHIVE_PAYLOAD_CHARS
+    try:
+        parsed = int(raw)
+    except ValueError:
+        return _DEFAULT_MAX_ARCHIVE_PAYLOAD_CHARS
+    if parsed <= 0:
+        return 0
+    return parsed
+
+
+def _fit_archive_entries_to_payload_budget(
+    entries: list[dict[str, object]],
+    *,
+    max_payload_chars: int | None = None,
+) -> list[dict[str, object]]:
+    limit = _archive_payload_char_limit(max_payload_chars)
+    if limit <= 0:
+        return entries
+    payload = json.dumps(entries, sort_keys=True, separators=(",", ":"))
+    if len(payload) <= limit:
+        return entries
+
+    shrunk: list[dict[str, object]] = [dict(entry) for entry in entries]
+    content_indexes = [
+        idx
+        for idx, entry in enumerate(shrunk)
+        if isinstance(entry.get("content"), str)
+    ]
+    if not content_indexes:
+        return entries
+
+    baseline: list[dict[str, object]] = []
+    for entry in shrunk:
+        cloned = dict(entry)
+        if "content" in cloned:
+            cloned["content"] = ""
+        baseline.append(cloned)
+    baseline_size = len(json.dumps(baseline, sort_keys=True, separators=(",", ":")))
+    remaining = max(limit - baseline_size, 0)
+    if remaining <= 0:
+        remaining = 0
+    per_entry_limit = max(256, remaining // max(len(content_indexes), 1))
+
+    while True:
+        for idx in content_indexes:
+            content = shrunk[idx].get("content")
+            if isinstance(content, str):
+                shrunk[idx]["content"] = _truncate_log_text(content, max_chars=per_entry_limit)
+        payload = json.dumps(shrunk, sort_keys=True, separators=(",", ":"))
+        if len(payload) <= limit or per_entry_limit <= 256:
+            return shrunk
+        per_entry_limit = max(256, per_entry_limit // 2)
 
 
 def _log_archive_signature(entries: list[dict[str, object]]) -> str:

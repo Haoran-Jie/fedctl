@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from fedctl.submit import runner
 from fedctl.submit.runner import (
     _LogArchiver,
+    _fit_archive_entries_to_payload_budget,
     _latest_alloc_for_task,
     _log_archive_signature,
     _truncate_log_text,
@@ -195,3 +196,31 @@ def test_log_archiver_reports_only_when_logs_change(monkeypatch) -> None:
     assert posted[0]["logs_archive"]["entries"] == entries
     assert posted[1]["logs_archive"]["entries"] == entries
     assert _log_archive_signature(entries) == archiver._last_uploaded_signature  # noqa: SLF001
+
+
+def test_fit_archive_entries_to_payload_budget_truncates_content_fields() -> None:
+    entries = [
+        {
+            "job": "submit",
+            "index": 1,
+            "job_id": "sub-1",
+            "task": "submit",
+            "stderr": False,
+            "content": "A" * 4000,
+        },
+        {
+            "job": "superexec_clientapps",
+            "index": 1,
+            "job_id": "job-1",
+            "task": "job-1",
+            "stderr": True,
+            "content": "B" * 4000,
+        },
+    ]
+
+    shrunk = _fit_archive_entries_to_payload_budget(entries, max_payload_chars=1200)
+
+    payload = runner.json.dumps(shrunk, sort_keys=True, separators=(",", ":"))
+    assert len(payload) <= 1200
+    assert shrunk[0]["content"] != entries[0]["content"]
+    assert shrunk[1]["content"] != entries[1]["content"]
