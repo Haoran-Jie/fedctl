@@ -425,7 +425,7 @@ model-rate-proportions = [1.0]
 
     assert status == 0
     payload = captured["submission_payload"]
-    assert "-profile-mild-" in payload["experiment"]
+    assert "-mild-" in payload["experiment"]
     assert payload["submit_request"]["options"]["experiment"] == payload["experiment"]
 
 
@@ -490,10 +490,8 @@ partitioning-continuous-strictness = 0.5
     )
 
     assert iid_name != noniid_name
-    assert iid_name.startswith("california_housing_mlp-fedavg-iid-cfg")
-    assert noniid_name.startswith("california_housing_mlp-fedavg-noniid-cfg")
-    assert iid_name.endswith("-n20-seed1337")
-    assert noniid_name.endswith("-n20-seed1337")
+    assert iid_name == "california_housing_mlp-fedavg-iid-s1337"
+    assert noniid_name == "california_housing_mlp-fedavg-noniid-s1337"
 
 
 def test_run_submit_explicit_experiment_overrides_generated_config_name(

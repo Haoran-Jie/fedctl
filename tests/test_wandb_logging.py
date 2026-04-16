@@ -128,7 +128,7 @@ def test_create_experiment_logger_uses_run_config_and_env(monkeypatch) -> None:
     }
     assert (
         init_kwargs["name"]
-        == "demo-exp-fedrolex-cifar10_cnn-n20-split-1x25_0p5x25_0p25x25_0p125x25-profile-none-sub3017"
+        == "demo-exp"
     )
     assert init_kwargs["config"]["fedctl_submission_id"] == "sub-20260409-3017"
     assert init_kwargs["config"]["fedctl_canonical_key"] == (
@@ -282,7 +282,7 @@ def test_wandb_summary_failure_disables_future_logging(monkeypatch) -> None:
     assert run.logged == []
 
 
-def test_wandb_retry_attempts_keep_same_canonical_key_but_distinct_names(monkeypatch) -> None:
+def test_wandb_retry_attempts_keep_same_canonical_key_and_name(monkeypatch) -> None:
     fake_wandb = _FakeWandbModule()
     monkeypatch.setitem(sys.modules, "wandb", fake_wandb)
     monkeypatch.setenv("FEDCTL_EXPERIMENT", "demo-exp")
@@ -319,19 +319,13 @@ def test_wandb_retry_attempts_keep_same_canonical_key_but_distinct_names(monkeyp
     assert second_run.init_kwargs["config"]["fedctl_canonical_key"] == (
         "network-main/cifar10_cnn/fedbuff/n8/split-1x100/seed1337/profile-none"
     )
-    assert (
-        first_run.init_kwargs["name"]
-        == "demo-exp-fedbuff-cifar10_cnn-n8-split-1x100-profile-none-sub1001"
-    )
-    assert (
-        second_run.init_kwargs["name"]
-        == "demo-exp-fedbuff-cifar10_cnn-n8-split-1x100-profile-none-sub1002"
-    )
+    assert first_run.init_kwargs["name"] == "demo-exp"
+    assert second_run.init_kwargs["name"] == "demo-exp"
     assert first.canonical_key == second.canonical_key
 
 
 def test_wandb_safe_tag_shortens_long_experiment_names() -> None:
-    tag = "california_housing_mlp-fiarse-noniid-cfgad097484-profile-none-n20-seed1338"
+    tag = "california_housing_mlp-fiarse-noniid-none-s1338-extra-long-suffix-to-force-shortening"
 
     safe = _wandb_safe_tag(tag)
 
@@ -345,7 +339,7 @@ def test_create_experiment_logger_sanitizes_long_experiment_tag(monkeypatch) -> 
     monkeypatch.setitem(sys.modules, "wandb", fake_wandb)
     monkeypatch.setenv(
         "FEDCTL_EXPERIMENT",
-        "california_housing_mlp-fiarse-noniid-cfgad097484-profile-none-n20-seed1338",
+        "california_housing_mlp-fiarse-noniid-none-s1338",
     )
 
     context = SimpleNamespace(
@@ -459,7 +453,7 @@ def test_create_experiment_logger_tolerates_flower_mapping_missing_optional_keys
 
     assert isinstance(logger, WandbExperimentLogger)
     assert len(fake_wandb.runs) == 1
-    assert fake_wandb.runs[0].init_kwargs["name"].startswith("demo-exp-fedavg-cifar10_cnn-")
+    assert fake_wandb.runs[0].init_kwargs["name"] == "demo-exp"
 
 
 def test_create_experiment_logger_tolerates_flower_mapping_get_without_default(monkeypatch) -> None:
