@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+import atexit
 import argparse
 import hashlib
 import json
 import os
+import signal
 import tarfile
 import tempfile
 import shutil
 import threading
 import time
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable
 
@@ -26,8 +29,7 @@ from fedctl.util.console import console
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
-_MAX_ARCHIVED_LOG_CHARS = 200_000
-_LOG_ARCHIVE_POLL_INTERVAL_SECONDS = 60.0
+_DEFAULT_MAX_ARCHIVED_LOG_CHARS = 2_000_000
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -128,41 +130,48 @@ def main(argv: list[str] | None = None) -> int:
         token=token,
     )
     if log_archiver.enabled:
-        logger.info("log archiver enabled (submission=%s)", submission_id)
+        logger.info("log archiver enabled (final sweep only, submission=%s)", submission_id)
         log_archiver.start()
 
-    try:
-        return run_run(
-            path=str(project_path),
-            experiment_config=args.experiment_config,
-            run_config_overrides=args.run_config_override,
-            seed=args.seed,
-            flwr_version=args.flwr_version,
-            image=args.image,
-            no_cache=args.no_cache,
-            platform=args.platform,
-            context=args.context,
-            push=args.push,
-            num_supernodes=effective_num_supernodes,
-            auto_supernodes=not args.no_auto_supernodes,
-            supernodes=args.supernodes,
-            net=args.net,
-            allow_oversubscribe=args.allow_oversubscribe,
-            experiment=effective_experiment,
-            timeout_seconds=args.timeout,
-            federation=args.federation,
-            stream=args.stream,
-            verbose=args.verbose,
-            profile=profile,
-            endpoint=endpoint,
-            namespace=namespace,
-            token=token,
-            pre_cleanup=_combine_pre_cleanup(
-                uploader.final_sweep if uploader.enabled else None,
-                log_archiver.final_sweep if log_archiver.enabled else None,
-            ),
-            destroy=args.destroy,
+    cleanup = _once(
+        _combine_pre_cleanup(
+            uploader.final_sweep if uploader.enabled else None,
+            log_archiver.final_sweep if log_archiver.enabled else None,
         )
+    )
+    if cleanup is not None:
+        atexit.register(cleanup)
+
+    try:
+        with _shutdown_on_signal():
+            return run_run(
+                path=str(project_path),
+                experiment_config=args.experiment_config,
+                run_config_overrides=args.run_config_override,
+                seed=args.seed,
+                flwr_version=args.flwr_version,
+                image=args.image,
+                no_cache=args.no_cache,
+                platform=args.platform,
+                context=args.context,
+                push=args.push,
+                num_supernodes=effective_num_supernodes,
+                auto_supernodes=not args.no_auto_supernodes,
+                supernodes=args.supernodes,
+                net=args.net,
+                allow_oversubscribe=args.allow_oversubscribe,
+                experiment=effective_experiment,
+                timeout_seconds=args.timeout,
+                federation=args.federation,
+                stream=args.stream,
+                verbose=args.verbose,
+                profile=profile,
+                endpoint=endpoint,
+                namespace=namespace,
+                token=token,
+                pre_cleanup=cleanup,
+                destroy=args.destroy,
+            )
     finally:
         if uploader.enabled:
             uploader.stop()
@@ -423,6 +432,38 @@ def _combine_pre_cleanup(*hooks: Callable[[], None] | None) -> Callable[[], None
     return _run
 
 
+def _once(hook: Callable[[], None] | None) -> Callable[[], None] | None:
+    if hook is None:
+        return None
+    fired = False
+
+    def _run() -> None:
+        nonlocal fired
+        if fired:
+            return
+        fired = True
+        hook()
+
+    return _run
+
+
+@contextmanager
+def _shutdown_on_signal():
+    previous_handlers: dict[int, object] = {}
+
+    def _raise_exit(signum, _frame) -> None:  # noqa: ANN001
+        raise SystemExit(128 + signum)
+
+    try:
+        for signum in (signal.SIGTERM, signal.SIGINT):
+            previous_handlers[signum] = signal.getsignal(signum)
+            signal.signal(signum, _raise_exit)
+        yield
+    finally:
+        for signum, handler in previous_handlers.items():
+            signal.signal(signum, handler)
+
+
 class _ResultUploader:
     def __init__(
         self,
@@ -624,8 +665,6 @@ class _LogArchiver:
         self._endpoint = endpoint
         self._namespace = namespace
         self._token = token
-        self._thread: threading.Thread | None = None
-        self._stop = threading.Event()
         self._lock = threading.Lock()
         self._last_uploaded_signature: str | None = None
 
@@ -639,33 +678,18 @@ class _LogArchiver:
         )
 
     def start(self) -> None:
-        if self._thread and self._thread.is_alive():
-            return
-        self._thread = threading.Thread(target=self._run_loop, daemon=True)
-        self._thread.start()
         logger.info(
-            "log archiver started (interval=%ss, submission=%s)",
-            _LOG_ARCHIVE_POLL_INTERVAL_SECONDS,
+            "log archiver ready (final sweep only, submission=%s)",
             self._submission_id,
         )
 
     def stop(self) -> None:
-        self._stop.set()
-        if self._thread:
-            self._thread.join(timeout=3.0)
+        return
 
     def final_sweep(self) -> None:
         if not self.enabled:
             return
         self._archive_current(force=True)
-
-    def _run_loop(self) -> None:
-        while not self._stop.is_set():
-            try:
-                self._archive_current(force=False)
-            except Exception as exc:
-                logger.warning("periodic log archive failed: %s", exc)
-            self._stop.wait(_LOG_ARCHIVE_POLL_INTERVAL_SECONDS)
 
     def _archive_current(self, *, force: bool) -> None:
         if not self.enabled:
@@ -1040,15 +1064,31 @@ def _bundle_name(submission_id: str | None, experiment: str | None) -> str:
     return f"{safe}-results.tar.gz"
 
 
-def _truncate_log_text(text: str, *, max_chars: int = _MAX_ARCHIVED_LOG_CHARS) -> str:
-    if len(text) <= max_chars:
+def _truncate_log_text(text: str, *, max_chars: int | None = None) -> str:
+    limit = _archive_log_char_limit(max_chars)
+    if limit <= 0 or len(text) <= limit:
         return text
-    keep = max_chars // 2
+    keep = limit // 2
     return (
         text[:keep]
         + "\n\n...[log truncated for archive size]...\n\n"
         + text[-keep:]
     )
+
+
+def _archive_log_char_limit(max_chars: int | None = None) -> int:
+    if max_chars is not None and max_chars > 0:
+        return max_chars
+    raw = os.environ.get("FEDCTL_LOG_ARCHIVE_MAX_CHARS", "").strip()
+    if not raw:
+        return _DEFAULT_MAX_ARCHIVED_LOG_CHARS
+    try:
+        parsed = int(raw)
+    except ValueError:
+        return _DEFAULT_MAX_ARCHIVED_LOG_CHARS
+    if parsed <= 0:
+        return 0
+    return parsed
 
 
 def _log_archive_signature(entries: list[dict[str, object]]) -> str:
