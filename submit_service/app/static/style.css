@@ -675,7 +675,13 @@ th { font-size: 0.9rem; color: var(--muted); }
   background: rgba(246, 251, 250, 0.98);
   box-shadow: inset 0 -1px 0 rgba(200, 214, 216, 0.98);
 }
+.empty-state {
+  text-align: center;
+  padding: 2rem 1rem;
+}
+.empty-state p { margin: 0.3rem 0; }
 .data-table tbody tr:hover { background: rgba(29, 111, 95, 0.04); }
+.data-table tbody tr[data-href] { cursor: pointer; }
 .primary-link { color: var(--accent-dark); font-weight: 700; text-decoration: none; }
 .table-subtext { color: var(--muted); font-size: 0.84rem; margin-top: 0.15rem; }
 .detail-grid {
@@ -997,6 +1003,13 @@ th { font-size: 0.9rem; color: var(--muted); }
 .alert.error { border-color: var(--error); }
 .alert.warn { border-color: var(--warn); }
 .wrap { overflow-wrap: anywhere; word-break: break-word; }
+.results-section {
+  margin-top: 1rem;
+}
+.results-section h3 {
+  margin: 0 0 0.75rem;
+  font-size: 1.08rem;
+}
 .artifact-group {
   margin-bottom: 0.85rem;
 }
