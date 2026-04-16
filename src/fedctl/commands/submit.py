@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import os
 import json
 import re
@@ -1299,7 +1298,7 @@ def _submit_seed_sweep(
     console.print(f"[cyan]Detected seed sweep:[/cyan] {', '.join(str(seed) for seed in seed_sweep)}")
     failures = 0
     for sweep_seed in seed_sweep:
-        child_experiment = normalize_experiment_name(f"{base_experiment}-seed{sweep_seed}")
+        child_experiment = normalize_experiment_name(f"{base_experiment}-s{sweep_seed}")
         console.print()
         console.print(
             f"[bold cyan]Seed[/bold cyan] [bold]-[/bold] {sweep_seed} -> {child_experiment}"
@@ -1415,17 +1414,12 @@ def _default_submit_experiment_name(
     regime = _experiment_regime_token(data)
     if regime:
         parts.append(regime)
-    parts.append(_experiment_config_token(effective_path))
     if network_profile_label:
-        parts.append(f"profile-{_experiment_name_token(network_profile_label)}")
-
-    node_count = _experiment_node_count(data)
-    if node_count is not None:
-        parts.append(f"n{node_count}")
+        parts.append(_experiment_name_token(network_profile_label))
 
     seed_value = seed if seed is not None else _experiment_seed(data)
     if seed_value is not None:
-        parts.append(f"seed{seed_value}")
+        parts.append(f"s{seed_value}")
 
     return "-".join(parts) if parts else f"{project_name}-{_timestamp_compact()}"
 
@@ -1446,23 +1440,6 @@ def _experiment_regime_token(data: dict[str, object]) -> str:
     if partitioning == "iid":
         return "iid"
     return "noniid"
-
-
-def _experiment_config_token(path: Path) -> str:
-    digest = hashlib.blake2s(path.read_bytes(), digest_size=4).hexdigest()
-    return f"cfg{digest}"
-
-
-def _experiment_node_count(data: dict[str, object]) -> int | None:
-    for key in ("min-available-nodes", "min-train-nodes", "min-evaluate-nodes"):
-        value = data.get(key)
-        try:
-            count = int(value)
-        except (TypeError, ValueError):
-            continue
-        if count > 0:
-            return count
-    return None
 
 
 def _experiment_seed(data: dict[str, object]) -> int | None:

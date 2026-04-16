@@ -510,11 +510,7 @@ def create_experiment_logger(context: Context) -> ExperimentLogger:
         "entity": entity,
         "group": group,
         "mode": mode,
-        "name": (
-            f"{experiment}-{method}-{task}-"
-            f"{_node_count_label(run_config)}-{_capacity_split_label(run_config)}-"
-            f"{_profile_tag()}-{identity.attempt_id}"
-        ),
+        "name": experiment,
         "tags": _wandb_safe_tags(tags + [method, task, experiment, _profile_tag()]),
         "config": {
             **_sanitize_config(run_config),
