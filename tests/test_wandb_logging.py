@@ -13,7 +13,11 @@ APP_SRC = (
 if str(APP_SRC) not in sys.path:
     sys.path.insert(0, str(APP_SRC))
 
-from fedctl_research.wandb_logging import WandbExperimentLogger, create_experiment_logger  # noqa: E402
+from fedctl_research.wandb_logging import (  # noqa: E402
+    WandbExperimentLogger,
+    _wandb_safe_tag,
+    create_experiment_logger,
+)
 
 
 class _FakeWandbRun:
@@ -324,6 +328,45 @@ def test_wandb_retry_attempts_keep_same_canonical_key_but_distinct_names(monkeyp
         == "demo-exp-fedbuff-cifar10_cnn-n8-split-1x100-profile-none-sub1002"
     )
     assert first.canonical_key == second.canonical_key
+
+
+def test_wandb_safe_tag_shortens_long_experiment_names() -> None:
+    tag = "california_housing_mlp-fiarse-noniid-cfgad097484-profile-none-n20-seed1338"
+
+    safe = _wandb_safe_tag(tag)
+
+    assert len(safe) <= 64
+    assert safe.startswith("california_housing_mlp")
+    assert safe != tag
+
+
+def test_create_experiment_logger_sanitizes_long_experiment_tag(monkeypatch) -> None:
+    fake_wandb = _FakeWandbModule()
+    monkeypatch.setitem(sys.modules, "wandb", fake_wandb)
+    monkeypatch.setenv(
+        "FEDCTL_EXPERIMENT",
+        "california_housing_mlp-fiarse-noniid-cfgad097484-profile-none-n20-seed1338",
+    )
+
+    context = SimpleNamespace(
+        run_config={
+            "method": "fiarse",
+            "task": "california_housing_mlp",
+            "seed": 1338,
+            "min-available-nodes": 20,
+            "model-rate-levels": "1.0",
+            "model-rate-proportions": "1.0",
+            "wandb-enabled": True,
+            "wandb-project": "fedctl",
+        }
+    )
+
+    create_experiment_logger(context)
+
+    tags = fake_wandb.runs[0].init_kwargs["tags"]
+    long_tags = [tag for tag in tags if tag.startswith("california_housing_mlp-fiarse")]
+    assert len(long_tags) == 1
+    assert len(long_tags[0]) <= 64
 
 
 def test_wandb_logger_logs_submodel_client_table(monkeypatch) -> None:
