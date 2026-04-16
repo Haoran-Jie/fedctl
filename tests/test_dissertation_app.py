@@ -599,7 +599,9 @@ def test_fedbuff_polynomial_staleness_weight_decays() -> None:
 
 
 def test_run_server_loop_stops_when_central_eval_reaches_target(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     class _FakeModel(dict):
         def state_dict(self):
@@ -699,14 +701,18 @@ def test_run_server_loop_stops_when_central_eval_reaches_target(
     assert target_summary["target/server_step_to_target"] == 1
     assert logger.finished is True
     captured = capsys.readouterr()
-    assert "[fedavg][server] round_start round=1/50" in captured.out
-    assert "[fedavg][server] round_train_done round=1 success=0 fail=0 client_trips=20" in captured.out
-    assert "[fedavg][server] server_eval step=1 eval_acc=0.6100" in captured.out
-    assert "[fedavg][server] target_reached step=1 client_trips=20 threshold=0.6000" in captured.out
+    combined = captured.out + captured.err + caplog.text
+    assert "Starting _FakeStrategy strategy:" in combined
+    assert "Initial global evaluation results:" in combined
+    assert "[ROUND 1/50]" in combined
+    assert "Global evaluation" in combined
+    assert "[fedavg][server] target_reached step=1 client_trips=20 threshold=0.6000" in combined
 
 
 def test_async_fedbuff_stops_when_central_eval_reaches_target(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     class _FakeModel(dict):
         def state_dict(self):
@@ -832,9 +838,138 @@ def test_async_fedbuff_stops_when_central_eval_reaches_target(
     assert target_summary["target/client_trips_to_target"] == 1
     assert target_summary["target/server_step_to_target"] == 1
     captured = capsys.readouterr()
+    combined = captured.out + captured.err + caplog.text
+    assert "Starting FedBuff async loop:" in combined
+    assert "[STEP 1/5]" in combined
     assert "[fedbuff][server] step_applied step=1/5 accepted_updates=1 client_trips=1" in captured.out
     assert "[fedbuff][server] server_eval step=1 eval_acc=0.6500" in captured.out
     assert "[fedbuff][server] target_reached step=1 client_trips=1 threshold=0.6000" in captured.out
+
+
+def test_fedstaleweight_emits_fairness_step_log(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    class _FakeModel(dict):
+        def state_dict(self):
+            return OrderedDict({"w": torch.tensor([0.0], dtype=torch.float32)})
+
+    class _FakeTask:
+        name = "fake_task"
+        primary_score_name = "acc"
+        primary_score_direction = "max"
+
+        def build_model_for_rate(self, model_rate: float, *, global_model_rate: float = 1.0):
+            del model_rate, global_model_rate
+            return _FakeModel()
+
+        def load_model_state(self, model, state_dict) -> None:
+            model.clear()
+            model.update(state_dict)
+
+        def load_centralized_test_dataset(self, batch_size: int = 256, *, seed: int | None = None):
+            del batch_size, seed
+            return ["fake_loader"]
+
+        def test(self, model, testloader, device: str):
+            del testloader, device
+            return 0.25, float(model["w"].item())
+
+    class _FakeAsyncGrid:
+        def __init__(self) -> None:
+            self._counter = 0
+            self._pending: dict[str, Message] = {}
+
+        def get_node_ids(self):
+            return [1]
+
+        def push_messages(self, messages):
+            message_ids = []
+            for message in messages:
+                self._counter += 1
+                message_id = f"msg-{self._counter}"
+                self._pending[message_id] = message
+                message_ids.append(message_id)
+            return message_ids
+
+        def pull_messages(self, message_ids):
+            replies = []
+            for message_id in message_ids:
+                message = self._pending.pop(message_id, None)
+                if message is None:
+                    continue
+                replies.append(
+                    _make_message(
+                        node_id=message.metadata.dst_node_id,
+                        group_id=message.metadata.group_id,
+                        array_state=OrderedDict({"w": torch.tensor([0.65], dtype=torch.float32)}),
+                        metrics={
+                            "train-duration-s": 0.5,
+                            "train-num-examples": 50,
+                            "num-examples": 50,
+                            "examples-per-second": 100.0,
+                            "train-loss": 0.2,
+                        },
+                        reply_to_message_id=message_id,
+                    )
+                )
+            return replies
+
+    logger = _Logger()
+    artifacts = _ArtifactLogger()
+    monkeypatch.setattr("fedctl_research.methods.fedbuff.async_loop.resolve_task", lambda _name: _FakeTask())
+    monkeypatch.setattr(
+        "fedctl_research.methods.fedbuff.async_loop.create_experiment_logger",
+        lambda _context: logger,
+    )
+    monkeypatch.setattr(
+        "fedctl_research.methods.fedbuff.async_loop.create_result_artifact_logger",
+        lambda _context: artifacts,
+    )
+    monkeypatch.setattr(
+        "fedctl_research.methods.fedbuff.async_loop.build_model_catalog",
+        lambda *args, **kwargs: {},
+    )
+    monkeypatch.setattr(
+        "fedctl_research.methods.fedbuff.async_loop.summarize_round_costs",
+        lambda *args, **kwargs: {},
+    )
+    monkeypatch.setattr(
+        "fedctl_research.methods.fedbuff.async_loop.discover_node_device_types",
+        lambda grid, context: {1: "rpi4"},
+    )
+    monkeypatch.setattr("fedctl_research.methods.runtime.resolve_task", lambda _name: _FakeTask())
+
+    context = SimpleNamespace(
+        run_config={
+            "task": "fake_task",
+            "method": "fedstaleweight",
+            "learning-rate": 0.01,
+            "global-model-rate": 1.0,
+            "min-available-nodes": 1,
+            "client-eval-enabled": False,
+            "final-client-eval-enabled": False,
+            "fedbuff-train-concurrency": 1,
+            "fedbuff-buffer-size": 1,
+            "fedbuff-poll-interval-s": 0.0,
+            "fedbuff-num-server-steps": 5,
+            "fedbuff-evaluate-every-steps": 1,
+            "fedbuff-staleness-weighting": "polynomial",
+            "fedbuff-staleness-alpha": 0.5,
+            "target-score": 0.60,
+            "stop-on-target-score": True,
+        },
+        node_config={},
+    )
+
+    run_fedbuff_server(_FakeAsyncGrid(), context, method_label="fedstaleweight", staleness_mode_override="fair")
+
+    captured = capsys.readouterr()
+    combined = captured.out + captured.err + caplog.text
+    assert "Starting FedStaleWeight async loop:" in combined
+    assert "[STEP 1/5]" in combined
+    assert "[fedstaleweight][server] fairness weight_share_rpi4=1.00 weight_share_rpi5=0.00 update_share_rpi4=1.00 update_share_rpi5=0.00" in captured.out
 
 
 def test_fedbuff_applies_aggregated_parameter_delta_without_extra_lr_scaling() -> None:

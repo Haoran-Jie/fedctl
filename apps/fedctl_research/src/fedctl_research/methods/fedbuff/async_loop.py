@@ -6,6 +6,7 @@ from collections import OrderedDict
 from dataclasses import dataclass, field
 import math
 import time
+from logging import INFO
 from typing import Any
 
 import torch
@@ -204,6 +205,38 @@ def _dispatch_eval_messages(
     return list(grid.pull_messages(message_ids))
 
 
+def _async_method_title(method_label: str) -> str:
+    if method_label == "fedstaleweight":
+        return "FedStaleWeight"
+    if method_label == "fedbuff":
+        return "FedBuff"
+    return method_label
+
+
+def _log_async_loop_header(
+    *,
+    method_label: str,
+    num_server_steps: int,
+    concurrency: int,
+    buffer_size: int,
+    evaluate_every_steps: int,
+    staleness_mode: str,
+    staleness_alpha: float,
+    client_trip_budget: int | None,
+) -> None:
+    log(INFO, "Starting %s async loop:", _async_method_title(method_label))
+    log(INFO, " ├── Number of server steps: %s", num_server_steps)
+    log(INFO, " ├── Train concurrency: %s", concurrency)
+    log(INFO, " ├── Buffer size: %s", buffer_size)
+    log(INFO, " ├── Evaluate every: %s step(s)", evaluate_every_steps)
+    log(INFO, " ├── Staleness weighting: %s", staleness_mode)
+    log(INFO, " ├── Staleness alpha: %s", staleness_alpha)
+    if client_trip_budget is not None:
+        log(INFO, " └── Client-trip budget: %s", client_trip_budget)
+    else:
+        log(INFO, " └── Client-trip budget: <unbounded>")
+
+
 def run_fedbuff_server(
     grid: Grid,
     context,
@@ -271,6 +304,16 @@ def run_fedbuff_server(
         task,
         context.run_config,
         client_trip_budget=_async_client_trip_budget(context.run_config),
+    )
+    _log_async_loop_header(
+        method_label=method_label,
+        num_server_steps=num_server_steps,
+        concurrency=concurrency,
+        buffer_size=buffer_size,
+        evaluate_every_steps=evaluate_every_steps,
+        staleness_mode=staleness_mode,
+        staleness_alpha=staleness_alpha,
+        client_trip_budget=target_controller.client_trip_budget,
     )
     evaluate = central_evaluate_fn(
         context,
@@ -555,6 +598,8 @@ def run_fedbuff_server(
                         **system_metrics,
                     }
                 )
+                log(INFO, "")
+                log(INFO, "[STEP %s/%s]", server_step, num_server_steps)
                 server_log(
                     method_label=method_label,
                     message=(
@@ -565,6 +610,17 @@ def run_fedbuff_server(
                         f" staleness_mean={sum(staleness_values) / len(staleness_values):.2f}"
                     ),
                 )
+                if method_label == "fedstaleweight":
+                    server_log(
+                        method_label=method_label,
+                        message=(
+                            "fairness"
+                            f" weight_share_rpi4={device_weight_totals['rpi4']:.2f}"
+                            f" weight_share_rpi5={device_weight_totals['rpi5']:.2f}"
+                            f" update_share_rpi4={device_update_counts['rpi4'] / max(len(buffered_updates), 1):.2f}"
+                            f" update_share_rpi5={device_update_counts['rpi5'] / max(len(buffered_updates), 1):.2f}"
+                        ),
+                    )
                 if server_step % evaluate_every_steps == 0:
                     eval_metrics = evaluate(server_step, current_arrays)
                     if eval_metrics is not None:
@@ -592,6 +648,15 @@ def run_fedbuff_server(
             dispatch_until_full()
             if server_step >= num_server_steps or stop_requested:
                 break
+
+    if not target_controller.reached and server_step >= num_server_steps:
+        server_log(
+            method_label=method_label,
+            message=(
+                f"budget_exhausted step={server_step}/{num_server_steps}"
+                f" client_trips={client_trips_total}"
+            ),
+        )
 
     if final_client_eval_enabled:
         replies = _dispatch_eval_messages(
