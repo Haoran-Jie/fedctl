@@ -60,6 +60,9 @@ class NomadClient:
     def node_allocations(self, node_id: str) -> Any:
         return self._get(f"/v1/node/{node_id}/allocations")
 
+    def allocation(self, alloc_id: str) -> Any:
+        return self._get(f"/v1/allocation/{alloc_id}")
+
     def alloc_logs(
         self,
         alloc_id: str,

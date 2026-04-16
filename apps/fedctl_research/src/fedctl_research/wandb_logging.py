@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+import hashlib
 import os
 from pathlib import PurePosixPath
 import re
@@ -45,6 +46,31 @@ def _parse_tags(raw: str | None) -> list[str]:
     if not raw:
         return []
     return [part.strip() for part in raw.split(",") if part.strip()]
+
+
+def _wandb_safe_tag(tag: str, *, max_chars: int = 64) -> str:
+    cleaned = tag.strip()
+    if not cleaned:
+        return ""
+    if len(cleaned) <= max_chars:
+        return cleaned
+    digest = hashlib.sha1(cleaned.encode("utf-8")).hexdigest()[:8]
+    keep = max_chars - len(digest) - 1
+    if keep <= 0:
+        return digest[:max_chars]
+    return f"{cleaned[:keep]}-{digest}"
+
+
+def _wandb_safe_tags(tags: list[str]) -> list[str]:
+    resolved: list[str] = []
+    seen: set[str] = set()
+    for tag in tags:
+        safe = _wandb_safe_tag(tag)
+        if not safe or safe in seen:
+            continue
+        seen.add(safe)
+        resolved.append(safe)
+    return sorted(resolved)
 
 
 def _sanitize_config(run_config: Mapping[str, object]) -> dict[str, object]:
@@ -489,7 +515,7 @@ def create_experiment_logger(context: Context) -> ExperimentLogger:
             f"{_node_count_label(run_config)}-{_capacity_split_label(run_config)}-"
             f"{_profile_tag()}-{identity.attempt_id}"
         ),
-        "tags": sorted(set(tags + [method, task, experiment, _profile_tag()])),
+        "tags": _wandb_safe_tags(tags + [method, task, experiment, _profile_tag()]),
         "config": {
             **_sanitize_config(run_config),
             "fedctl_experiment": experiment,

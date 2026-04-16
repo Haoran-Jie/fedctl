@@ -904,3 +904,146 @@ def test_dispatcher_keeps_submission_running_when_nomad_restarts_runner(
     updated = storage.get_submission("sub-restarting")
     assert updated["status"] == "running"
     assert updated["error_message"] is None
+
+
+def test_dispatcher_marks_completed_submit_with_nonzero_exit_as_failed(
+    tmp_path, monkeypatch
+) -> None:
+    db_path = tmp_path / "submit.db"
+    storage = Storage(StorageConfig(db_url=f"sqlite:///{db_path}"))
+    storage.init_db()
+    _create_submission(
+        storage,
+        submission_id="sub-server-crash",
+        status="running",
+        created_at="2026-01-01T00:00:00+00:00",
+        priority=50,
+    )
+    storage.update_submission(
+        "sub-server-crash",
+        {
+            "nomad_job_id": "sub-server-crash",
+            "started_at": dispatcher_mod.utcnow().isoformat(),
+            "namespace": "default",
+        },
+    )
+
+    class FakeNomadClient:
+        def __init__(self, *args, **kwargs):
+            return None
+
+        def job_allocations(self, job_id: str):
+            return [
+                {"ID": "alloc-complete", "ModifyTime": 20, "ClientStatus": "complete"},
+            ]
+
+        def allocation(self, alloc_id: str):
+            return {
+                "ID": alloc_id,
+                "ClientStatus": "complete",
+                "TaskStates": {
+                    "submit": {
+                        "State": "dead",
+                        "Failed": True,
+                        "ExitCode": 201,
+                        "FinishedAt": "2026-01-01T00:05:00Z",
+                    }
+                },
+            }
+
+        def close(self):
+            return None
+
+    monkeypatch.setattr(dispatcher_mod, "NomadClient", FakeNomadClient)
+    monkeypatch.setattr(dispatcher_mod, "_inventory_snapshot", lambda inventory: ([], None))
+    monkeypatch.setattr(
+        dispatcher_mod,
+        "_reserve_submission_capacity",
+        lambda submission, free_nodes, inventory_error: (True, None),
+    )
+
+    cfg = _cfg(db_path)
+    cfg = SubmitConfig(
+        **{
+            **cfg.__dict__,
+            "nomad_endpoint": "http://nomad.example:4646",
+        }
+    )
+    dispatcher = dispatcher_mod.Dispatcher(storage, cfg)
+    dispatcher.run_once()
+
+    updated = storage.get_submission("sub-server-crash")
+    assert updated["status"] == "failed"
+    assert updated["error_message"] == (
+        "Submit runner failed exit_code=201 state=dead finished_at=2026-01-01T00:05:00Z"
+    )
+
+
+def test_dispatcher_marks_completed_submit_with_zero_exit_as_completed(
+    tmp_path, monkeypatch
+) -> None:
+    db_path = tmp_path / "submit.db"
+    storage = Storage(StorageConfig(db_url=f"sqlite:///{db_path}"))
+    storage.init_db()
+    _create_submission(
+        storage,
+        submission_id="sub-clean-complete",
+        status="running",
+        created_at="2026-01-01T00:00:00+00:00",
+        priority=50,
+    )
+    storage.update_submission(
+        "sub-clean-complete",
+        {
+            "nomad_job_id": "sub-clean-complete",
+            "started_at": dispatcher_mod.utcnow().isoformat(),
+            "namespace": "default",
+        },
+    )
+
+    class FakeNomadClient:
+        def __init__(self, *args, **kwargs):
+            return None
+
+        def job_allocations(self, job_id: str):
+            return [
+                {"ID": "alloc-complete", "ModifyTime": 20, "ClientStatus": "complete"},
+            ]
+
+        def allocation(self, alloc_id: str):
+            return {
+                "ID": alloc_id,
+                "ClientStatus": "complete",
+                "TaskStates": {
+                    "submit": {
+                        "State": "dead",
+                        "Failed": False,
+                        "ExitCode": 0,
+                    }
+                },
+            }
+
+        def close(self):
+            return None
+
+    monkeypatch.setattr(dispatcher_mod, "NomadClient", FakeNomadClient)
+    monkeypatch.setattr(dispatcher_mod, "_inventory_snapshot", lambda inventory: ([], None))
+    monkeypatch.setattr(
+        dispatcher_mod,
+        "_reserve_submission_capacity",
+        lambda submission, free_nodes, inventory_error: (True, None),
+    )
+
+    cfg = _cfg(db_path)
+    cfg = SubmitConfig(
+        **{
+            **cfg.__dict__,
+            "nomad_endpoint": "http://nomad.example:4646",
+        }
+    )
+    dispatcher = dispatcher_mod.Dispatcher(storage, cfg)
+    dispatcher.run_once()
+
+    updated = storage.get_submission("sub-clean-complete")
+    assert updated["status"] == "completed"
+    assert updated["error_message"] is None

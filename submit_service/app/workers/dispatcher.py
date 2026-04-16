@@ -197,11 +197,25 @@ class Dispatcher:
                 client.close()
             status = _submission_alloc_status(allocs)
             if status == "complete":
-                self._storage.set_status(
-                    submission["id"],
-                    "completed",
-                    finished_at=utcnow(),
+                detail = _latest_allocation_detail(
+                    allocs,
+                    cfg=self._cfg,
+                    namespace=submission.get("namespace") or self._cfg.nomad_namespace,
                 )
+                outcome = _submission_completion_outcome(detail)
+                if outcome["status"] == "failed":
+                    self._storage.set_status(
+                        submission["id"],
+                        "failed",
+                        finished_at=utcnow(),
+                        error_message=str(outcome["error"]),
+                    )
+                else:
+                    self._storage.set_status(
+                        submission["id"],
+                        "completed",
+                        finished_at=utcnow(),
+                    )
             elif status in {"failed", "lost"}:
                 self._storage.set_status(
                     submission["id"],
@@ -296,6 +310,66 @@ def _latest_alloc(allocs: object) -> dict[str, Any] | None:
         return None
     candidates.sort(key=_alloc_sort_key, reverse=True)
     return candidates[0]
+
+
+def _latest_allocation_detail(
+    allocs: object,
+    *,
+    cfg: SubmitConfig,
+    namespace: str | None,
+) -> dict[str, Any] | None:
+    alloc = _latest_alloc(allocs)
+    alloc_id = alloc.get("ID") if isinstance(alloc, dict) else None
+    if not isinstance(alloc_id, str) or not alloc_id:
+        return alloc if isinstance(alloc, dict) else None
+    client = NomadClient(
+        cfg.nomad_endpoint,
+        token=cfg.nomad_token,
+        namespace=namespace,
+        tls_ca=cfg.nomad_tls_ca,
+        tls_skip_verify=cfg.nomad_tls_skip_verify,
+    )
+    try:
+        detail = client.allocation(alloc_id)
+    except NomadError:
+        return alloc if isinstance(alloc, dict) else None
+    finally:
+        client.close()
+    return detail if isinstance(detail, dict) else alloc
+
+
+def _submission_completion_outcome(alloc: dict[str, Any] | None) -> dict[str, Any]:
+    if not isinstance(alloc, dict):
+        return {"status": "completed", "error": None}
+    task_states = alloc.get("TaskStates")
+    task_info = task_states.get("submit") if isinstance(task_states, dict) else None
+    if not isinstance(task_info, dict) and isinstance(task_states, dict) and len(task_states) == 1:
+        task_info = next(iter(task_states.values()))
+    if not isinstance(task_info, dict):
+        return {"status": "completed", "error": None}
+    if bool(task_info.get("Failed")):
+        return {"status": "failed", "error": _submit_task_failure_message(task_info)}
+    exit_code = task_info.get("ExitCode")
+    if isinstance(exit_code, int) and exit_code != 0:
+        return {
+            "status": "failed",
+            "error": _submit_task_failure_message(task_info),
+        }
+    return {"status": "completed", "error": None}
+
+
+def _submit_task_failure_message(task_info: dict[str, Any]) -> str:
+    exit_code = task_info.get("ExitCode")
+    state = task_info.get("State")
+    finished_at = task_info.get("FinishedAt")
+    parts = ["Submit runner failed"]
+    if isinstance(exit_code, int):
+        parts.append(f"exit_code={exit_code}")
+    if isinstance(state, str) and state:
+        parts.append(f"state={state}")
+    if isinstance(finished_at, str) and finished_at:
+        parts.append(f"finished_at={finished_at}")
+    return " ".join(parts)
 
 
 def _submission_alloc_status(allocs: object) -> str | None:
