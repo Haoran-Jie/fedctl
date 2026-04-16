@@ -4,13 +4,13 @@
 <div class="page-crumbs">
   <a href="{{ return_to }}">Submissions</a>
   <span>/</span>
-  <span>{{ submission.id }}</span>
+  <span>{{ submission.id | replace('sub-', '', 1) }}</span>
 </div>
 
 <section class="hero-panel detail-hero">
   <div>
     <div class="eyebrow">Submission detail</div>
-    <h1>{{ submission.id }}</h1>
+    <h1>{{ submission.id | replace('sub-', '', 1) }}</h1>
     <p class="muted">{{ submission.project_name }} / {{ submission.experiment }}</p>
   </div>
   <div class="detail-summary-strip">
@@ -62,7 +62,23 @@
       <article class="info-card overview-card overview-card-identity">
         <h3>Identity</h3>
         <dl class="meta-list">
-          <div><dt>ID</dt><dd class="wrap">{{ submission.id }}</dd></div>
+          <div>
+            <dt>ID</dt>
+            <dd class="wrap" style="display: flex; align-items: center; gap: 0.5rem;">
+              <span>{{ submission.id }}</span>
+              <button
+                type="button"
+                class="button secondary copy-id-button"
+                data-copy="{{ submission.id }}"
+                data-copy-label="Copy"
+                data-copy-done-label="Copied"
+                data-copy-toast="Submission ID copied"
+                title="Copy submission ID to clipboard"
+              >
+                Copy
+              </button>
+            </dd>
+          </div>
           <div><dt>Project</dt><dd>{{ submission.project_name }}</dd></div>
           <div><dt>Experiment</dt><dd>{{ submission.experiment }}</dd></div>
           <div><dt>Owner</dt><dd>{{ submission.owner }}</dd></div>

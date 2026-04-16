@@ -39,18 +39,17 @@
 
 {% if status_filter == 'active' and rows %}
 {% set running_rows = rows | selectattr('status', 'equalto', 'running') | list %}
-{% set queued_rows = rows | selectattr('status', 'equalto', 'queued') | list %}
-{% set blocked_rows = rows | selectattr('status', 'equalto', 'blocked') | list %}
+{% set submitting_rows = rows | selectattr('status', 'equalto', 'queued') | list %}
+{% set waiting_rows = rows | selectattr('status', 'equalto', 'blocked') | list %}
 <section class="panel queue-panel" data-queue-panel>
   <div class="queue-header">
     <div>
       <div class="eyebrow">Live pipeline</div>
-      <h2 class="queue-title">Active queue</h2>
+      <h2 class="queue-title">Cluster execution queue</h2>
     </div>
     <div class="queue-legend">
-      <span class="queue-legend-item"><span class="queue-legend-dot queue-legend-dot-running"></span>Running</span>
-      <span class="queue-legend-item"><span class="queue-legend-dot queue-legend-dot-queued"></span>Queued</span>
-      <span class="queue-legend-item"><span class="queue-legend-dot queue-legend-dot-blocked"></span>Blocked</span>
+      <span class="queue-legend-item" title="Job is currently executing on the cluster"><span class="queue-legend-dot queue-legend-dot-running"></span>Executing</span>
+      <span class="queue-legend-item" title="Job is queued and waiting for cluster resources (CPU, GPU, memory) to become available"><span class="queue-legend-dot queue-legend-dot-waiting"></span>Waiting for resources</span>
     </div>
   </div>
 
@@ -59,7 +58,7 @@
     <div class="queue-stage queue-stage-running">
       <div class="queue-stage-label">
         <span class="queue-stage-dot queue-stage-dot-running"></span>
-        Running
+        Executing
         <span class="queue-stage-count">{{ running_rows | length }}</span>
       </div>
       <div class="queue-stage-track">
@@ -74,49 +73,23 @@
     </div>
     {% endif %}
 
-    {% if running_rows and (queued_rows or blocked_rows) %}
+    {% if running_rows and waiting_rows %}
     <div class="queue-connector" aria-hidden="true">
       <div class="queue-connector-line"></div>
       <div class="queue-connector-arrow"></div>
     </div>
     {% endif %}
 
-    {% if queued_rows %}
-    <div class="queue-stage queue-stage-queued">
+    {% if waiting_rows %}
+    <div class="queue-stage queue-stage-waiting">
       <div class="queue-stage-label">
-        <span class="queue-stage-dot queue-stage-dot-queued"></span>
-        Queued
-        <span class="queue-stage-count">{{ queued_rows | length }}</span>
+        <span class="queue-stage-dot queue-stage-dot-waiting"></span>
+        Waiting for resources
+        <span class="queue-stage-count">{{ waiting_rows | length }}</span>
       </div>
       <div class="queue-stage-track">
-        {% for row in queued_rows %}
-        <a class="queue-card queue-card-queued" href="/ui/submissions/{{ row.id }}?return_to={{ return_to | urlencode }}">
-          <span class="queue-card-position">#{{ loop.index }}</span>
-          <span class="queue-card-name" title="{{ row.experiment }}">{{ row.experiment }}</span>
-          <span class="queue-card-id">{{ row.id | replace('sub-', '', 1) }}</span>
-          <span class="queue-card-time">{% if row.created_at.iso %}<time datetime="{{ row.created_at.iso }}" data-relative>{{ row.created_at.label }}</time>{% else %}{{ row.created_at.label }}{% endif %}</span>
-        </a>
-        {% endfor %}
-      </div>
-    </div>
-    {% endif %}
-
-    {% if blocked_rows %}
-    {% if running_rows or queued_rows %}
-    <div class="queue-connector" aria-hidden="true">
-      <div class="queue-connector-line"></div>
-      <div class="queue-connector-arrow"></div>
-    </div>
-    {% endif %}
-    <div class="queue-stage queue-stage-blocked">
-      <div class="queue-stage-label">
-        <span class="queue-stage-dot queue-stage-dot-blocked"></span>
-        Blocked
-        <span class="queue-stage-count">{{ blocked_rows | length }}</span>
-      </div>
-      <div class="queue-stage-track">
-        {% for row in blocked_rows %}
-        <a class="queue-card queue-card-blocked" href="/ui/submissions/{{ row.id }}?return_to={{ return_to | urlencode }}">
+        {% for row in waiting_rows %}
+        <a class="queue-card queue-card-waiting" href="/ui/submissions/{{ row.id }}?return_to={{ return_to | urlencode }}">
           <span class="queue-card-name" title="{{ row.experiment }}">{{ row.experiment }}</span>
           <span class="queue-card-id">{{ row.id | replace('sub-', '', 1) }}</span>
           <span class="queue-card-reason">{{ row.blocked_reason }}</span>
@@ -126,8 +99,12 @@
     </div>
     {% endif %}
 
-    {% if not running_rows and not queued_rows and not blocked_rows %}
-    <p class="muted">No active submissions in the pipeline.</p>
+    {% if not running_rows and not waiting_rows %}
+    <div class="empty-queue">
+      <p class="empty-queue-icon">✓</p>
+      <p class="empty-queue-message">No active submissions</p>
+      <p class="empty-queue-subtext">All jobs have completed or no new submissions yet</p>
+    </div>
     {% endif %}
   </div>
 </section>
@@ -137,6 +114,7 @@
   <div class="section-head sticky-shell" data-sticky-shell>
     <div>
       <h2>Recent submissions</h2>
+      <p class="refresh-indicator" data-refresh-time>Last updated: just now</p>
     </div>
     <form method="get" action="/ui/submissions" class="filter-bar filter-bar-submissions">
       <div class="filter-group filter-group-segments">
@@ -165,10 +143,64 @@
           name="q"
           value="{{ search_query }}"
           placeholder="ID, experiment, project"
+          title="Search by submission ID, experiment name, or project name"
           data-auto-submit="260"
         >
       </div>
+      <div class="filter-group filter-group-actions">
+        {% if search_query or status_filter != 'all' %}
+        <a href="/ui/submissions" class="button secondary filter-reset-button" title="Reset all filters to default view">
+          Clear filters
+        </a>
+        {% endif %}
+      </div>
     </form>
+  </div>
+
+  <div class="status-legend" data-status-legend>
+    <div class="legend-header">
+      <span class="legend-title">Status legend</span>
+      <button type="button" class="legend-toggle" aria-expanded="false" aria-controls="legend-content" data-legend-toggle>
+        <span class="legend-toggle-icon">▼</span>
+      </button>
+    </div>
+    <div id="legend-content" class="legend-content" aria-hidden="true">
+      <div class="legend-item">
+        <span class="legend-marker" style="background-color: var(--running);"></span>
+        <div class="legend-text">
+          <strong>Executing</strong>
+          <p>Job is currently running on the cluster</p>
+        </div>
+      </div>
+      <div class="legend-item">
+        <span class="legend-marker" style="background-color: var(--blocked);"></span>
+        <div class="legend-text">
+          <strong>Waiting for resources</strong>
+          <p>Job is queued and waiting for cluster resources (CPU, GPU, memory) to become available</p>
+        </div>
+      </div>
+      <div class="legend-item">
+        <span class="legend-marker" style="background-color: var(--completed);"></span>
+        <div class="legend-text">
+          <strong>Completed</strong>
+          <p>Job finished successfully and results are ready for download</p>
+        </div>
+      </div>
+      <div class="legend-item">
+        <span class="legend-marker" style="background-color: var(--failed);"></span>
+        <div class="legend-text">
+          <strong>Failed</strong>
+          <p>Job encountered an error during execution. Check logs for details</p>
+        </div>
+      </div>
+      <div class="legend-item">
+        <span class="legend-marker" style="background-color: var(--cancelled);"></span>
+        <div class="legend-text">
+          <strong>Cancelled</strong>
+          <p>Job was manually cancelled by a user</p>
+        </div>
+      </div>
+    </div>
   </div>
   {% if rows %}
   <table class="data-table">
@@ -178,6 +210,7 @@
         <th class="col-project">Project</th>
         <th class="col-experiment">Experiment</th>
         <th class="col-status">Status</th>
+        <th class="col-priority">Priority</th>
         <th class="col-created">Created</th>
         <th class="col-finished">Finished</th>
         <th class="col-blocked">Blocked / error</th>
@@ -193,6 +226,7 @@
         <td>{{ row.project_name }}</td>
         <td class="cell-experiment" title="{{ row.experiment }}">{{ row.experiment }}</td>
         <td>{% set status = row.status %}{% include '_status_badge.html' %}</td>
+        <td class="cell-priority">{{ row.priority or '-' }}</td>
         <td>{% if row.created_at.iso %}<time datetime="{{ row.created_at.iso }}" title="{{ row.created_at.label }}" data-relative>{{ row.created_at.label }}</time>{% else %}{{ row.created_at.label }}{% endif %}</td>
         <td>{% if row.finished_at.iso %}<time datetime="{{ row.finished_at.iso }}" title="{{ row.finished_at.label }}" data-relative>{{ row.finished_at.label }}</time>{% else %}{{ row.finished_at.label }}{% endif %}</td>
         <td class="cell-blocked">{{ row.blocked_reason or '-' }}</td>
@@ -275,6 +309,19 @@
       if (!row) return;
       window.location.href = row.dataset.href;
     });
+
+    // Status legend toggle functionality
+    const legendToggle = document.querySelector('[data-legend-toggle]');
+    const legendContent = document.getElementById('legend-content');
+    if (legendToggle && legendContent) {
+      legendToggle.addEventListener('click', () => {
+        const isExpanded = legendToggle.getAttribute('aria-expanded') === 'true';
+        legendToggle.setAttribute('aria-expanded', !isExpanded);
+        legendContent.setAttribute('aria-hidden', isExpanded);
+        legendContent.classList.toggle('is-visible');
+        legendToggle.classList.toggle('is-expanded');
+      });
+    }
   })();
 </script>
 {% endblock %}
