@@ -81,6 +81,7 @@ from fedctl_research.partitioning import (  # noqa: E402
     partitioners,
 )
 from fedctl_research.runtime.classification import (  # noqa: E402
+    create_optimizer,
     masked_cross_entropy_loss,
     should_use_masked_cross_entropy,
 )
@@ -2033,6 +2034,12 @@ def test_masked_cross_entropy_auto_only_enables_for_balanced_label_skew() -> Non
     assert should_use_masked_cross_entropy("auto", partitioning="label-skew-balanced") is True
     assert should_use_masked_cross_entropy("auto", partitioning="iid") is False
     assert should_use_masked_cross_entropy("auto", partitioning="dirichlet") is False
+
+
+def test_create_optimizer_supports_adamw() -> None:
+    model = torch.nn.Linear(2, 1)
+    optimizer = create_optimizer("adamw", model.parameters(), lr=1e-3)
+    assert optimizer.__class__.__name__ == "AdamW"
 
 
 def test_central_evaluate_logs_server_eval_duration(monkeypatch: pytest.MonkeyPatch) -> None:

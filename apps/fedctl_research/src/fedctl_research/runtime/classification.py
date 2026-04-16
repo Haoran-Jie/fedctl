@@ -35,6 +35,22 @@ def should_use_masked_cross_entropy(mode: str, *, partitioning: str) -> bool:
     return partitioning == "label-skew-balanced"
 
 
+def create_optimizer(
+    name: str,
+    parameters,
+    *,
+    lr: float,
+) -> torch.optim.Optimizer:
+    normalized = str(name).strip().lower()
+    if normalized == "sgd":
+        return torch.optim.SGD(parameters, lr=lr, momentum=0.9)
+    if normalized == "adam":
+        return torch.optim.Adam(parameters, lr=lr)
+    if normalized == "adamw":
+        return torch.optim.AdamW(parameters, lr=lr)
+    raise ValueError(f"Unsupported optimizer: {name}")
+
+
 def train_classifier(
     model: nn.Module,
     trainloader: DataLoader,
@@ -42,13 +58,14 @@ def train_classifier(
     lr: float,
     device: torch.device | str,
     *,
+    optimizer: str = "sgd",
     label_mask: torch.Tensor | None = None,
     use_masked_cross_entropy: bool = False,
     log_prefix: str | None = None,
 ) -> float:
     model.to(device)
     criterion = nn.CrossEntropyLoss().to(device)
-    optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9)
+    optimizer_instance = create_optimizer(optimizer, model.parameters(), lr=lr)
     model.train()
     prefix = log_prefix or "[fedctl_research]"
     print(
@@ -80,7 +97,7 @@ def train_classifier(
                     f"elapsed_s={time.perf_counter() - batch_start:.2f}",
                     flush=True,
                 )
-            optimizer.zero_grad()
+            optimizer_instance.zero_grad()
             logits = model(images)
             if batch_idx == 1:
                 print(
@@ -107,7 +124,7 @@ def train_classifier(
                     f"elapsed_s={time.perf_counter() - batch_start:.2f}",
                     flush=True,
                 )
-            optimizer.step()
+            optimizer_instance.step()
             if batch_idx == 1:
                 print(
                     f"{prefix} train:first_batch step_done "
