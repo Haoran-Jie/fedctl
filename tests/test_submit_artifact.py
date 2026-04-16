@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 import fedctl.commands.submit as submit_cmd
 import fedctl.submit.artifact as artifact
+from fedctl.project.experiment_config import resolve_experiment_config
 
 
 def test_upload_artifact_uses_explicit_presign_service(
@@ -304,9 +305,83 @@ model-rate-proportions = [0.25, 0.25, 0.25, 0.25]
 
     assert status == 0
     payload = captured["submission_payload"]
-    expected = "cifar10_cnn-heterofl-n20-seed1337"
+    resolved = resolve_experiment_config(project_root, "experiment.toml")
+    assert resolved is not None
+    expected = submit_cmd._default_submit_experiment_name(
+        project_name="demo-project",
+        resolved_experiment_config=resolved,
+        run_config_overrides=None,
+        seed=None,
+    )
     assert payload["experiment"] == expected
     assert payload["submit_request"]["options"]["experiment"] == expected
+
+
+def test_submit_generated_experiment_name_distinguishes_config_variants(
+    tmp_path: Path,
+) -> None:
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    iid_config = project_root / "iid.toml"
+    iid_config.write_text(
+        """
+[experiment]
+method = "fedavg"
+task = "california_housing_mlp"
+seed = 1337
+
+[server]
+min-available-nodes = 20
+
+[data]
+partitioning = "iid"
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+    noniid_config = project_root / "noniid.toml"
+    noniid_config.write_text(
+        """
+[experiment]
+method = "fedavg"
+task = "california_housing_mlp"
+seed = 1337
+
+[server]
+min-available-nodes = 20
+
+[data]
+partitioning = "continuous"
+partitioning-continuous-column = "MedInc"
+partitioning-continuous-strictness = 0.5
+""".strip()
+        + "\n",
+        encoding="utf-8",
+    )
+
+    iid_resolution = resolve_experiment_config(project_root, "iid.toml")
+    noniid_resolution = resolve_experiment_config(project_root, "noniid.toml")
+    assert iid_resolution is not None
+    assert noniid_resolution is not None
+
+    iid_name = submit_cmd._default_submit_experiment_name(
+        project_name="demo-project",
+        resolved_experiment_config=iid_resolution,
+        run_config_overrides=None,
+        seed=None,
+    )
+    noniid_name = submit_cmd._default_submit_experiment_name(
+        project_name="demo-project",
+        resolved_experiment_config=noniid_resolution,
+        run_config_overrides=None,
+        seed=None,
+    )
+
+    assert iid_name != noniid_name
+    assert iid_name.startswith("california_housing_mlp-fedavg-cfg")
+    assert noniid_name.startswith("california_housing_mlp-fedavg-cfg")
+    assert iid_name.endswith("-n20-seed1337")
+    assert noniid_name.endswith("-n20-seed1337")
 
 
 def test_run_submit_explicit_experiment_overrides_generated_config_name(

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import os
 import json
 import re
@@ -1412,6 +1413,7 @@ def _default_submit_experiment_name(
     method = _experiment_name_token(data.get("method"))
     task = _experiment_name_token(data.get("task"))
     parts = [token for token in (task, method) if token]
+    parts.append(_experiment_config_token(effective_path))
 
     node_count = _experiment_node_count(data)
     if node_count is not None:
@@ -1431,6 +1433,11 @@ def _experiment_name_token(value: object) -> str:
     if not raw:
         return ""
     return re.sub(r"[^A-Za-z0-9._-]+", "-", raw).strip("-")
+
+
+def _experiment_config_token(path: Path) -> str:
+    digest = hashlib.blake2s(path.read_bytes(), digest_size=4).hexdigest()
+    return f"cfg{digest}"
 
 
 def _experiment_node_count(data: dict[str, object]) -> int | None:
