@@ -44,7 +44,8 @@ Deployment-side presets live under `repo_configs/`:
 - `repo_configs/smoke/compute_heterogeneity.yaml`: 4-node compute-heterogeneity smoke validation
 - `repo_configs/smoke/network_heterogeneity.yaml`: 4-node network-heterogeneity smoke validation
 - `repo_configs/compute_heterogeneity/main/none.yaml`: 12-node balanced mixed-hardware main-study profile with no impairment
-- `repo_configs/network_heterogeneity/main/none.yaml`: 12-node balanced async main-study profile with no impairment
+- `repo_configs/network_heterogeneity/main/low_concurrency/none.yaml`: 20-node balanced async main-study profile with no impairment
+- `repo_configs/network_heterogeneity/main/high_concurrency/none.yaml`: 50-node packed async main-study profile with no impairment
 - `repo_configs/network_heterogeneity/ablations/deployment_stressors/*.yaml`: network-heterogeneity stressor presets, including named impairment profiles
 - `repo_configs/network_heterogeneity/ablations/scale_concurrency/scale_async/*.yaml`: larger-cluster scaling profiles
 

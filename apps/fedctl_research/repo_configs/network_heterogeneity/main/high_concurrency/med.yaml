@@ -1,0 +1,45 @@
+deploy:
+  supernodes:
+    rpi4: 20
+    rpi5: 30
+  superexec:
+    env:
+      WANDB_API_KEY: "REPLACE_WANDB_API_KEY"
+      WANDB_PROJECT: "fedctl"
+      WANDB_ENTITY: "REPLACE_WANDB_ENTITY"
+  placement:
+    allow_oversubscribe: true
+    spread_across_hosts: false
+  resources:
+    supernode:
+      default: { cpu: 1000, mem: 1024 }
+      rpi4: { cpu: 1000, mem: 1024 }
+      rpi5: { cpu: 1000, mem: 1024 }
+    superexec_clientapp: { cpu: 2000, mem: 2048 }
+    superexec_serverapp: { cpu: 2000, mem: 2048 }
+    superlink: { cpu: 1000, mem: 1024 }
+  network:
+    image: "REPLACE_NETEM_IMAGE"
+    default_profile: med
+    interface: eth0
+    apply:
+      superexec_serverapp: false
+      superexec_clientapp: true
+    profiles:
+      none: {}
+      mild: { delay_ms: 20, jitter_ms: 5, loss_pct: 0.0, rate_mbit: 100, rate_latency_ms: 50, rate_burst_kbit: 256 }
+      med: { delay_ms: 60, jitter_ms: 10, loss_pct: 1.0, rate_mbit: 50, rate_latency_ms: 50, rate_burst_kbit: 256 }
+      asym_up: { delay_ms: 120, jitter_ms: 20, loss_pct: 1.0, rate_mbit: 20, rate_latency_ms: 50, rate_burst_kbit: 256 }
+      asym_down: { delay_ms: 30, jitter_ms: 5, loss_pct: 0.5, rate_mbit: 80, rate_latency_ms: 50, rate_burst_kbit: 256 }
+
+submit:
+  image: "REPLACE_SUBMIT_IMAGE"
+  artifact_store: "REPLACE_ARTIFACT_STORE"
+  endpoint: "REPLACE_SUBMIT_ENDPOINT"
+  token: "REPLACE_SUBMIT_TOKEN"
+  user: "REPLACE_SUBMIT_USER"
+
+submit-service:
+  image_registry: "REPLACE_CLUSTER_IMAGE_REGISTRY"
+
+image_registry: "REPLACE_LAPTOP_IMAGE_REGISTRY"
