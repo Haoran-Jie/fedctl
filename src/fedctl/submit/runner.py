@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import os
 import tarfile
 import tempfile
@@ -13,17 +15,19 @@ from typing import Callable
 import httpx
 import logging
 
-from fedctl.commands.run import run_run
+from fedctl.commands.run import resolve_run_experiment_name, run_run
 from fedctl.deploy import naming
 from fedctl.deploy.plan import parse_supernodes
 from fedctl.constants import DEFAULT_FLWR_VERSION
 from fedctl.nomad.client import NomadClient
+from fedctl.project.flwr_inspect import inspect_flwr_project
 from fedctl.submit.artifact import upload_artifact, ArtifactUploadError
 from fedctl.util.console import console
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
 _MAX_ARCHIVED_LOG_CHARS = 200_000
+_LOG_ARCHIVE_POLL_INTERVAL_SECONDS = 60.0
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -80,12 +84,23 @@ def main(argv: list[str] | None = None) -> int:
 
     # _print_docker_info()
     project_path = _resolve_project_path(Path(args.path), args.project_dir)
+    project_info = inspect_flwr_project(project_path)
+    effective_experiment = resolve_run_experiment_name(
+        project_name=project_info.project_name,
+        experiment=args.experiment,
+    )
+    effective_num_supernodes = _effective_num_supernodes(
+        configured_num_supernodes=args.num_supernodes,
+        supernodes=args.supernodes,
+        auto_supernodes=not args.no_auto_supernodes,
+        project_info=project_info,
+    )
     _report_jobs(
         submission_id=submission_id,
         submit_service_endpoint=submit_service_endpoint,
         submit_service_token=submit_service_token,
-        experiment=args.experiment,
-        num_supernodes=args.num_supernodes,
+        experiment=effective_experiment,
+        num_supernodes=effective_num_supernodes,
         supernodes=args.supernodes,
     )
     uploader = _ResultUploader(
@@ -93,7 +108,7 @@ def main(argv: list[str] | None = None) -> int:
         submit_service_endpoint=submit_service_endpoint,
         submit_service_token=submit_service_token,
         result_store=result_store,
-        experiment=args.experiment,
+        experiment=effective_experiment,
         endpoint=endpoint,
         namespace=namespace,
         token=token,
@@ -105,8 +120,8 @@ def main(argv: list[str] | None = None) -> int:
         submission_id=submission_id,
         submit_service_endpoint=submit_service_endpoint,
         submit_service_token=submit_service_token,
-        experiment=args.experiment,
-        num_supernodes=args.num_supernodes,
+        experiment=effective_experiment,
+        num_supernodes=effective_num_supernodes,
         supernodes=args.supernodes,
         endpoint=endpoint,
         namespace=namespace,
@@ -114,41 +129,60 @@ def main(argv: list[str] | None = None) -> int:
     )
     if log_archiver.enabled:
         logger.info("log archiver enabled (submission=%s)", submission_id)
+        log_archiver.start()
 
-    exit_code = run_run(
-        path=str(project_path),
-        experiment_config=args.experiment_config,
-        run_config_overrides=args.run_config_override,
-        seed=args.seed,
-        flwr_version=args.flwr_version,
-        image=args.image,
-        no_cache=args.no_cache,
-        platform=args.platform,
-        context=args.context,
-        push=args.push,
-        num_supernodes=args.num_supernodes,
-        auto_supernodes=not args.no_auto_supernodes,
-        supernodes=args.supernodes,
-        net=args.net,
-        allow_oversubscribe=args.allow_oversubscribe,
-        experiment=args.experiment,
-        timeout_seconds=args.timeout,
-        federation=args.federation,
-        stream=args.stream,
-        verbose=args.verbose,
-        profile=profile,
-        endpoint=endpoint,
-        namespace=namespace,
-        token=token,
-        pre_cleanup=_combine_pre_cleanup(
-            uploader.final_sweep if uploader.enabled else None,
-            log_archiver.final_sweep if log_archiver.enabled else None,
-        ),
-        destroy=args.destroy,
-    )
-    if uploader.enabled:
-        uploader.stop()
-    return exit_code
+    try:
+        return run_run(
+            path=str(project_path),
+            experiment_config=args.experiment_config,
+            run_config_overrides=args.run_config_override,
+            seed=args.seed,
+            flwr_version=args.flwr_version,
+            image=args.image,
+            no_cache=args.no_cache,
+            platform=args.platform,
+            context=args.context,
+            push=args.push,
+            num_supernodes=effective_num_supernodes,
+            auto_supernodes=not args.no_auto_supernodes,
+            supernodes=args.supernodes,
+            net=args.net,
+            allow_oversubscribe=args.allow_oversubscribe,
+            experiment=effective_experiment,
+            timeout_seconds=args.timeout,
+            federation=args.federation,
+            stream=args.stream,
+            verbose=args.verbose,
+            profile=profile,
+            endpoint=endpoint,
+            namespace=namespace,
+            token=token,
+            pre_cleanup=_combine_pre_cleanup(
+                uploader.final_sweep if uploader.enabled else None,
+                log_archiver.final_sweep if log_archiver.enabled else None,
+            ),
+            destroy=args.destroy,
+        )
+    finally:
+        if uploader.enabled:
+            uploader.stop()
+        if log_archiver.enabled:
+            log_archiver.stop()
+
+
+def _effective_num_supernodes(
+    *,
+    configured_num_supernodes: int,
+    supernodes: list[str] | None,
+    auto_supernodes: bool,
+    project_info: object,
+) -> int:
+    if supernodes or not auto_supernodes:
+        return configured_num_supernodes
+    inferred = getattr(project_info, "local_sim_num_supernodes", None)
+    if isinstance(inferred, int) and inferred > 0:
+        return inferred
+    return configured_num_supernodes
 
 
 def _resolve_project_path(path: Path, project_dir: str | None) -> Path:
@@ -590,6 +624,10 @@ class _LogArchiver:
         self._endpoint = endpoint
         self._namespace = namespace
         self._token = token
+        self._thread: threading.Thread | None = None
+        self._stop = threading.Event()
+        self._lock = threading.Lock()
+        self._last_uploaded_signature: str | None = None
 
     @property
     def enabled(self) -> bool:
@@ -600,13 +638,51 @@ class _LogArchiver:
             and self._endpoint
         )
 
+    def start(self) -> None:
+        if self._thread and self._thread.is_alive():
+            return
+        self._thread = threading.Thread(target=self._run_loop, daemon=True)
+        self._thread.start()
+        logger.info(
+            "log archiver started (interval=%ss, submission=%s)",
+            _LOG_ARCHIVE_POLL_INTERVAL_SECONDS,
+            self._submission_id,
+        )
+
+    def stop(self) -> None:
+        self._stop.set()
+        if self._thread:
+            self._thread.join(timeout=3.0)
+
     def final_sweep(self) -> None:
         if not self.enabled:
             return
-        entries = self._collect()
-        if not entries:
-            logger.info("log archiver: no logs captured")
+        self._archive_current(force=True)
+
+    def _run_loop(self) -> None:
+        while not self._stop.is_set():
+            try:
+                self._archive_current(force=False)
+            except Exception as exc:
+                logger.warning("periodic log archive failed: %s", exc)
+            self._stop.wait(_LOG_ARCHIVE_POLL_INTERVAL_SECONDS)
+
+    def _archive_current(self, *, force: bool) -> None:
+        if not self.enabled:
             return
+        with self._lock:
+            entries = self._collect()
+            if not entries:
+                logger.info("log archiver: no logs captured")
+                return
+            signature = _log_archive_signature(entries)
+            if not force and signature == self._last_uploaded_signature:
+                logger.info("log archiver: no log changes detected")
+                return
+            if self._report(entries):
+                self._last_uploaded_signature = signature
+
+    def _report(self, entries: list[dict[str, object]]) -> bool:
         payload = {
             "logs_location": "inline://submit-service-db",
             "logs_archive": {
@@ -630,15 +706,16 @@ class _LogArchiver:
                     resp.status_code,
                     resp.text[:200],
                 )
-                return
+                return False
             logger.info(
                 "log archive report ok: submission_id=%s entries=%d",
                 self._submission_id,
                 len(entries),
             )
-            console.print("[green]✓ Archived Nomad logs to submit service[/green]")
+            return True
         except httpx.HTTPError as exc:
             logger.warning("log archive report failed: %s", exc)
+            return False
 
     def _collect(self) -> list[dict[str, object]]:
         targets = self._targets()
@@ -972,6 +1049,11 @@ def _truncate_log_text(text: str, *, max_chars: int = _MAX_ARCHIVED_LOG_CHARS) -
         + "\n\n...[log truncated for archive size]...\n\n"
         + text[-keep:]
     )
+
+
+def _log_archive_signature(entries: list[dict[str, object]]) -> str:
+    payload = json.dumps(entries, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 if __name__ == "__main__":

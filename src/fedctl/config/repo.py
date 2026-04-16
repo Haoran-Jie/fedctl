@@ -119,6 +119,29 @@ def get_cluster_image_registry(repo_cfg: dict[str, Any]) -> str | None:
     return get_image_registry(repo_cfg)
 
 
+def get_repo_config_label(repo_cfg: dict[str, Any], *, path: Path | None = None) -> str:
+    network_label = get_repo_network_profile_label(repo_cfg)
+    if network_label:
+        return network_label
+    if path is not None:
+        return path.stem.replace("_", "-") or "default"
+    return "default"
+
+
+def get_repo_network_profile_label(repo_cfg: dict[str, Any]) -> str | None:
+    deploy = repo_cfg.get("deploy")
+    if not isinstance(deploy, dict):
+        return None
+    network = deploy.get("network")
+    if not isinstance(network, dict):
+        return None
+    value = network.get("default_profile")
+    if not isinstance(value, str):
+        return None
+    label = value.strip().replace("_", "-")
+    return label or None
+
+
 def rewrite_image_registry(
     image: str,
     *,

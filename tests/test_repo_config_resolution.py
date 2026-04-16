@@ -7,6 +7,8 @@ from fedctl.config.io import ensure_config_exists, load_raw_toml, save_raw_toml
 from fedctl.config.repo import (
     get_cluster_image_registry,
     get_image_registry,
+    get_repo_config_label,
+    get_repo_network_profile_label,
     load_repo_config,
     resolve_repo_config,
     resolve_repo_config_path,
@@ -113,6 +115,27 @@ def test_cluster_image_registry_prefers_submit_service_section() -> None:
 
     assert get_image_registry(repo_cfg) == "100.108.13.23:5000"
     assert get_cluster_image_registry(repo_cfg) == "192.168.8.101:5000"
+
+
+def test_repo_config_label_prefers_network_default_profile(tmp_path: Path) -> None:
+    repo_cfg = {
+        "deploy": {
+            "network": {
+                "default_profile": "mild",
+            }
+        }
+    }
+    path = tmp_path / "main_network_heterogeneity_mild.yaml"
+
+    assert get_repo_network_profile_label(repo_cfg) == "mild"
+    assert get_repo_config_label(repo_cfg, path=path) == "mild"
+
+
+def test_repo_config_label_falls_back_to_path_stem(tmp_path: Path) -> None:
+    path = tmp_path / "main_compute_heterogeneity.yaml"
+
+    assert get_repo_network_profile_label({}) is None
+    assert get_repo_config_label({}, path=path) == "main-compute-heterogeneity"
 
 
 def test_rewrite_image_registry_only_rewrites_matching_source() -> None:

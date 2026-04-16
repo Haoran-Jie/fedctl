@@ -20,6 +20,8 @@ from fedctl.config.io import load_config
 from fedctl.config.merge import get_effective_config
 from fedctl.config.repo import (
     get_cluster_image_registry,
+    get_repo_config_label,
+    get_repo_network_profile_label,
     parse_submit_repo_config,
     get_image_registry,
     rewrite_image_registry,
@@ -115,6 +117,17 @@ def run_submit(
         num_supernodes = info.local_sim_num_supernodes
         _print_ok(f"Using num-supernodes={num_supernodes}")
 
+    repo_resolution = resolve_repo_config(
+        repo_config=repo_config,
+        include_profile=True,
+        include_project_local=True,
+        project_root=project_path,
+    )
+    repo_cfg = repo_resolution.data
+    repo_cfg_path = repo_resolution.path
+    repo_config_label = get_repo_config_label(repo_cfg, path=repo_cfg_path)
+    network_profile_label = get_repo_network_profile_label(repo_cfg)
+
     try:
         resolved_experiment_config = resolve_experiment_config(info.root, experiment_config)
         exp_name = normalize_experiment_name(
@@ -124,6 +137,7 @@ def run_submit(
                 resolved_experiment_config=resolved_experiment_config,
                 run_config_overrides=run_config_overrides,
                 seed=seed,
+                network_profile_label=network_profile_label,
             )
         )
     except ProjectError as exc:
@@ -163,13 +177,6 @@ def run_submit(
                 artifact_store=artifact_store,
                 priority=priority,
             )
-    repo_resolution = resolve_repo_config(
-        repo_config=repo_config,
-        include_profile=True,
-        include_project_local=True,
-        project_root=project_path,
-    )
-    repo_cfg = repo_resolution.data
     repo_supernodes = _repo_supernodes(repo_cfg)
     if not supernodes and repo_supernodes:
         supernodes = [f"{device_type}={count}" for device_type, count in repo_supernodes.items()]
@@ -215,9 +222,6 @@ def run_submit(
             source_registry=external_registry,
             target_registry=internal_registry,
         )
-
-    repo_cfg_path = repo_resolution.path
-    repo_config_label = _repo_config_label(repo_cfg_path)
     attempt_started_at = _timestamp_iso()
 
     _print_step(2, 4, "Package project")
@@ -1124,12 +1128,6 @@ def _runner_env(
     return env
 
 
-def _repo_config_label(path: Path | None) -> str:
-    if path is None:
-        return "default"
-    return path.stem.replace("_", "-") or "default"
-
-
 def _timestamp_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
@@ -1391,6 +1389,7 @@ def _default_submit_experiment_name(
     resolved_experiment_config: object,
     run_config_overrides: list[str] | None,
     seed: int | None,
+    network_profile_label: str | None = None,
 ) -> str:
     config_path = getattr(resolved_experiment_config, "resolved_path", None)
     if not isinstance(config_path, Path):
@@ -1417,6 +1416,8 @@ def _default_submit_experiment_name(
     if regime:
         parts.append(regime)
     parts.append(_experiment_config_token(effective_path))
+    if network_profile_label:
+        parts.append(f"profile-{_experiment_name_token(network_profile_label)}")
 
     node_count = _experiment_node_count(data)
     if node_count is not None:

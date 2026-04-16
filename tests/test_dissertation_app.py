@@ -8,6 +8,7 @@ from types import SimpleNamespace
 import tomllib
 import yaml
 
+import numpy as np
 import pytest
 
 APP_SRC = (
@@ -25,11 +26,21 @@ from flwr.app import ArrayRecord, ConfigRecord, Message, MetricRecord, RecordDic
 from flwr.app.metadata import Metadata  # noqa: E402
 
 from fedctl_research.costs import build_model_catalog, get_model_costs  # noqa: E402
-from fedctl_research.config import parse_device_type_allocations  # noqa: E402
+from fedctl_research.config import (  # noqa: E402
+    get_method_name,
+    get_model_rate_levels,
+    get_partitioning_dirichlet_alpha,
+    get_task_name,
+    parse_device_type_allocations,
+)
 from fedctl_research.methods.assignment import ModelRateAssigner  # noqa: E402
 from fedctl_research.methods.fedavg.strategy import FedAvgBaseline  # noqa: E402
 from fedctl_research.methods.fedavgm.strategy import FedAvgMStrategy  # noqa: E402
-from fedctl_research.methods.fedbuff.async_loop import _apply_aggregated_delta, _staleness_weight  # noqa: E402
+from fedctl_research.methods.fedbuff.async_loop import (  # noqa: E402
+    _apply_aggregated_delta,
+    _staleness_weight,
+    run_fedbuff_server,
+)
 from fedctl_research.methods.fiarse.masking import (  # noqa: E402
     apply_hard_mask_in_place,
     build_threshold_map,
@@ -49,15 +60,18 @@ from fedctl_research.methods.heterofl.slicing import (  # noqa: E402
 )
 from fedctl_research.methods.registry import resolve_method  # noqa: E402
 from fedctl_research.methods.runtime import (  # noqa: E402
+    TargetStopController,
     build_partition_request,
     build_typed_partition_plan,
     central_evaluate_fn,
+    run_server_loop,
     run_submodel_evaluations,
 )
 from fedctl_research.metrics import normalize_metric_mapping  # noqa: E402
 from fedctl_research.partitioning import (  # noqa: E402
     BalancedLabelSkewPartitioner,
     ClassificationPartitionResult,
+    ContinuousPartitioner,
     DeviceCorrelatedLabelSkewPartitioner,
     DirichletPartitioner,
     IidPartitioner,
@@ -79,9 +93,14 @@ class _Logger:
         self.train_calls: list[tuple[int, dict[str, float | int]]] = []
         self.eval_calls: list[tuple[int, dict[str, float | int]]] = []
         self.server_eval_calls: list[tuple[int, dict[str, float | int]]] = []
+        self.server_eval_trip_calls: list[tuple[int, dict[str, float | int]]] = []
         self.system_calls: list[tuple[int, dict[str, float | int]]] = []
+        self.progress_calls: list[tuple[int, dict[str, float | int]]] = []
+        self.async_calls: list[tuple[str, int, dict[str, float | int]]] = []
         self.summary_calls: list[dict[str, float | int]] = []
         self.submodel_client_event_calls: list[tuple[int, list[dict[str, object]]]] = []
+        self.run_summary_calls: list[dict[str, object]] = []
+        self.finished = False
 
     def log_train_metrics(self, server_round: int, metrics) -> None:
         self.train_calls.append((server_round, dict(metrics or {})))
@@ -92,14 +111,32 @@ class _Logger:
     def log_server_eval_metrics(self, server_round: int, metrics) -> None:
         self.server_eval_calls.append((server_round, dict(metrics or {})))
 
+    def log_server_eval_trip_metrics(self, client_trip: int, metrics) -> None:
+        self.server_eval_trip_calls.append((client_trip, dict(metrics or {})))
+
     def log_system_metrics(self, server_round: int, metrics) -> None:
         self.system_calls.append((server_round, dict(metrics or {})))
+
+    def log_progress_metrics(self, client_trip: int, metrics) -> None:
+        self.progress_calls.append((client_trip, dict(metrics or {})))
+
+    def log_async_metrics(self, method_label: str, server_step: int, metrics) -> None:
+        self.async_calls.append((method_label, server_step, dict(metrics or {})))
+
+    def log_model_catalog(self, catalog) -> None:
+        return None
 
     def log_summary_metrics(self, metrics) -> None:
         self.summary_calls.append(dict(metrics or {}))
 
     def log_submodel_client_events(self, server_step: int, rows) -> None:
         self.submodel_client_event_calls.append((server_step, [dict(row) for row in rows]))
+
+    def log_run_summary(self, *, total_runtime_s: float, result) -> None:
+        self.run_summary_calls.append({"total_runtime_s": total_runtime_s, "result": result})
+
+    def finish(self) -> None:
+        self.finished = True
 
 
 class _ArtifactLogger:
@@ -133,6 +170,8 @@ def _make_message(
     array_state: OrderedDict[str, torch.Tensor] | None = None,
     metrics: dict[str, float | int] | None = None,
     message_type: str = "train",
+    reply_to_message_id: str = "",
+    dst_node_id: int = 0,
 ) -> Message:
     content = RecordDict({})
     if array_state is not None:
@@ -145,8 +184,8 @@ def _make_message(
             run_id=1,
             message_id=f"msg-{node_id}",
             src_node_id=node_id,
-            dst_node_id=0,
-            reply_to_message_id="",
+            dst_node_id=dst_node_id,
+            reply_to_message_id=reply_to_message_id,
             group_id=group_id,
             created_at=0.0,
             ttl=10.0,
@@ -163,6 +202,8 @@ def _partition_request(
     device_type: str = "unknown",
     partitioning_num_labels: int = 2,
     partitioning_dirichlet_alpha: float = 0.1,
+    partitioning_continuous_column: str | None = None,
+    partitioning_continuous_strictness: float = 0.5,
     assignment_seed: int | None = 42,
     loader_seed: int | None = None,
     typed_partition_idx: int | None = None,
@@ -175,6 +216,8 @@ def _partition_request(
         device_type=device_type,
         partitioning_num_labels=partitioning_num_labels,
         partitioning_dirichlet_alpha=partitioning_dirichlet_alpha,
+        partitioning_continuous_column=partitioning_continuous_column,
+        partitioning_continuous_strictness=partitioning_continuous_strictness,
         assignment_seed=assignment_seed,
         loader_seed=loader_seed,
         typed_partition_idx=typed_partition_idx,
@@ -187,6 +230,20 @@ def test_task_registry_includes_fashion_mnist_cnn() -> None:
     model = task.build_model_for_rate(0.5, global_model_rate=1.0)
     output = model(torch.randn(4, 1, 28, 28))
     assert output.shape == (4, 10)
+
+
+def test_task_registry_includes_appliances_energy_mlp() -> None:
+    task = resolve_task("appliances_energy_mlp")
+    model = task.build_model_for_rate(0.5, global_model_rate=1.0)
+    output = model(torch.randn(4, 33))
+    assert output.shape == (4, 1)
+
+
+def test_task_registry_includes_california_housing_mlp() -> None:
+    task = resolve_task("california_housing_mlp")
+    model = task.build_model_for_rate(0.5, global_model_rate=1.0)
+    output = model(torch.randn(4, 8))
+    assert output.shape == (4, 1)
 
 
 def test_task_registry_includes_cifar10_cnn() -> None:
@@ -250,6 +307,8 @@ def test_fedbuff_repo_config_tree_contains_expected_profiles() -> None:
         repo_root / "smoke" / "network_heterogeneity.yaml",
         repo_root / "compute_heterogeneity" / "main" / "none.yaml",
         repo_root / "network_heterogeneity" / "main" / "none.yaml",
+        repo_root / "network_heterogeneity" / "main" / "mild.yaml",
+        repo_root / "network_heterogeneity" / "main" / "med.yaml",
         repo_root / "network_heterogeneity" / "ablations" / "deployment_stressors" / "asym_down.yaml",
         repo_root / "network_heterogeneity" / "ablations" / "scale_concurrency" / "scale_async" / "med.yaml",
     ]
@@ -264,6 +323,10 @@ def test_compute_heterogeneity_config_tree_contains_fiarse_families() -> None:
         config_root / "compute_heterogeneity" / "main" / "fashion_mnist_cnn" / "fiarse.toml",
         config_root / "compute_heterogeneity" / "main" / "cifar10_cnn" / "iid" / "fiarse.toml",
         config_root / "compute_heterogeneity" / "main" / "cifar10_cnn" / "noniid" / "fiarse.toml",
+        config_root / "compute_heterogeneity" / "main" / "appliances_energy_mlp" / "iid" / "fiarse.toml",
+        config_root / "compute_heterogeneity" / "main" / "appliances_energy_mlp" / "noniid" / "fiarse.toml",
+        config_root / "compute_heterogeneity" / "main" / "california_housing_mlp" / "iid" / "fiarse.toml",
+        config_root / "compute_heterogeneity" / "main" / "california_housing_mlp" / "noniid" / "fiarse.toml",
         config_root / "compute_heterogeneity" / "ablations" / "capacity_design" / "four_levels" / "fashion_mnist_cnn" / "fiarse.toml",
         config_root / "compute_heterogeneity" / "ablations" / "robustness_extension" / "preresnet18" / "cifar10_preresnet18" / "fiarse.toml",
         config_root / "compute_heterogeneity" / "ablations" / "method_mechanisms" / "fiarse_thresholds" / "cifar10_cnn" / "fiarse_global.toml",
@@ -533,6 +596,245 @@ def test_fedbuff_polynomial_staleness_weight_decays() -> None:
     assert _staleness_weight("polynomial", 0.5, 0, buffer_size=10) == pytest.approx(1.0)
     assert _staleness_weight("polynomial", 0.5, 3, buffer_size=10) < 1.0
     assert _staleness_weight("fair", 0.5, 3, buffer_size=10) > _staleness_weight("fair", 0.5, 1, buffer_size=10)
+
+
+def test_run_server_loop_stops_when_central_eval_reaches_target(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    class _FakeModel(dict):
+        def state_dict(self):
+            return OrderedDict({"w": torch.tensor([0.0], dtype=torch.float32)})
+
+    class _FakeTask:
+        name = "fake_task"
+        primary_score_name = "acc"
+        primary_score_direction = "max"
+
+        def build_model_for_rate(self, model_rate: float, *, global_model_rate: float = 1.0):
+            del model_rate, global_model_rate
+            return _FakeModel()
+
+        def load_model_state(self, model, state_dict) -> None:
+            model.clear()
+            model.update(state_dict)
+
+        def load_centralized_test_dataset(self, batch_size: int = 256, *, seed: int | None = None):
+            del batch_size, seed
+            return ["fake_loader"]
+
+        def test(self, model, testloader, device: str):
+            del testloader, device
+            return 0.25, float(model["w"].item())
+
+    class _FakeStrategy:
+        def __init__(self, *, progress_tracker, **kwargs) -> None:
+            del kwargs
+            self.progress_tracker = progress_tracker
+            self.client_eval_enabled = False
+
+        def configure_train(self, current_round: int, arrays, train_config, grid):
+            del current_round, arrays, train_config, grid
+            return []
+
+        def aggregate_train(self, current_round: int, replies):
+            del replies
+            self.progress_tracker["client_trips_total"] = current_round * 20
+            self.progress_tracker["wall_clock_s_since_start"] = float(current_round)
+            arrays = ArrayRecord(OrderedDict({"w": torch.tensor([0.61], dtype=torch.float32)}))
+            return arrays, MetricRecord({"round-successful-train-replies": 20})
+
+        def configure_evaluate(self, current_round: int, arrays, evaluate_config, grid):
+            del current_round, arrays, evaluate_config, grid
+            return []
+
+        def aggregate_evaluate(self, current_round: int, replies):
+            del current_round, replies
+            return None
+
+    logger = _Logger()
+    artifacts = _ArtifactLogger()
+    monkeypatch.setattr("fedctl_research.methods.runtime.resolve_task", lambda _name: _FakeTask())
+    monkeypatch.setattr("fedctl_research.methods.runtime.create_experiment_logger", lambda _context: logger)
+    monkeypatch.setattr("fedctl_research.methods.runtime.create_result_artifact_logger", lambda _context: artifacts)
+    monkeypatch.setattr("fedctl_research.methods.runtime.build_model_catalog", lambda *args, **kwargs: {})
+
+    context = SimpleNamespace(
+        run_config={
+            "task": "fake_task",
+            "method": "fedavg",
+            "learning-rate": 0.01,
+            "global-model-rate": 1.0,
+            "fraction-train": 1.0,
+            "fraction-evaluate": 1.0,
+            "min-available-nodes": 20,
+            "min-train-nodes": 20,
+            "min-evaluate-nodes": 20,
+            "num-server-rounds": 50,
+            "client-eval-enabled": False,
+            "final-client-eval-enabled": False,
+            "target-score": 0.60,
+            "stop-on-target-score": True,
+        },
+        node_config={},
+    )
+    grid = SimpleNamespace(send_and_receive=lambda messages, timeout=3600.0: [], get_node_ids=lambda: [])
+
+    run_server_loop(
+        grid,
+        context,
+        method_label="fedavg",
+        strategy_factory=lambda **kwargs: _FakeStrategy(**kwargs),
+        needs_capabilities=False,
+    )
+
+    assert logger.run_summary_calls
+    result = logger.run_summary_calls[-1]["result"]
+    assert list(result.train_metrics_clientapp) == [1]
+    assert len(logger.server_eval_calls) == 2
+    target_summary = next(
+        summary for summary in logger.summary_calls if "target/reached" in summary
+    )
+    assert target_summary["target/reached"] is True
+    assert target_summary["target/client_trips_to_target"] == 20
+    assert target_summary["target/server_step_to_target"] == 1
+    assert logger.finished is True
+    captured = capsys.readouterr()
+    assert "[fedavg][server] round_start round=1/50" in captured.out
+    assert "[fedavg][server] round_train_done round=1 success=0 fail=0 client_trips=20" in captured.out
+    assert "[fedavg][server] server_eval step=1 eval_acc=0.6100" in captured.out
+    assert "[fedavg][server] target_reached step=1 client_trips=20 threshold=0.6000" in captured.out
+
+
+def test_async_fedbuff_stops_when_central_eval_reaches_target(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    class _FakeModel(dict):
+        def state_dict(self):
+            return OrderedDict({"w": torch.tensor([0.0], dtype=torch.float32)})
+
+    class _FakeTask:
+        name = "fake_task"
+        primary_score_name = "acc"
+        primary_score_direction = "max"
+
+        def build_model_for_rate(self, model_rate: float, *, global_model_rate: float = 1.0):
+            del model_rate, global_model_rate
+            return _FakeModel()
+
+        def load_model_state(self, model, state_dict) -> None:
+            model.clear()
+            model.update(state_dict)
+
+        def load_centralized_test_dataset(self, batch_size: int = 256, *, seed: int | None = None):
+            del batch_size, seed
+            return ["fake_loader"]
+
+        def test(self, model, testloader, device: str):
+            del testloader, device
+            return 0.25, float(model["w"].item())
+
+    class _FakeAsyncGrid:
+        def __init__(self) -> None:
+            self._counter = 0
+            self._pending: dict[str, Message] = {}
+
+        def get_node_ids(self):
+            return [1]
+
+        def push_messages(self, messages):
+            message_ids = []
+            for message in messages:
+                self._counter += 1
+                message_id = f"msg-{self._counter}"
+                self._pending[message_id] = message
+                message_ids.append(message_id)
+            return message_ids
+
+        def pull_messages(self, message_ids):
+            replies = []
+            for message_id in message_ids:
+                message = self._pending.pop(message_id, None)
+                if message is None:
+                    continue
+                replies.append(
+                    _make_message(
+                        node_id=message.metadata.dst_node_id,
+                        group_id=message.metadata.group_id,
+                        array_state=OrderedDict({"w": torch.tensor([0.65], dtype=torch.float32)}),
+                        metrics={
+                            "train-duration-s": 0.5,
+                            "train-num-examples": 50,
+                            "num-examples": 50,
+                            "examples-per-second": 100.0,
+                            "train-loss": 0.2,
+                        },
+                        reply_to_message_id=message_id,
+                    )
+                )
+            return replies
+
+    logger = _Logger()
+    artifacts = _ArtifactLogger()
+    monkeypatch.setattr("fedctl_research.methods.fedbuff.async_loop.resolve_task", lambda _name: _FakeTask())
+    monkeypatch.setattr(
+        "fedctl_research.methods.fedbuff.async_loop.create_experiment_logger",
+        lambda _context: logger,
+    )
+    monkeypatch.setattr(
+        "fedctl_research.methods.fedbuff.async_loop.create_result_artifact_logger",
+        lambda _context: artifacts,
+    )
+    monkeypatch.setattr(
+        "fedctl_research.methods.fedbuff.async_loop.build_model_catalog",
+        lambda *args, **kwargs: {},
+    )
+    monkeypatch.setattr(
+        "fedctl_research.methods.fedbuff.async_loop.summarize_round_costs",
+        lambda *args, **kwargs: {},
+    )
+    monkeypatch.setattr(
+        "fedctl_research.methods.fedbuff.async_loop.discover_node_device_types",
+        lambda grid, context: {1: "rpi4"},
+    )
+    monkeypatch.setattr("fedctl_research.methods.runtime.resolve_task", lambda _name: _FakeTask())
+
+    context = SimpleNamespace(
+        run_config={
+            "task": "fake_task",
+            "method": "fedbuff",
+            "learning-rate": 0.01,
+            "global-model-rate": 1.0,
+            "min-available-nodes": 1,
+            "client-eval-enabled": False,
+            "final-client-eval-enabled": False,
+            "fedbuff-train-concurrency": 1,
+            "fedbuff-buffer-size": 1,
+            "fedbuff-poll-interval-s": 0.0,
+            "fedbuff-num-server-steps": 5,
+            "fedbuff-evaluate-every-steps": 1,
+            "fedbuff-staleness-weighting": "polynomial",
+            "fedbuff-staleness-alpha": 0.5,
+            "target-score": 0.60,
+            "stop-on-target-score": True,
+        },
+        node_config={},
+    )
+
+    run_fedbuff_server(_FakeAsyncGrid(), context, method_label="fedbuff")
+
+    assert logger.run_summary_calls
+    result = logger.run_summary_calls[-1]["result"]
+    assert list(result.train_metrics_clientapp) == [1]
+    target_summary = next(
+        summary for summary in logger.summary_calls if "target/reached" in summary
+    )
+    assert target_summary["target/reached"] is True
+    assert target_summary["target/client_trips_to_target"] == 1
+    assert target_summary["target/server_step_to_target"] == 1
+    captured = capsys.readouterr()
+    assert "[fedbuff][server] step_applied step=1/5 accepted_updates=1 client_trips=1" in captured.out
+    assert "[fedbuff][server] server_eval step=1 eval_acc=0.6500" in captured.out
+    assert "[fedbuff][server] target_reached step=1 client_trips=1 threshold=0.6000" in captured.out
 
 
 def test_fedbuff_applies_aggregated_parameter_delta_without_extra_lr_scaling() -> None:
@@ -1514,6 +1816,71 @@ def test_partitioning_dirichlet_is_deterministic() -> None:
     assert train_a.class_probabilities == train_b.class_probabilities
 
 
+def test_continuous_partitioner_is_deterministic_and_covers_dataset() -> None:
+    values = np.array([10.0, 11.0, 14.0, 19.0, 21.0, 22.0, 27.0, 31.0], dtype=np.float64)
+    part_a = ContinuousPartitioner(values, num_partitions=4, seed=7, strictness=0.5)
+    part_b = ContinuousPartitioner(values, num_partitions=4, seed=7, strictness=0.5)
+    assert part_a.partitions == part_b.partitions
+    flattened = [index for split in part_a.partitions for index in split]
+    assert sorted(flattened) == list(range(len(values)))
+    assert len(flattened) == len(set(flattened))
+
+
+def test_appliances_energy_parser_and_split_standardize_train_only(tmp_path: Path) -> None:
+    from fedctl_research.tasks.appliances_energy import data as module
+
+    csv_path = tmp_path / "energy.csv"
+    csv_path.write_text(
+        "\n".join(
+            [
+                "date,Appliances,lights,T1,RH_1,T2,RH_2,T3,RH_3,T4,RH_4,T5,RH_5,T6,RH_6,T7,RH_7,T8,RH_8,T9,RH_9,To,Pressure,RH_out,Wind speed,Visibility,Tdewpoint,rv1,rv2",
+                "2016-01-11 17:00:00,60,30,19,47,19.2,44.2,19.79,44.73,19,45.56,17.17,55.2,7.03,84.26,17.2,41.63,18.2,48.9,17.03,45.53,6.6,733.5,92,7,63,5.3,13.2754331571,13.2754331571",
+                "2016-01-11 17:10:00,50,30,19,46,19.2,44.1,19.79,44.72,19,45.55,17.16,55.1,6.99,84.2,17.19,41.6,18.2,48.86,17.01,45.5,6.48,733.6,92,6.67,59.17,5.2,18.6061949818,18.6061949818",
+                "2016-01-11 17:20:00,230,40,19,45,19.2,44,19.79,44.7,19,45.5,17.15,55,6.98,84.1,17.19,41.5,18.1,48.73,17,45.4,6.37,733.7,92,6.33,55.33,5.1,28.6426681676,28.6426681676",
+                "2016-01-11 17:30:00,580,40,19,44,19.2,43.9,19.79,44.68,19,45.4,17.15,54.9,6.97,84.0,17.18,41.4,18.1,48.59,16.99,45.3,6.25,733.8,92,6,51.5,5,45.4103894997,45.4103894997",
+                "2016-01-11 17:40:00,120,50,19,43,19.2,43.8,19.78,44.65,19,45.3,17.14,54.8,6.96,83.9,17.18,41.3,18.1,48.44,16.97,45.2,6.13,733.9,92,5.67,47.67,4.9,10.084096551,10.084096551",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    parsed = module._parse_csv(csv_path)
+    assert parsed.feature_dim == 33
+    assert parsed.features.shape == (5, 33)
+    assert parsed.targets.tolist() == [60.0, 50.0, 230.0, 580.0, 120.0]
+    trainset, testset = module._train_test_split(parsed)
+    assert len(trainset) == 4
+    assert len(testset) == 1
+    train_mean = trainset.features.mean(dim=0)
+    assert torch.allclose(train_mean, torch.zeros_like(train_mean), atol=1e-5)
+    assert float(testset.targets[0].item()) == pytest.approx(120.0)
+
+
+def test_build_partition_request_includes_continuous_settings() -> None:
+    context = SimpleNamespace(
+        run_config={
+            "partitioning": "continuous",
+            "partitioning-num-labels": 2,
+            "partitioning-dirichlet-alpha": 0.1,
+            "partitioning-continuous-column": "Appliances",
+            "partitioning-continuous-strictness": 0.5,
+            "seed": 1337,
+        },
+        node_config={"partition-id": 4, "num-partitions": 20},
+    )
+    msg = SimpleNamespace(content={})
+    request = build_partition_request(
+        context=context,
+        msg=msg,
+        task_name="appliances_energy_mlp",
+        method_label="fedavg",
+        split="train",
+        local_device_type="rpi4",
+    )
+    assert request.partitioning == "continuous"
+    assert request.partitioning_continuous_column == "Appliances"
+    assert request.partitioning_continuous_strictness == pytest.approx(0.5)
+
+
 def test_masked_cross_entropy_matches_masked_logits() -> None:
     logits = torch.tensor([[1.0, 5.0, -2.0]], dtype=torch.float32)
     labels = torch.tensor([0])
@@ -1536,6 +1903,8 @@ def test_masked_cross_entropy_auto_only_enables_for_balanced_label_skew() -> Non
 def test_central_evaluate_logs_server_eval_duration(monkeypatch: pytest.MonkeyPatch) -> None:
     class _FakeTask:
         name = "fake_task"
+        primary_score_name = "acc"
+        primary_score_direction = "max"
 
         def build_model_for_rate(self, model_rate: float, *, global_model_rate: float = 1.0):
             return object()
@@ -1566,12 +1935,126 @@ def test_central_evaluate_logs_server_eval_duration(monkeypatch: pytest.MonkeyPa
     result = evaluate(1, arrays)
 
     assert result is not None
+    assert logger.server_eval_trip_calls
+    trip_index, trip_metrics = logger.server_eval_trip_calls[-1]
+    assert trip_index == 5
+    assert trip_metrics["eval-score"] == pytest.approx(0.75)
     assert logger.system_calls
     _, system_metrics = logger.system_calls[-1]
     assert "round-server-eval-duration-s" in system_metrics
     assert system_metrics["round-server-eval-duration-s"] >= 0.0
     assert artifact_logger.evaluations
     assert "round_server_eval_duration_s" in artifact_logger.evaluations[-1]
+
+
+def test_target_stop_controller_records_crossing_and_censoring() -> None:
+    controller = TargetStopController.from_task(
+        SimpleNamespace(primary_score_name="acc", primary_score_direction="max"),
+        {"target-score": 0.60, "stop-on-target-score": True},
+        client_trip_budget=1000,
+    )
+    assert controller.observe(
+        task=SimpleNamespace(primary_score_name="acc", primary_score_direction="max"),
+        server_step=3,
+        metrics={"eval-score": 0.61},
+        progress_state={"client_trips_total": 60, "wall_clock_s_since_start": 12.5},
+    )
+    assert controller.summary_metrics() == {
+        "target/score_name": "acc",
+        "target/score_threshold": 0.6,
+        "target/reached": True,
+        "target/censored": False,
+        "target/client_trip_budget": 1000,
+        "target/client_trips_to_target": 60,
+        "target/server_step_to_target": 3,
+        "target/wall_clock_s_to_target": 12.5,
+    }
+
+    censored = TargetStopController.from_task(
+        SimpleNamespace(primary_score_name="acc", primary_score_direction="max"),
+        {"target-score": 0.60, "stop-on-target-score": True},
+        client_trip_budget=1000,
+    )
+    assert not censored.observe(
+        task=SimpleNamespace(primary_score_name="acc", primary_score_direction="max"),
+        server_step=50,
+        metrics={"eval-score": 0.55},
+        progress_state={"client_trips_total": 1000, "wall_clock_s_since_start": 20.0},
+    )
+    assert censored.summary_metrics()["target/censored"] is True
+
+
+def test_target_stop_controller_tolerates_flower_mapping_missing_optional_keys() -> None:
+    class _WeirdRunConfig(dict):
+        def get(self, key, default=None):
+            if key in self:
+                return super().get(key, default)
+            raise KeyError(f"Key '{key}' is not present in the main dictionary")
+
+    controller = TargetStopController.from_task(
+        SimpleNamespace(primary_score_name="acc", primary_score_direction="max"),
+        _WeirdRunConfig(),
+        client_trip_budget=1000,
+    )
+
+    assert controller.enabled is False
+    assert controller.stop_on_target is False
+    assert controller.summary_metrics() == {}
+
+
+def test_config_helpers_tolerate_flower_mapping_missing_optional_keys() -> None:
+    class _WeirdRunConfig(dict):
+        def get(self, key, default=None):
+            if key in self:
+                return super().get(key, default)
+            raise KeyError(f"Key '{key}' is not present in the main dictionary")
+
+        def __getitem__(self, key):
+            if key in self:
+                return super().__getitem__(key)
+            raise KeyError(f"Key '{key}' is not present in the main dictionary")
+
+    run_config = _WeirdRunConfig(
+        {
+            "method": "fedavg",
+            "task": "cifar10_cnn",
+            "partitioning-dirichlet-alpha": 0.3,
+        }
+    )
+
+    assert get_method_name(run_config) == "fedavg"
+    assert get_task_name(run_config) == "cifar10_cnn"
+    assert get_partitioning_dirichlet_alpha(run_config) == pytest.approx(0.3)
+    assert get_model_rate_levels(run_config) == (1.0, 0.5, 0.25, 0.125, 0.0625)
+
+
+def test_config_helpers_tolerate_flower_mapping_get_without_default() -> None:
+    class _WeirdRunConfig(dict):
+        def get(self, key):
+            if key in self:
+                return super().get(key)
+            raise KeyError(f"Key '{key}' is not present in the main dictionary")
+
+        def __getitem__(self, key):
+            if key in self:
+                return super().__getitem__(key)
+            raise KeyError(f"Key '{key}' is not present in the main dictionary")
+
+    run_config = _WeirdRunConfig({"method": "fedavg", "task": "cifar10_cnn"})
+
+    assert get_method_name(run_config) == "fedavg"
+    assert get_task_name(run_config) == "cifar10_cnn"
+    assert get_model_rate_levels(run_config) == (1.0, 0.5, 0.25, 0.125, 0.0625)
+
+
+def test_app_base_config_includes_target_stop_keys() -> None:
+    pyproject = Path("apps/fedctl_research/pyproject.toml")
+    data = tomllib.loads(pyproject.read_text())
+    base_config = data["tool"]["flwr"]["app"]["config"]
+
+    assert "target-score" in base_config
+    assert "stop-on-target-score" in base_config
+    assert "submodel-local-eval-enabled" in base_config
 
 
 def test_sync_strategy_logs_per_client_eval_events() -> None:
@@ -1948,8 +2431,17 @@ def test_all_active_experiment_configs_set_required_keys() -> None:
     assert main_noniid_paths
     for path in main_noniid_paths:
         data = tomllib.loads(path.read_text())
-        assert data["data"]["partitioning"] == "dirichlet", str(path)
-        assert data["data"]["partitioning-dirichlet-alpha"] == 0.3, str(path)
+        if "appliances_energy_mlp" in path.parts:
+            assert data["data"]["partitioning"] == "continuous", str(path)
+            assert data["data"]["partitioning-continuous-column"] == "Appliances", str(path)
+            assert data["data"]["partitioning-continuous-strictness"] == 0.5, str(path)
+        elif "california_housing_mlp" in path.parts:
+            assert data["data"]["partitioning"] == "continuous", str(path)
+            assert data["data"]["partitioning-continuous-column"] == "MedInc", str(path)
+            assert data["data"]["partitioning-continuous-strictness"] == 0.5, str(path)
+        else:
+            assert data["data"]["partitioning"] == "dirichlet", str(path)
+            assert data["data"]["partitioning-dirichlet-alpha"] == 0.3, str(path)
         assert data["server"]["fraction-train"] == 0.5, str(path)
         assert data["server"]["min-train-nodes"] == 10, str(path)
 
@@ -1963,6 +2455,14 @@ def test_experiment_config_tree_matches_study_matrix() -> None:
         "compute_heterogeneity/main/fashion_mnist_cnn/fedavg.toml",
         "compute_heterogeneity/main/fashion_mnist_cnn/heterofl.toml",
         "compute_heterogeneity/main/fashion_mnist_cnn/fedrolex.toml",
+        "compute_heterogeneity/main/california_housing_mlp/iid/fedavg.toml",
+        "compute_heterogeneity/main/california_housing_mlp/iid/heterofl.toml",
+        "compute_heterogeneity/main/california_housing_mlp/iid/fedrolex.toml",
+        "compute_heterogeneity/main/california_housing_mlp/iid/fiarse.toml",
+        "compute_heterogeneity/main/california_housing_mlp/noniid/fedavg.toml",
+        "compute_heterogeneity/main/california_housing_mlp/noniid/heterofl.toml",
+        "compute_heterogeneity/main/california_housing_mlp/noniid/fedrolex.toml",
+        "compute_heterogeneity/main/california_housing_mlp/noniid/fiarse.toml",
         "compute_heterogeneity/main/cifar10_cnn/iid/fedavg.toml",
         "compute_heterogeneity/main/cifar10_cnn/iid/heterofl.toml",
         "compute_heterogeneity/main/cifar10_cnn/iid/fedrolex.toml",
@@ -2078,6 +2578,38 @@ def test_new_paper_inspired_configs_encode_expected_values() -> None:
     assert main_noniid["data"]["partitioning"] == "dirichlet"
     assert main_noniid["data"]["partitioning-dirichlet-alpha"] == 0.3
 
+    appliances_main_noniid = tomllib.loads(
+        (
+            config_root
+            / "compute_heterogeneity"
+            / "main"
+            / "appliances_energy_mlp"
+            / "noniid"
+            / "fedrolex.toml"
+        ).read_text()
+    )
+    assert appliances_main_noniid["server"]["num-server-rounds"] == 40
+    assert appliances_main_noniid["client"]["optimizer"] == "adam"
+    assert appliances_main_noniid["data"]["partitioning"] == "continuous"
+    assert appliances_main_noniid["data"]["partitioning-continuous-column"] == "Appliances"
+    assert appliances_main_noniid["data"]["partitioning-continuous-strictness"] == 0.5
+
+    california_main_noniid = tomllib.loads(
+        (
+            config_root
+            / "compute_heterogeneity"
+            / "main"
+            / "california_housing_mlp"
+            / "noniid"
+            / "fedrolex.toml"
+        ).read_text()
+    )
+    assert california_main_noniid["server"]["num-server-rounds"] == 40
+    assert california_main_noniid["client"]["optimizer"] == "adam"
+    assert california_main_noniid["data"]["partitioning"] == "continuous"
+    assert california_main_noniid["data"]["partitioning-continuous-column"] == "MedInc"
+    assert california_main_noniid["data"]["partitioning-continuous-strictness"] == 0.9
+
     participation = tomllib.loads(
         (
             config_root
@@ -2155,54 +2687,117 @@ def test_main_study_configs_match_balanced_twelve_node_plan() -> None:
     for path in compute_paths:
         data = tomllib.loads(path.read_text())
         is_cifar10 = "cifar10_cnn" in path.parts
+        is_appliances = "appliances_energy_mlp" in path.parts
+        is_california = "california_housing_mlp" in path.parts
         is_main_cifar10_noniid = (
             "compute_heterogeneity" in path.parts
             and "main" in path.parts
             and "cifar10_cnn" in path.parts
             and "noniid" in path.parts
         )
-        expected_rounds = 40 if is_main_cifar10_noniid else (20 if is_cifar10 else 15)
-        expected_train_examples = 2500 if is_cifar10 else 5000
-        expected_test_examples = 500 if is_cifar10 else 834
+        is_main_appliances_noniid = (
+            "compute_heterogeneity" in path.parts
+            and "main" in path.parts
+            and "appliances_energy_mlp" in path.parts
+            and "noniid" in path.parts
+        )
+        is_main_california_noniid = (
+            "compute_heterogeneity" in path.parts
+            and "main" in path.parts
+            and "california_housing_mlp" in path.parts
+            and "noniid" in path.parts
+        )
+        if is_cifar10:
+            expected_rounds = 40 if is_main_cifar10_noniid else 20
+            expected_train_examples = 2500
+            expected_test_examples = 500
+            expected_nodes = 20
+            expected_min_nodes = 10 if is_main_cifar10_noniid else 20
+            expected_fraction = 0.5 if is_main_cifar10_noniid else 1.0
+            expected_local_epochs = 3
+            expected_learning_rate = 0.05
+            expected_rpi4_batch = 8
+            expected_rpi5_batch = 32
+        elif is_appliances:
+            expected_rounds = 40 if is_main_appliances_noniid else 20
+            expected_train_examples = 790
+            expected_test_examples = 198
+            expected_nodes = 20
+            expected_min_nodes = 10 if is_main_appliances_noniid else 20
+            expected_fraction = 0.5 if is_main_appliances_noniid else 1.0
+            expected_local_epochs = 1
+            expected_learning_rate = 0.001
+            expected_rpi4_batch = 32
+            expected_rpi5_batch = 128
+        elif is_california:
+            expected_rounds = 40 if is_main_california_noniid else 20
+            expected_train_examples = 826
+            expected_test_examples = 207
+            expected_nodes = 20
+            expected_min_nodes = 10 if is_main_california_noniid else 20
+            expected_fraction = 0.5 if is_main_california_noniid else 1.0
+            expected_local_epochs = 1
+            expected_learning_rate = 0.001
+            expected_rpi4_batch = 32
+            expected_rpi5_batch = 128
+        else:
+            expected_rounds = 15
+            expected_train_examples = 5000
+            expected_test_examples = 834
+            expected_nodes = 12
+            expected_min_nodes = 12
+            expected_fraction = 1.0
+            expected_local_epochs = 1
+            expected_learning_rate = 0.01
+            expected_rpi4_batch = 8
+            expected_rpi5_batch = 32
         assert data["server"]["num-server-rounds"] == expected_rounds, str(path)
-        expected_nodes = 20 if is_cifar10 else 12
-        expected_min_nodes = 10 if is_main_cifar10_noniid else expected_nodes
-        expected_fraction = 0.5 if is_main_cifar10_noniid else 1.0
         assert data["server"]["min-available-nodes"] == expected_nodes, str(path)
         assert data["server"]["min-train-nodes"] == expected_min_nodes, str(path)
         assert data["server"]["min-evaluate-nodes"] == expected_min_nodes, str(path)
         assert data["server"]["fraction-train"] == expected_fraction, str(path)
         assert data["server"]["fraction-evaluate"] == expected_fraction, str(path)
-        assert data["client"]["local-epochs"] == (3 if is_cifar10 else 1), str(path)
-        assert data["client"]["learning-rate"] == (0.05 if is_cifar10 else 0.01), str(path)
-        assert data["devices"]["rpi4"]["batch-size"] == 8, str(path)
+        assert data["client"]["local-epochs"] == expected_local_epochs, str(path)
+        assert data["client"]["learning-rate"] == expected_learning_rate, str(path)
+        assert data["devices"]["rpi4"]["batch-size"] == expected_rpi4_batch, str(path)
         assert data["devices"]["rpi4"]["max-train-examples"] == expected_train_examples, str(path)
         assert data["devices"]["rpi4"]["max-test-examples"] == expected_test_examples, str(path)
-        assert data["devices"]["rpi5"]["batch-size"] == 32, str(path)
+        assert data["devices"]["rpi5"]["batch-size"] == expected_rpi5_batch, str(path)
         assert data["devices"]["rpi5"]["max-train-examples"] == expected_train_examples, str(path)
         assert data["devices"]["rpi5"]["max-test-examples"] == expected_test_examples, str(path)
 
     for path in network_paths:
         data = tomllib.loads(path.read_text())
-        expected_rounds = 15 if "fashion_mnist_cnn" in str(path) else 20
-        expected_train_examples = 5000 if "fashion_mnist_cnn" in str(path) else 4167
-        expected_test_examples = 834
+        is_fashion = "fashion_mnist_cnn" in str(path)
+        is_cifar10 = "cifar10_cnn" in str(path)
+        expected_rounds = 15 if is_fashion else 50
+        expected_train_examples = 5000 if is_fashion else 2500
+        expected_test_examples = 834 if is_fashion else 500
+        expected_nodes = 12 if is_fashion else 20
         if data["experiment"]["method"] in {"fedbuff", "fedstaleweight"}:
-            assert data["fedbuff"]["num-server-steps"] == expected_rounds, str(path)
-            assert data["fedbuff"]["train-concurrency"] == 8, str(path)
+            expected_steps = 15 if is_fashion else 100
+            assert data["fedbuff"]["num-server-steps"] == expected_steps, str(path)
+            assert data["fedbuff"]["train-concurrency"] == (8 if is_fashion else 20), str(path)
             assert data["fedbuff"]["buffer-size"] == 10, str(path)
             assert data["fedbuff"]["staleness-alpha"] == 0.5, str(path)
             if data["experiment"]["method"] == "fedbuff":
                 assert data["fedbuff"]["staleness-weighting"] == "polynomial", str(path)
         else:
             assert data["server"]["num-server-rounds"] == expected_rounds, str(path)
-        assert data["server"]["min-available-nodes"] == 12, str(path)
-        assert data["server"]["min-train-nodes"] == 12, str(path)
-        assert data["server"]["min-evaluate-nodes"] == 12, str(path)
+        assert data["server"]["min-available-nodes"] == expected_nodes, str(path)
+        assert data["server"]["min-train-nodes"] == expected_nodes, str(path)
+        assert data["server"]["min-evaluate-nodes"] == expected_nodes, str(path)
         assert data["server"]["fraction-train"] == 1.0, str(path)
         assert data["server"]["fraction-evaluate"] == 1.0, str(path)
         assert data["client"]["local-epochs"] == 1, str(path)
         assert data["client"]["learning-rate"] == 0.01, str(path)
+        if is_cifar10:
+            assert data["data"]["partitioning"] == "dirichlet", str(path)
+            assert data["data"]["partitioning-dirichlet-alpha"] == 0.3, str(path)
+            assert data["evaluation"]["target-score"] == 0.60, str(path)
+            assert data["evaluation"]["stop-on-target-score"] is True, str(path)
+            assert data["evaluation"]["client-eval-enabled"] is False, str(path)
+            assert data["evaluation"]["final-client-eval-enabled"] is False, str(path)
         assert data["devices"]["rpi4"]["batch-size"] == 8, str(path)
         assert data["devices"]["rpi4"]["max-train-examples"] == expected_train_examples, str(path)
         assert data["devices"]["rpi4"]["max-test-examples"] == expected_test_examples, str(path)
@@ -2217,4 +2812,4 @@ def test_main_study_configs_match_balanced_twelve_node_plan() -> None:
         (app_root / "repo_configs" / "network_heterogeneity" / "main" / "none.yaml").read_text()
     )
     assert compute_repo["deploy"]["supernodes"] == {"rpi4": 10, "rpi5": 10}
-    assert network_repo["deploy"]["supernodes"] == {"rpi4": 6, "rpi5": 6}
+    assert network_repo["deploy"]["supernodes"] == {"rpi4": 10, "rpi5": 10}
