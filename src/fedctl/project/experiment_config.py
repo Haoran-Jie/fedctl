@@ -31,12 +31,15 @@ _SECTION_KEY_MAP: dict[str, dict[str, str]] = {
     "client": {
         "local-epochs": "local-epochs",
         "learning-rate": "learning-rate",
+        "optimizer": "optimizer",
         "batch-size": "batch-size",
     },
     "data": {
         "partitioning": "partitioning",
         "partitioning-num-labels": "partitioning-num-labels",
         "partitioning-dirichlet-alpha": "partitioning-dirichlet-alpha",
+        "partitioning-continuous-column": "partitioning-continuous-column",
+        "partitioning-continuous-strictness": "partitioning-continuous-strictness",
         "masked-cross-entropy": "masked-cross-entropy",
     },
     "model": {
