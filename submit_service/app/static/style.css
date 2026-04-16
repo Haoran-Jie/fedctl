@@ -236,6 +236,7 @@ code, pre, input, select, button { font-family: "SFMono-Regular", Menlo, monospa
   font-weight: 700;
 }
 .section-head { display: flex; justify-content: space-between; gap: 1rem; align-items: start; margin-bottom: 1rem; }
+.sticky-shell .section-head > div:first-child { min-width: 0; }
 .section-copy h2, .section-copy h1 {
   margin: 0;
   line-height: 1.15;
@@ -369,7 +370,7 @@ button, .button {
   top: var(--sticky-top-offset);
   z-index: 7;
   margin: -0.2rem -0.2rem 1rem;
-  padding: 1rem 0.2rem 0.95rem;
+  padding: 1rem 0.85rem 0.95rem 1rem;
   background: rgba(251, 254, 253, 0.88);
   backdrop-filter: blur(18px) saturate(130%);
   -webkit-backdrop-filter: blur(18px) saturate(130%);
