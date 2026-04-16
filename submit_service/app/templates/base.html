@@ -17,10 +17,10 @@
       </div>
       {% if principal %}
       <nav class="nav">
-        <a class="nav-link" href="/ui/submissions">Submissions</a>
-        <a class="nav-link" href="/ui/help">Help</a>
+        <a class="nav-link{% if '/ui/submissions' in request.url.path %} is-active{% endif %}" href="/ui/submissions">Submissions</a>
+        <a class="nav-link{% if '/ui/help' in request.url.path %} is-active{% endif %}" href="/ui/help">Help</a>
         {% if principal.role == 'admin' %}
-        <a class="nav-link" href="/ui/nodes">Nodes</a>
+        <a class="nav-link{% if '/ui/nodes' in request.url.path %} is-active{% endif %}" href="/ui/nodes">Nodes</a>
         {% endif %}
         <form method="post" action="/ui/logout">
           <button type="submit" class="topbar-button">Log out {{ principal.name }}</button>

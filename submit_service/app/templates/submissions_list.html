@@ -19,19 +19,19 @@
     <span>Total visible</span>
     <strong>{{ stats.total }}</strong>
   </article>
-  <article class="stat-card">
+  <article class="stat-card{% if stats.active > 0 %} stat-card-active{% endif %}">
     <span>Active</span>
     <strong>{{ stats.active }}</strong>
   </article>
-  <article class="stat-card">
+  <article class="stat-card{% if stats.blocked > 0 %} stat-card-blocked{% endif %}">
     <span>Blocked</span>
     <strong>{{ stats.blocked }}</strong>
   </article>
-  <article class="stat-card">
+  <article class="stat-card{% if stats.failed > 0 %} stat-card-failed{% endif %}">
     <span>Failed</span>
     <strong>{{ stats.failed }}</strong>
   </article>
-  <article class="stat-card">
+  <article class="stat-card{% if stats.completed > 0 %} stat-card-completed{% endif %}">
     <span>Completed</span>
     <strong>{{ stats.completed }}</strong>
   </article>
@@ -92,7 +92,7 @@
       {% for row in rows %}
       <tr data-href="/ui/submissions/{{ row.id }}?return_to={{ return_to | urlencode }}">
         <td class="cell-id" title="{{ row.id }}">
-          <a class="primary-link" href="/ui/submissions/{{ row.id }}?return_to={{ return_to | urlencode }}">{{ row.id }}</a>
+          <a class="primary-link" href="/ui/submissions/{{ row.id }}?return_to={{ return_to | urlencode }}">{{ row.id | replace('sub-', '', 1) }}</a>
           <div class="table-subtext">{{ row.namespace }}</div>
         </td>
         <td>{{ row.project_name }}</td>
