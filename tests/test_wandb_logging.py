@@ -40,6 +40,7 @@ class _FakeWandbModule:
         self.fail_finish = fail_finish
         self.fail_summary_after = fail_summary_after
         self.tables: list[_FakeTable] = []
+        self.metric_definitions: list[tuple[str, dict[str, object]]] = []
 
     def init(self, **kwargs):
         run = _FakeWandbRun(
@@ -54,6 +55,9 @@ class _FakeWandbModule:
         table = _FakeTable(columns=columns, data=data)
         self.tables.append(table)
         return table
+
+    def define_metric(self, name: str, **kwargs) -> None:
+        self.metric_definitions.append((name, kwargs))
 
 
 class _FakeSummary(dict[str, object]):
@@ -189,8 +193,9 @@ def test_wandb_experiment_logger_logs_and_finishes(monkeypatch) -> None:
     logger.finish()
 
     run = fake_wandb.runs[0]
-    assert [step for _, step in run.logged] == [1, 1, 1, 17, 1]
+    assert [step for _, step in run.logged] == [None, None, None, None, None]
     assert run.logged[0][0]["train/train-loss"] == 0.5
+    assert run.logged[0][0]["server_round"] == 1
     assert run.logged[1][0]["eval_client/eval-acc"] == 0.75
     assert run.logged[2][0]["eval_server/eval-loss"] == 0.4
     assert run.logged[3][0]["eval_server_trip/eval-loss"] == 0.4
@@ -216,6 +221,9 @@ def test_wandb_experiment_logger_logs_and_finishes(monkeypatch) -> None:
     assert run.summary["fedctl_attempt_status"] == "completed"
     assert run.summary["fedctl_attempt_started_at"] == "2026-04-09T11:00:00Z"
     assert run.finished is True
+    assert ("eval_server_trip/*", {"step_metric": "client_trip"}) in fake_wandb.metric_definitions
+    assert ("train/*", {"step_metric": "server_round"}) in fake_wandb.metric_definitions
+    assert ("fedbuff/*", {"step_metric": "server_step"}) in fake_wandb.metric_definitions
 
 
 def test_wandb_finish_failure_is_non_fatal(monkeypatch) -> None:
@@ -363,7 +371,7 @@ def test_wandb_logger_logs_submodel_client_table(monkeypatch) -> None:
     run = fake_wandb.runs[0]
     assert len(run.logged) == 1
     payload, step = run.logged[0]
-    assert step == 20
+    assert step is None
     assert payload["server_step"] == 20
     table = payload["submodel/local_client_table"]
     assert isinstance(table, _FakeTable)

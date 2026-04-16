@@ -226,7 +226,7 @@ class WandbExperimentLogger(ExperimentLogger):
             return
         payload[axis_key] = axis_value
         try:
-            self.run.log(payload, step=axis_value)
+            self.run.log(payload)
         except Exception as exc:  # pragma: no cover - defensive guard for live W&B runtime
             self._disable(f"log payload {prefix}", exc)
 
@@ -258,7 +258,7 @@ class WandbExperimentLogger(ExperimentLogger):
             return
         payload["server_round"] = server_round
         try:
-            self.run.log(payload, step=server_round)
+            self.run.log(payload)
         except Exception as exc:  # pragma: no cover - defensive guard for live W&B runtime
             self._disable("log payload system", exc)
 
@@ -301,7 +301,6 @@ class WandbExperimentLogger(ExperimentLogger):
                     "submodel/local_client_table": table,
                     "server_step": int(server_step),
                 },
-                step=int(server_step),
             )
         except Exception as exc:  # pragma: no cover - defensive guard for live W&B runtime
             self._disable("log submodel client table", exc)
@@ -510,6 +509,25 @@ def create_experiment_logger(context: Context) -> ExperimentLogger:
     }
     init_kwargs = {key: value for key, value in init_kwargs.items() if value not in (None, "")}
     run = wandb.init(**init_kwargs)
+    wandb.define_metric("server_round")
+    wandb.define_metric("client_trip")
+    wandb.define_metric("server_step")
+    for pattern, axis in (
+        ("train/*", "server_round"),
+        ("eval_client/*", "server_round"),
+        ("eval_server/*", "server_round"),
+        ("system/*", "server_round"),
+        ("round_system/*", "server_round"),
+        ("round_client_stats/*", "server_round"),
+        ("round_cost/*", "server_round"),
+        ("round_device/*", "server_round"),
+        ("progress/*", "client_trip"),
+        ("eval_server_trip/*", "client_trip"),
+        ("fedbuff/*", "server_step"),
+        ("fedstaleweight/*", "server_step"),
+        ("submodel/local_client_table", "server_step"),
+    ):
+        wandb.define_metric(pattern, step_metric=axis)
     log(INFO, "wandb enabled: project=%s entity=%s mode=%s run=%s", project, entity, mode, run.name)
     logger = WandbExperimentLogger(
         run=run,
