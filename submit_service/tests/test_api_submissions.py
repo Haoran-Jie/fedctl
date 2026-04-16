@@ -266,6 +266,102 @@ def test_logs_falls_back_to_archived_when_nomad_unavailable(
     assert superlink_logs.text == "archived superlink stderr"
 
 
+def test_logs_falls_back_to_external_manifest_when_nomad_unavailable(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = _make_client(tmp_path, monkeypatch)
+    submission_id = client.post("/v1/submissions", json=_payload()).json()["submission_id"]
+
+    update = client.post(
+        f"/v1/submissions/{submission_id}/logs",
+        json={
+            "logs_location": "https://storage.example/logs/sub-1/manifest.json",
+        },
+    )
+    assert update.status_code == 200
+
+    manifest = {
+        "schema": "v1-external",
+        "entries": [
+            {
+                "job": "submit",
+                "index": 1,
+                "task": "submit",
+                "stderr": True,
+                "url": "https://storage.example/logs/sub-1/submit.stderr.log",
+            },
+            {
+                "job": "superlink",
+                "index": 1,
+                "task": "exp-superlink",
+                "stderr": True,
+                "url": "https://storage.example/logs/sub-1/superlink.stderr.log",
+            },
+            {
+                "job": "supernodes",
+                "index": 2,
+                "task": "rpi5-002",
+                "stderr": True,
+                "url": "https://storage.example/logs/sub-1/supernode-2.stderr.log",
+            },
+            {
+                "job": "superexec_clientapps",
+                "index": 1,
+                "task": "clientapp-1",
+                "stderr": True,
+                "url": "https://storage.example/logs/sub-1/client.stderr.log",
+            },
+        ],
+    }
+
+    class FakeResponse:
+        def __init__(self, text: str):
+            self.text = text
+
+        def raise_for_status(self) -> None:
+            return None
+
+    def fake_get(url: str, timeout: float):  # noqa: ANN001
+        if url.endswith("manifest.json"):
+            return FakeResponse(json.dumps(manifest))
+        if url.endswith("submit.stderr.log"):
+            return FakeResponse("external submit stderr")
+        if url.endswith("superlink.stderr.log"):
+            return FakeResponse("external superlink stderr")
+        if url.endswith("supernode-2.stderr.log"):
+            return FakeResponse("external supernode stderr")
+        if url.endswith("client.stderr.log"):
+            return FakeResponse("external client stderr")
+        raise AssertionError(url)
+
+    monkeypatch.setattr("submit_service.app.submissions_service.httpx.get", fake_get)
+
+    submit_logs = client.get(f"/v1/submissions/{submission_id}/logs")
+    assert submit_logs.status_code == 200
+    assert submit_logs.text == "external submit stderr"
+
+    superlink_logs = client.get(
+        f"/v1/submissions/{submission_id}/logs",
+        params={"job": "superlink", "task": "exp-superlink"},
+    )
+    assert superlink_logs.status_code == 200
+    assert superlink_logs.text == "external superlink stderr"
+
+    supernode_logs = client.get(
+        f"/v1/submissions/{submission_id}/logs",
+        params={"job": "supernodes", "index": 2},
+    )
+    assert supernode_logs.status_code == 200
+    assert supernode_logs.text == "external supernode stderr"
+
+    client_logs = client.get(
+        f"/v1/submissions/{submission_id}/logs",
+        params={"job": "superexec_clientapps", "task": "clientapp-1"},
+    )
+    assert client_logs.status_code == 200
+    assert client_logs.text == "external client stderr"
+
+
 def test_create_app_starts_dispatcher_for_immediate_mode_with_nomad(
     tmp_path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

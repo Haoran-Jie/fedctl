@@ -30,7 +30,6 @@ from fedctl.util.console import console
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
 _DEFAULT_MAX_ARCHIVED_LOG_CHARS = 2_000_000
-_DEFAULT_MAX_ARCHIVE_PAYLOAD_CHARS = 500_000
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -123,6 +122,7 @@ def main(argv: list[str] | None = None) -> int:
         submission_id=submission_id,
         submit_service_endpoint=submit_service_endpoint,
         submit_service_token=submit_service_token,
+        result_store=result_store,
         experiment=effective_experiment,
         num_supernodes=effective_num_supernodes,
         supernodes=args.supernodes,
@@ -650,6 +650,7 @@ class _LogArchiver:
         submission_id: str | None,
         submit_service_endpoint: str | None,
         submit_service_token: str | None,
+        result_store: str | None,
         experiment: str | None,
         num_supernodes: int,
         supernodes: list[str] | None,
@@ -660,6 +661,7 @@ class _LogArchiver:
         self._submission_id = submission_id
         self._submit_service_endpoint = submit_service_endpoint
         self._submit_service_token = submit_service_token
+        self._result_store = result_store
         self._experiment = experiment
         self._num_supernodes = num_supernodes
         self._supernodes = supernodes
@@ -674,6 +676,7 @@ class _LogArchiver:
         return bool(
             self._submission_id
             and self._submit_service_endpoint
+            and self._result_store
             and self._experiment
             and self._endpoint
         )
@@ -700,22 +703,17 @@ class _LogArchiver:
             if not entries:
                 logger.info("log archiver: no logs captured")
                 return
-            entries = _fit_archive_entries_to_payload_budget(entries)
             signature = _log_archive_signature(entries)
             if not force and signature == self._last_uploaded_signature:
                 logger.info("log archiver: no log changes detected")
                 return
-            if self._report(entries):
+            manifest_location = self._upload_archive(entries)
+            if manifest_location and self._report(manifest_location):
                 self._last_uploaded_signature = signature
 
-    def _report(self, entries: list[dict[str, object]]) -> bool:
+    def _report(self, manifest_location: str) -> bool:
         payload = {
-            "logs_location": "inline://submit-service-db",
-            "logs_archive": {
-                "schema": "v1",
-                "captured_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                "entries": entries,
-            },
+            "logs_location": manifest_location,
         }
         headers: dict[str, str] = {}
         if self._submit_service_token:
@@ -734,14 +732,74 @@ class _LogArchiver:
                 )
                 return False
             logger.info(
-                "log archive report ok: submission_id=%s entries=%d",
+                "log archive report ok: submission_id=%s location=%s",
                 self._submission_id,
-                len(entries),
+                manifest_location,
             )
             return True
         except httpx.HTTPError as exc:
             logger.warning("log archive report failed: %s", exc)
             return False
+
+    def _upload_archive(self, entries: list[dict[str, object]]) -> str | None:
+        uploaded_entries: list[dict[str, object]] = []
+        for entry in entries:
+            uploaded_entries.append(self._upload_entry(entry))
+        manifest = {
+            "schema": "v1-external",
+            "submission_id": self._submission_id,
+            "experiment": self._experiment,
+            "captured_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "entries": uploaded_entries,
+        }
+        manifest_bytes = json.dumps(manifest, sort_keys=True, indent=2).encode("utf-8")
+        return self._upload_bytes("manifest.json", manifest_bytes)
+
+    def _upload_entry(self, entry: dict[str, object]) -> dict[str, object]:
+        uploaded = {
+            key: value
+            for key, value in entry.items()
+            if key != "content"
+        }
+        content = entry.get("content")
+        if not isinstance(content, str):
+            return uploaded
+        filename = _archive_object_name(entry)
+        url = self._upload_bytes(filename, content.encode("utf-8"))
+        if url is None:
+            uploaded.pop("content", None)
+            uploaded["error"] = "archive upload failed"
+            return uploaded
+        uploaded["url"] = url
+        uploaded["size_bytes"] = len(content.encode("utf-8"))
+        return uploaded
+
+    def _upload_bytes(self, name: str, content: bytes) -> str | None:
+        if not self._result_store or not self._submission_id:
+            return None
+        store = self._result_store.rstrip("/")
+        store = f"{store}/logs/{self._submission_id}"
+        try:
+            with tempfile.TemporaryDirectory(prefix="fedctl-log-archive-") as tmp_dir:
+                relative = Path(name)
+                if str(relative.parent) not in {"", "."}:
+                    store = f"{store}/{relative.parent.as_posix()}"
+                path = Path(tmp_dir) / relative.name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(content)
+                return upload_artifact(
+                    path,
+                    store,
+                    presign_endpoint=(
+                        self._submit_service_endpoint.rstrip("/") + "/v1/presign"
+                        if self._submit_service_endpoint
+                        else None
+                    ),
+                    presign_token=self._submit_service_token,
+                )
+        except (OSError, ArtifactUploadError) as exc:
+            logger.warning("log archive upload failed for %s: %s", name, exc)
+            return None
 
     def _collect(self) -> list[dict[str, object]]:
         targets = self._targets()
@@ -817,7 +875,7 @@ class _LogArchiver:
                             job_id=job_id,
                             stderr=stderr,
                             alloc_id=alloc_id,
-                            content=_truncate_log_text(log_text),
+                            content=log_text,
                         )
                     )
         finally:
@@ -1093,63 +1151,20 @@ def _archive_log_char_limit(max_chars: int | None = None) -> int:
     return parsed
 
 
-def _archive_payload_char_limit(max_chars: int | None = None) -> int:
-    if max_chars is not None and max_chars > 0:
-        return max_chars
-    raw = os.environ.get("FEDCTL_LOG_ARCHIVE_MAX_PAYLOAD_CHARS", "").strip()
-    if not raw:
-        return _DEFAULT_MAX_ARCHIVE_PAYLOAD_CHARS
-    try:
-        parsed = int(raw)
-    except ValueError:
-        return _DEFAULT_MAX_ARCHIVE_PAYLOAD_CHARS
-    if parsed <= 0:
-        return 0
-    return parsed
+def _archive_object_name(entry: dict[str, object]) -> str:
+    job = _safe_path_token(entry.get("job"), default="job")
+    index = entry.get("index")
+    index_token = str(index) if isinstance(index, int) and not isinstance(index, bool) else "1"
+    task = _safe_path_token(entry.get("task"), default="task")
+    stream = "stderr" if bool(entry.get("stderr")) else "stdout"
+    return f"{job}/{index_token}-{task}.{stream}.log"
 
 
-def _fit_archive_entries_to_payload_budget(
-    entries: list[dict[str, object]],
-    *,
-    max_payload_chars: int | None = None,
-) -> list[dict[str, object]]:
-    limit = _archive_payload_char_limit(max_payload_chars)
-    if limit <= 0:
-        return entries
-    payload = json.dumps(entries, sort_keys=True, separators=(",", ":"))
-    if len(payload) <= limit:
-        return entries
-
-    shrunk: list[dict[str, object]] = [dict(entry) for entry in entries]
-    content_indexes = [
-        idx
-        for idx, entry in enumerate(shrunk)
-        if isinstance(entry.get("content"), str)
-    ]
-    if not content_indexes:
-        return entries
-
-    baseline: list[dict[str, object]] = []
-    for entry in shrunk:
-        cloned = dict(entry)
-        if "content" in cloned:
-            cloned["content"] = ""
-        baseline.append(cloned)
-    baseline_size = len(json.dumps(baseline, sort_keys=True, separators=(",", ":")))
-    remaining = max(limit - baseline_size, 0)
-    if remaining <= 0:
-        remaining = 0
-    per_entry_limit = max(256, remaining // max(len(content_indexes), 1))
-
-    while True:
-        for idx in content_indexes:
-            content = shrunk[idx].get("content")
-            if isinstance(content, str):
-                shrunk[idx]["content"] = _truncate_log_text(content, max_chars=per_entry_limit)
-        payload = json.dumps(shrunk, sort_keys=True, separators=(",", ":"))
-        if len(payload) <= limit or per_entry_limit <= 256:
-            return shrunk
-        per_entry_limit = max(256, per_entry_limit // 2)
+def _safe_path_token(value: object, *, default: str) -> str:
+    if not isinstance(value, str) or not value:
+        return default
+    cleaned = "".join(ch if ch.isalnum() or ch in {"-", "_", "."} else "-" for ch in value)
+    return cleaned.strip("-") or default
 
 
 def _log_archive_signature(entries: list[dict[str, object]]) -> str:

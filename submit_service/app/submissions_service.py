@@ -3,8 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 import hashlib
+import json
 
 from fastapi import HTTPException, Request
+import httpx
 
 from .config import SubmitConfig
 from .models import SubmissionRecord
@@ -175,20 +177,36 @@ def resolve_submission_logs_detail(
     stderr: bool = True,
     follow: bool = False,
 ) -> ResolvedLogs:
-    archived = archived_log_text(
+    archived = external_archived_log_text(
         record=record,
         job=job,
         task=task,
         index=index,
         stderr=stderr,
     )
-    archived_issue = archived_log_issue(
+    archived_issue = external_archived_log_issue(
         record=record,
         job=job,
         task=task,
         index=index,
         stderr=stderr,
     )
+    if archived is None and archived_issue is None:
+        archived = archived_log_text(
+            record=record,
+            job=job,
+            task=task,
+            index=index,
+            stderr=stderr,
+        )
+    if archived_issue is None:
+        archived_issue = archived_log_issue(
+            record=record,
+            job=job,
+            task=task,
+            index=index,
+            stderr=stderr,
+        )
     resolve_error: HTTPException | None = None
     nomad_job_id: str | None = None
     resolved_task = task or "submit"
@@ -479,6 +497,35 @@ def archived_log_text(
     return None
 
 
+def external_archived_log_text(
+    *,
+    record: dict[str, Any],
+    job: str,
+    task: str | None,
+    index: int,
+    stderr: bool,
+) -> str | None:
+    candidates = matching_external_archive_entries(
+        record=record,
+        job=job,
+        index=index,
+        stderr=stderr,
+        field="url",
+    )
+    if not candidates:
+        return None
+    entry = _resolve_archive_candidate(candidates, task)
+    if entry is None:
+        return None
+    url = entry.get("url")
+    if not isinstance(url, str) or not url:
+        return None
+    try:
+        return _fetch_text_url(url)
+    except httpx.HTTPError:
+        return None
+
+
 
 def archived_log_issue(
     *,
@@ -508,6 +555,29 @@ def archived_log_issue(
     if len(unique_tasks) == 1:
         return archive_error(candidates[0])
     return None
+
+
+def external_archived_log_issue(
+    *,
+    record: dict[str, Any],
+    job: str,
+    task: str | None,
+    index: int,
+    stderr: bool,
+) -> str | None:
+    candidates = matching_external_archive_entries(
+        record=record,
+        job=job,
+        index=index,
+        stderr=stderr,
+        field="error",
+    )
+    if not candidates:
+        return None
+    entry = _resolve_archive_candidate(candidates, task)
+    if entry is None:
+        return None
+    return archive_error(entry)
 
 
 def matching_archive_entries(
@@ -549,6 +619,85 @@ def matching_archive_entries(
             continue
         candidates.append(entry)
     return candidates
+
+
+def matching_external_archive_entries(
+    *,
+    record: dict[str, Any],
+    job: str,
+    index: int,
+    stderr: bool,
+    field: str,
+) -> list[dict[str, Any]]:
+    manifest = _load_external_logs_manifest(record)
+    if not isinstance(manifest, dict):
+        return []
+    raw_entries = manifest.get("entries")
+    if not isinstance(raw_entries, list):
+        return []
+    candidates: list[dict[str, Any]] = []
+    for entry in raw_entries:
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("job") != job:
+            continue
+        entry_index = entry.get("index")
+        if isinstance(entry_index, bool):
+            continue
+        if isinstance(entry_index, int):
+            resolved_index = entry_index
+        elif isinstance(entry_index, str) and entry_index.isdigit():
+            resolved_index = int(entry_index)
+        else:
+            resolved_index = 1
+        if resolved_index != index:
+            continue
+        if bool(entry.get("stderr")) != stderr:
+            continue
+        if field == "url" and not isinstance(entry.get("url"), str):
+            continue
+        if field == "error" and not isinstance(entry.get("error"), str):
+            continue
+        candidates.append(entry)
+    return candidates
+
+
+def _load_external_logs_manifest(record: dict[str, Any]) -> dict[str, Any] | None:
+    location = record.get("logs_location")
+    if not isinstance(location, str) or not location or location == "inline://submit-service-db":
+        return None
+    try:
+        content = _fetch_text_url(location)
+    except httpx.HTTPError:
+        return None
+    try:
+        manifest = json.loads(content)
+    except ValueError:
+        return None
+    return manifest if isinstance(manifest, dict) else None
+
+
+def _fetch_text_url(url: str) -> str:
+    response = httpx.get(url, timeout=30.0)
+    response.raise_for_status()
+    return response.text
+
+
+def _resolve_archive_candidate(
+    candidates: list[dict[str, Any]],
+    task: str | None,
+) -> dict[str, Any] | None:
+    if task:
+        for entry in candidates:
+            if archive_task(entry) == task:
+                return entry
+        return None
+    if len(candidates) == 1:
+        return candidates[0]
+    unique_tasks = {archive_task(entry) for entry in candidates}
+    if len(unique_tasks) == 1:
+        return candidates[0]
+    return None
 
 
 def archive_task(entry: dict[str, Any]) -> str | None:

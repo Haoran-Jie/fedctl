@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from fedctl.submit import runner
 from fedctl.submit.runner import (
     _LogArchiver,
-    _fit_archive_entries_to_payload_budget,
+    _archive_object_name,
     _latest_alloc_for_task,
     _log_archive_signature,
     _truncate_log_text,
@@ -18,6 +18,7 @@ def test_log_archiver_builds_targets_for_default_topology() -> None:
         submission_id="sub-1",
         submit_service_endpoint="http://submit.example",
         submit_service_token="token",
+        result_store="s3://results",
         experiment="exp-1",
         num_supernodes=2,
         supernodes=None,
@@ -154,10 +155,12 @@ def test_main_uses_effective_experiment_for_reporting_and_archiving(
 
 def test_log_archiver_reports_only_when_logs_change(monkeypatch) -> None:
     posted: list[dict[str, object]] = []
+    uploaded: list[tuple[str, str, bytes]] = []
     archiver = _LogArchiver(
         submission_id="sub-1",
         submit_service_endpoint="http://submit.example",
         submit_service_token="token",
+        result_store="s3://results",
         experiment="exp-1",
         num_supernodes=2,
         supernodes=None,
@@ -186,19 +189,54 @@ def test_log_archiver_reports_only_when_logs_change(monkeypatch) -> None:
         posted.append(json)
         return FakeResponse()
 
+    def fake_upload_artifact(path, store, **kwargs):  # noqa: ANN001
+        uploaded.append((path.name, store, path.read_bytes()))
+        return f"https://storage.example/{store.rsplit('/', 1)[-1]}/{path.name}"
+
     monkeypatch.setattr(runner.httpx, "post", fake_post)
+    monkeypatch.setattr(runner, "upload_artifact", fake_upload_artifact)
 
     archiver._archive_current(force=False)  # noqa: SLF001
     archiver._archive_current(force=False)  # noqa: SLF001
     archiver.final_sweep()
 
     assert len(posted) == 2
-    assert posted[0]["logs_archive"]["entries"] == entries
-    assert posted[1]["logs_archive"]["entries"] == entries
+    assert posted[0]["logs_location"] == "https://storage.example/sub-1/manifest.json"
+    assert posted[1]["logs_location"] == "https://storage.example/sub-1/manifest.json"
+    assert [(name, store) for name, store, _ in uploaded] == [
+        ("1-submit.stdout.log", "s3://results/logs/sub-1/submit"),
+        ("manifest.json", "s3://results/logs/sub-1"),
+        ("1-submit.stdout.log", "s3://results/logs/sub-1/submit"),
+        ("manifest.json", "s3://results/logs/sub-1"),
+    ]
     assert _log_archive_signature(entries) == archiver._last_uploaded_signature  # noqa: SLF001
 
 
-def test_fit_archive_entries_to_payload_budget_truncates_content_fields() -> None:
+def test_archive_object_name_encodes_job_index_task_and_stream() -> None:
+    entry = {
+        "job": "superexec_clientapps",
+        "index": 3,
+        "task": "clientapp-rpi5-1",
+        "stderr": True,
+    }
+
+    assert _archive_object_name(entry) == "superexec_clientapps/3-clientapp-rpi5-1.stderr.log"
+
+
+def test_log_archiver_manifest_records_upload_failure(monkeypatch) -> None:
+    uploaded: list[bytes] = []
+    archiver = _LogArchiver(
+        submission_id="sub-1",
+        submit_service_endpoint="http://submit.example",
+        submit_service_token="token",
+        result_store="s3://results",
+        experiment="exp-1",
+        num_supernodes=2,
+        supernodes=None,
+        endpoint="http://nomad.example:4646",
+        namespace="default",
+        token="nomad-token",
+    )
     entries = [
         {
             "job": "submit",
@@ -206,21 +244,21 @@ def test_fit_archive_entries_to_payload_budget_truncates_content_fields() -> Non
             "job_id": "sub-1",
             "task": "submit",
             "stderr": False,
-            "content": "A" * 4000,
-        },
-        {
-            "job": "superexec_clientapps",
-            "index": 1,
-            "job_id": "job-1",
-            "task": "job-1",
-            "stderr": True,
-            "content": "B" * 4000,
-        },
+            "content": "hello",
+        }
     ]
 
-    shrunk = _fit_archive_entries_to_payload_budget(entries, max_payload_chars=1200)
+    def fake_upload_artifact(path, store, **kwargs):  # noqa: ANN001
+        if path.name == "manifest.json":
+            uploaded.append(path.read_bytes())
+            return "https://storage.example/manifest.json"
+        raise runner.ArtifactUploadError("boom")
 
-    payload = runner.json.dumps(shrunk, sort_keys=True, separators=(",", ":"))
-    assert len(payload) <= 1200
-    assert shrunk[0]["content"] != entries[0]["content"]
-    assert shrunk[1]["content"] != entries[1]["content"]
+    monkeypatch.setattr(runner, "upload_artifact", fake_upload_artifact)
+
+    manifest_url = archiver._upload_archive(entries)  # noqa: SLF001
+
+    assert manifest_url == "https://storage.example/manifest.json"
+    manifest = runner.json.loads(uploaded[0].decode("utf-8"))
+    assert manifest["entries"][0]["error"] == "archive upload failed"
+    assert "url" not in manifest["entries"][0]
