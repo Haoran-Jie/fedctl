@@ -43,8 +43,8 @@ Headline schedules:
 - **Network main**
   - synchronous baselines: `15/20` rounds
   - buffered async methods: `15/20` server steps
-  - `buffer-size = 10`
-  - `train-concurrency = 8`
+  - low-concurrency CIFAR-10 branch: `buffer-size = 5`, `train-concurrency = 20`
+  - high-concurrency CIFAR-10 branch: `buffer-size = 10`, `train-concurrency = 50`
   - default `fedbuff` weighting: `polynomial`, `staleness-alpha = 0.5`
 
 ## Completed validation runs
@@ -503,7 +503,7 @@ Use these repo-config templates with the application-side configs:
 - `apps/fedctl_research/repo_configs/smoke/compute_heterogeneity.yaml`
 - `apps/fedctl_research/repo_configs/smoke/network_heterogeneity.yaml`
 - `apps/fedctl_research/repo_configs/compute_heterogeneity/main/none.yaml`
-- `apps/fedctl_research/repo_configs/network_heterogeneity/main/none.yaml`
+- `apps/fedctl_research/repo_configs/network_heterogeneity/main/low_concurrency/none.yaml`
 - `apps/fedctl_research/repo_configs/network_heterogeneity/ablations/deployment_stressors/*.yaml`
 - `apps/fedctl_research/repo_configs/network_heterogeneity/ablations/scale_concurrency/scale_async/*.yaml`
 

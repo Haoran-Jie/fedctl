@@ -286,8 +286,8 @@ def test_network_heterogeneity_experiment_config_tree_contains_expected_families
         config_root / "smoke" / "network_heterogeneity" / "fashion_mnist_mlp" / "fedbuff_k10.toml",
         config_root / "network_heterogeneity" / "main" / "fashion_mnist_cnn" / "fedavg.toml",
         config_root / "network_heterogeneity" / "main" / "fashion_mnist_cnn" / "fedstaleweight.toml",
-        config_root / "network_heterogeneity" / "main" / "cifar10_cnn" / "fedbuff.toml",
-        config_root / "network_heterogeneity" / "main" / "cifar10_cnn" / "fedstaleweight.toml",
+        config_root / "network_heterogeneity" / "main" / "cifar10_cnn" / "low_concurrency" / "fedbuff.toml",
+        config_root / "network_heterogeneity" / "main" / "cifar10_cnn" / "high_concurrency" / "fedstaleweight.toml",
         config_root / "network_heterogeneity" / "ablations" / "scale_concurrency" / "scale_async" / "cifar10_cnn" / "fedbuff_c24_k10.toml",
         config_root / "network_heterogeneity" / "ablations" / "scale_concurrency" / "buffer_k" / "cifar10_cnn" / "fedbuff_k20.toml",
         config_root / "network_heterogeneity" / "ablations" / "stale_update_control" / "staleness_weighting" / "cifar10_cnn" / "fedbuff_polynomial.toml",
@@ -307,9 +307,9 @@ def test_fedbuff_repo_config_tree_contains_expected_profiles() -> None:
         repo_root / "smoke" / "compute_heterogeneity.yaml",
         repo_root / "smoke" / "network_heterogeneity.yaml",
         repo_root / "compute_heterogeneity" / "main" / "none.yaml",
-        repo_root / "network_heterogeneity" / "main" / "none.yaml",
-        repo_root / "network_heterogeneity" / "main" / "mild.yaml",
-        repo_root / "network_heterogeneity" / "main" / "med.yaml",
+        repo_root / "network_heterogeneity" / "main" / "low_concurrency" / "none.yaml",
+        repo_root / "network_heterogeneity" / "main" / "high_concurrency" / "mild.yaml",
+        repo_root / "network_heterogeneity" / "main" / "high_concurrency" / "med.yaml",
         repo_root / "network_heterogeneity" / "ablations" / "deployment_stressors" / "asym_down.yaml",
         repo_root / "network_heterogeneity" / "ablations" / "scale_concurrency" / "scale_async" / "med.yaml",
     ]
@@ -2580,7 +2580,7 @@ def test_all_active_experiment_configs_set_required_keys() -> None:
         elif "california_housing_mlp" in path.parts:
             assert data["data"]["partitioning"] == "continuous", str(path)
             assert data["data"]["partitioning-continuous-column"] == "MedInc", str(path)
-            assert data["data"]["partitioning-continuous-strictness"] == 0.5, str(path)
+            assert data["data"]["partitioning-continuous-strictness"] == 0.9, str(path)
         else:
             assert data["data"]["partitioning"] == "dirichlet", str(path)
             assert data["data"]["partitioning-dirichlet-alpha"] == 0.3, str(path)
@@ -2912,15 +2912,26 @@ def test_main_study_configs_match_balanced_twelve_node_plan() -> None:
         data = tomllib.loads(path.read_text())
         is_fashion = "fashion_mnist_cnn" in str(path)
         is_cifar10 = "cifar10_cnn" in str(path)
+        is_low_concurrency = "low_concurrency" in str(path)
+        is_high_concurrency = "high_concurrency" in str(path)
         expected_rounds = 15 if is_fashion else 50
         expected_train_examples = 5000 if is_fashion else 2500
         expected_test_examples = 834 if is_fashion else 500
-        expected_nodes = 12 if is_fashion else 20
+        expected_nodes = 12 if is_fashion else (50 if is_high_concurrency else 20)
         if data["experiment"]["method"] in {"fedbuff", "fedstaleweight"}:
             expected_steps = 15 if is_fashion else 100
             assert data["fedbuff"]["num-server-steps"] == expected_steps, str(path)
-            assert data["fedbuff"]["train-concurrency"] == (8 if is_fashion else 20), str(path)
-            assert data["fedbuff"]["buffer-size"] == 10, str(path)
+            if is_fashion:
+                expected_train_concurrency = 8
+                expected_buffer_size = 10
+            elif is_high_concurrency:
+                expected_train_concurrency = 50
+                expected_buffer_size = 10
+            else:
+                expected_train_concurrency = 20
+                expected_buffer_size = 5 if is_low_concurrency else 10
+            assert data["fedbuff"]["train-concurrency"] == expected_train_concurrency, str(path)
+            assert data["fedbuff"]["buffer-size"] == expected_buffer_size, str(path)
             assert data["fedbuff"]["staleness-alpha"] == 0.5, str(path)
             if data["experiment"]["method"] == "fedbuff":
                 assert data["fedbuff"]["staleness-weighting"] == "polynomial", str(path)
@@ -2950,8 +2961,30 @@ def test_main_study_configs_match_balanced_twelve_node_plan() -> None:
     compute_repo = yaml.safe_load(
         (app_root / "repo_configs" / "compute_heterogeneity" / "main" / "none.yaml").read_text()
     )
-    network_repo = yaml.safe_load(
-        (app_root / "repo_configs" / "network_heterogeneity" / "main" / "none.yaml").read_text()
+    network_low_repo = yaml.safe_load(
+        (
+            app_root
+            / "repo_configs"
+            / "network_heterogeneity"
+            / "main"
+            / "low_concurrency"
+            / "none.yaml"
+        ).read_text()
+    )
+    network_high_repo = yaml.safe_load(
+        (
+            app_root
+            / "repo_configs"
+            / "network_heterogeneity"
+            / "main"
+            / "high_concurrency"
+            / "none.yaml"
+        ).read_text()
     )
     assert compute_repo["deploy"]["supernodes"] == {"rpi4": 10, "rpi5": 10}
-    assert network_repo["deploy"]["supernodes"] == {"rpi4": 10, "rpi5": 10}
+    assert network_low_repo["deploy"]["supernodes"] == {"rpi4": 10, "rpi5": 10}
+    assert network_high_repo["deploy"]["supernodes"] == {"rpi4": 20, "rpi5": 30}
+    assert network_high_repo["deploy"]["placement"] == {
+        "allow_oversubscribe": True,
+        "spread_across_hosts": False,
+    }
