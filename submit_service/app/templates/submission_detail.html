@@ -37,12 +37,12 @@
     <div class="actions">
       <a class="button secondary" href="{{ return_to }}">Back to submissions</a>
       {% if submission.can_cancel %}
-      <form method="post" action="/ui/submissions/{{ submission.id }}/cancel">
+      <form method="post" action="/ui/submissions/{{ submission.id }}/cancel" onsubmit="return confirm('Cancel this submission? This will stop the running job.')">
         <button type="submit">Cancel submission</button>
       </form>
       {% endif %}
       {% if submission.can_purge %}
-      <form method="post" action="/ui/submissions/{{ submission.id }}/purge">
+      <form method="post" action="/ui/submissions/{{ submission.id }}/purge" onsubmit="return confirm('Purge this submission? This permanently deletes its history and cannot be undone.')">
         <input type="hidden" name="return_to" value="{{ return_to }}">
         <button type="submit" class="danger-button">Purge submission</button>
       </form>
@@ -140,13 +140,63 @@
       <article class="info-card overview-card overview-card-timing">
         <h3>Timing</h3>
         <dl class="meta-list">
-          <div><dt>Created</dt><dd>{{ submission.created_at }}</dd></div>
-          <div><dt>Started</dt><dd>{{ submission.started_at }}</dd></div>
-          <div><dt>Finished</dt><dd>{{ submission.finished_at }}</dd></div>
+          <div><dt>Created</dt><dd>{% if submission.created_at.iso %}<time datetime="{{ submission.created_at.iso }}" title="{{ submission.created_at.label }}" data-relative>{{ submission.created_at.label }}</time>{% else %}{{ submission.created_at.label }}{% endif %}</dd></div>
+          <div><dt>Started</dt><dd>{% if submission.started_at.iso %}<time datetime="{{ submission.started_at.iso }}" title="{{ submission.started_at.label }}" data-relative>{{ submission.started_at.label }}</time>{% else %}{{ submission.started_at.label }}{% endif %}</dd></div>
+          <div><dt>Finished</dt><dd>{% if submission.finished_at.iso %}<time datetime="{{ submission.finished_at.iso }}" title="{{ submission.finished_at.label }}" data-relative>{{ submission.finished_at.label }}</time>{% else %}{{ submission.finished_at.label }}{% endif %}</dd></div>
+          <div><dt>Duration</dt><dd>{{ submission.duration }}</dd></div>
           <div><dt>Priority</dt><dd>{{ submission.priority }}</dd></div>
         </dl>
       </article>
     </div>
+    {% if submission.result_artifacts.primary or submission.result_artifacts.secondary %}
+    <section class="results-section">
+      <h3>Result artifacts</h3>
+      {% if submission.result_artifacts.primary %}
+      <div class="artifact-group">
+        <div class="artifact-group-title">Primary</div>
+        <div class="artifact-rows">
+          {% for item in submission.result_artifacts.primary %}
+          <div class="artifact-row">
+            <div class="artifact-meta">
+              <div class="artifact-name wrap">{{ item.label }}</div>
+              <div class="artifact-subline">
+                <span class="artifact-type-badge">{{ item.type }}</span>
+                {% if item.signed == 'yes' %}<span class="artifact-state-badge">signed</span>{% endif %}
+              </div>
+            </div>
+            <div class="artifact-actions">
+              <button type="button" class="button secondary artifact-action" data-copy="{{ item.url }}" data-copy-label="Copy URL" data-copy-done-label="Copied" data-copy-toast="Artifact URL copied">Copy URL</button>
+              <a class="button secondary artifact-action" href="{{ item.url }}" target="_blank" rel="noopener">Open</a>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+      {% if submission.result_artifacts.secondary %}
+      <div class="artifact-group">
+        <div class="artifact-group-title">Other</div>
+        <div class="artifact-rows">
+          {% for item in submission.result_artifacts.secondary %}
+          <div class="artifact-row artifact-row-secondary">
+            <div class="artifact-meta">
+              <div class="artifact-name wrap">{{ item.label }}</div>
+              <div class="artifact-subline">
+                <span class="artifact-type-badge">{{ item.type }}</span>
+                {% if item.signed == 'yes' %}<span class="artifact-state-badge">signed</span>{% endif %}
+              </div>
+            </div>
+            <div class="artifact-actions">
+              <button type="button" class="button secondary artifact-action" data-copy="{{ item.url }}" data-copy-label="Copy URL" data-copy-done-label="Copied" data-copy-toast="Artifact URL copied">Copy URL</button>
+              <a class="button secondary artifact-action" href="{{ item.url }}" target="_blank" rel="noopener">Open</a>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </section>
+    {% endif %}
     {% if submission.blocked_reason %}
     <div class="alert warn"><strong>Blocked:</strong> {{ submission.blocked_reason }}</div>
     {% endif %}
@@ -352,7 +402,32 @@
     };
     buttons.forEach((button) => {
       button.addEventListener('click', () => activate(button.dataset.tabTarget));
+      button.setAttribute('tabindex', button.classList.contains('is-active') ? '0' : '-1');
     });
+
+    const tabBar = document.querySelector('.tab-bar');
+    if (tabBar) {
+      tabBar.addEventListener('keydown', (event) => {
+        const current = document.activeElement;
+        const idx = buttons.indexOf(current);
+        if (idx < 0) return;
+        let next = -1;
+        if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+          next = (idx + 1) % buttons.length;
+        } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+          next = (idx - 1 + buttons.length) % buttons.length;
+        } else if (event.key === 'Home') {
+          next = 0;
+        } else if (event.key === 'End') {
+          next = buttons.length - 1;
+        }
+        if (next < 0) return;
+        event.preventDefault();
+        buttons.forEach((b, i) => b.setAttribute('tabindex', i === next ? '0' : '-1'));
+        buttons[next].focus();
+        activate(buttons[next].dataset.tabTarget);
+      });
+    }
     const hashTarget = window.location.hash.replace('#', '');
     if (hashTarget && panels.some((panel) => panel.id === hashTarget)) {
       activate(hashTarget, false);
@@ -468,9 +543,16 @@
       if (!query) {
         logsBox.innerHTML = renderedLogsHtml;
       } else {
-        const filtered = visibleLines();
-        if (filtered.length) {
-          logsBox.innerHTML = escapeHtml(filtered.join('\n'));
+        const rawLines = splitLines(rawLogs);
+        const htmlLines = renderedLogsHtml.split('\n');
+        const filteredHtml = [];
+        for (let i = 0; i < rawLines.length; i++) {
+          if (rawLines[i].toLowerCase().includes(query)) {
+            filteredHtml.push(htmlLines[i] !== undefined ? htmlLines[i] : escapeHtml(rawLines[i]));
+          }
+        }
+        if (filteredHtml.length) {
+          logsBox.innerHTML = filteredHtml.join('\n');
         } else {
           logsBox.innerHTML = '<span class="log-empty log-filter-empty">No lines match current filter.</span>';
         }
