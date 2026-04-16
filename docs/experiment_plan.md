@@ -17,7 +17,7 @@ The headline studies are the main story. Method-specific supporting studies then
 
 The headline studies now use two live rack profiles rather than one universal pool:
 
-- compute-main `cifar10_cnn`: `10 x rpi4` + `10 x rpi5`
+- compute-main `cifar10_cnn` and `california_housing_mlp`: `10 x rpi4` + `10 x rpi5`
 - remaining headline studies: balanced `6 x rpi4` + `6 x rpi5`
 
 Shared headline settings:
@@ -32,14 +32,14 @@ Device settings:
 
 Natural equal-split dataset caps for the live IID headline studies:
 
-- `fashion_mnist_cnn` on the `12`-node rack: `max-train-examples = 5000`, `max-test-examples = 834`
 - compute-main `cifar10_cnn` on the `20`-node rack: `max-train-examples = 2500`, `max-test-examples = 500`
+- compute-main `california_housing_mlp` on the `20`-node rack: `max-train-examples = 826`, `max-test-examples = 207`
 
 Headline schedules:
 
 - **Compute main**
-  - `fashion_mnist_cnn`: `15` rounds
   - `cifar10_cnn`: `20` rounds, `local-epochs = 3`, `learning-rate = 0.05`
+  - `california_housing_mlp`: `20` rounds, `local-epochs = 3`, `learning-rate = 0.001`
 - **Network main**
   - synchronous baselines: `15/20` rounds
   - buffered async methods: `15/20` server steps
@@ -56,10 +56,10 @@ Completed smoke checks:
 
 Completed headline pilots:
 
-- compute main: `fedavg`, `heterofl`, `fedrolex`, `fiarse` on `fashion_mnist_cnn`, seed `1337`
+- legacy compute-main pilot: `fedavg`, `heterofl`, `fedrolex`, `fiarse` on `fashion_mnist_cnn`, seed `1337`
 - network main: `fedavgm`, `fedbuff`, `fedstaleweight` on `fashion_mnist_cnn`, seed `1337`
 
-These pilots already validated the real cluster path, so the remaining work is the full seeded sweeps and the supporting studies required to make the method claims paper-faithful.
+These pilots already validated the real cluster path. The active compute-main task pair is now `cifar10_cnn` plus `california_housing_mlp`, so the remaining work is the full seeded sweeps and the supporting studies required to make the method claims paper-faithful.
 
 ## Evidence matrix
 
