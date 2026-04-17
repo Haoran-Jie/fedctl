@@ -1,135 +1,152 @@
 {% extends 'base.html' %}
 {% block title %}{{ command.name }} | fedctl submit service{% endblock %}
 {% block content %}
-<div class="page-crumbs">
-  <a href="{{ request.url_for('help_page') }}">Help</a>
-  <span>/</span>
-  <span>{{ command.name }}</span>
+<div class="doc-header">
+  <a href="{{ request.url_for('help_page') }}" class="doc-breadcrumb-link">← Back to commands</a>
+  <h1>{{ command.name }}</h1>
+  <p class="doc-summary">{{ command.summary }}</p>
 </div>
 
-<section class="hero-panel detail-hero">
-  <div>
-    <div class="eyebrow">Command documentation</div>
-    <h1>{{ command.name }}</h1>
-    <p class="muted">{{ command.summary }}</p>
-    {% if command.importance == 'primary' %}
-    <div style="margin-top: 1rem;">
-      <span class="help-pill">Most important</span>
-    </div>
-    {% endif %}
-  </div>
-  <div class="detail-summary-strip">
-    <div class="summary-chip">
-      <span>Importance</span>
-      <strong>{{ command.importance | capitalize }}</strong>
-    </div>
-  </div>
-</section>
+<div class="doc-layout">
+  <aside class="doc-sidebar">
+    <nav class="doc-nav">
+      <a href="#overview" class="doc-nav-link">Overview</a>
+      <a href="#usage" class="doc-nav-link">Usage</a>
+      <a href="#examples" class="doc-nav-link">Examples</a>
+      {% if command.notes %}<a href="#notes" class="doc-nav-link">Notes</a>{% endif %}
+    </nav>
+  </aside>
 
-<section class="panel action-panel">
-  <div class="section-head">
-    <div class="section-copy">
-      <h2>Documentation</h2>
-    </div>
-    <div class="actions">
-      <a class="button secondary" href="{{ request.url_for('help_page') }}">Back to help</a>
-    </div>
-  </div>
+  <main class="doc-main">
+    <!-- Overview -->
+    <section id="overview" class="doc-section">
+      <h2>Overview</h2>
+      <p>{{ command.summary }}</p>
+      {% if command.importance == 'primary' %}
+      <div class="doc-callout doc-callout-info">
+        <strong>Primary command:</strong> This is one of the most commonly used commands in fedctl. Start here when getting familiar with the submit service.
+      </div>
+      {% endif %}
+    </section>
 
-  <div class="help-detail-grid">
-    <article class="info-card help-detail-card help-detail-syntax">
-      <h3>Syntax</h3>
-      <pre><code>{{ command.syntax }}</code></pre>
-      <button
-        type="button"
-        class="button secondary"
-        data-copy="{{ command.syntax }}"
-        data-copy-label="Copy syntax"
-        data-copy-done-label="Copied"
-        data-copy-toast="Syntax copied"
-        style="margin-top: 0.8rem; width: 100%;"
-      >
-        Copy command
-      </button>
-    </article>
-
-    <article class="info-card help-detail-card help-detail-examples">
-      <h3>Examples</h3>
-      <div class="help-examples">
-        {% for example in command.examples %}
-        <div class="help-example-item">
-          <code>{{ example }}</code>
+    <!-- Usage -->
+    <section id="usage" class="doc-section">
+      <h2>Usage</h2>
+      <div class="doc-code-block">
+        <div class="doc-code-header">
+          <span>Syntax</span>
           <button
             type="button"
-            class="button secondary help-example-copy"
-            data-copy="{{ example }}"
+            class="doc-copy-button"
+            data-copy="{{ command.syntax }}"
             data-copy-label="Copy"
             data-copy-done-label="Copied"
-            data-copy-toast="Example copied"
-            title="Copy this example"
+            title="Copy syntax"
           >
-            Copy
+            📋
           </button>
+        </div>
+        <pre><code>{{ command.syntax }}</code></pre>
+      </div>
+
+      {% if command.flags %}
+      <h3 style="margin-top: 1.5rem; margin-bottom: 0.8rem; font-size: 1.1rem;">Options & Flags</h3>
+      <div class="doc-flags-grid">
+        {% for flag in command.flags %}
+        <div class="doc-flag-item">
+          <div class="doc-flag-name">{{ flag.name }}</div>
+          <div class="doc-flag-type">{{ flag.type }}</div>
+          <p class="doc-flag-description">{{ flag.description }}</p>
         </div>
         {% endfor %}
       </div>
-    </article>
+      {% endif %}
+    </section>
 
-    {% if command.notes %}
-    <article class="info-card help-detail-card help-detail-notes">
-      <h3>Important notes</h3>
-      <ul class="help-note-list">
-        {% for note in command.notes %}
-        <li>{{ note }}</li>
-        {% endfor %}
-      </ul>
-    </article>
-    {% endif %}
+    <!-- Examples -->
+    <section id="examples" class="doc-section">
+      <h2>Examples</h2>
+      <p class="doc-section-intro">Common usage patterns and scenarios:</p>
 
-    <article class="info-card help-detail-card help-detail-related">
-      <h3>Related commands</h3>
-      <div class="help-related-commands">
-        {% for other_cmd in all_commands %}
-          {% if other_cmd.name != command.name %}
-          {% set other_slug = other_cmd.name | lower | replace(' ', '-') %}
-          {% set other_url = request.url_for('help_command_detail', command_slug=other_slug) %}
-          <a href="{{ other_url }}" class="help-related-cmd-link">
-            <span class="help-related-cmd-name">{{ other_cmd.name }}</span>
-            <span class="help-related-cmd-arrow">→</span>
-          </a>
-          {% endif %}
+      <div class="doc-examples">
+        {% for example in command.examples %}
+        <div class="doc-example">
+          <div class="doc-example-header">
+            <button
+              type="button"
+              class="doc-copy-button"
+              data-copy="{{ example }}"
+              data-copy-label="Copy"
+              data-copy-done-label="Copied"
+              title="Copy example"
+            >
+              📋
+            </button>
+          </div>
+          <pre><code>{{ example }}</code></pre>
+        </div>
         {% endfor %}
       </div>
-    </article>
-  </div>
-</section>
+    </section>
+
+    <!-- Notes -->
+    {% if command.notes %}
+    <section id="notes" class="doc-section">
+      <h2>Important information</h2>
+      <div class="doc-callout doc-callout-important">
+        <ul class="doc-callout-list">
+          {% for note in command.notes %}
+          <li>{{ note }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </section>
+    {% endif %}
+  </main>
+</div>
 
 <script>
   document.addEventListener('DOMContentLoaded', function() {
-    // Handle copy buttons with feedback
+    // Smooth nav link activation
+    const navLinks = document.querySelectorAll('.doc-nav-link');
+    const sections = document.querySelectorAll('.doc-section');
+
+    function updateActiveLink() {
+      let current = '';
+      sections.forEach(section => {
+        const sectionTop = section.offsetTop;
+        const sectionHeight = section.clientHeight;
+        if (window.scrollY >= sectionTop - 200) {
+          current = section.getAttribute('id');
+        }
+      });
+
+      navLinks.forEach(link => {
+        link.classList.remove('is-active');
+        if (link.getAttribute('href') === '#' + current) {
+          link.classList.add('is-active');
+        }
+      });
+    }
+
+    window.addEventListener('scroll', updateActiveLink);
+    updateActiveLink();
+
+    // Copy buttons
     document.querySelectorAll('[data-copy]').forEach(button => {
       button.addEventListener('click', async function(e) {
         e.preventDefault();
         const text = this.dataset.copy;
-        const label = this.dataset.copyLabel;
         const doneLabel = this.dataset.copyDone;
 
         try {
           await navigator.clipboard.writeText(text);
-
-          // Show feedback
           const originalText = this.textContent;
-          this.textContent = doneLabel || 'Copied!';
+          this.textContent = doneLabel || '✓';
 
-          // Reset after 2 seconds
           setTimeout(() => {
             this.textContent = originalText;
-          }, 2000);
-
-          // Show toast if requested
-          if (this.dataset.copyToast) {
-            console.log(this.dataset.copyToast);
-          }
+          }, 1500);
         } catch (err) {
           console.error('Failed to copy:', err);
         }
