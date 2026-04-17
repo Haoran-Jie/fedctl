@@ -125,8 +125,9 @@
                   <span class="resource-label">CPU</span>
                   <span class="resource-stats">{{ used_cpu }}/{{ total_cpu }} ({{ cpu_pct }}%)</span>
                 </div>
-                <div class="resource-bar-container" data-node="{{ node.name }}" data-resource="cpu" title="CPU: {{ used_cpu }}/{{ total_cpu }}">
-                  <div class="resource-bar">
+                <div class="resource-bar-container" data-node="{{ node.name }}" data-resource="cpu" title="CPU: {{ used_cpu }}/{{ total_cpu }}{% if allocations.get('running_jobs') %} | Jobs: {{ allocations.get('running_jobs') | join(', ') }}{% endif %}">
+                  <div class="resource-bar-fill" style="width: {{ cpu_pct }}%"></div>
+                  <div class="resource-bar resource-bar-segments">
                     {% for alloc in alloc_items %}
                       {% set alloc_cpu = alloc.get('resources', {}).get('cpu', 0) %}
                       {% if alloc_cpu > 0 %}
@@ -156,8 +157,9 @@
                   <span class="resource-label">Memory</span>
                   <span class="resource-stats">{{ (used_mem / 1024) | int }}GB/{{ (total_mem / 1024) | int }}GB ({{ mem_pct }}%)</span>
                 </div>
-                <div class="resource-bar-container" data-node="{{ node.name }}" data-resource="memory" title="Memory: {{ (used_mem / 1024) | int }}GB/{{ (total_mem / 1024) | int }}GB">
-                  <div class="resource-bar">
+                <div class="resource-bar-container" data-node="{{ node.name }}" data-resource="memory" title="Memory: {{ (used_mem / 1024) | int }}GB/{{ (total_mem / 1024) | int }}GB{% if allocations.get('running_jobs') %} | Jobs: {{ allocations.get('running_jobs') | join(', ') }}{% endif %}">
+                  <div class="resource-bar-fill" style="width: {{ mem_pct }}%"></div>
+                  <div class="resource-bar resource-bar-segments">
                     {% for alloc in alloc_items %}
                       {% set alloc_mem = alloc.get('resources', {}).get('mem', 0) %}
                       {% if alloc_mem > 0 %}
