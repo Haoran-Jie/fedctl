@@ -116,10 +116,27 @@ def list_visible_submissions_for_ui(
         user=None if principal.role == "admin" else principal.name,
     )
     filtered = [row for row in rows if _matches_status_filter(row, status_filter)]
-    filtered.sort(key=lambda row: str(row.get("id") or ""))
-    filtered.sort(key=lambda row: str(row.get("created_at") or ""), reverse=True)
+
+    # Separate blocked and non-blocked for different sorting
+    blocked_jobs = [r for r in filtered if str(r.get("status") or "") == "blocked"]
+    other_jobs = [r for r in filtered if str(r.get("status") or "") != "blocked"]
+
+    # Blocked jobs: sort by created_at ascending (oldest first = FCFS)
+    blocked_jobs.sort(key=lambda row: str(row.get("created_at") or ""))
+
+    # Other jobs: sort by created_at descending (newest first)
+    other_jobs.sort(key=lambda row: str(row.get("created_at") or ""), reverse=True)
+
+    # Combine: blocked first, then others
+    filtered = blocked_jobs + other_jobs
+
+    # Apply final status filter sort if needed
     if status_filter == "all":
-        filtered.sort(key=lambda row: 0 if str(row.get("status") or "") in _ACTIVE_STATUSES else 1)
+        # Active jobs (blocked, running, queued) first, then others
+        active = [r for r in filtered if str(r.get("status") or "") in _ACTIVE_STATUSES]
+        inactive = [r for r in filtered if str(r.get("status") or "") not in _ACTIVE_STATUSES]
+        filtered = active + inactive
+
     return filtered
 
 
