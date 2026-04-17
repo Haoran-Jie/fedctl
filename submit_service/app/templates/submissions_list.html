@@ -90,6 +90,7 @@
       <div class="queue-stage-track">
         {% for row in waiting_rows %}
         <a class="queue-card queue-card-waiting" href="/ui/submissions/{{ row.id }}?return_to={{ return_to | urlencode }}">
+          <span class="queue-card-sequence" title="Position in queue (FCFS)">#{{ loop.index }}</span>
           <span class="queue-card-name" title="{{ row.experiment }}">{{ row.experiment }}</span>
           <span class="queue-card-id">{{ row.id | replace('sub-', '', 1) }}</span>
           <span class="queue-card-reason">{{ row.blocked_reason }}</span>
@@ -146,13 +147,6 @@
           title="Search by submission ID, experiment name, or project name"
           data-auto-submit="260"
         >
-      </div>
-      <div class="filter-group filter-group-actions">
-        {% if search_query or status_filter != 'all' %}
-        <a href="/ui/submissions" class="button secondary filter-reset-button" title="Reset all filters to default view">
-          Clear filters
-        </a>
-        {% endif %}
       </div>
     </form>
   </div>
