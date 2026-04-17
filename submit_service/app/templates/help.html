@@ -19,12 +19,6 @@
     <nav class="help-toc" aria-label="Help page contents">
       <a href="#quickstart" class="help-toc-link" data-help-nav-link>Quick start</a>
       <a href="#reference" class="help-toc-link" data-help-nav-link>Command reference</a>
-      <div class="help-toc-group">
-        {% for command in commands %}
-        {% set command_id = 'command-' ~ (command.name | lower | replace(' ', '-')) %}
-        <a href="#{{ command_id }}" class="help-toc-link help-toc-link-sub" data-help-nav-link>{{ command.name }}</a>
-        {% endfor %}
-      </div>
     </nav>
   </aside>
 
@@ -59,44 +53,24 @@
       </div>
       <div class="help-command-grid">
         {% for command in commands %}
-        {% set command_id = 'command-' ~ (command.name | lower | replace(' ', '-')) %}
-        {% set command_link = request.url_for('help_page') ~ '#' ~ command_id %}
-        <article id="{{ command_id }}" class="help-command-card {% if command.importance == 'primary' %}help-command-primary{% endif %}" data-help-section>
-          <div class="help-command-head">
-            <div class="help-command-title">
-              <h3><a href="#{{ command_id }}" class="help-anchor-link">{{ command.name }}</a></h3>
-              {% if command.importance == 'primary' %}
-              <span class="help-pill">Most important</span>
-              {% endif %}
+        {% set command_slug = command.name | lower | replace(' ', '-') %}
+        {% set detail_url = request.url_for('help_command_detail', command_slug=command_slug) %}
+        <article class="help-command-card help-command-summary {% if command.importance == 'primary' %}help-command-primary{% endif %}" data-help-section>
+          <a href="{{ detail_url }}" class="help-command-link">
+            <div class="help-command-head">
+              <div class="help-command-title">
+                <h3>{{ command.name }}</h3>
+                {% if command.importance == 'primary' %}
+                <span class="help-pill">Most important</span>
+                {% endif %}
+              </div>
+              <div class="help-command-arrow">→</div>
             </div>
-            <div class="help-command-actions">
-              <button type="button" data-copy="{{ command.syntax }}" data-copy-label="Copy" data-copy-done-label="Copied" data-copy-toast="Command copied">Copy</button>
-              <button type="button" data-copy="{{ command_link }}" data-copy-label="Link" data-copy-done-label="Linked" data-copy-toast="Command link copied">Link</button>
+            <p class="muted">{{ command.summary }}</p>
+            <div class="help-command-syntax-preview">
+              <code>{{ command.syntax | truncate(50) }}</code>
             </div>
-          </div>
-          <p class="muted">{{ command.summary }}</p>
-          <div class="help-block">
-            <span class="mapping-label">Syntax</span>
-            <pre><code>{{ command.syntax }}</code></pre>
-          </div>
-          <div class="help-block">
-            <span class="mapping-label">Examples</span>
-            <ul class="help-example-list">
-              {% for example in command.examples %}
-              <li><code>{{ example }}</code></li>
-              {% endfor %}
-            </ul>
-          </div>
-          {% if command.notes %}
-          <div class="help-block">
-            <span class="mapping-label">Notes</span>
-            <ul class="help-note-list">
-              {% for note in command.notes %}
-              <li>{{ note }}</li>
-              {% endfor %}
-            </ul>
-          </div>
-          {% endif %}
+          </a>
         </article>
         {% endfor %}
       </div>

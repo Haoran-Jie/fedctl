@@ -259,6 +259,33 @@ def help_page(request: Request) -> HTMLResponse | RedirectResponse:
     )
 
 
+@router.get("/ui/help/{command_slug}", response_class=HTMLResponse, response_model=None)
+def help_command_detail(command_slug: str, request: Request) -> HTMLResponse | RedirectResponse:
+    principal = current_ui_principal(request)
+    if principal is None:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    # Find command by slug (convert name to slug format)
+    command = None
+    for cmd in _HELP_COMMANDS:
+        cmd_slug = cmd["name"].lower().replace(" ", "-")
+        if cmd_slug == command_slug:
+            command = cmd
+            break
+
+    if command is None:
+        return RedirectResponse(url="/ui/help", status_code=303)
+
+    return _render(
+        request,
+        "help_command_detail.html",
+        {
+            "command": command,
+            "all_commands": _HELP_COMMANDS,
+        },
+    )
+
+
 @router.get("/ui/submissions/{submission_id}", response_class=HTMLResponse, response_model=None)
 def submission_detail_page(
     submission_id: str,
