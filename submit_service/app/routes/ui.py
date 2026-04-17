@@ -909,6 +909,7 @@ def _summarize_nodes_by_class(nodes: list[dict[str, Any]]) -> list[dict[str, Any
 
 
 def _node_view(node: dict[str, Any]) -> dict[str, Any]:
+    resources = node.get("resources") if isinstance(node.get("resources"), dict) else {}
     allocations = node.get("allocations") if isinstance(node.get("allocations"), dict) else {}
     alloc_items = allocations.get("items") if isinstance(allocations.get("items"), list) else []
     running_jobs = (
@@ -923,6 +924,8 @@ def _node_view(node: dict[str, Any]) -> dict[str, Any]:
         "status": node.get("status") or "unknown",
         "node_class": node.get("node_class") or "-",
         "device_type": node.get("device_type") or "-",
+        "resources": resources,
+        "allocations": allocations,
         "alloc_count": alloc_count,
         "running_job_count": len(running_jobs),
         "running_jobs": ", ".join(str(job_id) for job_id in running_jobs) or "-",
