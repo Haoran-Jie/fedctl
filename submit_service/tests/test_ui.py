@@ -393,9 +393,11 @@ def test_ui_nodes_page_renders_node_resource_totals_and_usage(
     assert page.status_code == 200
     assert "1000/4000 (25%)" in page.text
     assert "2GB/8GB (25%)" in page.text
+    assert 'class="resource-bar-fill" style="width: 25%' in page.text
     assert page.text.count('class="resource-segment"') == 4
     assert 'data-job-id="job-a"' in page.text
     assert 'data-job-id="job-b"' in page.text
+    assert 'title="CPU: 1000/4000 | Jobs: job-a"' in page.text
     assert 'title="job-a: 700 CPU"' in page.text
     assert 'title="job-b: 1GB"' in page.text
 

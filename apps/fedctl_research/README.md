@@ -44,8 +44,8 @@ Deployment-side presets live under `repo_configs/`:
 - `repo_configs/smoke/compute_heterogeneity.yaml`: 4-node compute-heterogeneity smoke validation
 - `repo_configs/smoke/network_heterogeneity.yaml`: 4-node network-heterogeneity smoke validation
 - `repo_configs/compute_heterogeneity/main/none.yaml`: 12-node balanced mixed-hardware main-study profile with no impairment
-- `repo_configs/network_heterogeneity/main/mixed/none.yaml`: 20-node mixed-device async main-study profile with no impairment
-- `repo_configs/network_heterogeneity/main/all_rpi5/none.yaml`: 20-node all-RPi5 packed async main-study profile with no impairment
+- `repo_configs/network_heterogeneity/main/mixed/none.yaml`: 15-node mixed-device async main-study profile with no impairment
+- `repo_configs/network_heterogeneity/main/all_rpi5/none.yaml`: 15-node all-RPi5 async main-study profile with no impairment
 - `repo_configs/network_heterogeneity/ablations/deployment_stressors/*.yaml`: network-heterogeneity stressor presets, including named impairment profiles
 - `repo_configs/network_heterogeneity/ablations/scale_concurrency/scale_async/*.yaml`: larger-cluster scaling profiles
 

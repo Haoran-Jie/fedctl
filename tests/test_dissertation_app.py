@@ -2920,19 +2920,23 @@ def test_main_study_configs_match_balanced_twelve_node_plan() -> None:
         is_fashion = "fashion_mnist_cnn" in str(path)
         is_cifar10 = "cifar10_cnn" in str(path)
         is_iid = "/iid/" in str(path)
+        is_all_rpi5 = "/all_rpi5/" in str(path)
         expected_rounds = 15 if is_fashion else 50
         expected_train_examples = 5000 if is_fashion else 2500
         expected_test_examples = 834 if is_fashion else 500
-        expected_nodes = 12 if is_fashion else 20
+        expected_nodes = 12 if is_fashion else 15
         if data["experiment"]["method"] in {"fedbuff", "fedstaleweight"}:
             expected_steps = 15 if is_fashion else 100
             assert data["fedbuff"]["num-server-steps"] == expected_steps, str(path)
             if is_fashion:
                 expected_train_concurrency = 8
                 expected_buffer_size = 10
+            elif is_all_rpi5:
+                expected_train_concurrency = 15
+                expected_buffer_size = 10
             else:
-                expected_train_concurrency = 20
-                expected_buffer_size = 5
+                expected_train_concurrency = 15
+                expected_buffer_size = 10
             assert data["fedbuff"]["train-concurrency"] == expected_train_concurrency, str(path)
             assert data["fedbuff"]["buffer-size"] == expected_buffer_size, str(path)
             assert data["fedbuff"]["staleness-alpha"] == 0.5, str(path)
@@ -2989,14 +2993,14 @@ def test_main_study_configs_match_balanced_twelve_node_plan() -> None:
         ).read_text()
     )
     assert compute_repo["deploy"]["supernodes"] == {"rpi4": 10, "rpi5": 10}
-    assert network_mixed_repo["deploy"]["supernodes"] == {"rpi4": 10, "rpi5": 10}
+    assert network_mixed_repo["deploy"]["supernodes"] == {"rpi4": 5, "rpi5": 10}
     assert network_mixed_repo["deploy"]["placement"] == {
         "allow_oversubscribe": False,
         "spread_across_hosts": True,
     }
-    assert network_all_rpi5_repo["deploy"]["supernodes"] == {"rpi4": 0, "rpi5": 20}
+    assert network_all_rpi5_repo["deploy"]["supernodes"] == {"rpi4": 0, "rpi5": 15}
     assert network_all_rpi5_repo["deploy"]["placement"] == {
         "allow_oversubscribe": True,
-        "spread_across_hosts": False,
+        "spread_across_hosts": True,
         "prefer_spread_across_hosts": True,
     }
