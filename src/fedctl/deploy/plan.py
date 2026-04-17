@@ -11,6 +11,7 @@ class SupernodePlacement:
     device_type: str | None
     instance_idx: int
     node_id: str | None
+    preferred_node_id: str | None = None
 
 
 def parse_supernodes(values: Iterable[str]) -> dict[str, int]:
@@ -39,6 +40,7 @@ def plan_supernodes(
     counts: dict[str, int],
     allow_oversubscribe: bool,
     spread_across_hosts: bool = False,
+    prefer_spread_across_hosts: bool = False,
     nodes: list[dict[str, Any]] | None,
 ) -> list[SupernodePlacement]:
     placements: list[SupernodePlacement] = []
@@ -47,12 +49,31 @@ def plan_supernodes(
             continue
         requires_host_placement = spread_across_hosts or not allow_oversubscribe
         if not requires_host_placement:
+            if prefer_spread_across_hosts:
+                if nodes is None:
+                    raise ValueError("Node inventory required for soft host-spread placement.")
+                available = _nodes_by_type(nodes, device_type)
+                if not available:
+                    raise ValueError(
+                        f"Insufficient nodes for device_type '{device_type}': need at least 1, have 0."
+                    )
+                for idx in range(1, count + 1):
+                    placements.append(
+                        SupernodePlacement(
+                            device_type=device_type,
+                            instance_idx=idx,
+                            node_id=None,
+                            preferred_node_id=available[(idx - 1) % len(available)],
+                        )
+                    )
+                continue
             for idx in range(1, count + 1):
                 placements.append(
                     SupernodePlacement(
                         device_type=device_type,
                         instance_idx=idx,
                         node_id=None,
+                        preferred_node_id=None,
                     )
                 )
             continue
@@ -71,6 +92,7 @@ def plan_supernodes(
                     device_type=device_type,
                     instance_idx=idx,
                     node_id=available[idx - 1],
+                    preferred_node_id=available[idx - 1],
                 )
             )
     return placements

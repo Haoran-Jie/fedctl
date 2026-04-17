@@ -10,7 +10,8 @@
       {
         "Name": "{{ job_name }}",
         "Count": 1,
-        "Constraints": {{ constraints | tojson }},
+        "Constraints": {{ constraints | tojson }}{% if affinities %},
+        "Affinities": {{ affinities | tojson }}{% endif %},
         "Tasks": [
           {
             "Name": "{{ job_name }}",

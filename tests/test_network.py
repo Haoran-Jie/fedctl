@@ -91,3 +91,36 @@ def test_plan_supernodes_spread_across_hosts_pins_nodes_even_when_oversubscribed
         SupernodePlacement(device_type="rpi4", instance_idx=1, node_id="node-a"),
         SupernodePlacement(device_type="rpi4", instance_idx=2, node_id="node-b"),
     ]
+
+
+def test_plan_supernodes_prefer_spread_across_hosts_softly_prefers_nodes() -> None:
+    nodes = [
+        {"ID": "node-a", "Name": "rpi5-001"},
+        {"ID": "node-b", "Name": "rpi5-002"},
+    ]
+    placements = plan_supernodes(
+        counts={"rpi5": 3},
+        allow_oversubscribe=True,
+        prefer_spread_across_hosts=True,
+        nodes=nodes,
+    )
+    assert placements == [
+        SupernodePlacement(
+            device_type="rpi5",
+            instance_idx=1,
+            node_id=None,
+            preferred_node_id="node-a",
+        ),
+        SupernodePlacement(
+            device_type="rpi5",
+            instance_idx=2,
+            node_id=None,
+            preferred_node_id="node-b",
+        ),
+        SupernodePlacement(
+            device_type="rpi5",
+            instance_idx=3,
+            node_id=None,
+            preferred_node_id="node-a",
+        ),
+    ]

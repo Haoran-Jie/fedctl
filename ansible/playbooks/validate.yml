@@ -98,16 +98,19 @@
 - name: Validate Tailscale connectivity
   hosts: tailscale_nodes
   become: true
+  vars_files:
+    - ../group_vars/all.yml
+    - ../group_vars/tailscale_nodes.yml
   tasks:
     - name: Check Tailscale status
       ansible.builtin.command: tailscale status --json
       register: tailscale_validate_status
       changed_when: false
-      when: tailscale_enabled
+      when: tailscale_enabled | default(false)
 
     - name: Validate Tailscale backend state is running
       ansible.builtin.assert:
         that:
           - (tailscale_validate_status.stdout | from_json).BackendState == 'Running'
         fail_msg: "Tailscale is not running on {{ inventory_hostname }}"
-      when: tailscale_enabled
+      when: tailscale_enabled | default(false)

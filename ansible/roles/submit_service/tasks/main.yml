@@ -3,12 +3,17 @@
   ansible.builtin.apt:
     name:
       - git
-      - nginx
       - python3
       - python3-pip
       - python3-venv
     state: present
     update_cache: true
+
+- name: Ensure nginx is installed for submit reverse proxy
+  ansible.builtin.apt:
+    name: nginx
+    state: present
+  when: submit_reverse_proxy_enabled | default(false)
 
 - name: Ensure submit service base directory exists
   ansible.builtin.file:
@@ -183,7 +188,6 @@
     name: fedctl-submit
     enabled: true
     state: started
-    daemon_reload: true
 
 - name: Write nginx site for submit service
   ansible.builtin.template:

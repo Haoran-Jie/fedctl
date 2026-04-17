@@ -81,6 +81,7 @@ def test_resolve_experiment_config_normalizes_nested_project_relative_file(tmp_p
                 "[fedbuff]",
                 "buffer-size = 10",
                 "train-concurrency = 4",
+                "server-learning-rate = 0.5",
                 "",
                     "[fiarse]",
                     'threshold-mode = "layerwise"',
@@ -127,6 +128,7 @@ def test_resolve_experiment_config_normalizes_nested_project_relative_file(tmp_p
     assert normalized["fedavgm-server-momentum"] == 0.9
     assert normalized["fedbuff-buffer-size"] == 10
     assert normalized["fedbuff-train-concurrency"] == 4
+    assert normalized["fedbuff-server-learning-rate"] == 0.5
     assert normalized["fiarse-threshold-mode"] == "layerwise"
     assert normalized["fiarse-global-learning-rate"] == 0.75
     assert normalized["client-eval-enabled"] is False

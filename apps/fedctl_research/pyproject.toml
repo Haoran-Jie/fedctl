@@ -77,6 +77,7 @@ fedbuff-num-server-steps = 3
 fedbuff-evaluate-every-steps = 1
 fedbuff-staleness-weighting = "polynomial"
 fedbuff-staleness-alpha = 0.5
+fedbuff-server-learning-rate = 1.0
 client-eval-enabled = true
 final-client-eval-enabled = false
 submodel-local-eval-enabled = false

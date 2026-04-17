@@ -193,6 +193,10 @@ def get_fedbuff_staleness_alpha(run_config: Mapping[str, object]) -> float:
     return float(lookup_or_default(run_config, "fedbuff-staleness-alpha", 0.5))
 
 
+def get_fedbuff_server_learning_rate(run_config: Mapping[str, object]) -> float:
+    return float(lookup_or_default(run_config, "fedbuff-server-learning-rate", 1.0))
+
+
 def get_fiarse_threshold_mode(run_config: Mapping[str, object]) -> str:
     return str(lookup_or_default(run_config, "fiarse-threshold-mode", "global")).strip().lower() or "global"
 
