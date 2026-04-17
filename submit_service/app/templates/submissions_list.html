@@ -151,14 +151,8 @@
     </form>
   </div>
 
-  <div class="status-legend" data-status-legend>
-    <div class="legend-header">
-      <span class="legend-title">Status legend</span>
-      <button type="button" class="legend-toggle" aria-expanded="false" aria-controls="legend-content" data-legend-toggle>
-        <span class="legend-toggle-icon">▼</span>
-      </button>
-    </div>
-    <div id="legend-content" class="legend-content" aria-hidden="true">
+  <div class="status-legend">
+    <div class="legend-grid">
       <div class="legend-item">
         <span class="legend-marker" style="background-color: var(--running);"></span>
         <div class="legend-text">
@@ -303,19 +297,6 @@
       if (!row) return;
       window.location.href = row.dataset.href;
     });
-
-    // Status legend toggle functionality
-    const legendToggle = document.querySelector('[data-legend-toggle]');
-    const legendContent = document.getElementById('legend-content');
-    if (legendToggle && legendContent) {
-      legendToggle.addEventListener('click', () => {
-        const isExpanded = legendToggle.getAttribute('aria-expanded') === 'true';
-        legendToggle.setAttribute('aria-expanded', !isExpanded);
-        legendContent.setAttribute('aria-hidden', isExpanded);
-        legendContent.classList.toggle('is-visible');
-        legendToggle.classList.toggle('is-expanded');
-      });
-    }
   })();
 </script>
 {% endblock %}
