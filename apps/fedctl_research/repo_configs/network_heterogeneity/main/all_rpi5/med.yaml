@@ -1,7 +1,7 @@
 deploy:
   supernodes:
-    rpi4: 20
-    rpi5: 30
+    rpi4: 0
+    rpi5: 20
   superexec:
     env:
       WANDB_API_KEY: "REPLACE_WANDB_API_KEY"
@@ -12,15 +12,11 @@ deploy:
     spread_across_hosts: false
   resources:
     supernode:
-      default: { cpu: 1000, mem: 1024 }
-      rpi4: { cpu: 1000, mem: 1024 }
-      rpi5: { cpu: 1000, mem: 1024 }
-    superexec_clientapp: { cpu: 2000, mem: 2048 }
-    superexec_serverapp: { cpu: 2000, mem: 2048 }
-    superlink: { cpu: 1000, mem: 1024 }
+      default: { cpu: 500, mem: 512 }
+      rpi5: { cpu: 500, mem: 512 }
   network:
     image: "REPLACE_NETEM_IMAGE"
-    default_profile: mild
+    default_profile: med
     interface: eth0
     apply:
       superexec_serverapp: false

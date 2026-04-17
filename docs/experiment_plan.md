@@ -503,7 +503,7 @@ Use these repo-config templates with the application-side configs:
 - `apps/fedctl_research/repo_configs/smoke/compute_heterogeneity.yaml`
 - `apps/fedctl_research/repo_configs/smoke/network_heterogeneity.yaml`
 - `apps/fedctl_research/repo_configs/compute_heterogeneity/main/none.yaml`
-- `apps/fedctl_research/repo_configs/network_heterogeneity/main/low_concurrency/none.yaml`
+- `apps/fedctl_research/repo_configs/network_heterogeneity/main/mixed/none.yaml`
 - `apps/fedctl_research/repo_configs/network_heterogeneity/ablations/deployment_stressors/*.yaml`
 - `apps/fedctl_research/repo_configs/network_heterogeneity/ablations/scale_concurrency/scale_async/*.yaml`
 

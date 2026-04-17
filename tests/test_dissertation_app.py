@@ -286,8 +286,8 @@ def test_network_heterogeneity_experiment_config_tree_contains_expected_families
         config_root / "smoke" / "network_heterogeneity" / "fashion_mnist_mlp" / "fedbuff_k10.toml",
         config_root / "network_heterogeneity" / "main" / "fashion_mnist_cnn" / "fedavg.toml",
         config_root / "network_heterogeneity" / "main" / "fashion_mnist_cnn" / "fedstaleweight.toml",
-        config_root / "network_heterogeneity" / "main" / "cifar10_cnn" / "low_concurrency" / "fedbuff.toml",
-        config_root / "network_heterogeneity" / "main" / "cifar10_cnn" / "high_concurrency" / "fedstaleweight.toml",
+        config_root / "network_heterogeneity" / "main" / "cifar10_cnn" / "iid" / "mixed" / "fedbuff.toml",
+        config_root / "network_heterogeneity" / "main" / "cifar10_cnn" / "noniid" / "all_rpi5" / "fedstaleweight.toml",
         config_root / "network_heterogeneity" / "ablations" / "scale_concurrency" / "scale_async" / "cifar10_cnn" / "fedbuff_c24_k10.toml",
         config_root / "network_heterogeneity" / "ablations" / "scale_concurrency" / "buffer_k" / "cifar10_cnn" / "fedbuff_k20.toml",
         config_root / "network_heterogeneity" / "ablations" / "stale_update_control" / "staleness_weighting" / "cifar10_cnn" / "fedbuff_polynomial.toml",
@@ -307,9 +307,9 @@ def test_fedbuff_repo_config_tree_contains_expected_profiles() -> None:
         repo_root / "smoke" / "compute_heterogeneity.yaml",
         repo_root / "smoke" / "network_heterogeneity.yaml",
         repo_root / "compute_heterogeneity" / "main" / "none.yaml",
-        repo_root / "network_heterogeneity" / "main" / "low_concurrency" / "none.yaml",
-        repo_root / "network_heterogeneity" / "main" / "high_concurrency" / "mild.yaml",
-        repo_root / "network_heterogeneity" / "main" / "high_concurrency" / "med.yaml",
+        repo_root / "network_heterogeneity" / "main" / "mixed" / "none.yaml",
+        repo_root / "network_heterogeneity" / "main" / "all_rpi5" / "mild.yaml",
+        repo_root / "network_heterogeneity" / "main" / "all_rpi5" / "med.yaml",
         repo_root / "network_heterogeneity" / "ablations" / "deployment_stressors" / "asym_down.yaml",
         repo_root / "network_heterogeneity" / "ablations" / "scale_concurrency" / "scale_async" / "med.yaml",
     ]
@@ -2912,24 +2912,20 @@ def test_main_study_configs_match_balanced_twelve_node_plan() -> None:
         data = tomllib.loads(path.read_text())
         is_fashion = "fashion_mnist_cnn" in str(path)
         is_cifar10 = "cifar10_cnn" in str(path)
-        is_low_concurrency = "low_concurrency" in str(path)
-        is_high_concurrency = "high_concurrency" in str(path)
+        is_iid = "/iid/" in str(path)
         expected_rounds = 15 if is_fashion else 50
         expected_train_examples = 5000 if is_fashion else 2500
         expected_test_examples = 834 if is_fashion else 500
-        expected_nodes = 12 if is_fashion else (50 if is_high_concurrency else 20)
+        expected_nodes = 12 if is_fashion else 20
         if data["experiment"]["method"] in {"fedbuff", "fedstaleweight"}:
             expected_steps = 15 if is_fashion else 100
             assert data["fedbuff"]["num-server-steps"] == expected_steps, str(path)
             if is_fashion:
                 expected_train_concurrency = 8
                 expected_buffer_size = 10
-            elif is_high_concurrency:
-                expected_train_concurrency = 50
-                expected_buffer_size = 10
             else:
                 expected_train_concurrency = 20
-                expected_buffer_size = 5 if is_low_concurrency else 10
+                expected_buffer_size = 5
             assert data["fedbuff"]["train-concurrency"] == expected_train_concurrency, str(path)
             assert data["fedbuff"]["buffer-size"] == expected_buffer_size, str(path)
             assert data["fedbuff"]["staleness-alpha"] == 0.5, str(path)
@@ -2945,46 +2941,54 @@ def test_main_study_configs_match_balanced_twelve_node_plan() -> None:
         assert data["client"]["local-epochs"] == 1, str(path)
         assert data["client"]["learning-rate"] == 0.01, str(path)
         if is_cifar10:
-            assert data["data"]["partitioning"] == "dirichlet", str(path)
-            assert data["data"]["partitioning-dirichlet-alpha"] == 0.3, str(path)
+            expected_partitioning = "iid" if is_iid else "dirichlet"
+            assert data["data"]["partitioning"] == expected_partitioning, str(path)
+            if not is_iid:
+                assert data["data"]["partitioning-dirichlet-alpha"] == 0.3, str(path)
             assert data["evaluation"]["target-score"] == 0.60, str(path)
             assert data["evaluation"]["stop-on-target-score"] is True, str(path)
             assert data["evaluation"]["client-eval-enabled"] is False, str(path)
             assert data["evaluation"]["final-client-eval-enabled"] is False, str(path)
-        assert data["devices"]["rpi4"]["batch-size"] == 8, str(path)
+        expected_network_rpi4_batch = 32 if is_cifar10 else 8
+        expected_network_rpi5_batch = 32
+        assert data["devices"]["rpi4"]["batch-size"] == expected_network_rpi4_batch, str(path)
         assert data["devices"]["rpi4"]["max-train-examples"] == expected_train_examples, str(path)
         assert data["devices"]["rpi4"]["max-test-examples"] == expected_test_examples, str(path)
-        assert data["devices"]["rpi5"]["batch-size"] == 32, str(path)
+        assert data["devices"]["rpi5"]["batch-size"] == expected_network_rpi5_batch, str(path)
         assert data["devices"]["rpi5"]["max-train-examples"] == expected_train_examples, str(path)
         assert data["devices"]["rpi5"]["max-test-examples"] == expected_test_examples, str(path)
 
     compute_repo = yaml.safe_load(
         (app_root / "repo_configs" / "compute_heterogeneity" / "main" / "none.yaml").read_text()
     )
-    network_low_repo = yaml.safe_load(
+    network_mixed_repo = yaml.safe_load(
         (
             app_root
             / "repo_configs"
             / "network_heterogeneity"
             / "main"
-            / "low_concurrency"
+            / "mixed"
             / "none.yaml"
         ).read_text()
     )
-    network_high_repo = yaml.safe_load(
+    network_all_rpi5_repo = yaml.safe_load(
         (
             app_root
             / "repo_configs"
             / "network_heterogeneity"
             / "main"
-            / "high_concurrency"
+            / "all_rpi5"
             / "none.yaml"
         ).read_text()
     )
     assert compute_repo["deploy"]["supernodes"] == {"rpi4": 10, "rpi5": 10}
-    assert network_low_repo["deploy"]["supernodes"] == {"rpi4": 10, "rpi5": 10}
-    assert network_high_repo["deploy"]["supernodes"] == {"rpi4": 20, "rpi5": 30}
-    assert network_high_repo["deploy"]["placement"] == {
+    assert network_mixed_repo["deploy"]["supernodes"] == {"rpi4": 10, "rpi5": 10}
+    assert network_mixed_repo["deploy"]["placement"] == {
+        "allow_oversubscribe": False,
+        "spread_across_hosts": True,
+    }
+    assert network_all_rpi5_repo["deploy"]["supernodes"] == {"rpi4": 0, "rpi5": 20}
+    assert network_all_rpi5_repo["deploy"]["placement"] == {
         "allow_oversubscribe": True,
         "spread_across_hosts": False,
     }
