@@ -21,6 +21,7 @@ from fedctl_research.config import (
     get_fedbuff_evaluate_every_steps,
     get_fedbuff_num_server_steps,
     get_fedbuff_poll_interval_s,
+    get_fedbuff_server_learning_rate,
     get_fedbuff_staleness_alpha,
     get_fedbuff_staleness_weighting,
     get_fedbuff_train_concurrency,
@@ -83,11 +84,13 @@ def _clone_state(state: OrderedDict[str, torch.Tensor]) -> OrderedDict[str, torc
 def _apply_aggregated_delta(
     current_state: OrderedDict[str, torch.Tensor],
     aggregate_delta: OrderedDict[str, torch.Tensor],
+    *,
+    server_learning_rate: float = 1.0,
 ) -> OrderedDict[str, torch.Tensor]:
     return OrderedDict(
         (
             key,
-            current_state[key].detach().clone() - aggregate_delta[key],
+            current_state[key].detach().clone() - (float(server_learning_rate) * aggregate_delta[key]),
         )
         for key in current_state
     )
@@ -220,6 +223,7 @@ def _log_async_loop_header(
     concurrency: int,
     buffer_size: int,
     evaluate_every_steps: int,
+    server_learning_rate: float,
     staleness_mode: str,
     staleness_alpha: float,
     client_trip_budget: int | None,
@@ -229,6 +233,7 @@ def _log_async_loop_header(
     log(INFO, " ├── Train concurrency: %s", concurrency)
     log(INFO, " ├── Buffer size: %s", buffer_size)
     log(INFO, " ├── Evaluate every: %s step(s)", evaluate_every_steps)
+    log(INFO, " ├── Server learning rate: %s", server_learning_rate)
     log(INFO, " ├── Staleness weighting: %s", staleness_mode)
     log(INFO, " ├── Staleness alpha: %s", staleness_alpha)
     if client_trip_budget is not None:
@@ -282,6 +287,7 @@ def run_fedbuff_server(
     poll_interval_s = get_fedbuff_poll_interval_s(context.run_config)
     staleness_mode = staleness_mode_override or get_fedbuff_staleness_weighting(context.run_config)
     staleness_alpha = get_fedbuff_staleness_alpha(context.run_config)
+    server_learning_rate = get_fedbuff_server_learning_rate(context.run_config)
     client_eval_enabled = get_client_eval_enabled(context.run_config)
     final_client_eval_enabled = get_final_client_eval_enabled(context.run_config)
     lr = get_float(context.run_config, "learning-rate")
@@ -311,6 +317,7 @@ def run_fedbuff_server(
         concurrency=concurrency,
         buffer_size=buffer_size,
         evaluate_every_steps=evaluate_every_steps,
+        server_learning_rate=server_learning_rate,
         staleness_mode=staleness_mode,
         staleness_alpha=staleness_alpha,
         client_trip_budget=target_controller.client_trip_budget,
@@ -470,11 +477,14 @@ def run_fedbuff_server(
                         cumulative_staleness_sums[entry.device_type] += float(entry.staleness)
                     for key, tensor in entry.delta.items():
                         aggregate[key].add_(tensor, alpha=normalized_weight)
-                # `aggregate` is already a weighted parameter delta reconstructed
-                # from client-updated local states, so applying `lr` again would
-                # incorrectly shrink the global step by another factor of the
-                # client learning rate.
-                new_state = _apply_aggregated_delta(current_state, aggregate)
+                # FedBuff applies a separate server-side step size eta_g to the
+                # buffered aggregate. Keep that explicit instead of baking it
+                # into the aggregate scaling itself.
+                new_state = _apply_aggregated_delta(
+                    current_state,
+                    aggregate,
+                    server_learning_rate=server_learning_rate,
+                )
                 current_state = new_state
                 server_step += 1
                 model_history[server_step] = _clone_state(current_state)

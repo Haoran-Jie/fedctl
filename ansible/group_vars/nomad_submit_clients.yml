@@ -1,0 +1,2 @@
+---
+nomad_client_enable_docker_socket: true

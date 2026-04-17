@@ -973,13 +973,19 @@ def test_fedstaleweight_emits_fairness_step_log(
     assert "[fedstaleweight][server] fairness weight_share_rpi4=1.00 weight_share_rpi5=0.00 update_share_rpi4=1.00 update_share_rpi5=0.00" in captured.out
 
 
-def test_fedbuff_applies_aggregated_parameter_delta_without_extra_lr_scaling() -> None:
+def test_fedbuff_applies_aggregated_parameter_delta_with_explicit_server_lr() -> None:
     current_state = OrderedDict({"weight": torch.tensor([1.0])})
     aggregate_delta = OrderedDict({"weight": torch.tensor([0.2])})
 
     new_state = _apply_aggregated_delta(current_state, aggregate_delta)
+    slower_state = _apply_aggregated_delta(
+        current_state,
+        aggregate_delta,
+        server_learning_rate=0.5,
+    )
 
     assert new_state["weight"].item() == pytest.approx(0.8)
+    assert slower_state["weight"].item() == pytest.approx(0.9)
 
 
 def test_fedrolex_rolling_indices_change_across_rounds() -> None:
@@ -2197,6 +2203,7 @@ def test_app_base_config_includes_target_stop_keys() -> None:
     assert "target-score" in base_config
     assert "stop-on-target-score" in base_config
     assert "submodel-local-eval-enabled" in base_config
+    assert "fedbuff-server-learning-rate" in base_config
 
 
 def test_sync_strategy_logs_per_client_eval_events() -> None:
@@ -2991,4 +2998,5 @@ def test_main_study_configs_match_balanced_twelve_node_plan() -> None:
     assert network_all_rpi5_repo["deploy"]["placement"] == {
         "allow_oversubscribe": True,
         "spread_across_hosts": False,
+        "prefer_spread_across_hosts": True,
     }

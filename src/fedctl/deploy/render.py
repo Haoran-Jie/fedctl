@@ -246,11 +246,13 @@ def _supernodes_context(spec: DeploySpec) -> dict[str, Any]:
                 ],
             }
         )
+        affinities = _preferred_node_affinities(placement)
         task_groups.append(
             {
                 "Name": group_name,
                 "Count": 1,
                 "Constraints": constraints,
+                **({"Affinities": affinities} if affinities else {}),
                 "Networks": [{"DynamicPorts": [{"Label": "clientappio"}]}],
                 "Tasks": tasks,
             }
@@ -766,6 +768,7 @@ def _superexec_clientapp_context(
         "namespace": spec.namespace,
         "update": _job_update_stanza(),
         "constraints": constraints,
+        "affinities": _preferred_node_affinities(placement),
         "image": spec.superexec.image,
         "entrypoint": entrypoint,
         "args": task_args,
@@ -783,6 +786,19 @@ def _superexec_clientapp_context(
         "env": env,
         "cap_add": cap_add,
     }
+
+
+def _preferred_node_affinities(placement: SupernodePlacement) -> list[dict[str, Any]]:
+    if placement.node_id or not placement.preferred_node_id:
+        return []
+    return [
+        {
+            "LTarget": "${node.unique.id}",
+            "Operand": "=",
+            "RTarget": placement.preferred_node_id,
+            "Weight": 100,
+        }
+    ]
 
 
 def _nomad_service_env(service_name: str, var_name: str) -> str:

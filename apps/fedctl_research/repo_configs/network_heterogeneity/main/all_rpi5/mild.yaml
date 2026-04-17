@@ -4,18 +4,23 @@ deploy:
     rpi5: 20
   superexec:
     env:
-      WANDB_API_KEY: "REPLACE_WANDB_API_KEY"
+      WANDB_API_KEY: "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"
       WANDB_PROJECT: "fedctl"
-      WANDB_ENTITY: "REPLACE_WANDB_ENTITY"
+      WANDB_ENTITY: "samueljie1-the-university-of-cambridge"
   placement:
     allow_oversubscribe: true
     spread_across_hosts: false
+    prefer_spread_across_hosts: true
   resources:
     supernode:
-      default: { cpu: 500, mem: 512 }
-      rpi5: { cpu: 500, mem: 512 }
+      default: { cpu: 1000, mem: 1024 }
+      rpi4: { cpu: 1000, mem: 1024 }
+      rpi5: { cpu: 1000, mem: 1024 }
+    superexec_clientapp: { cpu: 2000, mem: 2048 }
+    superexec_serverapp: { cpu: 2000, mem: 2048 }
+    superlink: { cpu: 1000, mem: 1024 }
   network:
-    image: "REPLACE_NETEM_IMAGE"
+    image: "jiahborcn/netem:latest"
     default_profile: mild
     interface: eth0
     apply:
@@ -29,13 +34,13 @@ deploy:
       asym_down: { delay_ms: 30, jitter_ms: 5, loss_pct: 0.5, rate_mbit: 80, rate_latency_ms: 50, rate_burst_kbit: 256 }
 
 submit:
-  image: "REPLACE_SUBMIT_IMAGE"
-  artifact_store: "REPLACE_ARTIFACT_STORE"
-  endpoint: "REPLACE_SUBMIT_ENDPOINT"
-  token: "REPLACE_SUBMIT_TOKEN"
-  user: "REPLACE_SUBMIT_USER"
+  image: "128.232.61.111:5000/fedctl-submit:latest"
+  artifact_store: "s3+presign://fedctl-submits/fedctl-submits"
+  endpoint: "http://fedctl.cl.cam.ac.uk"
+  token: "flwruser1"
+  user: "samuel"
 
 submit-service:
-  image_registry: "REPLACE_CLUSTER_IMAGE_REGISTRY"
+  image_registry: "128.232.61.111:5000"
 
-image_registry: "REPLACE_LAPTOP_IMAGE_REGISTRY"
+image_registry: "100.82.158.122:5000"

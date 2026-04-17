@@ -150,6 +150,56 @@ def test_render_deploy_keeps_clientapp_colocated_with_pinned_supernode() -> None
     )
 
 
+def test_render_deploy_soft_host_spread_adds_affinity_without_pinning() -> None:
+    placements = [
+        SupernodePlacement(
+            device_type="rpi5",
+            instance_idx=1,
+            node_id=None,
+            preferred_node_id="node-rpi5-a",
+        ),
+    ]
+    spec = default_deploy_spec(
+        num_supernodes=1,
+        image="example/superexec:latest",
+        experiment="exp-test",
+        supernodes_by_type={"rpi5": 1},
+        allow_oversubscribe=True,
+        prefer_spread_across_hosts=True,
+        placements=placements,
+    )
+    rendered = render_deploy(spec)
+
+    supernode_group = rendered.supernodes["Job"]["TaskGroups"][0]
+    client_group = rendered.superexec_clientapps[0]["Job"]["TaskGroups"][0]
+
+    assert not any(
+        c.get("LTarget") == "${node.unique.id}"
+        for c in supernode_group["Constraints"]
+    )
+    assert supernode_group["Affinities"] == [
+        {
+            "LTarget": "${node.unique.id}",
+            "Operand": "=",
+            "RTarget": "node-rpi5-a",
+            "Weight": 100,
+        }
+    ]
+
+    assert not any(
+        c.get("LTarget") == "${node.unique.id}"
+        for c in client_group["Constraints"]
+    )
+    assert client_group["Affinities"] == [
+        {
+            "LTarget": "${node.unique.id}",
+            "Operand": "=",
+            "RTarget": "node-rpi5-a",
+            "Weight": 100,
+        }
+    ]
+
+
 def test_render_deploy_superexec_jobs_include_custom_env() -> None:
     spec = default_deploy_spec(
         num_supernodes=1,

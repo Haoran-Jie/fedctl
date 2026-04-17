@@ -215,6 +215,24 @@ def test_repo_deploy_config_extracts_spread_across_hosts() -> None:
     assert repo_defaults.spread_across_hosts is True
 
 
+def test_repo_deploy_config_extracts_prefer_spread_across_hosts() -> None:
+    repo_defaults = _repo_deploy_config(
+        {
+            "deploy": {
+                "placement": {
+                    "allow_oversubscribe": True,
+                    "spread_across_hosts": False,
+                    "prefer_spread_across_hosts": True,
+                }
+            }
+        }
+    )
+
+    assert repo_defaults.allow_oversubscribe is True
+    assert repo_defaults.spread_across_hosts is False
+    assert repo_defaults.prefer_spread_across_hosts is True
+
+
 def test_repo_deploy_config_extracts_experiment_side_resource_overrides() -> None:
     repo_defaults = _repo_deploy_config(
         {
