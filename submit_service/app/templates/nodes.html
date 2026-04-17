@@ -96,14 +96,21 @@
             <th class="col-node-name">Name</th>
             <th class="col-node-status">Status</th>
             <th class="col-node-device">Device type</th>
-            <th class="col-node-alloc">Alloc count</th>
-            <th class="col-node-running">Running jobs</th>
-            <th class="col-node-summary">Alloc summary</th>
+            <th class="col-node-resources">Resources</th>
             <th class="col-node-details">Details</th>
           </tr>
         </thead>
         <tbody>
           {% for node in group.nodes %}
+          {% set resources = node.get('resources', {}) %}
+          {% set allocations = node.get('allocations', {}) %}
+          {% set total_cpu = resources.get('total_cpu') or 0 %}
+          {% set total_mem = resources.get('total_mem') or 0 %}
+          {% set used_cpu = resources.get('used_cpu', 0) %}
+          {% set used_mem = resources.get('used_mem', 0) %}
+          {% set cpu_pct = ((used_cpu / total_cpu) * 100) | int if total_cpu > 0 else 0 %}
+          {% set mem_pct = ((used_mem / total_mem) * 100) | int if total_mem > 0 else 0 %}
+          {% set alloc_items = allocations.get('items', []) %}
           <tr>
             <td>
               <div class="node-name">{{ node.name }}</div>
@@ -111,9 +118,69 @@
             </td>
             <td>{% set status = node.status %}{% include '_status_badge.html' %}</td>
             <td><span class="node-device-pill">{{ node.device_type }}</span></td>
-            <td>{{ node.alloc_count }}</td>
-            <td>{{ node.running_job_count }}</td>
-            <td class="cell-alloc-summary" title="{{ node.alloc_summary }}">{{ node.alloc_summary }}</td>
+            <td class="node-resources-cell">
+              {% if total_cpu > 0 %}
+              <div class="resource-group">
+                <div class="resource-header">
+                  <span class="resource-label">CPU</span>
+                  <span class="resource-stats">{{ used_cpu }}/{{ total_cpu }} ({{ cpu_pct }}%)</span>
+                </div>
+                <div class="resource-bar-container" data-node="{{ node.name }}" data-resource="cpu" title="CPU: {{ used_cpu }}/{{ total_cpu }}">
+                  <div class="resource-bar">
+                    {% for alloc in alloc_items %}
+                      {% set alloc_cpu = alloc.get('resources', {}).get('cpu', 0) %}
+                      {% if alloc_cpu > 0 %}
+                      <div class="resource-segment"
+                           style="width: {{ ((alloc_cpu / total_cpu) * 100) }}%"
+                           data-alloc-id="{{ alloc.get('id') }}"
+                           data-job-id="{{ alloc.get('job_id') }}"
+                           title="{{ alloc.get('job_id') }}: {{ alloc_cpu }} CPU">
+                      </div>
+                      {% endif %}
+                    {% endfor %}
+                  </div>
+                </div>
+              </div>
+              {% else %}
+              <div class="resource-group">
+                <div class="resource-header">
+                  <span class="resource-label">CPU</span>
+                  <span class="resource-stats muted">Resource data unavailable</span>
+                </div>
+              </div>
+              {% endif %}
+
+              {% if total_mem > 0 %}
+              <div class="resource-group">
+                <div class="resource-header">
+                  <span class="resource-label">Memory</span>
+                  <span class="resource-stats">{{ (used_mem / 1024) | int }}GB/{{ (total_mem / 1024) | int }}GB ({{ mem_pct }}%)</span>
+                </div>
+                <div class="resource-bar-container" data-node="{{ node.name }}" data-resource="memory" title="Memory: {{ (used_mem / 1024) | int }}GB/{{ (total_mem / 1024) | int }}GB">
+                  <div class="resource-bar">
+                    {% for alloc in alloc_items %}
+                      {% set alloc_mem = alloc.get('resources', {}).get('mem', 0) %}
+                      {% if alloc_mem > 0 %}
+                      <div class="resource-segment"
+                           style="width: {{ ((alloc_mem / total_mem) * 100) }}%"
+                           data-alloc-id="{{ alloc.get('id') }}"
+                           data-job-id="{{ alloc.get('job_id') }}"
+                           title="{{ alloc.get('job_id') }}: {{ (alloc_mem / 1024) | int }}GB">
+                      </div>
+                      {% endif %}
+                    {% endfor %}
+                  </div>
+                </div>
+              </div>
+              {% else %}
+              <div class="resource-group">
+                <div class="resource-header">
+                  <span class="resource-label">Memory</span>
+                  <span class="resource-stats muted">Resource data unavailable</span>
+                </div>
+              </div>
+              {% endif %}
+            </td>
             <td class="node-details-cell">
               <details class="node-details">
                 <summary>Inspect</summary>
@@ -135,13 +202,38 @@
                     <span class="node-detail-value">{{ node.status }}</span>
                   </div>
                   <div class="node-detail-row">
-                    <span class="node-detail-key">Allocations</span>
-                    <span class="node-detail-value">{{ node.alloc_summary }}</span>
+                    <span class="node-detail-key">Total Resources</span>
+                    <span class="node-detail-value">
+                      {% if total_cpu > 0 %}{{ total_cpu }} CPU{% else %}N/A{% endif %},
+                      {% if total_mem > 0 %}{{ (total_mem / 1024) | int }}GB Memory{% else %}N/A{% endif %}
+                    </span>
                   </div>
                   <div class="node-detail-row">
-                    <span class="node-detail-key">Running jobs</span>
-                    <span class="node-detail-value wrap">{{ node.running_jobs }}</span>
+                    <span class="node-detail-key">Used Resources</span>
+                    <span class="node-detail-value">
+                      {{ used_cpu }} CPU,
+                      {{ (used_mem / 1024) | int }}GB Memory
+                    </span>
                   </div>
+                  {% if alloc_items %}
+                  <div style="grid-column: 1 / -1; margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px solid rgba(200, 214, 216, 0.5);">
+                    <span class="node-detail-key">Allocations ({{ alloc_items | length }})</span>
+                    <div class="allocation-list">
+                      {% for alloc in alloc_items %}
+                      <div class="allocation-item">
+                        <div class="allocation-header">
+                          <span class="allocation-job">{{ alloc.get('job_id') }}</span>
+                          <span class="allocation-status allocation-status-{{ alloc.get('status') }}">{{ alloc.get('status') }}</span>
+                        </div>
+                        <div class="allocation-resources">
+                          <span>CPU: {{ alloc.get('resources', {}).get('cpu', 0) }}</span>
+                          <span>Mem: {{ (alloc.get('resources', {}).get('mem', 0) / 1024) | int }}GB</span>
+                        </div>
+                      </div>
+                      {% endfor %}
+                    </div>
+                  </div>
+                  {% endif %}
                 </div>
               </details>
             </td>
@@ -156,4 +248,35 @@
   <p class="muted">No nodes matched the current search.</p>
   {% endif %}
 </section>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Highlight segments in both bars for the same job
+    const segments = document.querySelectorAll('.resource-segment');
+
+    segments.forEach(segment => {
+      const jobId = segment.dataset.jobId;
+
+      segment.addEventListener('mouseenter', function() {
+        // Highlight all segments for this job
+        segments.forEach(s => {
+          if (s.dataset.jobId === jobId) {
+            s.style.opacity = '1';
+            s.style.filter = 'brightness(1.2)';
+          } else {
+            s.style.opacity = '0.4';
+          }
+        });
+      });
+
+      segment.addEventListener('mouseleave', function() {
+        // Reset all segments
+        segments.forEach(s => {
+          s.style.opacity = '1';
+          s.style.filter = 'brightness(1)';
+        });
+      });
+    });
+  });
+</script>
 {% endblock %}

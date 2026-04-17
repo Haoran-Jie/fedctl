@@ -352,6 +352,51 @@ def test_ui_nodes_search_filters_inventory(tmp_path, monkeypatch: pytest.MonkeyP
     assert 'name="device_type"' not in page.text
 
 
+def test_ui_nodes_page_renders_node_resource_totals_and_usage(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = _make_ui_client(tmp_path, monkeypatch)
+    client.app.state.inventory = type(
+        "DummyInventory",
+        (),
+        {
+            "list_nodes": staticmethod(
+                lambda include_allocs=True: [
+                    {
+                        "name": "rpi2",
+                        "id": "node-1",
+                        "status": "ready",
+                        "node_class": "submit",
+                        "device_type": "rpi",
+                        "resources": {
+                            "total_cpu": 4000,
+                            "total_mem": 8192,
+                            "used_cpu": 1000,
+                            "used_mem": 2048,
+                        },
+                        "allocations": {
+                            "count": 2,
+                            "running_jobs": ["job-a"],
+                            "items": [
+                                {"id": "alloc-1", "job_id": "job-a", "resources": {"cpu": 700, "mem": 1024}},
+                                {"id": "alloc-2", "job_id": "job-b", "resources": {"cpu": 300, "mem": 1024}},
+                            ],
+                        },
+                    }
+                ]
+            )
+        },
+    )()
+
+    _login(client, "tok-admin")
+    page = client.get("/ui/nodes")
+    assert page.status_code == 200
+    assert "1000/4000 (25%)" in page.text
+    assert "2GB/8GB (25%)" in page.text
+    assert 'title="job-a: 700 CPU"' in page.text
+    assert 'title="job-b: 1GB"' in page.text
+
+
 def test_ui_detail_renders_structured_args_env_and_jobs(
     tmp_path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

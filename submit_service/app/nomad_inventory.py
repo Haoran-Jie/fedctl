@@ -134,6 +134,7 @@ def _enrich_node(
         if isinstance(detail_root, dict)
         else None
     )
+
     if (total_cpu is None or total_cpu == 0) or (total_mem is None or total_mem == 0):
         alt_cpu, alt_mem = _node_resources_totals(node_resources)
         if total_cpu is None or total_cpu == 0:
