@@ -50,16 +50,18 @@
       </div>
 
       {% if command.flags %}
-      <h3 style="margin-top: 1.5rem; margin-bottom: 0.8rem; font-size: 1.1rem;">Options & Flags</h3>
-      <div class="doc-flags-grid">
-        {% for flag in command.flags %}
-        <div class="doc-flag-item">
-          <div class="doc-flag-name">{{ flag.name }}</div>
-          <div class="doc-flag-type">{{ flag.type }}</div>
-          <p class="doc-flag-description">{{ flag.description }}</p>
-        </div>
-        {% endfor %}
-      </div>
+      <h3 style="margin-top: 1.5rem; margin-bottom: 1rem;">Options</h3>
+      <table class="doc-flags-table">
+        <tbody>
+          {% for flag in command.flags %}
+          <tr>
+            <td class="doc-flag-name">{{ flag.name }}</td>
+            <td class="doc-flag-type">{{ flag.type }}</td>
+            <td class="doc-flag-description">{{ flag.description }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
       {% endif %}
     </section>
 
@@ -70,20 +72,27 @@
 
       <div class="doc-examples">
         {% for example in command.examples %}
-        <div class="doc-example">
-          <div class="doc-example-header">
+        <div class="terminal-card">
+          <div class="terminal-bar">
+            <div class="terminal-controls" aria-hidden="true">
+              <span class="terminal-control terminal-control-close"></span>
+              <span class="terminal-control terminal-control-min"></span>
+              <span class="terminal-control terminal-control-max"></span>
+            </div>
+            <span class="terminal-title">Example</span>
             <button
               type="button"
-              class="doc-copy-button"
+              class="button secondary copy-button"
               data-copy="{{ example }}"
               data-copy-label="Copy"
               data-copy-done-label="Copied"
-              title="Copy example"
             >
-              📋
+              Copy
             </button>
           </div>
-          <pre><code>{{ example }}</code></pre>
+          <div class="terminal-body">
+            <pre><code><span class="terminal-prompt">$</span> {{ example }}</code></pre>
+          </div>
         </div>
         {% endfor %}
       </div>
