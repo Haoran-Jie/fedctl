@@ -49,7 +49,7 @@
     </div>
     <div class="queue-legend">
       <span class="queue-legend-item" title="Job is currently executing on the cluster"><span class="queue-legend-dot queue-legend-dot-running"></span>Executing</span>
-      <span class="queue-legend-item" title="Job is queued and waiting for cluster resources (CPU, GPU, memory) to become available"><span class="queue-legend-dot queue-legend-dot-waiting"></span>Waiting for resources</span>
+      <span class="queue-legend-item" title="Job is queued and waiting for cluster resources (CPU, GPU, memory) to become available"><span class="queue-legend-dot queue-legend-dot-waiting"></span>Waiting resources</span>
     </div>
   </div>
 
@@ -84,7 +84,7 @@
     <div class="queue-stage queue-stage-waiting">
       <div class="queue-stage-label">
         <span class="queue-stage-dot queue-stage-dot-waiting"></span>
-        Waiting for resources
+        Waiting resources
         <span class="queue-stage-count">{{ waiting_rows | length }}</span>
       </div>
       <div class="queue-stage-track">
@@ -163,7 +163,7 @@
       <div class="legend-item">
         <span class="legend-marker" style="background-color: var(--blocked);"></span>
         <div class="legend-text">
-          <strong>Waiting for resources</strong>
+          <strong>Waiting resources</strong>
           <p>Job is queued for cluster resources (CPU, memory) to be available</p>
         </div>
       </div>
