@@ -100,6 +100,8 @@ class _Logger:
         self.async_calls: list[tuple[str, int, dict[str, float | int]]] = []
         self.summary_calls: list[dict[str, float | int]] = []
         self.submodel_client_event_calls: list[tuple[int, list[dict[str, object]]]] = []
+        self.client_update_event_calls: list[tuple[int, str, list[dict[str, object]]]] = []
+        self.client_eval_event_row_calls: list[tuple[int, str, list[dict[str, object]]]] = []
         self.run_summary_calls: list[dict[str, object]] = []
         self.finished = False
 
@@ -132,6 +134,12 @@ class _Logger:
 
     def log_submodel_client_events(self, server_step: int, rows) -> None:
         self.submodel_client_event_calls.append((server_step, [dict(row) for row in rows]))
+
+    def log_client_update_events(self, step: int, rows, *, axis_key: str = "server_round") -> None:
+        self.client_update_event_calls.append((step, axis_key, [dict(row) for row in rows]))
+
+    def log_client_eval_event_rows(self, step: int, rows, *, axis_key: str = "server_round") -> None:
+        self.client_eval_event_row_calls.append((step, axis_key, [dict(row) for row in rows]))
 
     def log_run_summary(self, *, total_runtime_s: float, result) -> None:
         self.run_summary_calls.append({"total_runtime_s": total_runtime_s, "result": result})
@@ -436,6 +444,12 @@ def test_fedavg_aggregate_train_logs_duration_stats() -> None:
     assert system_metrics["round-train-client-duration-min-s"] == pytest.approx(1.0)
     assert system_metrics["round-train-client-duration-max-s"] == pytest.approx(3.0)
     assert system_metrics["round-train-straggler-gap-s"] == pytest.approx(2.0)
+    assert logger.client_update_event_calls
+    step, axis_key, rows = logger.client_update_event_calls[-1]
+    assert step == 1
+    assert axis_key == "server_round"
+    assert len(rows) == 2
+    assert rows[0]["server_round"] == 1
 
 
 def test_fedavgm_applies_server_momentum() -> None:
@@ -551,6 +565,11 @@ def test_heterofl_aggregate_train_tracks_total_wall_clock_and_logs_client_update
     assert artifacts.client_updates[-1]["client_trips_total"] == 1
     assert artifacts.server_steps
     assert artifacts.server_steps[-1]["wall_clock_s_since_start"] >= 4.0
+    assert logger.client_update_event_calls
+    step, axis_key, rows = logger.client_update_event_calls[-1]
+    assert step == 1
+    assert axis_key == "server_round"
+    assert rows[-1]["device_type"] == "rpi4"
 
 
 def test_heterofl_configure_evaluate_slices_width_scaled_models() -> None:
@@ -845,6 +864,11 @@ def test_async_fedbuff_stops_when_central_eval_reaches_target(
     assert "[fedbuff][server] step_applied step=1/5 accepted_updates=1 client_trips=1" in captured.out
     assert "[fedbuff][server] server_eval step=1 eval_acc=0.6500" in captured.out
     assert "[fedbuff][server] target_reached step=1 client_trips=1 threshold=0.6000" in captured.out
+    assert logger.client_update_event_calls
+    step, axis_key, rows = logger.client_update_event_calls[-1]
+    assert step == 1
+    assert axis_key == "server_step"
+    assert rows[-1]["server_step"] == 1
 
 
 def test_fedstaleweight_emits_fairness_step_log(
@@ -1355,6 +1379,32 @@ def test_fixed_model_rate_assignment_preserves_precedence() -> None:
     )
     assigned = assigner.assign_for_round([1, 2, 3], server_round=1)
     assert assigned == {1: 0.125, 2: 1.0, 3: 0.25}
+
+
+def test_fixed_model_rate_assignment_partition_rates_override_device_allocations() -> None:
+    assigner = ModelRateAssigner(
+        mode="fix",
+        default_model_rate=0.25,
+        explicit_rate_by_node_id={},
+        explicit_rate_by_partition_id={2: 0.0625},
+        rate_by_device_type={"rpi4": 0.25, "rpi5": 1.0},
+        device_type_by_node_id={11: "rpi4", 12: "rpi4"},
+        partition_id_by_node_id={11: 2, 12: 3},
+        dynamic_levels=(1.0,),
+        dynamic_proportions=(1.0,),
+        device_type_allocations={"rpi4": ((1.0, 1), (0.5, 1))},
+        seed=1337,
+    )
+    assigner.set_typed_partition_plan(
+        {
+            11: {"partition-device-type": "rpi4", "typed-partition-idx": 0, "typed-partition-count": 2},
+            12: {"partition-device-type": "rpi4", "typed-partition-idx": 1, "typed-partition-count": 2},
+        }
+    )
+
+    assigned = assigner.assign_for_round([11, 12], server_round=1)
+
+    assert assigned == {11: 0.0625, 12: 0.5}
 
 
 def test_fixed_model_rate_assignment_eval_rates_follow_actual_fixed_pool() -> None:
@@ -2623,8 +2673,14 @@ def test_experiment_config_tree_matches_study_matrix() -> None:
         "compute_heterogeneity/ablations/capacity_design/four_levels/fashion_mnist_cnn/heterofl.toml",
         "compute_heterogeneity/ablations/capacity_design/four_levels/fashion_mnist_cnn/fedrolex.toml",
         "compute_heterogeneity/ablations/capacity_design/fixed_pair_interpolation/cifar10_cnn/a/heterofl.toml",
+        "compute_heterogeneity/ablations/capacity_design/fixed_pair_interpolation/cifar10_cnn/a/fedrolex.toml",
+        "compute_heterogeneity/ablations/capacity_design/fixed_pair_interpolation/cifar10_cnn/a/fiarse.toml",
         "compute_heterogeneity/ablations/capacity_design/fixed_pair_interpolation/cifar10_cnn/a_e/p001/heterofl.toml",
+        "compute_heterogeneity/ablations/capacity_design/fixed_pair_interpolation/cifar10_cnn/a_e/p001/fedrolex.toml",
+        "compute_heterogeneity/ablations/capacity_design/fixed_pair_interpolation/cifar10_cnn/a_e/p001/fiarse.toml",
         "compute_heterogeneity/ablations/capacity_design/fixed_pair_interpolation/cifar10_cnn/d_e/p009/heterofl.toml",
+        "compute_heterogeneity/ablations/capacity_design/fixed_pair_interpolation/cifar10_cnn/d_e/p009/fedrolex.toml",
+        "compute_heterogeneity/ablations/capacity_design/fixed_pair_interpolation/cifar10_cnn/d_e/p009/fiarse.toml",
         "compute_heterogeneity/ablations/robustness_extension/non_iid/fashion_mnist_cnn/heterofl.toml",
         "compute_heterogeneity/ablations/robustness_extension/non_iid/fashion_mnist_cnn/fedrolex.toml",
         "compute_heterogeneity/ablations/method_mechanisms/large_server/cifar10_cnn/gamma_2/fedrolex.toml",
@@ -2664,7 +2720,7 @@ def test_experiment_config_tree_matches_study_matrix() -> None:
         for path in actual
         if path.startswith("compute_heterogeneity/ablations/capacity_design/fixed_pair_interpolation/cifar10_cnn/")
     )
-    assert len(fixed_pair_sweep) == 96
+    assert len(fixed_pair_sweep) == 288
     gamma_sweep = sorted(
         path
         for path in actual
@@ -2806,6 +2862,36 @@ def test_new_paper_inspired_configs_encode_expected_values() -> None:
     assert fixed_singleton["capacity"]["model-split-mode"] == "fix"
     assert fixed_singleton["capacity"]["heterofl-partition-rates"].count(",") == 9
 
+    fixed_singleton_fedrolex = tomllib.loads(
+        (
+            config_root
+            / "compute_heterogeneity"
+            / "ablations"
+            / "capacity_design"
+            / "fixed_pair_interpolation"
+            / "cifar10_cnn"
+            / "a"
+            / "fedrolex.toml"
+        ).read_text()
+    )
+    assert fixed_singleton_fedrolex["experiment"]["method"] == "fedrolex"
+    assert fixed_singleton_fedrolex["capacity"]["heterofl-partition-rates"].count(",") == 9
+
+    fixed_singleton_fiarse = tomllib.loads(
+        (
+            config_root
+            / "compute_heterogeneity"
+            / "ablations"
+            / "capacity_design"
+            / "fixed_pair_interpolation"
+            / "cifar10_cnn"
+            / "a"
+            / "fiarse.toml"
+        ).read_text()
+    )
+    assert fixed_singleton_fiarse["experiment"]["method"] == "fiarse"
+    assert fixed_singleton_fiarse["capacity"]["heterofl-partition-rates"].count(",") == 9
+
     fixed_pair = tomllib.loads(
         (
             config_root
@@ -2822,6 +2908,38 @@ def test_new_paper_inspired_configs_encode_expected_values() -> None:
     assert fixed_pair["capacity"]["model-rate-levels"] == [1.0, 0.0625]
     assert fixed_pair["capacity"]["model-rate-proportions"] == [0.5, 0.5]
     assert fixed_pair["capacity"]["heterofl-partition-rates"].startswith("0:1")
+
+    fixed_pair_fedrolex = tomllib.loads(
+        (
+            config_root
+            / "compute_heterogeneity"
+            / "ablations"
+            / "capacity_design"
+            / "fixed_pair_interpolation"
+            / "cifar10_cnn"
+            / "a_e"
+            / "p005"
+            / "fedrolex.toml"
+        ).read_text()
+    )
+    assert fixed_pair_fedrolex["experiment"]["method"] == "fedrolex"
+    assert fixed_pair_fedrolex["capacity"]["heterofl-partition-rates"].startswith("0:1")
+
+    fixed_pair_fiarse = tomllib.loads(
+        (
+            config_root
+            / "compute_heterogeneity"
+            / "ablations"
+            / "capacity_design"
+            / "fixed_pair_interpolation"
+            / "cifar10_cnn"
+            / "a_e"
+            / "p005"
+            / "fiarse.toml"
+        ).read_text()
+    )
+    assert fixed_pair_fiarse["experiment"]["method"] == "fiarse"
+    assert fixed_pair_fiarse["capacity"]["heterofl-partition-rates"].startswith("0:1")
 
 
 def test_main_study_configs_match_balanced_twelve_node_plan() -> None:
