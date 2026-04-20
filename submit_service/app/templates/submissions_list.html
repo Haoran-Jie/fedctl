@@ -200,8 +200,8 @@
         <th class="col-status">Status</th>
         <th class="col-priority">Priority</th>
         <th class="col-created">Created</th>
-        <th class="col-finished">Finished</th>
-        <th class="col-blocked">Blocked / error</th>
+        {% if status_filter != 'active' %}<th class="col-finished">Finished</th>{% endif %}
+        {% if status_filter != 'completed' %}<th class="col-blocked">Blocked / error</th>{% endif %}
       </tr>
     </thead>
     <tbody>
@@ -216,8 +216,8 @@
         <td>{% set status = row.status %}{% include '_status_badge.html' %}</td>
         <td class="cell-priority">{{ row.priority or '-' }}</td>
         <td>{% if row.created_at.iso %}<time datetime="{{ row.created_at.iso }}" title="{{ row.created_at.label }}" data-relative>{{ row.created_at.label }}</time>{% else %}{{ row.created_at.label }}{% endif %}</td>
-        <td>{% if row.finished_at.iso %}<time datetime="{{ row.finished_at.iso }}" title="{{ row.finished_at.label }}" data-relative>{{ row.finished_at.label }}</time>{% else %}{{ row.finished_at.label }}{% endif %}</td>
-        <td class="cell-blocked">{{ row.blocked_reason or '-' }}</td>
+        {% if status_filter != 'active' %}<td>{% if row.finished_at.iso %}<time datetime="{{ row.finished_at.iso }}" title="{{ row.finished_at.label }}" data-relative>{{ row.finished_at.label }}</time>{% else %}{{ row.finished_at.label }}{% endif %}</td>{% endif %}
+        {% if status_filter != 'completed' %}<td class="cell-blocked">{{ row.blocked_reason or '-' }}</td>{% endif %}
       </tr>
       {% endfor %}
     </tbody>

@@ -783,10 +783,10 @@ button, .button {
 }
 
 .doc-code-block {
-  margin: 1.2rem 0;
-  border-radius: 12px;
-  border: 1px solid rgba(200, 214, 216, 0.8);
-  background: rgba(248, 252, 252, 0.6);
+  margin: 1rem 0;
+  border-radius: 6px;
+  border: 1px solid rgba(200, 214, 216, 0.5);
+  background: rgba(248, 252, 252, 0.3);
   overflow: hidden;
 }
 
@@ -794,26 +794,26 @@ button, .button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.8rem 1rem;
-  border-bottom: 1px solid rgba(200, 214, 216, 0.8);
-  background: rgba(255, 255, 255, 0.5);
-  font-size: 0.82rem;
+  padding: 0.6rem 0.8rem;
+  border-bottom: 1px solid rgba(200, 214, 216, 0.4);
+  background: transparent;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--muted);
 }
 
 .doc-code-header span {
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
 }
 
 .doc-code-block pre {
   margin: 0;
-  padding: 1.2rem;
+  padding: 1rem;
   background: transparent;
   border: none;
-  font-size: 0.88rem;
-  line-height: 1.6;
+  font-size: 0.85rem;
+  line-height: 1.5;
   overflow-x: auto;
 }
 
@@ -825,31 +825,31 @@ button, .button {
 .doc-examples {
   display: flex;
   flex-direction: column;
-  gap: 1.2rem;
+  gap: 1.5rem;
 }
 
 .doc-example {
-  border-radius: 12px;
-  border: 1px solid rgba(200, 214, 216, 0.8);
-  background: rgba(248, 252, 252, 0.6);
+  border-radius: 6px;
+  border: 1px solid rgba(200, 214, 216, 0.5);
+  background: rgba(248, 252, 252, 0.4);
   overflow: hidden;
 }
 
 .doc-example-header {
   display: flex;
   justify-content: flex-end;
-  padding: 0.8rem 1rem;
-  border-bottom: 1px solid rgba(200, 214, 216, 0.8);
-  background: rgba(255, 255, 255, 0.5);
+  padding: 0.6rem 0.8rem;
+  border-bottom: 1px solid rgba(200, 214, 216, 0.4);
+  background: transparent;
 }
 
 .doc-example pre {
   margin: 0;
-  padding: 1.2rem;
+  padding: 1rem 0.8rem;
   background: transparent;
   border: none;
-  font-size: 0.88rem;
-  line-height: 1.6;
+  font-size: 0.85rem;
+  line-height: 1.5;
   overflow-x: auto;
 }
 
@@ -915,47 +915,56 @@ button, .button {
 }
 
 /* Flags section */
-.doc-flags-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 1rem;
-  margin: 1.2rem 0;
+.doc-flags-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  font-size: 0.95rem;
 }
 
-.doc-flag-item {
-  padding: 1rem;
-  border: 1px solid rgba(200, 214, 216, 0.8);
-  border-radius: 10px;
-  background: rgba(248, 252, 252, 0.6);
+.doc-flags-table tbody tr {
+  border-bottom: 1px solid rgba(200, 214, 216, 0.5);
 }
 
-.doc-flag-name {
+.doc-flags-table tbody tr:hover {
+  background-color: rgba(248, 252, 252, 0.8);
+}
+
+.doc-flags-table td {
+  padding: 0.8rem 1rem;
+  vertical-align: middle;
+}
+
+.doc-flags-table .doc-flag-name {
   font-family: "SFMono-Regular", Menlo, monospace;
   font-size: 0.9rem;
   font-weight: 700;
   color: var(--accent-dark);
-  margin-bottom: 0.4rem;
+  width: 40%;
   word-break: break-word;
+  padding-right: 1.5rem;
 }
 
-.doc-flag-type {
-  display: inline-block;
-  font-size: 0.72rem;
-  font-weight: 700;
+.doc-flags-table .doc-flag-type {
+  font-size: 0.75rem;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #fff;
-  background: var(--accent-dark);
-  padding: 0.2rem 0.5rem;
-  border-radius: 4px;
-  margin-bottom: 0.6rem;
+  letter-spacing: 0.06em;
+  color: var(--accent-dark);
+  background: rgba(var(--accent-rgb, 70, 130, 180), 0.1);
+  padding: 0.3rem 0.6rem;
+  border-radius: 3px;
+  width: 15%;
+  text-align: center;
+  white-space: nowrap;
+  vertical-align: middle;
 }
 
-.doc-flag-description {
-  margin: 0;
-  font-size: 0.9rem;
+.doc-flags-table .doc-flag-description {
+  color: var(--text);
   line-height: 1.5;
-  color: var(--muted);
+  width: 45%;
+  vertical-align: middle;
 }
 
 /* Responsive */
@@ -1191,7 +1200,7 @@ td.cell-blocked { font-size: 0.88rem; color: var(--muted); }
 .col-node-status { width: 7rem; }
 .col-node-device { width: 7.5rem; }
 .col-node-resources { width: 28rem; }
-.col-node-details { width: 13rem; }
+.col-node-details { width: 20rem; }
 
 /* Node resource visualization */
 .node-resources-cell {
