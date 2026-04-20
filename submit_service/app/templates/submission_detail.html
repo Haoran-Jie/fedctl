@@ -498,6 +498,7 @@
     const logsWrapState = logsPanel.querySelector('[data-log-wrap-state]');
     const wrapToggle = logsPanel.querySelector('[data-log-wrap-toggle]');
     const followToggle = logsPanel.querySelector('[data-log-follow-toggle]');
+    const downloadButton = logsPanel.querySelector('[data-log-download]');
     const copyLogsButton = logsPanel.querySelector('[data-log-copy]');
     const lineCountNode = logsPanel.querySelector('[data-log-line-count]');
     const matchCountNode = logsPanel.querySelector('[data-log-match-count]');
@@ -554,28 +555,69 @@
       logsBox.scrollTop = logsBox.scrollHeight;
     };
 
+    const detectLineType = (line) => {
+      const lowerLine = line.toLowerCase();
+      if (/error|exception|fatal|traceback|failed|failure/i.test(lowerLine)) {
+        return 'error';
+      }
+      if (/warning|warn|deprecated/i.test(lowerLine)) {
+        return 'warning';
+      }
+      return 'normal';
+    };
+
     const renderLogs = () => {
       const query = logsFilterInput.value.trim().toLowerCase();
-      if (!query) {
-        logsBox.innerHTML = renderedLogsHtml;
-      } else {
-        const rawLines = splitLines(rawLogs);
-        const htmlLines = renderedLogsHtml.split('\n');
-        const filteredHtml = [];
-        for (let i = 0; i < rawLines.length; i++) {
-          if (rawLines[i].toLowerCase().includes(query)) {
-            filteredHtml.push(htmlLines[i] !== undefined ? htmlLines[i] : escapeHtml(rawLines[i]));
-          }
-        }
-        if (filteredHtml.length) {
-          logsBox.innerHTML = filteredHtml.join('\n');
-        } else {
-          logsBox.innerHTML = '<span class="log-empty log-filter-empty">No lines match current filter.</span>';
+      const rawLines = splitLines(rawLogs);
+      const htmlLines = renderedLogsHtml.split('\n');
+      let visibleLines = [];
+
+      for (let i = 0; i < rawLines.length; i++) {
+        if (!query || rawLines[i].toLowerCase().includes(query)) {
+          visibleLines.push({ index: i + 1, text: rawLines[i], html: htmlLines[i] });
         }
       }
+
+      if (!visibleLines.length) {
+        logsBox.innerHTML = '<span class="log-empty log-filter-empty">No lines match current filter.</span>';
+        logsFilterState.value = logsFilterInput.value.trim();
+        updateCounts();
+        updateCopyTargets();
+        return;
+      }
+
+      const lines = visibleLines.map((item) => {
+        const lineType = detectLineType(item.text);
+        const isMatch = query && item.text.toLowerCase().includes(query);
+        const classNames = ['log-line', `is-${lineType}`];
+        if (isMatch) classNames.push('is-match');
+        const html = item.html !== undefined ? item.html : escapeHtml(item.text);
+        return `<div class="${classNames.join(' ')}" data-line-num="${item.index}">${html}</div>`;
+      });
+
+      logsBox.innerHTML = lines.join('');
       logsFilterState.value = logsFilterInput.value.trim();
       updateCounts();
       updateCopyTargets();
+      updateScrollIndicator();
+    };
+
+    const updateScrollIndicator = () => {
+      const hasMoreContent = logsBox.scrollHeight > logsBox.clientHeight;
+      logsBox.classList.toggle('has-scroll-more', hasMoreContent && logsBox.scrollTop + logsBox.clientHeight < logsBox.scrollHeight);
+    };
+
+    const downloadLogs = () => {
+      const content = visibleLines().join('\n');
+      const blob = new Blob([content], { type: 'text/plain' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `logs-${new Date().toISOString().split('T')[0]}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
     };
 
     const setWrapState = (wrapOn) => {
@@ -630,7 +672,10 @@
           logsError.hidden = !nextErrorText;
         }
         renderLogs();
-        jumpToLatest();
+        if (followEnabled) {
+          jumpToLatest();
+        }
+        updateScrollIndicator();
       } catch (error) {
         stopFollow();
         window.fedctlUI?.showToast?.('Unable to refresh logs', 'error');
@@ -653,6 +698,12 @@
       refreshLogs();
     };
 
+    const autoScrollIfFollowing = () => {
+      if (followEnabled) {
+        logsBox.scrollTop = logsBox.scrollHeight;
+      }
+    };
+
     const initialUrl = new URL(window.location.href);
     logsFilterInput.value = initialUrl.searchParams.get('log_filter') || '';
     setWrapState(initialUrl.searchParams.get('log_wrap') !== 'off');
@@ -668,6 +719,17 @@
     logsForm.addEventListener('submit', () => {
       logsFilterState.value = logsFilterInput.value.trim();
       logsWrapState.value = logsBox.dataset.logWrap === 'off' ? 'off' : 'on';
+    });
+
+    if (downloadButton) {
+      downloadButton.addEventListener('click', downloadLogs);
+    }
+
+    logsBox.addEventListener('scroll', updateScrollIndicator);
+    logsBox.addEventListener('scroll', () => {
+      if (logsBox.scrollTop + logsBox.clientHeight >= logsBox.scrollHeight - 10) {
+        autoScrollIfFollowing();
+      }
     });
   })();
 </script>

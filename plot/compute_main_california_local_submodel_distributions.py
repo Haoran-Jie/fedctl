@@ -45,6 +45,8 @@ REGIME_TITLES = {
     "iid": "IID",
     "noniid": "Non-IID",
 }
+DISPLAY_Y_LO = -0.2
+DISPLAY_Y_HI = 0.82
 
 
 @dataclass(frozen=True)
@@ -161,10 +163,6 @@ def main() -> None:
 
     plt.style.use("seaborn-v0_8-whitegrid")
     fig, axes = plt.subplots(2, 3, figsize=(13.0, 7.4), sharex=True, sharey=True)
-    y_min = min(row.eval_r2 for row in all_rows)
-    y_max = max(row.eval_r2 for row in all_rows)
-    y_lo = min(-1.2, np.floor((y_min - 0.05) * 10.0) / 10.0)
-    y_hi = max(0.8, np.ceil((y_max + 0.05) * 10.0) / 10.0)
 
     for row_idx, regime in enumerate(REGIME_ORDER):
         for col_idx, method in enumerate(METHOD_ORDER):
@@ -206,13 +204,39 @@ def main() -> None:
                 )
                 assert len(node_ids) == len(vals)
 
+                clipped = [value for value in vals if value < DISPLAY_Y_LO]
+                if clipped:
+                    min_clipped = min(clipped)
+                    ax.scatter(
+                        [pos],
+                        [DISPLAY_Y_LO],
+                        marker="v",
+                        s=42,
+                        c=RATE_COLORS[rate],
+                        edgecolors="black",
+                        linewidths=0.5,
+                        zorder=4,
+                        clip_on=False,
+                    )
+                    ax.annotate(
+                        f"min={min_clipped:.2f}\n$n$={len(clipped)}",
+                        xy=(pos, DISPLAY_Y_LO),
+                        xytext=(4, 6),
+                        textcoords="offset points",
+                        ha="left",
+                        va="bottom",
+                        fontsize=8,
+                        color="#333333",
+                        clip_on=False,
+                    )
+
             if row_idx == 0:
                 ax.set_title(method, fontsize=14)
             if col_idx == 0:
                 ax.set_ylabel(f"{REGIME_TITLES[regime]}\nLocal $R^2$", fontsize=12)
             ax.set_xticks(positions)
             ax.set_xticklabels([RATE_LABELS[rate] for rate in RATE_ORDER], fontsize=11)
-            ax.set_ylim(y_lo, y_hi)
+            ax.set_ylim(DISPLAY_Y_LO, DISPLAY_Y_HI)
             ax.axhline(0.0, color="#888888", linewidth=0.9, linestyle="--", alpha=0.8)
 
     for ax in axes[-1, :]:
@@ -233,7 +257,7 @@ def main() -> None:
         for rate in (1.0, 0.5, 0.25, 0.125)
     ]
     fig.legend(handles=handles, loc="upper center", ncol=4, frameon=True, bbox_to_anchor=(0.5, 1.02), fontsize=12)
-    fig.tight_layout(rect=(0, 0, 1, 0.94))
+    fig.tight_layout(rect=(0.02, 0.06, 1, 0.94))
     outputs = save_figure_dual(fig, "compute_main_california_local_submodel_distributions")
 
     left_pdf, right_pdf = outputs["pdf"]
