@@ -1466,18 +1466,6 @@ td.cell-blocked { font-size: 0.88rem; color: var(--muted); }
   max-height: 40rem;
   overflow: auto;
   position: relative;
-  padding-left: 4rem;
-}
-.log-box::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3rem;
-  background: rgba(255, 255, 255, 0.03);
-  border-right: 1px solid rgba(255, 255, 255, 0.08);
-  pointer-events: none;
 }
 .log-box[data-log-wrap="off"] {
   white-space: pre;
@@ -1501,37 +1489,20 @@ td.cell-blocked { font-size: 0.88rem; color: var(--muted); }
   color: #edf4fb;
 }
 .ansi-log .log-line {
-  display: flex;
+  display: block;
   position: relative;
+  padding-left: 3.2rem;
 }
 .ansi-log .log-line::before {
   content: attr(data-line-num);
   position: absolute;
-  left: -3.5rem;
-  width: 3rem;
+  left: 0.3rem;
+  width: 2.5rem;
   text-align: right;
-  padding-right: 0.5rem;
-  color: rgba(232, 238, 245, 0.4);
-  font-size: 0.85rem;
+  color: rgba(232, 238, 245, 0.35);
+  font-size: 0.8rem;
   user-select: none;
-}
-.ansi-log .log-line.is-error {
-  color: #ff6b6b;
-  background: rgba(255, 107, 107, 0.08);
-  padding: 0 0.5rem;
-  margin: 0 -0.5rem;
-}
-.ansi-log .log-line.is-error::before {
-  color: #ff6b6b;
-}
-.ansi-log .log-line.is-warning {
-  color: #ffd700;
-  background: rgba(255, 215, 0, 0.08);
-  padding: 0 0.5rem;
-  margin: 0 -0.5rem;
-}
-.ansi-log .log-line.is-warning::before {
-  color: #ffd700;
+  top: 0;
 }
 .ansi-log .log-line.is-match {
   background: rgba(79, 209, 197, 0.2);
