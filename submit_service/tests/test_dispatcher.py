@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from datetime import timedelta
+import logging
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
@@ -848,6 +850,65 @@ def test_dispatcher_marks_running_submission_failed_when_allocs_empty_and_job_mi
     assert updated["error_message"] == "Nomad job missing"
 
 
+def test_dispatcher_marks_running_submission_completed_when_allocs_gone_but_job_dead(
+    tmp_path, monkeypatch
+) -> None:
+    db_path = tmp_path / "submit.db"
+    storage = Storage(StorageConfig(db_url=f"sqlite:///{db_path}"))
+    storage.init_db()
+    _create_submission(
+        storage,
+        submission_id="sub-dead-job",
+        status="running",
+        created_at="2026-01-01T00:00:00+00:00",
+        priority=50,
+    )
+    storage.update_submission(
+        "sub-dead-job",
+        {
+            "nomad_job_id": "sub-dead-job",
+            "started_at": dispatcher_mod.utcnow().isoformat(),
+            "namespace": "default",
+        },
+    )
+
+    class FakeNomadClient:
+        def __init__(self, *args, **kwargs):
+            return None
+
+        def job_allocations(self, job_id: str):
+            return []
+
+        def job(self, job_id: str):
+            return {"ID": job_id, "Status": "dead", "Stop": False}
+
+        def close(self):
+            return None
+
+    monkeypatch.setattr(dispatcher_mod, "NomadClient", FakeNomadClient)
+    monkeypatch.setattr(dispatcher_mod, "_inventory_snapshot", lambda inventory: ([], None))
+    monkeypatch.setattr(
+        dispatcher_mod,
+        "_reserve_submission_capacity",
+        lambda submission, free_nodes, inventory_error: (True, None),
+    )
+
+    cfg = _cfg(db_path)
+    cfg = SubmitConfig(
+        **{
+            **cfg.__dict__,
+            "nomad_endpoint": "http://nomad.example:4646",
+        }
+    )
+    dispatcher = dispatcher_mod.Dispatcher(storage, cfg)
+    dispatcher.run_once()
+
+    updated = storage.get_submission("sub-dead-job")
+    assert updated["status"] == "completed"
+    assert updated["error_message"] is None
+    assert updated["finished_at"] is not None
+
+
 def test_dispatcher_keeps_submission_running_when_nomad_restarts_runner(
     tmp_path, monkeypatch
 ) -> None:
@@ -1047,3 +1108,34 @@ def test_dispatcher_marks_completed_submit_with_zero_exit_as_completed(
     updated = storage.get_submission("sub-clean-complete")
     assert updated["status"] == "completed"
     assert updated["error_message"] is None
+
+
+def test_dispatcher_run_loop_logs_and_survives_iteration_exception(
+    tmp_path, monkeypatch, caplog
+) -> None:
+    db_path = tmp_path / "submit.db"
+    storage = Storage(StorageConfig(db_url=f"sqlite:///{db_path}"))
+    storage.init_db()
+
+    dispatcher = dispatcher_mod.Dispatcher(storage, _cfg(db_path))
+    state = {"calls": 0}
+
+    def fake_run_once():
+        state["calls"] += 1
+        raise RuntimeError("boom")
+
+    def fake_wait(_interval: float):
+        state["done"] = True
+        return True
+
+    dispatcher.run_once = fake_run_once  # type: ignore[method-assign]
+    dispatcher._stop = SimpleNamespace(  # type: ignore[assignment]
+        is_set=lambda: bool(state.get("done")),
+        wait=fake_wait,
+    )
+
+    with caplog.at_level(logging.ERROR):
+        dispatcher._run_loop()
+
+    assert state["calls"] == 1
+    assert "dispatcher loop iteration failed" in caplog.text
