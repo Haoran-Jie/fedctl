@@ -98,13 +98,16 @@ class Dispatcher:
 
     def _run_loop(self) -> None:
         while not self._stop.is_set():
-            self.run_once()
+            try:
+                self.run_once()
+            except Exception:
+                logger.exception("dispatcher loop iteration failed")
             self._stop.wait(self._cfg.dispatch_interval)
 
     def run_once(self) -> None:
         self._reconcile_running()
         queued = self._storage.list_dispatch_candidates(
-            limit=50,
+            limit=100,
             statuses=["queued", "blocked"],
             default_priority=self._cfg.default_priority,
         )
@@ -156,7 +159,7 @@ class Dispatcher:
     def _reconcile_running(self) -> None:
         if not self._cfg.nomad_endpoint:
             return
-        running = self._storage.list_submissions(limit=50)
+        running = self._storage.list_submissions(limit=100)
         for submission in running:
             if submission.get("status") != "running":
                 continue
@@ -174,7 +177,7 @@ class Dispatcher:
                 allocs = client.job_allocations(nomad_job_id)
                 if not allocs:
                     try:
-                        client.job(nomad_job_id)
+                        job = client.job(nomad_job_id)
                     except NomadError as exc:
                         if _nomad_error_status(exc) == 404:
                             self._storage.set_status(
@@ -183,6 +186,20 @@ class Dispatcher:
                                 finished_at=utcnow(),
                                 error_message="Nomad job missing",
                             )
+                        continue
+                    terminal_status = _submission_job_status(job)
+                    if terminal_status == "completed":
+                        self._storage.set_status(
+                            submission["id"],
+                            "completed",
+                            finished_at=utcnow(),
+                        )
+                    elif terminal_status == "cancelled":
+                        self._storage.set_status(
+                            submission["id"],
+                            "cancelled",
+                            finished_at=utcnow(),
+                        )
                     continue
             except NomadError as exc:
                 if _nomad_error_status(exc) == 404:
@@ -356,6 +373,20 @@ def _submission_completion_outcome(alloc: dict[str, Any] | None) -> dict[str, An
             "error": _submit_task_failure_message(task_info),
         }
     return {"status": "completed", "error": None}
+
+
+def _submission_job_status(job: dict[str, Any] | None) -> str | None:
+    if not isinstance(job, dict):
+        return None
+    status = job.get("Status")
+    if not isinstance(status, str):
+        return None
+    lowered = status.lower()
+    if lowered != "dead":
+        return None
+    if bool(job.get("Stop")):
+        return "cancelled"
+    return "completed"
 
 
 def _submit_task_failure_message(task_info: dict[str, Any]) -> str:
