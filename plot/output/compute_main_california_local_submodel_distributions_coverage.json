@@ -1,0 +1,124 @@
+{
+  "task": "california_housing_mlp",
+  "coverage_fraction_overall": {
+    "with_table_runs": 6,
+    "total_completed_heterogeneous_runs": 18
+  },
+  "coverage_note": "Usable local-client tables exist for exactly one seed (1337) in each method x regime branch.",
+  "runs": [
+    {
+      "run_id": "jdjkltsl",
+      "method": "HeteroFL",
+      "regime": "iid",
+      "seed": 1337,
+      "rows": 80,
+      "model_rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ],
+      "client_model_rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": "qxlnfxpu",
+      "method": "FedRolex",
+      "regime": "iid",
+      "seed": 1337,
+      "rows": 80,
+      "model_rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ],
+      "client_model_rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": "dj71fc89",
+      "method": "FIARSE",
+      "regime": "iid",
+      "seed": 1337,
+      "rows": 80,
+      "model_rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ],
+      "client_model_rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": "5trnnxj2",
+      "method": "HeteroFL",
+      "regime": "noniid",
+      "seed": 1337,
+      "rows": 80,
+      "model_rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ],
+      "client_model_rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": "tsh2vjv1",
+      "method": "FedRolex",
+      "regime": "noniid",
+      "seed": 1337,
+      "rows": 80,
+      "model_rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ],
+      "client_model_rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": "2iu154j5",
+      "method": "FIARSE",
+      "regime": "noniid",
+      "seed": 1337,
+      "rows": 80,
+      "model_rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ],
+      "client_model_rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    }
+  ]
+}

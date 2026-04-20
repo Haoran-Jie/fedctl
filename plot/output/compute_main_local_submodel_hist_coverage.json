@@ -1,0 +1,35 @@
+{
+  "task": "cifar10_cnn",
+  "method": "fedrolex",
+  "regime": "iid",
+  "runs": [
+    {
+      "run_id": "3moap2c9",
+      "seed": 1338,
+      "rows": 80,
+      "rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": "ppd09xho",
+      "seed": 1339,
+      "rows": 80,
+      "rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    }
+  ],
+  "rate_labels": {
+    "1.0": "size=1",
+    "0.5": "size=1/2",
+    "0.25": "size=1/4",
+    "0.125": "size=1/8"
+  }
+}
