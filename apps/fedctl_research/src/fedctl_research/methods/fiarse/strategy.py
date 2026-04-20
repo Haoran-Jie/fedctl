@@ -236,14 +236,50 @@ class FiarseStrategy(HeteroFLStrategy):
         self.experiment_logger.log_system_metrics(server_round, system_metrics)
         self.progress_tracker["wall_clock_s_since_start"] = float(total_wall_clock_s)
         self.progress_tracker["client_trips_total"] = int(self._accepted_train_replies_total)
+        client_update_rows: list[dict[str, float | int | str]] = []
         if self.artifact_logger is not None:
             for offset, message in enumerate(valid_replies, start=1):
                 metrics_record = message.content.get("metrics")
                 if metrics_record is None:
                     continue
                 node_id = message.metadata.src_node_id
-                self.artifact_logger.log_client_update_event(
+                payload = {
+                    "server_round": server_round,
+                    "client_trips_total": self._accepted_train_replies_total - valid_count + offset,
+                    "node_id": node_id,
+                    "device_type": self._device_type_for_node(node_id),
+                    "server_model_version_sent": max(server_round - 1, 0),
+                    "server_step_applied": server_round,
+                    "update_staleness_server_steps": 0,
+                    "update_train_duration_s": float(metrics_record.get("train-duration-s", 0.0)),
+                    "update_num_examples": int(metrics_record.get("train-num-examples", metrics_record.get("num-examples", 0))),
+                    "update_examples_per_second": float(metrics_record.get("examples-per-second", 0.0)),
+                    "update_queue_latency_s": 0.0,
+                    "update_applied_weight": 1.0,
+                    "model_rate": float(self._active_rate_by_node.get(node_id, self.global_model_rate)),
+                }
+                client_update_rows.append(payload)
+                self.artifact_logger.log_client_update_event(payload)
+            self.artifact_logger.log_server_step_event(
+                {
+                    "server_step": server_round,
+                    "wall_clock_s_since_start": float(total_wall_clock_s),
+                    "client_trips_total": self._accepted_train_replies_total,
+                    "accepted_updates_this_step": valid_count,
+                    "buffer_size": valid_count,
+                    "inflight_clients": 0,
+                    **system_metrics,
+                }
+            )
+        else:
+            for offset, message in enumerate(valid_replies, start=1):
+                metrics_record = message.content.get("metrics")
+                if metrics_record is None:
+                    continue
+                node_id = message.metadata.src_node_id
+                client_update_rows.append(
                     {
+                        "server_round": server_round,
                         "client_trips_total": self._accepted_train_replies_total - valid_count + offset,
                         "node_id": node_id,
                         "device_type": self._device_type_for_node(node_id),
@@ -258,17 +294,8 @@ class FiarseStrategy(HeteroFLStrategy):
                         "model_rate": float(self._active_rate_by_node.get(node_id, self.global_model_rate)),
                     }
                 )
-            self.artifact_logger.log_server_step_event(
-                {
-                    "server_step": server_round,
-                    "wall_clock_s_since_start": float(total_wall_clock_s),
-                    "client_trips_total": self._accepted_train_replies_total,
-                    "accepted_updates_this_step": valid_count,
-                    "buffer_size": valid_count,
-                    "inflight_clients": 0,
-                    **system_metrics,
-                }
-            )
+        if client_update_rows:
+            self.experiment_logger.log_client_update_events(server_round, client_update_rows, axis_key="server_round")
 
         self._active_rate_by_node.clear()
         self._active_param_idx_by_node.clear()

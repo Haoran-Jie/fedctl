@@ -417,6 +417,87 @@ def test_wandb_logger_logs_submodel_client_table(monkeypatch) -> None:
     assert len(table.data) == 2
 
 
+def test_wandb_logger_logs_per_client_round_and_step_tables(monkeypatch) -> None:
+    fake_wandb = _FakeWandbModule()
+    monkeypatch.setitem(sys.modules, "wandb", fake_wandb)
+    monkeypatch.setenv("FEDCTL_EXPERIMENT", "demo-exp")
+
+    context = SimpleNamespace(
+        run_config={
+            "method": "fedavg",
+            "task": "cifar10_cnn",
+            "min-available-nodes": 20,
+            "model-rate-levels": "1.0",
+            "model-rate-proportions": "1.0",
+            "wandb-enabled": True,
+            "wandb-project": "fedctl",
+        }
+    )
+
+    logger = create_experiment_logger(context)
+    logger.log_client_update_events(
+        3,
+        [
+            {
+                "server_round": 3,
+                "node_id": 1,
+                "device_type": "rpi4",
+                "update_train_duration_s": 1.2,
+            }
+        ],
+        axis_key="server_round",
+    )
+    logger.log_client_eval_event_rows(
+        3,
+        [
+            {
+                "server_round": 3,
+                "node_id": 1,
+                "device_type": "rpi4",
+                "eval_duration_s": 0.2,
+            }
+        ],
+        axis_key="server_round",
+    )
+    logger.log_client_update_events(
+        7,
+        [
+            {
+                "server_step": 7,
+                "client_trips_total": 11,
+                "node_id": 2,
+                "device_type": "rpi5",
+                "update_staleness_server_steps": 2,
+            }
+        ],
+        axis_key="server_step",
+    )
+
+    run = fake_wandb.runs[0]
+    assert len(run.logged) == 3
+    round_train_payload, _ = run.logged[0]
+    assert round_train_payload["server_round"] == 3
+    round_train_table = round_train_payload["client_update/round_table"]
+    assert isinstance(round_train_table, _FakeTable)
+    assert "update_train_duration_s" in round_train_table.columns
+
+    round_eval_payload, _ = run.logged[1]
+    assert round_eval_payload["server_round"] == 3
+    round_eval_table = round_eval_payload["client_eval/round_table"]
+    assert isinstance(round_eval_table, _FakeTable)
+    assert "eval_duration_s" in round_eval_table.columns
+
+    step_train_payload, _ = run.logged[2]
+    assert step_train_payload["server_step"] == 7
+    step_train_table = step_train_payload["client_update/step_table"]
+    assert isinstance(step_train_table, _FakeTable)
+    assert "update_staleness_server_steps" in step_train_table.columns
+
+    assert ("client_update/round_table", {"step_metric": "server_round"}) in fake_wandb.metric_definitions
+    assert ("client_eval/round_table", {"step_metric": "server_round"}) in fake_wandb.metric_definitions
+    assert ("client_update/step_table", {"step_metric": "server_step"}) in fake_wandb.metric_definitions
+
+
 def test_create_experiment_logger_tolerates_flower_mapping_missing_optional_keys(monkeypatch) -> None:
     fake_wandb = _FakeWandbModule()
     monkeypatch.setitem(sys.modules, "wandb", fake_wandb)

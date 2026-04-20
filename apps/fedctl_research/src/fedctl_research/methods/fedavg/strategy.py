@@ -130,26 +130,31 @@ class SyncLoggingMixin:
         server_round: int,
         valid_replies: list[Message],
     ) -> None:
-        if self.artifact_logger is None:
+        if self.artifact_logger is None and self.experiment_logger is None:
             return
+        rows: list[dict[str, float | int | str]] = []
         for offset, message in enumerate(valid_replies, start=1):
             metrics_record = message.content.get("metrics")
             if metrics_record is None:
                 continue
-            self.artifact_logger.log_client_update_event(
-                {
-                    "client_trips_total": self._accepted_train_replies_total - len(valid_replies) + offset,
-                    "node_id": message.metadata.src_node_id,
-                    "device_type": self.device_type_by_node_id.get(message.metadata.src_node_id, "unknown"),
-                    "server_model_version_sent": max(server_round - 1, 0),
-                    "server_step_applied": server_round,
-                    "update_staleness_server_steps": 0,
-                    "update_train_duration_s": float(metrics_record.get("train-duration-s", 0.0)),
-                    "update_num_examples": int(metrics_record.get("train-num-examples", metrics_record.get("num-examples", 0))),
-                    "update_examples_per_second": float(metrics_record.get("examples-per-second", 0.0)),
-                    "update_queue_latency_s": 0.0,
-                }
-            )
+            payload = {
+                "server_round": server_round,
+                "client_trips_total": self._accepted_train_replies_total - len(valid_replies) + offset,
+                "node_id": message.metadata.src_node_id,
+                "device_type": self.device_type_by_node_id.get(message.metadata.src_node_id, "unknown"),
+                "server_model_version_sent": max(server_round - 1, 0),
+                "server_step_applied": server_round,
+                "update_staleness_server_steps": 0,
+                "update_train_duration_s": float(metrics_record.get("train-duration-s", 0.0)),
+                "update_num_examples": int(metrics_record.get("train-num-examples", metrics_record.get("num-examples", 0))),
+                "update_examples_per_second": float(metrics_record.get("examples-per-second", 0.0)),
+                "update_queue_latency_s": 0.0,
+            }
+            rows.append(payload)
+            if self.artifact_logger is not None:
+                self.artifact_logger.log_client_update_event(payload)
+        if rows:
+            self.experiment_logger.log_client_update_events(server_round, rows, axis_key="server_round")
 
     def aggregate_train(
         self,
@@ -275,13 +280,35 @@ class SyncLoggingMixin:
         )
         self.experiment_logger.log_client_eval_metrics(server_round, eval_metrics)
         self.experiment_logger.log_system_metrics(server_round, system_metrics)
+        client_eval_rows: list[dict[str, float | int | str]] = []
         if self.artifact_logger is not None:
             for message in valid_replies:
                 metrics_record = message.content.get("metrics")
                 if metrics_record is None:
                     continue
-                self.artifact_logger.log_client_eval_event(
+                payload = {
+                    "server_round": server_round,
+                    "server_step": server_round,
+                    "node_id": message.metadata.src_node_id,
+                    "device_type": self.device_type_by_node_id.get(message.metadata.src_node_id, "unknown"),
+                    "model_rate": float(self.global_model_rate),
+                    "eval_acc": float(metrics_record.get("eval-acc", 0.0)),
+                    "eval_loss": float(metrics_record.get("eval-loss", 0.0)),
+                    "eval_duration_s": float(metrics_record.get("eval-duration-s", 0.0)),
+                    "num_examples": int(
+                        metrics_record.get("eval-num-examples", metrics_record.get("num-examples", 0))
+                    ),
+                }
+                client_eval_rows.append(payload)
+                self.artifact_logger.log_client_eval_event(payload)
+        else:
+            for message in valid_replies:
+                metrics_record = message.content.get("metrics")
+                if metrics_record is None:
+                    continue
+                client_eval_rows.append(
                     {
+                        "server_round": server_round,
                         "server_step": server_round,
                         "node_id": message.metadata.src_node_id,
                         "device_type": self.device_type_by_node_id.get(message.metadata.src_node_id, "unknown"),
@@ -294,6 +321,8 @@ class SyncLoggingMixin:
                         ),
                     }
                 )
+        if client_eval_rows:
+            self.experiment_logger.log_client_eval_event_rows(server_round, client_eval_rows, axis_key="server_round")
         return metrics
 
 

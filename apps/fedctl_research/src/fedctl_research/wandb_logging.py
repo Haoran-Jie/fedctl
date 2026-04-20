@@ -186,6 +186,24 @@ class ExperimentLogger:
     ) -> None:
         del server_step, rows
 
+    def log_client_update_events(
+        self,
+        step: int,
+        rows: list[Mapping[str, Any]],
+        *,
+        axis_key: str = "server_round",
+    ) -> None:
+        del step, rows, axis_key
+
+    def log_client_eval_event_rows(
+        self,
+        step: int,
+        rows: list[Mapping[str, Any]],
+        *,
+        axis_key: str = "server_round",
+    ) -> None:
+        del step, rows, axis_key
+
     def log_run_summary(
         self,
         *,
@@ -316,20 +334,60 @@ class WandbExperimentLogger(ExperimentLogger):
         server_step: int,
         rows: list[Mapping[str, Any]],
     ) -> None:
+        self._log_table(
+            table_key="submodel/local_client_table",
+            axis_key="server_step",
+            axis_value=server_step,
+            rows=rows,
+        )
+
+    def log_client_update_events(
+        self,
+        step: int,
+        rows: list[Mapping[str, Any]],
+        *,
+        axis_key: str = "server_round",
+    ) -> None:
+        table_key = "client_update/round_table" if axis_key == "server_round" else "client_update/step_table"
+        self._log_table(table_key=table_key, axis_key=axis_key, axis_value=step, rows=rows)
+
+    def log_client_eval_event_rows(
+        self,
+        step: int,
+        rows: list[Mapping[str, Any]],
+        *,
+        axis_key: str = "server_round",
+    ) -> None:
+        table_key = "client_eval/round_table" if axis_key == "server_round" else "client_eval/step_table"
+        self._log_table(table_key=table_key, axis_key=axis_key, axis_value=step, rows=rows)
+
+    def _log_table(
+        self,
+        *,
+        table_key: str,
+        axis_key: str,
+        axis_value: int,
+        rows: list[Mapping[str, Any]],
+    ) -> None:
         if self.disabled or not rows or self.wandb_module is None:
             return
         try:
-            columns = sorted({str(key) for row in rows for key in row.keys()})
-            data = [[row.get(column) for column in columns] for row in rows]
+            resolved_rows = []
+            for row in rows:
+                resolved = dict(row)
+                resolved.setdefault(axis_key, int(axis_value))
+                resolved_rows.append(resolved)
+            columns = sorted({str(key) for row in resolved_rows for key in row.keys()})
+            data = [[row.get(column) for column in columns] for row in resolved_rows]
             table = self.wandb_module.Table(columns=columns, data=data)
             self.run.log(
                 {
-                    "submodel/local_client_table": table,
-                    "server_step": int(server_step),
+                    table_key: table,
+                    axis_key: int(axis_value),
                 },
             )
         except Exception as exc:  # pragma: no cover - defensive guard for live W&B runtime
-            self._disable("log submodel client table", exc)
+            self._disable(f"log table {table_key}", exc)
 
     def log_run_summary(
         self,
@@ -547,6 +605,10 @@ def create_experiment_logger(context: Context) -> ExperimentLogger:
         ("eval_server_trip/*", "client_trip"),
         ("fedbuff/*", "server_step"),
         ("fedstaleweight/*", "server_step"),
+        ("client_update/round_table", "server_round"),
+        ("client_eval/round_table", "server_round"),
+        ("client_update/step_table", "server_step"),
+        ("client_eval/step_table", "server_step"),
         ("submodel/local_client_table", "server_step"),
     ):
         wandb.define_metric(pattern, step_metric=axis)

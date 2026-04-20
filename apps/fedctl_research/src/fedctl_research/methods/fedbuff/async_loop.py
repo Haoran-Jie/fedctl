@@ -513,20 +513,28 @@ def run_fedbuff_server(
                 )
                 result.train_metrics_clientapp[server_step] = train_metrics
                 experiment_logger.log_train_metrics(server_step, train_metrics)
+                client_update_rows: list[dict[str, float | int | str]] = []
                 for entry, normalized_weight in zip(buffered_updates, normalized_weights, strict=True):
-                    artifact_logger.log_client_update_event(
-                        {
-                            "client_trips_total": entry.trip_index,
-                            "server_step_applied": server_step,
-                            "node_id": entry.node_id,
-                            "device_type": entry.device_type,
-                            "update_staleness_server_steps": entry.staleness,
-                            "update_train_duration_s": entry.train_duration_s,
-                            "update_num_examples": entry.num_examples,
-                            "update_examples_per_second": entry.examples_per_second,
-                            "update_queue_latency_s": entry.queue_latency_s,
-                            "update_applied_weight": float(normalized_weight),
-                        }
+                    payload = {
+                        "server_step": server_step,
+                        "client_trips_total": entry.trip_index,
+                        "server_step_applied": server_step,
+                        "node_id": entry.node_id,
+                        "device_type": entry.device_type,
+                        "update_staleness_server_steps": entry.staleness,
+                        "update_train_duration_s": entry.train_duration_s,
+                        "update_num_examples": entry.num_examples,
+                        "update_examples_per_second": entry.examples_per_second,
+                        "update_queue_latency_s": entry.queue_latency_s,
+                        "update_applied_weight": float(normalized_weight),
+                    }
+                    client_update_rows.append(payload)
+                    artifact_logger.log_client_update_event(payload)
+                if client_update_rows:
+                    experiment_logger.log_client_update_events(
+                        server_step,
+                        client_update_rows,
+                        axis_key="server_step",
                     )
                 fedbuff_metrics = MetricRecord(
                     {
