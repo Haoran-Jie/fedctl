@@ -2,20 +2,62 @@ from __future__ import annotations
 
 import csv
 import json
+import os
+import time
 from pathlib import Path
 from typing import Iterable, Mapping, Sequence
+
+import matplotlib.pyplot as plt
+import scienceplots  # noqa: F401
 
 ROOT = Path(__file__).resolve().parent.parent
 PLOT_DIR = ROOT / 'plot'
 PLOT_OUTPUT_DIR = PLOT_DIR / 'output'
 WRITEUP_GENERATED_DIR = ROOT / 'writeup' / 'figures' / 'generated'
 TMP_DIR = ROOT / 'tmp'
+PUBLICATION_FIGURE_WIDTH = 13.0
+DEFAULT_PLOT_CACHE_HOURS = float(os.environ.get('FEDCTL_PLOT_CACHE_HOURS', '168'))
+
+PUBLICATION_FONT_SIZES = {
+    'font.size': 17,
+    'axes.titlesize': 19,
+    'axes.labelsize': 19,
+    'xtick.labelsize': 15,
+    'ytick.labelsize': 15,
+    'legend.fontsize': 16,
+    'figure.titlesize': 19,
+}
+
+PUBLICATION_FONT_FAMILY = {
+    'text.usetex': True,
+    'font.family': 'serif',
+    'font.serif': ['Latin Modern Roman', 'Computer Modern Roman', 'CMU Serif', 'DejaVu Serif'],
+    'mathtext.fontset': 'cm',
+    'text.latex.preamble': r'\usepackage[T1]{fontenc}\usepackage{lmodern}',
+}
 
 
 def ensure_output_dirs() -> None:
     PLOT_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     WRITEUP_GENERATED_DIR.mkdir(parents=True, exist_ok=True)
     TMP_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def force_refresh_requested() -> bool:
+    return os.environ.get('FEDCTL_PLOT_REFRESH', '').strip().lower() in {'1', 'true', 'yes'}
+
+
+def cache_is_fresh(path: Path, *, max_age_hours: float | None = None) -> bool:
+    if not path.exists():
+        return False
+    age_hours = (time.time() - path.stat().st_mtime) / 3600.0
+    return age_hours <= (DEFAULT_PLOT_CACHE_HOURS if max_age_hours is None else max_age_hours)
+
+
+def apply_publication_style() -> None:
+    plt.style.use(['science', 'grid'])
+    plt.rcParams.update(PUBLICATION_FONT_SIZES)
+    plt.rcParams.update(PUBLICATION_FONT_FAMILY)
 
 
 def dual_output_paths(filename: str) -> tuple[Path, Path]:

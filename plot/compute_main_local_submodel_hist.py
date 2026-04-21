@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import csv
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -11,7 +12,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 import wandb
 
-from common import TMP_DIR, save_figure_dual, write_csv_dual, write_json_dual
+from common import (
+    PUBLICATION_FIGURE_WIDTH,
+    TMP_DIR,
+    apply_publication_style,
+    cache_is_fresh,
+    force_refresh_requested,
+    plot_output_path,
+    save_figure_dual,
+    write_csv_dual,
+    write_json_dual,
+)
 
 ENTITY = 'samueljie1-the-university-of-cambridge'
 PROJECT = 'fedctl'
@@ -78,13 +89,56 @@ def fetch_table_rows(api: wandb.Api, run_id: str, seed: int) -> list[Row]:
     return rows
 
 
+def load_cached_rows() -> list[Row]:
+    cache_path = plot_output_path('compute_main_fedrolex_local_submodel_hist_raw.csv')
+    if not cache_is_fresh(cache_path) or force_refresh_requested():
+        return []
+    rows: list[Row] = []
+    with cache_path.open(newline='') as f:
+        for raw in csv.DictReader(f):
+            rows.append(
+                Row(
+                    run_id=raw['run_id'],
+                    seed=int(raw['seed']),
+                    model_rate=float(raw['model_rate']),
+                    eval_acc=float(raw['eval_acc']),
+                    device_type=raw['device_type'],
+                    client_model_rate=float(raw['client_model_rate']),
+                    node_id=int(raw['node_id']),
+                )
+            )
+    return rows
+
+
 def main() -> None:
-    api = wandb.Api(timeout=30)
-    all_rows: list[Row] = []
+    all_rows = load_cached_rows()
+    if not all_rows:
+        try:
+            api = wandb.Api(timeout=30)
+            for run_id, seed in RUNS:
+                rows = fetch_table_rows(api, run_id, seed)
+                all_rows.extend(rows)
+        except Exception:
+            cache_path = plot_output_path('compute_main_fedrolex_local_submodel_hist_raw.csv')
+            if not cache_path.exists():
+                raise
+            with cache_path.open(newline='') as f:
+                for raw in csv.DictReader(f):
+                    all_rows.append(
+                        Row(
+                            run_id=raw['run_id'],
+                            seed=int(raw['seed']),
+                            model_rate=float(raw['model_rate']),
+                            eval_acc=float(raw['eval_acc']),
+                            device_type=raw['device_type'],
+                            client_model_rate=float(raw['client_model_rate']),
+                            node_id=int(raw['node_id']),
+                        )
+                    )
+
     coverage: list[dict[str, object]] = []
     for run_id, seed in RUNS:
-        rows = fetch_table_rows(api, run_id, seed)
-        all_rows.extend(rows)
+        rows = [row for row in all_rows if row.run_id == run_id]
         coverage.append({'run_id': run_id, 'seed': seed, 'rows': len(rows), 'rates': sorted({row.model_rate for row in rows})})
 
     write_csv_dual(
@@ -103,8 +157,8 @@ def main() -> None:
         },
     )
 
-    plt.style.use('seaborn-v0_8-whitegrid')
-    fig, axes = plt.subplots(1, len(RUNS), figsize=(11.5, 4.6), sharex=True, sharey=True)
+    apply_publication_style()
+    fig, axes = plt.subplots(1, len(RUNS), figsize=(PUBLICATION_FIGURE_WIDTH, 4.6), sharex=True, sharey=True)
     if len(RUNS) == 1:
         axes = [axes]
 
@@ -125,17 +179,17 @@ def main() -> None:
             linewidth=0.8,
             alpha=0.9,
         )
-        ax.set_title(f'FedRolex IID (seed {seed})', fontsize=14)
-        ax.set_xlabel('Local Test Accuracy', fontsize=12)
+        ax.set_title(f'FedRolex IID (seed {seed})')
+        ax.set_xlabel('Local Test Accuracy')
         ax.set_xlim(0.40, 0.85)
         ax.set_ylim(bottom=0)
-    axes[0].set_ylabel('Number of Clients', fontsize=12)
+    axes[0].set_ylabel('Number of Clients')
 
     handles, labels = axes[0].get_legend_handles_labels()
     order = [labels.index(RATE_LABELS[rate]) for rate in RATE_ORDER]
     handles = [handles[i] for i in order]
     labels = [labels[i] for i in order]
-    fig.legend(handles, labels, loc='upper center', ncol=4, frameon=True, bbox_to_anchor=(0.5, 1.05), fontsize=12)
+    fig.legend(handles, labels, loc='upper center', ncol=4, frameon=True, bbox_to_anchor=(0.5, 1.05))
     fig.tight_layout(rect=(0, 0, 1, 0.92))
     outputs = save_figure_dual(fig, 'compute_main_fedrolex_local_submodel_hist')
 

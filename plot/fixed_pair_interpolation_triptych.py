@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import csv
 import json
 from collections import defaultdict
 from dataclasses import dataclass
@@ -10,17 +11,25 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
 import numpy as np
-import scienceplots  # noqa: F401
 import wandb
 
-from common import save_figure_plot_with_writeup_pdf, write_csv_plot, write_json_plot
+from common import (
+    PUBLICATION_FIGURE_WIDTH,
+    apply_publication_style,
+    cache_is_fresh,
+    force_refresh_requested,
+    plot_output_path,
+    save_figure_plot_with_writeup_pdf,
+    write_csv_plot,
+    write_json_plot,
+)
 
 ENTITY = 'samueljie1-the-university-of-cambridge'
 PROJECT = 'fedctl'
 PAIR_ORDER = (
-    ('pair_a_c', 'pair a-c'),
-    ('pair_a_e', 'pair a-e'),
-    ('pair_c_e', 'pair c-e'),
+    ('pair_a_c', 'a-c'),
+    ('pair_a_e', 'a-e'),
+    ('pair_c_e', 'c-e'),
 )
 PAIR_X_SCALE = {
     'pair_a_c': 1e5,
@@ -75,56 +84,96 @@ def _pair_tag(tags: object) -> str | None:
     return None
 
 
-def main() -> None:
-    api = wandb.Api(timeout=30)
-    runs = api.runs(
-        f'{ENTITY}/{PROJECT}',
-        filters={
-            '$and': [
-                {'state': 'finished'},
-                {'tags': {'$in': ['fixed_pair_interpolation']}},
-                {'tags': {'$in': [pair_tag for pair_tag, _ in PAIR_ORDER]}},
-            ]
-        },
-    )
-
+def _load_cached_points() -> list[Point]:
+    cache_path = plot_output_path('fixed_pair_interpolation_triptych_raw.csv')
+    if not cache_is_fresh(cache_path) or force_refresh_requested():
+        return []
     points: list[Point] = []
+    with cache_path.open(newline='') as f:
+        for raw in csv.DictReader(f):
+            points.append(
+                Point(
+                    pair=raw['pair'],
+                    method=raw['method'],
+                    seed=int(raw['seed']),
+                    mix=raw['mix'],
+                    avg_params=float(raw['avg_params']),
+                    score=float(raw['score']),
+                    run_id=raw['run_id'],
+                )
+            )
+    return points
+
+
+def main() -> None:
+    points = _load_cached_points()
     missing: list[dict[str, object]] = []
-    for run in runs:
-        cfg = run.config
-        method = cfg.get('method')
-        if method not in METHODS:
-            continue
-        pair = _pair_tag(run.tags)
-        if pair is None:
-            continue
-        summary = dict(run.summary)
-        x = summary.get(X_KEY)
-        y = _metric(summary, PREFERRED_Y_KEYS)
-        mix = cfg.get('heterofl-partition-rates', '')
-        seed = int(cfg.get('seed', 0))
-        if not isinstance(x, (int, float)) or y is None:
-            missing.append(
-                {
-                    'pair': pair,
-                    'run_id': run.id,
-                    'method': method,
-                    'seed': seed,
-                    'mix': mix,
-                }
+    if not points:
+        try:
+            api = wandb.Api(timeout=30)
+            runs = api.runs(
+                f'{ENTITY}/{PROJECT}',
+                filters={
+                    '$and': [
+                        {'state': 'finished'},
+                        {'tags': {'$in': ['fixed_pair_interpolation']}},
+                        {'tags': {'$in': [pair_tag for pair_tag, _ in PAIR_ORDER]}},
+                    ]
+                },
             )
-            continue
-        points.append(
-            Point(
-                pair=pair,
-                method=method,
-                seed=seed,
-                mix=str(mix),
-                avg_params=float(x),
-                score=y,
-                run_id=run.id,
-            )
-        )
+
+            for run in runs:
+                cfg = run.config
+                method = cfg.get('method')
+                if method not in METHODS:
+                    continue
+                pair = _pair_tag(run.tags)
+                if pair is None:
+                    continue
+                summary = dict(run.summary)
+                x = summary.get(X_KEY)
+                y = _metric(summary, PREFERRED_Y_KEYS)
+                mix = cfg.get('heterofl-partition-rates', '')
+                seed = int(cfg.get('seed', 0))
+                if not isinstance(x, (int, float)) or y is None:
+                    missing.append(
+                        {
+                            'pair': pair,
+                            'run_id': run.id,
+                            'method': method,
+                            'seed': seed,
+                            'mix': mix,
+                        }
+                    )
+                    continue
+                points.append(
+                    Point(
+                        pair=pair,
+                        method=method,
+                        seed=seed,
+                        mix=str(mix),
+                        avg_params=float(x),
+                        score=y,
+                        run_id=run.id,
+                    )
+                )
+        except Exception:
+            cache_path = plot_output_path('fixed_pair_interpolation_triptych_raw.csv')
+            if not cache_path.exists():
+                raise
+            with cache_path.open(newline='') as f:
+                for raw in csv.DictReader(f):
+                    points.append(
+                        Point(
+                            pair=raw['pair'],
+                            method=raw['method'],
+                            seed=int(raw['seed']),
+                            mix=raw['mix'],
+                            avg_params=float(raw['avg_params']),
+                            score=float(raw['score']),
+                            run_id=raw['run_id'],
+                        )
+                    )
 
     raw_rows = [
         [p.pair, p.method, p.seed, p.mix, p.avg_params, p.score, p.run_id]
@@ -141,19 +190,8 @@ def main() -> None:
         grouped[p.pair][p.method][p.avg_params].append(p.score)
 
     aggregated_rows: list[list[object]] = []
-    plt.style.use(['science', 'grid', 'no-latex'])
-    plt.rcParams.update(
-        {
-            'font.size': 13,
-            'axes.titlesize': 16,
-            'axes.labelsize': 18,
-            'xtick.labelsize': 12,
-            'ytick.labelsize': 12,
-            'legend.fontsize': 14,
-            'figure.titlesize': 18,
-        }
-    )
-    fig, axes = plt.subplots(1, 3, figsize=(14.6, 5.1), sharey=True)
+    apply_publication_style()
+    fig, axes = plt.subplots(1, 3, figsize=(PUBLICATION_FIGURE_WIDTH, 4.3), sharey=True)
 
     for ax, (pair_tag, pair_label) in zip(axes, PAIR_ORDER, strict=True):
         for method in METHODS:
@@ -181,12 +219,12 @@ def main() -> None:
         x_scale = PAIR_X_SCALE[pair_tag]
         ax.xaxis.set_major_formatter(FuncFormatter(lambda value, _pos, scale=x_scale: f"{value / scale:g}"))
         ax.yaxis.set_major_formatter(FuncFormatter(lambda value, _pos: f"{value:.2f}"))
-        ax.text(1.0, -0.10, f'1e{int(np.log10(x_scale))}', transform=ax.transAxes, ha='right', va='top')
+        ax.text(1.0, -0.03, f'1e{int(np.log10(x_scale))}', transform=ax.transAxes, ha='right', va='top')
         if ax is axes[0]:
             ax.legend(frameon=True, loc='lower right')
 
-    fig.supxlabel('Average Client-Side Model Parameters')
-    fig.supylabel('Final Global Test Accuracy')
+    fig.supxlabel('Average Model Parameters')
+    fig.supylabel('Accuracy')
     fig.tight_layout()
     fig.subplots_adjust(bottom=0.18, wspace=0.20)
 
