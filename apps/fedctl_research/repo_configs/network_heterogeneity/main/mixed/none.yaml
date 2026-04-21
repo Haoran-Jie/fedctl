@@ -1,6 +1,6 @@
 deploy:
   supernodes:
-    rpi4: 10
+    rpi4: 5
     rpi5: 10
   superexec:
     env:
@@ -10,6 +10,7 @@ deploy:
   placement:
     allow_oversubscribe: false
     spread_across_hosts: true
+    prefer_spread_across_hosts: true
   resources:
     supernode:
       default: { cpu: 1000, mem: 1024 }
