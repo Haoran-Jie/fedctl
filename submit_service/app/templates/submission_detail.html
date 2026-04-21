@@ -519,6 +519,11 @@
         .replaceAll('>', '&gt;')
         .replaceAll('"', '&quot;');
 
+    const sanitizeHtml = (html) => {
+      // Remove <hr> tags which may be artifacts from ANSI rendering
+      return html.replace(/<\/?hr[^>]*>/gi, '');
+    };
+
     const splitLines = (value) => {
       if (!value) return [];
       return value.split(/\r?\n/);
@@ -555,17 +560,6 @@
       logsBox.scrollTop = logsBox.scrollHeight;
     };
 
-    const detectLineType = (line) => {
-      const lowerLine = line.toLowerCase();
-      if (/error|exception|fatal|traceback|failed|failure/i.test(lowerLine)) {
-        return 'error';
-      }
-      if (/warning|warn|deprecated/i.test(lowerLine)) {
-        return 'warning';
-      }
-      return 'normal';
-    };
-
     const renderLogs = () => {
       const query = logsFilterInput.value.trim().toLowerCase();
       const rawLines = splitLines(rawLogs);
@@ -587,11 +581,11 @@
       }
 
       const lines = visibleLines.map((item) => {
-        const lineType = detectLineType(item.text);
         const isMatch = query && item.text.toLowerCase().includes(query);
-        const classNames = ['log-line', `is-${lineType}`];
+        const classNames = ['log-line'];
         if (isMatch) classNames.push('is-match');
-        const html = item.html !== undefined ? item.html : escapeHtml(item.text);
+        let html = item.html !== undefined ? item.html : escapeHtml(item.text);
+        html = sanitizeHtml(html);
         return `<div class="${classNames.join(' ')}" data-line-num="${item.index}">${html}</div>`;
       });
 

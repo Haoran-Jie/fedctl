@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import csv
 import json
 from dataclasses import dataclass
 
@@ -10,7 +11,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 import wandb
 
-from common import TMP_DIR, save_figure_dual, write_csv_dual, write_json_dual
+from common import (
+    PUBLICATION_FIGURE_WIDTH,
+    TMP_DIR,
+    apply_publication_style,
+    cache_is_fresh,
+    force_refresh_requested,
+    plot_output_path,
+    save_figure_dual,
+    write_csv_dual,
+    write_json_dual,
+)
 
 ENTITY = "samueljie1-the-university-of-cambridge"
 PROJECT = "fedctl"
@@ -97,14 +108,63 @@ def _rate_token(rate: float) -> str:
     return RATE_LABELS[float(rate)]
 
 
+def _load_cached_rows() -> list[Row]:
+    cache_path = plot_output_path("compute_main_california_local_submodel_distributions_raw.csv")
+    if not cache_is_fresh(cache_path) or force_refresh_requested():
+        return []
+    rows: list[Row] = []
+    with cache_path.open(newline="") as f:
+        for raw in csv.DictReader(f):
+            rows.append(
+                Row(
+                    run_id=raw["run_id"],
+                    method=raw["method"],
+                    regime=raw["regime"],
+                    seed=int(raw["seed"]),
+                    node_id=int(raw["node_id"]),
+                    device_type=raw["device_type"],
+                    model_rate=float(raw["model_rate"]),
+                    client_model_rate=float(raw["client_model_rate"]),
+                    eval_r2=float(raw["eval_r2"]),
+                    num_examples=int(raw["num_examples"]),
+                )
+            )
+    return rows
+
+
 def main() -> None:
-    api = wandb.Api(timeout=30)
-    all_rows: list[Row] = []
+    all_rows = _load_cached_rows()
     per_run_coverage: list[dict[str, object]] = []
 
+    if not all_rows:
+        try:
+            api = wandb.Api(timeout=30)
+            for run_id, method, regime, seed in RUNS:
+                rows = _download_rows(api, run_id, method, regime, seed)
+                all_rows.extend(rows)
+        except Exception:
+            cache_path = plot_output_path("compute_main_california_local_submodel_distributions_raw.csv")
+            if not cache_path.exists():
+                raise
+            with cache_path.open(newline="") as f:
+                for raw in csv.DictReader(f):
+                    all_rows.append(
+                        Row(
+                            run_id=raw["run_id"],
+                            method=raw["method"],
+                            regime=raw["regime"],
+                            seed=int(raw["seed"]),
+                            node_id=int(raw["node_id"]),
+                            device_type=raw["device_type"],
+                            model_rate=float(raw["model_rate"]),
+                            client_model_rate=float(raw["client_model_rate"]),
+                            eval_r2=float(raw["eval_r2"]),
+                            num_examples=int(raw["num_examples"]),
+                        )
+                    )
+
     for run_id, method, regime, seed in RUNS:
-        rows = _download_rows(api, run_id, method, regime, seed)
-        all_rows.extend(rows)
+        rows = [row for row in all_rows if row.run_id == run_id]
         per_run_coverage.append(
             {
                 "run_id": run_id,
@@ -161,8 +221,8 @@ def main() -> None:
         },
     )
 
-    plt.style.use("seaborn-v0_8-whitegrid")
-    fig, axes = plt.subplots(2, 3, figsize=(13.0, 7.4), sharex=True, sharey=True)
+    apply_publication_style()
+    fig, axes = plt.subplots(2, 3, figsize=(PUBLICATION_FIGURE_WIDTH, 7.4), sharex=True, sharey=True)
 
     for row_idx, regime in enumerate(REGIME_ORDER):
         for col_idx, method in enumerate(METHOD_ORDER):
@@ -219,28 +279,29 @@ def main() -> None:
                         clip_on=False,
                     )
                     ax.annotate(
-                        f"min={min_clipped:.2f}\n$n$={len(clipped)}",
+                        f"min={min_clipped:.2f}",
                         xy=(pos, DISPLAY_Y_LO),
-                        xytext=(4, 6),
+                        xytext=(-22, 8),
                         textcoords="offset points",
                         ha="left",
                         va="bottom",
-                        fontsize=8,
+                        fontsize=12,
                         color="#333333",
                         clip_on=False,
                     )
 
             if row_idx == 0:
-                ax.set_title(method, fontsize=14)
+                ax.set_title(method)
             if col_idx == 0:
-                ax.set_ylabel(f"{REGIME_TITLES[regime]}\nLocal $R^2$", fontsize=12)
+                ax.set_ylabel("IID local R²" if regime == "iid" else "Non-IID local R²")
             ax.set_xticks(positions)
-            ax.set_xticklabels([RATE_LABELS[rate] for rate in RATE_ORDER], fontsize=11)
+            ax.set_xticklabels([RATE_LABELS[rate] for rate in RATE_ORDER])
             ax.set_ylim(DISPLAY_Y_LO, DISPLAY_Y_HI)
             ax.axhline(0.0, color="#888888", linewidth=0.9, linestyle="--", alpha=0.8)
+            if row_idx == 0:
+                ax.tick_params(labelbottom=False)
 
-    for ax in axes[-1, :]:
-        ax.set_xlabel("Extracted submodel rate", fontsize=12)
+    fig.supxlabel("Extracted submodel rate", y=0.08)
 
     handles = [
         plt.Line2D(
@@ -256,8 +317,8 @@ def main() -> None:
         )
         for rate in (1.0, 0.5, 0.25, 0.125)
     ]
-    fig.legend(handles=handles, loc="upper center", ncol=4, frameon=True, bbox_to_anchor=(0.5, 1.02), fontsize=12)
-    fig.tight_layout(rect=(0.02, 0.06, 1, 0.94))
+    fig.legend(handles=handles, loc="upper center", ncol=4, frameon=True, bbox_to_anchor=(0.5, 1.02))
+    fig.tight_layout(rect=(0.0, 0.03, 1, 0.94))
     outputs = save_figure_dual(fig, "compute_main_california_local_submodel_distributions")
 
     left_pdf, right_pdf = outputs["pdf"]
