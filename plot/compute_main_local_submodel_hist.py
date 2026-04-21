@@ -17,6 +17,7 @@ from common import (
     TMP_DIR,
     apply_publication_style,
     cache_is_fresh,
+    default_cycle_colors,
     force_refresh_requested,
     plot_output_path,
     save_figure_dual,
@@ -42,13 +43,6 @@ RATE_LABELS = {
 }
 RATE_ORDER = (1.0, 0.5, 0.25, 0.125)
 RATE_STACK_ORDER = (0.125, 0.25, 0.5, 1.0)
-RATE_COLORS = {
-    1.0: '#1f77b4',
-    0.5: '#ff7f0e',
-    0.25: '#2ca02c',
-    0.125: '#d62728',
-}
-
 
 @dataclass(frozen=True)
 class Row:
@@ -158,6 +152,8 @@ def main() -> None:
     )
 
     apply_publication_style()
+    cycle_colors = default_cycle_colors(len(RATE_STACK_ORDER))
+    rate_colors = {rate: color for rate, color in zip(RATE_STACK_ORDER, cycle_colors, strict=True)}
     fig, axes = plt.subplots(1, len(RUNS), figsize=(PUBLICATION_FIGURE_WIDTH, 4.6), sharex=True, sharey=True)
     if len(RUNS) == 1:
         axes = [axes]
@@ -173,7 +169,7 @@ def main() -> None:
             stacked_vals,
             bins=bins,
             stacked=True,
-            color=[RATE_COLORS[rate] for rate in RATE_STACK_ORDER],
+            color=[rate_colors[rate] for rate in RATE_STACK_ORDER],
             label=[RATE_LABELS[rate] for rate in RATE_STACK_ORDER],
             edgecolor='white',
             linewidth=0.8,
@@ -194,15 +190,12 @@ def main() -> None:
     outputs = save_figure_dual(fig, 'compute_main_fedrolex_local_submodel_hist')
 
     left_pdf, right_pdf = outputs['pdf']
-    left_png, right_png = outputs['png']
     print(json.dumps({
         'plot_output': {
             'pdf': str(left_pdf),
-            'png': str(left_png),
         },
         'writeup_output': {
             'pdf': str(right_pdf),
-            'png': str(right_png),
         },
         'rows': len(all_rows),
     }, indent=2))

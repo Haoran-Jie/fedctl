@@ -1,0 +1,79 @@
+{
+  "task": "cifar10_cnn",
+  "seed": 1340,
+  "runs": [
+    {
+      "run_id": "skhigedl",
+      "regime": "iid",
+      "method": "heterofl",
+      "rows": 80,
+      "rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": "i99r0zn3",
+      "regime": "iid",
+      "method": "fedrolex",
+      "rows": 80,
+      "rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": "y51ex006",
+      "regime": "iid",
+      "method": "fiarse",
+      "rows": 80,
+      "rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": "prg5qiyn",
+      "regime": "noniid",
+      "method": "heterofl",
+      "rows": 80,
+      "rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": "bj8ua1of",
+      "regime": "noniid",
+      "method": "fedrolex",
+      "rows": 80,
+      "rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": null,
+      "regime": "noniid",
+      "method": "fiarse",
+      "rows": 0,
+      "rates": []
+    }
+  ],
+  "rate_labels": {
+    "1.0": "1",
+    "0.5": "1/2",
+    "0.25": "1/4",
+    "0.125": "1/8"
+  }
+}
