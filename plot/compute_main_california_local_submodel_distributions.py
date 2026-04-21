@@ -16,6 +16,7 @@ from common import (
     TMP_DIR,
     apply_publication_style,
     cache_is_fresh,
+    default_cycle_colors,
     force_refresh_requested,
     plot_output_path,
     save_figure_dual,
@@ -43,12 +44,6 @@ RATE_LABELS = {
     0.25: "1/4",
     0.5: "1/2",
     1.0: "1",
-}
-RATE_COLORS = {
-    0.125: "#d62728",
-    0.25: "#2ca02c",
-    0.5: "#ff7f0e",
-    1.0: "#1f77b4",
 }
 METHOD_ORDER = ("HeteroFL", "FedRolex", "FIARSE")
 REGIME_ORDER = ("iid", "noniid")
@@ -222,6 +217,8 @@ def main() -> None:
     )
 
     apply_publication_style()
+    cycle_colors = default_cycle_colors(len(RATE_ORDER))
+    rate_colors = {rate: color for rate, color in zip(RATE_ORDER, cycle_colors, strict=True)}
     fig, axes = plt.subplots(2, 3, figsize=(PUBLICATION_FIGURE_WIDTH, 7.4), sharex=True, sharey=True)
 
     for row_idx, regime in enumerate(REGIME_ORDER):
@@ -242,7 +239,7 @@ def main() -> None:
                 boxprops={"linewidth": 1.0, "edgecolor": "#444444"},
             )
             for patch, rate in zip(bp["boxes"], RATE_ORDER, strict=True):
-                patch.set_facecolor(RATE_COLORS[rate])
+                patch.set_facecolor(rate_colors[rate])
                 patch.set_alpha(0.35)
 
             for pos, rate in zip(positions, RATE_ORDER, strict=True):
@@ -256,7 +253,7 @@ def main() -> None:
                     np.full(len(vals), pos) + jitter,
                     vals,
                     s=24,
-                    c=RATE_COLORS[rate],
+                    c=rate_colors[rate],
                     alpha=0.8,
                     edgecolors="white",
                     linewidths=0.4,
@@ -272,7 +269,7 @@ def main() -> None:
                         [DISPLAY_Y_LO],
                         marker="v",
                         s=42,
-                        c=RATE_COLORS[rate],
+                        c=rate_colors[rate],
                         edgecolors="black",
                         linewidths=0.5,
                         zorder=4,
@@ -309,7 +306,7 @@ def main() -> None:
             [0],
             marker="s",
             linestyle="",
-            markerfacecolor=RATE_COLORS[rate],
+            markerfacecolor=rate_colors[rate],
             markeredgecolor="none",
             markersize=10,
             alpha=0.7,
@@ -322,13 +319,12 @@ def main() -> None:
     outputs = save_figure_dual(fig, "compute_main_california_local_submodel_distributions")
 
     left_pdf, right_pdf = outputs["pdf"]
-    left_png, right_png = outputs["png"]
     print(
         json.dumps(
             {
                 "rows": len(all_rows),
-                "plot_output": {"pdf": str(left_pdf), "png": str(left_png)},
-                "writeup_output": {"pdf": str(right_pdf), "png": str(right_png)},
+                "plot_output": {"pdf": str(left_pdf)},
+                "writeup_output": {"pdf": str(right_pdf)},
             },
             indent=2,
         )

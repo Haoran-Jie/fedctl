@@ -17,6 +17,7 @@ from common import (
     PUBLICATION_FIGURE_WIDTH,
     apply_publication_style,
     cache_is_fresh,
+    default_cycle_colors,
     force_refresh_requested,
     plot_output_path,
     save_figure_plot_with_writeup_pdf,
@@ -44,11 +45,6 @@ PREFERRED_Y_KEYS = (
     'final/eval_server/eval-score',
 )
 X_KEY = 'round_cost/avg_params'
-COLORS = {
-    'heterofl': '#1f77b4',
-    'fedrolex': '#ff7f0e',
-    'fiarse': '#2ca02c',
-}
 LABELS = {
     'heterofl': 'HeteroFL',
     'fedrolex': 'FedRolex',
@@ -191,6 +187,7 @@ def main() -> None:
 
     aggregated_rows: list[list[object]] = []
     apply_publication_style()
+    method_colors = dict(zip(METHODS, default_cycle_colors(len(METHODS)), strict=True))
     fig, axes = plt.subplots(1, 3, figsize=(PUBLICATION_FIGURE_WIDTH, 4.3), sharey=True)
 
     for ax, (pair_tag, pair_label) in zip(axes, PAIR_ORDER, strict=True):
@@ -207,11 +204,11 @@ def main() -> None:
                 means,
                 marker='o',
                 linewidth=2.2,
-                color=COLORS[method],
+                color=method_colors[method],
                 label=LABELS[method],
             )
             if np.any(counts > 1):
-                ax.fill_between(xs, means - stds, means + stds, color=COLORS[method], alpha=0.16)
+                ax.fill_between(xs, means - stds, means + stds, color=method_colors[method], alpha=0.16)
             for x, mean, std, count in zip(xs, means, stds, counts, strict=True):
                 aggregated_rows.append([pair_tag, method, x, mean, std, count])
 
@@ -249,7 +246,6 @@ def main() -> None:
             {
                 'plot_output': {
                     'pdf': str(outputs['pdf'][0]),
-                    'png': str(outputs['png']),
                 },
                 'writeup_output': {
                     'pdf': str(outputs['pdf'][1]),

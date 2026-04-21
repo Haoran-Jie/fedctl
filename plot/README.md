@@ -8,8 +8,11 @@ This folder contains the reproducible plotting pipeline for dissertation figures
 - `*.py`: plot entrypoints
 
 ## Output policy
-Each plot writes artifacts to both:
+Plot scripts keep raw data and diagnostics in:
 - `plot/output/`
-- `writeup/figures/generated/`
 
-The `writeup` copy is what LaTeX embeds. The `plot/output` copy is the local plotting workspace.
+Only the final publication PDF is mirrored into:
+- `writeup/figures/`
+
+LaTeX embeds the `writeup/figures/` PDFs directly. Do not mirror CSV,
+JSON, or PNG diagnostics into the writeup tree.

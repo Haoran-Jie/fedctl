@@ -1,0 +1,35 @@
+\begin{table}[H]
+\centering
+\scriptsize
+\renewcommand{\arraystretch}{1.08}
+\setlength{\tabcolsep}{2.7pt}
+\caption{\textbf{Compute-main runtime and bottleneck decomposition.} Entries report mean $\pm$ standard deviation over completed seeds \texttt{1337}, \texttt{1338}, and \texttt{1339}. Runtime is end-to-end server-observed training time from \texttt{runtime/total\_server\_s}. Train round is the wall-clock latency of the synchronous training phase in each round; client train mean/std summarise the client-reported local training durations within a round; client eval is the synchronous client-evaluation phase; server eval is centralized evaluation time. Lower is better for all timing columns.}
+\label{tab:compute_main_runtime}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{@{}lllrrrrrrr@{}}
+\toprule
+Regime & Task & Method & \makecell[c]{Runtime\\(min)} & Rel. & \makecell[c]{Train\\round (s)} & \makecell[c]{Client train\\mean (s)} & \makecell[c]{Client train\\std (s)} & \makecell[c]{Client eval\\round (s)} & \makecell[c]{Server\\eval (s)} \\
+\midrule
+IID & California Housing & \texttt{FedAvg} & \textbf{25.5$\pm$0.6} & 1.00$\times$ & 36.5$\pm$1.3 & 0.2$\pm$0.0 & 0.2$\pm$0.0 & 35.7$\pm$0.9 & 0.1$\pm$0.0 \\
+ &  & \texttt{HeteroFL} & 25.6$\pm$1.8 & 1.00$\times$ & 36.3$\pm$1.0 & 0.2$\pm$0.0 & 0.1$\pm$0.0 & 35.9$\pm$1.2 & 0.1$\pm$0.0 \\
+ &  & \texttt{FedRolex} & 26.1$\pm$1.5 & 1.02$\times$ & 37.1$\pm$0.3 & 0.2$\pm$0.0 & 0.1$\pm$0.0 & 36.5$\pm$0.2 & 0.1$\pm$0.0 \\
+ &  & \texttt{FIARSE} & 26.2$\pm$1.4 & 1.03$\times$ & 37.5$\pm$0.0 & 0.3$\pm$0.0 & 0.3$\pm$0.0 & 36.3$\pm$0.1 & 0.1$\pm$0.0 \\
+\midrule
+IID & CIFAR-10 & \texttt{FedAvg} & 260.0$\pm$55.6 & 2.34$\times$ & 694.3$\pm$158.7 & 131.4$\pm$10.2 & 135.7$\pm$31.0 & 229.2$\pm$288.6 & 20.9$\pm$0.2 \\
+ &  & \texttt{HeteroFL} & \textbf{111.1$\pm$11.7} & 1.00$\times$ & 252.9$\pm$37.4 & 59.6$\pm$5.9 & 47.4$\pm$12.7 & 119.6$\pm$118.9 & 21.5$\pm$0.2 \\
+ &  & \texttt{FedRolex} & 120.4$\pm$8.7 & 1.08$\times$ & 273.0$\pm$28.4 & 62.1$\pm$1.4 & 48.5$\pm$4.0 & 148.5$\pm$173.7 & 22.6$\pm$0.2 \\
+ &  & \texttt{FIARSE} & 208.6$\pm$81.5 & 1.88$\times$ & 539.5$\pm$242.7 & 127.2$\pm$69.2 & 115.3$\pm$63.1 & 335.3$\pm$277.0 & 22.1$\pm$0.9 \\
+\midrule
+non-IID & California Housing & \texttt{FedAvg} & \textbf{37.0$\pm$0.7} & 1.00$\times$ & 26.7$\pm$2.7 & 0.2$\pm$0.0 & 0.2$\pm$0.0 & 26.8$\pm$2.2 & 0.1$\pm$0.0 \\
+ &  & \texttt{HeteroFL} & 38.5$\pm$3.0 & 1.04$\times$ & 28.5$\pm$1.7 & 0.2$\pm$0.0 & 0.1$\pm$0.0 & 27.0$\pm$0.9 & 0.1$\pm$0.0 \\
+ &  & \texttt{FedRolex} & 37.4$\pm$2.1 & 1.01$\times$ & 26.0$\pm$2.1 & 0.2$\pm$0.0 & 0.1$\pm$0.0 & 27.8$\pm$0.8 & 0.1$\pm$0.0 \\
+ &  & \texttt{FIARSE} & 37.9$\pm$1.1 & 1.02$\times$ & 28.3$\pm$0.4 & 0.3$\pm$0.0 & 0.2$\pm$0.0 & 26.3$\pm$0.3 & 0.1$\pm$0.0 \\
+\midrule
+non-IID & CIFAR-10 & \texttt{FedAvg} & 305.9$\pm$24.7 & 2.27$\times$ & 392.4$\pm$35.4 & 125.5$\pm$5.9 & 107.1$\pm$11.4 & 176.8$\pm$236.8 & 22.8$\pm$0.4 \\
+ &  & \texttt{HeteroFL} & 148.6$\pm$10.1 & 1.10$\times$ & 157.7$\pm$15.3 & 47.0$\pm$0.1 & 34.5$\pm$4.6 & 195.9$\pm$15.8 & 23.2$\pm$1.3 \\
+ &  & \texttt{FedRolex} & \textbf{135.0$\pm$10.8} & 1.00$\times$ & 139.8$\pm$16.6 & 43.3$\pm$2.6 & 29.7$\pm$4.8 & 175.5$\pm$15.9 & 22.9$\pm$1.2 \\
+ &  & \texttt{FIARSE} & 356.2$\pm$30.3 & 2.64$\times$ & 467.2$\pm$47.5 & 140.3$\pm$9.1 & 132.4$\pm$14.0 & 505.7$\pm$47.0 & 22.2$\pm$0.6 \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
