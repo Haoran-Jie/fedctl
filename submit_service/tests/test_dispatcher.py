@@ -313,7 +313,9 @@ def test_dispatcher_blocks_when_running_submission_already_reserves_all_nodes(
     assert dispatched_ids == []
     updated = storage.get_submission("sub-queued")
     assert updated["status"] == "blocked"
-    assert updated["blocked_reason"] == _all_typed_bundle_blocked_reason()
+    assert updated["blocked_reason"] == (
+        "strict placement waits for running submissions: sub-running"
+    )
 
 
 def test_dispatcher_blocks_second_submission_even_when_nodes_have_spare_resources(
@@ -360,7 +362,9 @@ def test_dispatcher_blocks_second_submission_even_when_nodes_have_spare_resource
     assert dispatched_ids == []
     updated = storage.get_submission("sub-queued")
     assert updated["status"] == "blocked"
-    assert updated["blocked_reason"] == _all_typed_bundle_blocked_reason()
+    assert updated["blocked_reason"] == (
+        "strict placement waits for running submissions: sub-running"
+    )
 
 
 def test_dispatcher_does_not_double_count_running_soft_submission_capacity(
@@ -431,6 +435,81 @@ def test_dispatcher_does_not_double_count_running_soft_submission_capacity(
     dispatcher.run_once()
 
     assert dispatched_ids == ["sub-queued"]
+
+
+def test_dispatcher_blocks_strict_submission_while_soft_submission_is_running(
+    tmp_path, monkeypatch
+) -> None:
+    db_path = tmp_path / "submit.db"
+    storage = Storage(StorageConfig(db_url=f"sqlite:///{db_path}"))
+    storage.init_db()
+    _patch_live_queue_resources(monkeypatch)
+
+    _create_submission(
+        storage,
+        submission_id="sub-running-soft",
+        status="running",
+        created_at="2026-01-01T00:00:00+00:00",
+        priority=50,
+        args=_typed_supernode_args_soft(),
+    )
+    storage.update_submission(
+        "sub-running-soft",
+        {"jobs": _submission_jobs_report("exp-soft-running")},
+    )
+    _create_submission(
+        storage,
+        submission_id="sub-queued-strict",
+        status="queued",
+        created_at="2026-01-01T00:00:01+00:00",
+        priority=50,
+        args=_typed_supernode_args(),
+    )
+
+    nodes = _inventory_nodes(node_cpu=7200, node_mem=7820)
+    for node in nodes:
+        if node.get("node_class") == "node":
+            resources = node["resources"]
+            resources["used_cpu"] = 3000
+            resources["used_mem"] = 3072
+            node["allocations"] = {
+                "running_jobs": ["exp-soft-running-supernodes"],
+            }
+        elif node.get("node_class") == "link":
+            node["allocations"] = {
+                "running_jobs": ["exp-soft-running-superlink", "exp-soft-running-serverapp"],
+            }
+        elif node.get("node_class") == "submit":
+            node["allocations"] = {
+                "running_jobs": [
+                    "sub-running-soft",
+                    *[f"exp-soft-running-clientapp-{idx}" for idx in range(1, 21)],
+                ],
+            }
+
+    monkeypatch.setattr(
+        dispatcher_mod,
+        "_inventory_snapshot",
+        lambda inventory: (nodes, None),
+    )
+
+    dispatched_ids: list[str] = []
+
+    def fake_dispatch(storage_obj, submission, cfg):
+        dispatched_ids.append(submission["id"])
+        return dispatcher_mod.DispatchResult(submitted=True)
+
+    monkeypatch.setattr(dispatcher_mod, "dispatch_submission", fake_dispatch)
+
+    dispatcher = dispatcher_mod.Dispatcher(storage, _cfg(db_path))
+    dispatcher.run_once()
+
+    assert dispatched_ids == []
+    updated = storage.get_submission("sub-queued-strict")
+    assert updated["status"] == "blocked"
+    assert updated["blocked_reason"] == (
+        "strict placement waits for running submissions: sub-running-soft"
+    )
 
 
 def test_dispatcher_temporarily_reserves_running_soft_submission_until_child_jobs_visible(

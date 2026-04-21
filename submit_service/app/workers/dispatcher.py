@@ -129,6 +129,18 @@ class Dispatcher:
                 )
         for submission in queued:
             status = submission.get("status")
+            if _submission_uses_strict_queue_reservation(submission) and running:
+                reason = _strict_submission_wait_reason(running)
+                if status != "blocked" or submission.get("blocked_reason") != reason:
+                    self._storage.update_submission(
+                        submission["id"],
+                        {
+                            "status": "blocked",
+                            "blocked_reason": reason,
+                            "error_message": None,
+                        },
+                    )
+                continue
             candidate_nodes = [dict(node) for node in free_nodes]
             ok, reason = _reserve_submission_capacity(
                 submission,
@@ -154,6 +166,7 @@ class Dispatcher:
             result = dispatch_submission(self._storage, submission, self._cfg)
             if result.submitted:
                 free_nodes = candidate_nodes
+                running.append({**submission, "status": "running"})
         self._purge_completed_jobs()
 
     def _reconcile_running(self) -> None:
@@ -628,6 +641,17 @@ def _submission_uses_strict_queue_reservation(submission: dict[str, Any]) -> boo
     if allow_oversubscribe is None:
         allow_oversubscribe = _repo_allow_oversubscribe_default()
     return not bool(allow_oversubscribe)
+
+
+def _strict_submission_wait_reason(running: list[dict[str, Any]]) -> str:
+    ids = [str(row.get("id") or row.get("submission_id") or "") for row in running]
+    ids = [value for value in ids if value]
+    if not ids:
+        return "strict placement waits for running submissions"
+    shown = ", ".join(ids[:3])
+    if len(ids) > 3:
+        shown = f"{shown}, +{len(ids) - 3} more"
+    return f"strict placement waits for running submissions: {shown}"
 
 
 def _pending_soft_submission_requirements(
