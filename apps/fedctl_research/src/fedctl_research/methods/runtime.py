@@ -44,6 +44,7 @@ from fedctl_research.config import (
     resolve_nomad_node_id,
 )
 from fedctl_research.costs import build_model_catalog
+from fedctl_research.netem_probe import collect_netem_probe_metrics
 from fedctl_research.partitioning.partition_request import PartitionRequest
 from fedctl_research.result_artifacts import ResultArtifactLogger
 from fedctl_research.seeding import derive_seed, set_global_seed
@@ -491,19 +492,19 @@ def client_train(
         float(bundle.num_train_examples) / train_duration_s if train_duration_s > 0 and bundle.num_train_examples > 0 else 0.0
     )
 
+    train_metrics: dict[str, int | float] = {
+        "train-loss": float(loss),
+        "num-examples": bundle.num_train_examples,
+        "train-num-examples": bundle.num_train_examples,
+        "train-duration-s": float(train_duration_s),
+        "examples-per-second": float(examples_per_second),
+        "model-rate": float(model_rate),
+    }
+    train_metrics.update(collect_netem_probe_metrics())
     reply = RecordDict(
         {
             "arrays": ArrayRecord(model.state_dict()),
-            "metrics": MetricRecord(
-                {
-                    "train-loss": float(loss),
-                    "num-examples": bundle.num_train_examples,
-                    "train-num-examples": bundle.num_train_examples,
-                    "train-duration-s": float(train_duration_s),
-                    "examples-per-second": float(examples_per_second),
-                    "model-rate": float(model_rate),
-                }
-            ),
+            "metrics": MetricRecord(train_metrics),
         }
     )
     client_log(

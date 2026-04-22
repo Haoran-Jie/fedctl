@@ -1,0 +1,13 @@
+{
+  "latex-workshop.view.pdf.viewer": "tab",
+  "latex-workshop.view.pdf.internal.synctex.keybinding": "double-click",
+  "latex-workshop.latex.watch.pdf.delay": 1000,
+  "latex-workshop.latex.search.rootFiles.include": [
+    "writeup/main.tex"
+  ],
+  "latex-workshop.latex.search.rootFiles.exclude": [
+    "**/tmp/**",
+    "**/.claude/**",
+    "**/docs/**"
+  ]
+}

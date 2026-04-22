@@ -4,6 +4,7 @@
   "runs": [
     {
       "run_id": "c97h9zuy",
+      "seed": 1337,
       "regime": "iid",
       "topology": "all_rpi5",
       "method": "fedavg",
@@ -14,7 +15,32 @@
       "target_wall_clock_s": 621.9268621740048
     },
     {
+      "run_id": "vu1dgghm",
+      "seed": 1338,
+      "regime": "iid",
+      "topology": "all_rpi5",
+      "method": "fedavg",
+      "points": 13,
+      "first_wall_clock_s": 159.452875748,
+      "last_wall_clock_s": 713.613605666,
+      "target_reached": true,
+      "target_wall_clock_s": 642.7579778640065
+    },
+    {
+      "run_id": "evb7ctp1",
+      "seed": 1339,
+      "regime": "iid",
+      "topology": "all_rpi5",
+      "method": "fedavg",
+      "points": 13,
+      "first_wall_clock_s": 150.332863575,
+      "last_wall_clock_s": 750.758605278,
+      "target_reached": true,
+      "target_wall_clock_s": 688.5609491480282
+    },
+    {
       "run_id": "6eom2gov",
+      "seed": 1337,
       "regime": "iid",
       "topology": "all_rpi5",
       "method": "fedbuff",
@@ -25,7 +51,32 @@
       "target_wall_clock_s": 637.3709185579937
     },
     {
+      "run_id": "jvq0wis5",
+      "seed": 1338,
+      "regime": "iid",
+      "topology": "all_rpi5",
+      "method": "fedbuff",
+      "points": 40,
+      "first_wall_clock_s": 136.988908812,
+      "last_wall_clock_s": 1036.374923795,
+      "target_reached": true,
+      "target_wall_clock_s": 1018.1889634489926
+    },
+    {
+      "run_id": "nkc9y10n",
+      "seed": 1339,
+      "regime": "iid",
+      "topology": "all_rpi5",
+      "method": "fedbuff",
+      "points": 39,
+      "first_wall_clock_s": 130.162944909,
+      "last_wall_clock_s": 1002.46765375,
+      "target_reached": true,
+      "target_wall_clock_s": 983.1345921039756
+    },
+    {
       "run_id": "ey33oqo6",
+      "seed": 1337,
       "regime": "iid",
       "topology": "all_rpi5",
       "method": "fedstaleweight",
@@ -36,7 +87,32 @@
       "target_wall_clock_s": 712.561271737999
     },
     {
+      "run_id": "wgzj3fw7",
+      "seed": 1338,
+      "regime": "iid",
+      "topology": "all_rpi5",
+      "method": "fedstaleweight",
+      "points": 27,
+      "first_wall_clock_s": 141.499637972,
+      "last_wall_clock_s": 736.988283775,
+      "target_reached": true,
+      "target_wall_clock_s": 719.0679680689937
+    },
+    {
+      "run_id": "eoe8x9av",
+      "seed": 1339,
+      "regime": "iid",
+      "topology": "all_rpi5",
+      "method": "fedstaleweight",
+      "points": 27,
+      "first_wall_clock_s": 135.48221255,
+      "last_wall_clock_s": 730.446193635,
+      "target_reached": true,
+      "target_wall_clock_s": 712.8786066760076
+    },
+    {
       "run_id": "6l03ojrq",
+      "seed": 1337,
       "regime": "noniid",
       "topology": "all_rpi5",
       "method": "fedavg",
@@ -47,7 +123,32 @@
       "target_wall_clock_s": 1424.2648917170009
     },
     {
+      "run_id": "ypycfovi",
+      "seed": 1338,
+      "regime": "noniid",
+      "topology": "all_rpi5",
+      "method": "fedavg",
+      "points": 23,
+      "first_wall_clock_s": 155.818687605,
+      "last_wall_clock_s": 1162.749587207,
+      "target_reached": true,
+      "target_wall_clock_s": 1084.0378961530078
+    },
+    {
+      "run_id": "l7hyd4rp",
+      "seed": 1339,
+      "regime": "noniid",
+      "topology": "all_rpi5",
+      "method": "fedavg",
+      "points": 31,
+      "first_wall_clock_s": 152.131614713,
+      "last_wall_clock_s": 1530.047491167,
+      "target_reached": true,
+      "target_wall_clock_s": 1452.863373792003
+    },
+    {
       "run_id": "k2bpz79x",
+      "seed": 1337,
       "regime": "noniid",
       "topology": "all_rpi5",
       "method": "fedbuff",
@@ -58,7 +159,32 @@
       "target_wall_clock_s": null
     },
     {
+      "run_id": "y1zp1xa5",
+      "seed": 1338,
+      "regime": "noniid",
+      "topology": "all_rpi5",
+      "method": "fedbuff",
+      "points": 92,
+      "first_wall_clock_s": 126.693517463,
+      "last_wall_clock_s": 2187.202917847,
+      "target_reached": true,
+      "target_wall_clock_s": 2168.7825611230073
+    },
+    {
+      "run_id": "gxhcey0d",
+      "seed": 1339,
+      "regime": "noniid",
+      "topology": "all_rpi5",
+      "method": "fedbuff",
+      "points": 100,
+      "first_wall_clock_s": 145.598451206,
+      "last_wall_clock_s": 2370.274181567,
+      "target_reached": false,
+      "target_wall_clock_s": null
+    },
+    {
       "run_id": "59wlhy0n",
+      "seed": 1337,
       "regime": "noniid",
       "topology": "all_rpi5",
       "method": "fedstaleweight",
@@ -69,7 +195,32 @@
       "target_wall_clock_s": 1488.9608751759952
     },
     {
+      "run_id": "baw5mrtc",
+      "seed": 1338,
+      "regime": "noniid",
+      "topology": "all_rpi5",
+      "method": "fedstaleweight",
+      "points": 53,
+      "first_wall_clock_s": 140.091092909,
+      "last_wall_clock_s": 1320.91480092,
+      "target_reached": true,
+      "target_wall_clock_s": 1302.6519306870032
+    },
+    {
+      "run_id": "nrfy8dhr",
+      "seed": 1339,
+      "regime": "noniid",
+      "topology": "all_rpi5",
+      "method": "fedstaleweight",
+      "points": 70,
+      "first_wall_clock_s": 132.832486211,
+      "last_wall_clock_s": 1684.971923363,
+      "target_reached": true,
+      "target_wall_clock_s": 1665.4531989249808
+    },
+    {
       "run_id": "t9vlpy39",
+      "seed": 1337,
       "regime": "iid",
       "topology": "mixed",
       "method": "fedavg",
@@ -80,7 +231,32 @@
       "target_wall_clock_s": 2091.3060326820014
     },
     {
+      "run_id": "5vjjx5qo",
+      "seed": 1338,
+      "regime": "iid",
+      "topology": "mixed",
+      "method": "fedavg",
+      "points": 13,
+      "first_wall_clock_s": 413.7440151,
+      "last_wall_clock_s": 2329.685624998,
+      "target_reached": true,
+      "target_wall_clock_s": 2098.4821259169985
+    },
+    {
+      "run_id": "3apbb0nc",
+      "seed": 1339,
+      "regime": "iid",
+      "topology": "mixed",
+      "method": "fedavg",
+      "points": 13,
+      "first_wall_clock_s": 412.099478516,
+      "last_wall_clock_s": 2332.216087636,
+      "target_reached": true,
+      "target_wall_clock_s": 2101.372841839009
+    },
+    {
       "run_id": "stlelmg4",
+      "seed": 1337,
       "regime": "iid",
       "topology": "mixed",
       "method": "fedbuff",
@@ -91,7 +267,32 @@
       "target_wall_clock_s": 1060.607330474999
     },
     {
+      "run_id": "3f1a6ign",
+      "seed": 1338,
+      "regime": "iid",
+      "topology": "mixed",
+      "method": "fedbuff",
+      "points": 39,
+      "first_wall_clock_s": 160.849606287,
+      "last_wall_clock_s": 1156.849253408,
+      "target_reached": true,
+      "target_wall_clock_s": 1138.378365135999
+    },
+    {
+      "run_id": "gmlpn1sy",
+      "seed": 1339,
+      "regime": "iid",
+      "topology": "mixed",
+      "method": "fedbuff",
+      "points": 40,
+      "first_wall_clock_s": 179.764476361,
+      "last_wall_clock_s": 1231.823586476,
+      "target_reached": true,
+      "target_wall_clock_s": 1213.9163263690134
+    },
+    {
       "run_id": "4k0nvn9k",
+      "seed": 1337,
       "regime": "iid",
       "topology": "mixed",
       "method": "fedstaleweight",
@@ -102,7 +303,32 @@
       "target_wall_clock_s": 862.7468097300007
     },
     {
+      "run_id": "9p57d59x",
+      "seed": 1338,
+      "regime": "iid",
+      "topology": "mixed",
+      "method": "fedstaleweight",
+      "points": 28,
+      "first_wall_clock_s": 157.14419113,
+      "last_wall_clock_s": 853.404391043,
+      "target_reached": true,
+      "target_wall_clock_s": 835.5380049550004
+    },
+    {
+      "run_id": "u2ichefy",
+      "seed": 1339,
+      "regime": "iid",
+      "topology": "mixed",
+      "method": "fedstaleweight",
+      "points": 28,
+      "first_wall_clock_s": 173.39047578,
+      "last_wall_clock_s": 916.420840074,
+      "target_reached": true,
+      "target_wall_clock_s": 898.0543632399931
+    },
+    {
       "run_id": "0ysztwpg",
+      "seed": 1337,
       "regime": "noniid",
       "topology": "mixed",
       "method": "fedavg",
@@ -113,7 +339,32 @@
       "target_wall_clock_s": 4337.9159391540015
     },
     {
+      "run_id": "kqc9pciy",
+      "seed": 1338,
+      "regime": "noniid",
+      "topology": "mixed",
+      "method": "fedavg",
+      "points": 22,
+      "first_wall_clock_s": 412.681141821,
+      "last_wall_clock_s": 3770.40217079,
+      "target_reached": true,
+      "target_wall_clock_s": 3540.563414858989
+    },
+    {
+      "run_id": "5cari6u0",
+      "seed": 1339,
+      "regime": "noniid",
+      "topology": "mixed",
+      "method": "fedavg",
+      "points": 31,
+      "first_wall_clock_s": 404.753204231,
+      "last_wall_clock_s": 4481.305749602,
+      "target_reached": true,
+      "target_wall_clock_s": 4250.2691552769975
+    },
+    {
       "run_id": "j81afai0",
+      "seed": 1337,
       "regime": "noniid",
       "topology": "mixed",
       "method": "fedbuff",
@@ -124,7 +375,32 @@
       "target_wall_clock_s": 2353.767631171002
     },
     {
+      "run_id": "kouohvbb",
+      "seed": 1338,
+      "regime": "noniid",
+      "topology": "mixed",
+      "method": "fedbuff",
+      "points": 86,
+      "first_wall_clock_s": 205.186813952,
+      "last_wall_clock_s": 2299.239567289,
+      "target_reached": true,
+      "target_wall_clock_s": 2280.902073723002
+    },
+    {
+      "run_id": "o7i4mdii",
+      "seed": 1339,
+      "regime": "noniid",
+      "topology": "mixed",
+      "method": "fedbuff",
+      "points": 101,
+      "first_wall_clock_s": 165.051975045,
+      "last_wall_clock_s": 2549.243206512,
+      "target_reached": true,
+      "target_wall_clock_s": 2530.178753004991
+    },
+    {
       "run_id": "wyc9rjxq",
+      "seed": 1337,
       "regime": "noniid",
       "topology": "mixed",
       "method": "fedstaleweight",
@@ -133,6 +409,30 @@
       "last_wall_clock_s": 1825.442647788,
       "target_reached": true,
       "target_wall_clock_s": 1806.368915264
+    },
+    {
+      "run_id": "b0xxbbi7",
+      "seed": 1338,
+      "regime": "noniid",
+      "topology": "mixed",
+      "method": "fedstaleweight",
+      "points": 57,
+      "first_wall_clock_s": 174.603541423,
+      "last_wall_clock_s": 1644.39106291,
+      "target_reached": true,
+      "target_wall_clock_s": 1625.7033320400078
+    },
+    {
+      "run_id": "9qv2c0qb",
+      "seed": 1339,
+      "regime": "noniid",
+      "topology": "mixed",
+      "method": "fedstaleweight",
+      "points": 67,
+      "first_wall_clock_s": 152.872463677,
+      "last_wall_clock_s": 1901.530865101,
+      "target_reached": true,
+      "target_wall_clock_s": 1882.4259313690127
     }
   ]
 }
