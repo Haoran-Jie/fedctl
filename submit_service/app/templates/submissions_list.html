@@ -199,7 +199,6 @@
         <th class="col-experiment">Experiment</th>
         <th class="col-status">Status</th>
         <th class="col-created">Created</th>
-        <th class="col-wait">Wait</th>
         <th class="col-runtime">Runtime</th>
         {% if status_filter != 'active' %}<th class="col-finished">Finished</th>{% endif %}
         {% if status_filter != 'completed' %}<th class="col-blocked">Blocked / error</th>{% endif %}
@@ -216,7 +215,6 @@
         <td class="cell-experiment" title="{{ row.experiment }}">{{ row.experiment }}</td>
         <td>{% set status = row.status %}{% include '_status_badge.html' %}</td>
         <td class="cell-time">{% if row.created_at.iso %}<time datetime="{{ row.created_at.iso }}" title="{{ row.created_at.label }}" data-two-line>{% set parts = row.created_at.label.split(' ') %}<span class="time-date">{{ parts[0] }}</span>{% if parts|length > 1 %}<span class="time-clock">{{ parts[1] }}</span>{% endif %}</time>{% else %}{{ row.created_at.label }}{% endif %}</td>
-        <td class="cell-duration cell-wait">{{ row.queue_wait }}</td>
         <td class="cell-duration cell-runtime">{{ row.runtime }}</td>
         {% if status_filter != 'active' %}<td class="cell-time">{% if row.finished_at.iso %}<time datetime="{{ row.finished_at.iso }}" title="{{ row.finished_at.label }}" data-two-line>{% set parts = row.finished_at.label.split(' ') %}<span class="time-date">{{ parts[0] }}</span>{% if parts|length > 1 %}<span class="time-clock">{{ parts[1] }}</span>{% endif %}</time>{% else %}{{ row.finished_at.label }}{% endif %}</td>{% endif %}
         {% if status_filter != 'completed' %}<td class="cell-blocked">{{ row.blocked_reason or '-' }}</td>{% endif %}

@@ -102,18 +102,18 @@ RUNS = (
     RunSpec("A", 1337, "12 rpi5", "FedAvg", "12/15", "1.0", "excluded", "xfb856p2"),
     RunSpec("A", 1338, "12 rpi5", "FedAvg", "12/15", "1.0", "excluded", "krrq6dk8"),
     RunSpec("A", 1339, "12 rpi5", "FedAvg", "12/15", "1.0", "excluded", "1g4o2zwd"),
-    RunSpec("B", 1337, "12rpi5 + 3 rpi4", "FedAvg", "15/15", "1.0", "1.0", "vq2hb555"),
-    RunSpec("B", 1338, "12rpi5 + 3 rpi4", "FedAvg", "15/15", "1.0", "1.0", "2ed7dhxe"),
-    RunSpec("B", 1339, "12rpi5 + 3 rpi4", "FedAvg", "15/15", "1.0", "1.0", "vipil02r"),
-    RunSpec("C", 1337, "12rpi5 + 3 rpi4", "HeteroFL", "15/15", "1.0", "1/8", "0qujvgnw"),
-    RunSpec("C", 1338, "12rpi5 + 3 rpi4", "HeteroFL", "15/15", "1.0", "1/8", "yypr04xd"),
-    RunSpec("C", 1339, "12rpi5 + 3 rpi4", "HeteroFL", "15/15", "1.0", "1/8", "u3o90zou"),
-    RunSpec("D", 1337, "12rpi5 + 3 rpi4", "FedRolex", "15/15", "1.0", "1/8", "2qe5vs0v"),
-    RunSpec("D", 1338, "12rpi5 + 3 rpi4", "FedRolex", "15/15", "1.0", "1/8", "1i0csvsx"),
-    RunSpec("D", 1339, "12rpi5 + 3 rpi4", "FedRolex", "15/15", "1.0", "1/8", "mfjq23sm"),
-    RunSpec("E", 1337, "12rpi5 + 3 rpi4", "FIARSE", "15/15", "1.0", "1/8", "11po16lu"),
-    RunSpec("E", 1338, "12rpi5 + 3 rpi4", "FIARSE", "15/15", "1.0", "1/8", "qpkjajnk"),
-    RunSpec("E", 1339, "12rpi5 + 3 rpi4", "FIARSE", "15/15", "1.0", "1/8", "1ncwevzt"),
+    RunSpec("B", 1337, "12 rpi5 + 3 rpi4", "FedAvg", "15/15", "1.0", "1.0", "vq2hb555"),
+    RunSpec("B", 1338, "12 rpi5 + 3 rpi4", "FedAvg", "15/15", "1.0", "1.0", "2ed7dhxe"),
+    RunSpec("B", 1339, "12 rpi5 + 3 rpi4", "FedAvg", "15/15", "1.0", "1.0", "vipil02r"),
+    RunSpec("C", 1337, "12 rpi5 + 3 rpi4", "HeteroFL", "15/15", "1.0", "1/8", "0qujvgnw"),
+    RunSpec("C", 1338, "12 rpi5 + 3 rpi4", "HeteroFL", "15/15", "1.0", "1/8", "yypr04xd"),
+    RunSpec("C", 1339, "12 rpi5 + 3 rpi4", "HeteroFL", "15/15", "1.0", "1/8", "u3o90zou"),
+    RunSpec("D", 1337, "12 rpi5 + 3 rpi4", "FedRolex", "15/15", "1.0", "1/8", "2qe5vs0v"),
+    RunSpec("D", 1338, "12 rpi5 + 3 rpi4", "FedRolex", "15/15", "1.0", "1/8", "1i0csvsx"),
+    RunSpec("D", 1339, "12 rpi5 + 3 rpi4", "FedRolex", "15/15", "1.0", "1/8", "mfjq23sm"),
+    RunSpec("E", 1337, "12 rpi5 + 3 rpi4", "FIARSE", "15/15", "1.0", "1/8", "11po16lu"),
+    RunSpec("E", 1338, "12 rpi5 + 3 rpi4", "FIARSE", "15/15", "1.0", "1/8", "qpkjajnk"),
+    RunSpec("E", 1339, "12 rpi5 + 3 rpi4", "FIARSE", "15/15", "1.0", "1/8", "1ncwevzt"),
 )
 
 EVAL_ACC_KEYS = (
@@ -486,7 +486,7 @@ def main() -> None:
     case_specs = _case_specs()
     colors_by_case = {spec.case: color for spec, color in zip(case_specs, default_cycle_colors(len(case_specs)), strict=True)}
     fig, ax = plt.subplots(figsize=(PUBLICATION_FIGURE_WIDTH, 6.0))
-
+    
     label_by_case = {spec.case: f"{spec.case}: {spec.method}, {spec.clients}" for spec in case_specs}
     for spec in case_specs:
         case_points = [point for point in curve_points if point.case == spec.case]

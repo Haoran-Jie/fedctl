@@ -14,6 +14,7 @@ from flwr.serverapp.strategy import FedAvg
 
 from fedctl_research.costs import summarize_round_costs
 from fedctl_research.metrics import normalize_metric_mapping
+from fedctl_research.netem_probe import netem_payload_from_metrics
 from fedctl_research.result_artifacts import ResultArtifactLogger
 from fedctl_research.wandb_logging import ExperimentLogger
 
@@ -150,6 +151,7 @@ class SyncLoggingMixin:
                 "update_examples_per_second": float(metrics_record.get("examples-per-second", 0.0)),
                 "update_queue_latency_s": 0.0,
             }
+            payload.update(netem_payload_from_metrics(metrics_record))
             rows.append(payload)
             if self.artifact_logger is not None:
                 self.artifact_logger.log_client_update_event(payload)

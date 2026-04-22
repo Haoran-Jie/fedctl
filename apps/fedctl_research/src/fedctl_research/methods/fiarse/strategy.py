@@ -19,6 +19,7 @@ from flwr.serverapp.strategy.fedavg import sample_nodes
 from fedctl_research.costs import summarize_round_costs
 from fedctl_research.metrics import normalize_metric_mapping
 from fedctl_research.methods.heterofl.strategy import HeteroFLStrategy
+from fedctl_research.netem_probe import netem_payload_from_metrics
 
 
 class FiarseStrategy(HeteroFLStrategy):
@@ -258,6 +259,7 @@ class FiarseStrategy(HeteroFLStrategy):
                     "update_applied_weight": 1.0,
                     "model_rate": float(self._active_rate_by_node.get(node_id, self.global_model_rate)),
                 }
+                payload.update(netem_payload_from_metrics(metrics_record))
                 client_update_rows.append(payload)
                 self.artifact_logger.log_client_update_event(payload)
             self.artifact_logger.log_server_step_event(
@@ -277,23 +279,23 @@ class FiarseStrategy(HeteroFLStrategy):
                 if metrics_record is None:
                     continue
                 node_id = message.metadata.src_node_id
-                client_update_rows.append(
-                    {
-                        "server_round": server_round,
-                        "client_trips_total": self._accepted_train_replies_total - valid_count + offset,
-                        "node_id": node_id,
-                        "device_type": self._device_type_for_node(node_id),
-                        "server_model_version_sent": max(server_round - 1, 0),
-                        "server_step_applied": server_round,
-                        "update_staleness_server_steps": 0,
-                        "update_train_duration_s": float(metrics_record.get("train-duration-s", 0.0)),
-                        "update_num_examples": int(metrics_record.get("train-num-examples", metrics_record.get("num-examples", 0))),
-                        "update_examples_per_second": float(metrics_record.get("examples-per-second", 0.0)),
-                        "update_queue_latency_s": 0.0,
-                        "update_applied_weight": 1.0,
-                        "model_rate": float(self._active_rate_by_node.get(node_id, self.global_model_rate)),
-                    }
-                )
+                payload = {
+                    "server_round": server_round,
+                    "client_trips_total": self._accepted_train_replies_total - valid_count + offset,
+                    "node_id": node_id,
+                    "device_type": self._device_type_for_node(node_id),
+                    "server_model_version_sent": max(server_round - 1, 0),
+                    "server_step_applied": server_round,
+                    "update_staleness_server_steps": 0,
+                    "update_train_duration_s": float(metrics_record.get("train-duration-s", 0.0)),
+                    "update_num_examples": int(metrics_record.get("train-num-examples", metrics_record.get("num-examples", 0))),
+                    "update_examples_per_second": float(metrics_record.get("examples-per-second", 0.0)),
+                    "update_queue_latency_s": 0.0,
+                    "update_applied_weight": 1.0,
+                    "model_rate": float(self._active_rate_by_node.get(node_id, self.global_model_rate)),
+                }
+                payload.update(netem_payload_from_metrics(metrics_record))
+                client_update_rows.append(payload)
         if client_update_rows:
             self.experiment_logger.log_client_update_events(server_round, client_update_rows, axis_key="server_round")
 

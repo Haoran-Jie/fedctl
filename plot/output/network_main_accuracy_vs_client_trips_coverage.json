@@ -4,6 +4,31 @@
   "runs": [
     {
       "run_id": "c97h9zuy",
+      "seed": 1337,
+      "regime": "iid",
+      "topology": "all_rpi5",
+      "method": "fedavg",
+      "points": 13,
+      "first_trip": 15,
+      "last_trip": 195,
+      "target_reached": true,
+      "target_client_trips": 195
+    },
+    {
+      "run_id": "vu1dgghm",
+      "seed": 1338,
+      "regime": "iid",
+      "topology": "all_rpi5",
+      "method": "fedavg",
+      "points": 13,
+      "first_trip": 15,
+      "last_trip": 195,
+      "target_reached": true,
+      "target_client_trips": 195
+    },
+    {
+      "run_id": "evb7ctp1",
+      "seed": 1339,
       "regime": "iid",
       "topology": "all_rpi5",
       "method": "fedavg",
@@ -15,6 +40,7 @@
     },
     {
       "run_id": "6eom2gov",
+      "seed": 1337,
       "regime": "iid",
       "topology": "all_rpi5",
       "method": "fedbuff",
@@ -25,7 +51,32 @@
       "target_client_trips": 240
     },
     {
+      "run_id": "jvq0wis5",
+      "seed": 1338,
+      "regime": "iid",
+      "topology": "all_rpi5",
+      "method": "fedbuff",
+      "points": 40,
+      "first_trip": 10,
+      "last_trip": 400,
+      "target_reached": true,
+      "target_client_trips": 400
+    },
+    {
+      "run_id": "nkc9y10n",
+      "seed": 1339,
+      "regime": "iid",
+      "topology": "all_rpi5",
+      "method": "fedbuff",
+      "points": 39,
+      "first_trip": 10,
+      "last_trip": 390,
+      "target_reached": true,
+      "target_client_trips": 390
+    },
+    {
       "run_id": "ey33oqo6",
+      "seed": 1337,
       "regime": "iid",
       "topology": "all_rpi5",
       "method": "fedstaleweight",
@@ -36,7 +87,56 @@
       "target_client_trips": 280
     },
     {
+      "run_id": "wgzj3fw7",
+      "seed": 1338,
+      "regime": "iid",
+      "topology": "all_rpi5",
+      "method": "fedstaleweight",
+      "points": 27,
+      "first_trip": 10,
+      "last_trip": 270,
+      "target_reached": true,
+      "target_client_trips": 270
+    },
+    {
+      "run_id": "eoe8x9av",
+      "seed": 1339,
+      "regime": "iid",
+      "topology": "all_rpi5",
+      "method": "fedstaleweight",
+      "points": 27,
+      "first_trip": 10,
+      "last_trip": 270,
+      "target_reached": true,
+      "target_client_trips": 270
+    },
+    {
       "run_id": "6l03ojrq",
+      "seed": 1337,
+      "regime": "noniid",
+      "topology": "all_rpi5",
+      "method": "fedavg",
+      "points": 31,
+      "first_trip": 15,
+      "last_trip": 465,
+      "target_reached": true,
+      "target_client_trips": 465
+    },
+    {
+      "run_id": "ypycfovi",
+      "seed": 1338,
+      "regime": "noniid",
+      "topology": "all_rpi5",
+      "method": "fedavg",
+      "points": 23,
+      "first_trip": 15,
+      "last_trip": 345,
+      "target_reached": true,
+      "target_client_trips": 345
+    },
+    {
+      "run_id": "l7hyd4rp",
+      "seed": 1339,
       "regime": "noniid",
       "topology": "all_rpi5",
       "method": "fedavg",
@@ -48,6 +148,7 @@
     },
     {
       "run_id": "k2bpz79x",
+      "seed": 1337,
       "regime": "noniid",
       "topology": "all_rpi5",
       "method": "fedbuff",
@@ -58,7 +159,32 @@
       "target_client_trips": null
     },
     {
+      "run_id": "y1zp1xa5",
+      "seed": 1338,
+      "regime": "noniid",
+      "topology": "all_rpi5",
+      "method": "fedbuff",
+      "points": 92,
+      "first_trip": 10,
+      "last_trip": 920,
+      "target_reached": true,
+      "target_client_trips": 920
+    },
+    {
+      "run_id": "gxhcey0d",
+      "seed": 1339,
+      "regime": "noniid",
+      "topology": "all_rpi5",
+      "method": "fedbuff",
+      "points": 100,
+      "first_trip": 10,
+      "last_trip": 1000,
+      "target_reached": false,
+      "target_client_trips": null
+    },
+    {
       "run_id": "59wlhy0n",
+      "seed": 1337,
       "regime": "noniid",
       "topology": "all_rpi5",
       "method": "fedstaleweight",
@@ -69,7 +195,56 @@
       "target_client_trips": 630
     },
     {
+      "run_id": "baw5mrtc",
+      "seed": 1338,
+      "regime": "noniid",
+      "topology": "all_rpi5",
+      "method": "fedstaleweight",
+      "points": 53,
+      "first_trip": 10,
+      "last_trip": 530,
+      "target_reached": true,
+      "target_client_trips": 530
+    },
+    {
+      "run_id": "nrfy8dhr",
+      "seed": 1339,
+      "regime": "noniid",
+      "topology": "all_rpi5",
+      "method": "fedstaleweight",
+      "points": 70,
+      "first_trip": 10,
+      "last_trip": 700,
+      "target_reached": true,
+      "target_client_trips": 700
+    },
+    {
       "run_id": "t9vlpy39",
+      "seed": 1337,
+      "regime": "iid",
+      "topology": "mixed",
+      "method": "fedavg",
+      "points": 13,
+      "first_trip": 15,
+      "last_trip": 195,
+      "target_reached": true,
+      "target_client_trips": 195
+    },
+    {
+      "run_id": "5vjjx5qo",
+      "seed": 1338,
+      "regime": "iid",
+      "topology": "mixed",
+      "method": "fedavg",
+      "points": 13,
+      "first_trip": 15,
+      "last_trip": 195,
+      "target_reached": true,
+      "target_client_trips": 195
+    },
+    {
+      "run_id": "3apbb0nc",
+      "seed": 1339,
       "regime": "iid",
       "topology": "mixed",
       "method": "fedavg",
@@ -81,6 +256,7 @@
     },
     {
       "run_id": "stlelmg4",
+      "seed": 1337,
       "regime": "iid",
       "topology": "mixed",
       "method": "fedbuff",
@@ -91,7 +267,56 @@
       "target_client_trips": 370
     },
     {
+      "run_id": "3f1a6ign",
+      "seed": 1338,
+      "regime": "iid",
+      "topology": "mixed",
+      "method": "fedbuff",
+      "points": 39,
+      "first_trip": 10,
+      "last_trip": 390,
+      "target_reached": true,
+      "target_client_trips": 390
+    },
+    {
+      "run_id": "gmlpn1sy",
+      "seed": 1339,
+      "regime": "iid",
+      "topology": "mixed",
+      "method": "fedbuff",
+      "points": 40,
+      "first_trip": 10,
+      "last_trip": 400,
+      "target_reached": true,
+      "target_client_trips": 400
+    },
+    {
       "run_id": "4k0nvn9k",
+      "seed": 1337,
+      "regime": "iid",
+      "topology": "mixed",
+      "method": "fedstaleweight",
+      "points": 28,
+      "first_trip": 10,
+      "last_trip": 280,
+      "target_reached": true,
+      "target_client_trips": 280
+    },
+    {
+      "run_id": "9p57d59x",
+      "seed": 1338,
+      "regime": "iid",
+      "topology": "mixed",
+      "method": "fedstaleweight",
+      "points": 28,
+      "first_trip": 10,
+      "last_trip": 280,
+      "target_reached": true,
+      "target_client_trips": 280
+    },
+    {
+      "run_id": "u2ichefy",
+      "seed": 1339,
       "regime": "iid",
       "topology": "mixed",
       "method": "fedstaleweight",
@@ -103,6 +328,31 @@
     },
     {
       "run_id": "0ysztwpg",
+      "seed": 1337,
+      "regime": "noniid",
+      "topology": "mixed",
+      "method": "fedavg",
+      "points": 31,
+      "first_trip": 15,
+      "last_trip": 465,
+      "target_reached": true,
+      "target_client_trips": 465
+    },
+    {
+      "run_id": "kqc9pciy",
+      "seed": 1338,
+      "regime": "noniid",
+      "topology": "mixed",
+      "method": "fedavg",
+      "points": 22,
+      "first_trip": 15,
+      "last_trip": 330,
+      "target_reached": true,
+      "target_client_trips": 330
+    },
+    {
+      "run_id": "5cari6u0",
+      "seed": 1339,
       "regime": "noniid",
       "topology": "mixed",
       "method": "fedavg",
@@ -114,6 +364,7 @@
     },
     {
       "run_id": "j81afai0",
+      "seed": 1337,
       "regime": "noniid",
       "topology": "mixed",
       "method": "fedbuff",
@@ -124,7 +375,32 @@
       "target_client_trips": 870
     },
     {
+      "run_id": "kouohvbb",
+      "seed": 1338,
+      "regime": "noniid",
+      "topology": "mixed",
+      "method": "fedbuff",
+      "points": 86,
+      "first_trip": 10,
+      "last_trip": 860,
+      "target_reached": true,
+      "target_client_trips": 860
+    },
+    {
+      "run_id": "o7i4mdii",
+      "seed": 1339,
+      "regime": "noniid",
+      "topology": "mixed",
+      "method": "fedbuff",
+      "points": 101,
+      "first_trip": 10,
+      "last_trip": 1010,
+      "target_reached": true,
+      "target_client_trips": 1010
+    },
+    {
       "run_id": "wyc9rjxq",
+      "seed": 1337,
       "regime": "noniid",
       "topology": "mixed",
       "method": "fedstaleweight",
@@ -133,6 +409,30 @@
       "last_trip": 660,
       "target_reached": true,
       "target_client_trips": 660
+    },
+    {
+      "run_id": "b0xxbbi7",
+      "seed": 1338,
+      "regime": "noniid",
+      "topology": "mixed",
+      "method": "fedstaleweight",
+      "points": 57,
+      "first_trip": 10,
+      "last_trip": 570,
+      "target_reached": true,
+      "target_client_trips": 570
+    },
+    {
+      "run_id": "9qv2c0qb",
+      "seed": 1339,
+      "regime": "noniid",
+      "topology": "mixed",
+      "method": "fedstaleweight",
+      "points": 67,
+      "first_trip": 10,
+      "last_trip": 670,
+      "target_reached": true,
+      "target_client_trips": 670
     }
   ]
 }

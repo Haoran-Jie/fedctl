@@ -40,6 +40,7 @@ from fedctl_research.methods.runtime import (
     discover_node_device_types,
     server_log,
 )
+from fedctl_research.netem_probe import netem_payload_from_metrics
 from fedctl_research.seeding import derive_seed, set_global_seed
 from fedctl_research.tasks.registry import resolve_task
 from fedctl_research.wandb_logging import create_experiment_logger
@@ -66,6 +67,7 @@ class _BufferedUpdate:
     examples_per_second: float
     train_loss: float
     queue_latency_s: float
+    netem_metrics: dict[str, int | float]
     delta: OrderedDict[str, torch.Tensor]
 
 
@@ -422,6 +424,7 @@ def run_fedbuff_server(
                 examples_per_second=float(metrics.get("examples-per-second", 0.0)),
                 train_loss=float(metrics.get("train-loss", 0.0)),
                 queue_latency_s=float(queue_latency_s),
+                netem_metrics=netem_payload_from_metrics(metrics),
                 delta=delta,
             )
             if not buffered_updates:
@@ -528,6 +531,7 @@ def run_fedbuff_server(
                         "update_queue_latency_s": entry.queue_latency_s,
                         "update_applied_weight": float(normalized_weight),
                     }
+                    payload.update(entry.netem_metrics)
                     client_update_rows.append(payload)
                     artifact_logger.log_client_update_event(payload)
                 if client_update_rows:
