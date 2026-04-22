@@ -31,6 +31,7 @@ from fedctl_research.config import (
     get_partitioning_continuous_strictness,
     get_partitioning_dirichlet_alpha,
     get_partitioning_num_labels,
+    get_partitioning_total_partitions,
     get_stop_on_target_score,
     get_str,
     get_submodel_eval_rates,
@@ -357,9 +358,17 @@ def build_partition_request(
         loader_seed = derive_seed(base_seed, method_label, f"{split}-loader", task_name, partition_id)
         assignment_seed = derive_seed(base_seed, "partition-assignment", task_name, partitioning)
 
+    total_partitions = get_partitioning_total_partitions(context.run_config)
+    num_partitions = total_partitions or int(context.node_config["num-partitions"])
+    if partition_id >= num_partitions:
+        raise ValueError(
+            f"partition-id {partition_id} is outside the configured partition universe "
+            f"of {num_partitions} partitions"
+        )
+
     return PartitionRequest(
         partition_id=partition_id,
-        num_partitions=int(context.node_config["num-partitions"]),
+        num_partitions=num_partitions,
         partitioning=partitioning,
         device_type=partition_device_type,
         partitioning_num_labels=get_partitioning_num_labels(context.run_config),

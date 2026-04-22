@@ -1,4 +1,4 @@
-<section class="panel" id="logs-panel" data-logs-panel data-logs-endpoint="/ui/submissions/{{ submission.id }}/logs">
+<section class="panel" id="logs-panel" data-logs-panel data-logs-endpoint="/ui/submissions/{{ submission.id }}/logs"{% if submission.status == 'running' %} data-log-follow-default="on"{% endif %}>
   <div class="section-head">
     <div class="section-copy">
       <h2>Logs</h2>

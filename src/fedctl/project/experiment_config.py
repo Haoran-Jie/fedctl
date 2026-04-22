@@ -38,6 +38,7 @@ _SECTION_KEY_MAP: dict[str, dict[str, str]] = {
         "partitioning": "partitioning",
         "partitioning-num-labels": "partitioning-num-labels",
         "partitioning-dirichlet-alpha": "partitioning-dirichlet-alpha",
+        "partitioning-total-partitions": "partitioning-total-partitions",
         "partitioning-continuous-column": "partitioning-continuous-column",
         "partitioning-continuous-strictness": "partitioning-continuous-strictness",
         "masked-cross-entropy": "masked-cross-entropy",

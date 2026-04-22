@@ -159,6 +159,35 @@ def test_ui_user_scope_cancel_and_purge(tmp_path, monkeypatch: pytest.MonkeyPatc
     assert foreign.status_code == 404
 
 
+def test_ui_shows_wait_and_runtime_columns(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    client = _make_ui_client(tmp_path, monkeypatch)
+    storage = client.app.state.storage
+    headers = {"Authorization": "Bearer tok-alice"}
+    submission_id = client.post("/v1/submissions", json=_payload(), headers=headers).json()["submission_id"]
+    storage.update_submission(
+        submission_id,
+        {
+            "status": "completed",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "started_at": "2026-01-01T00:05:00+00:00",
+            "finished_at": "2026-01-01T00:12:30+00:00",
+        },
+    )
+
+    _login(client, "tok-alice")
+    listing = client.get("/ui/submissions?status=all")
+    assert listing.status_code == 200
+    assert ">Wait<" in listing.text
+    assert ">Runtime<" in listing.text
+    assert "5m 0s" in listing.text
+    assert "7m 30s" in listing.text
+
+    detail = client.get(f"/ui/submissions/{submission_id}")
+    assert detail.status_code == 200
+    assert "<dt>Queue wait</dt><dd>5m 0s</dd>" in detail.text
+    assert "<dt>Runtime</dt><dd>7m 30s</dd>" in detail.text
+
+
 def test_ui_admin_can_view_nodes_and_all_submissions(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
     client = _make_ui_client(tmp_path, monkeypatch)
     client.app.state.inventory = type(
@@ -228,6 +257,36 @@ def test_ui_stats_are_based_on_all_visible_submissions_not_active_filter(
     assert "<strong>4</strong>" in page.text
     assert "<strong>2</strong>" in page.text
     assert "<strong>1</strong>" in page.text
+
+
+def test_ui_active_list_orders_running_before_blocked(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    client = _make_ui_client(tmp_path, monkeypatch)
+    storage = client.app.state.storage
+
+    alice_headers = {"Authorization": "Bearer tok-alice"}
+    blocked_id = client.post("/v1/submissions", json=_payload(), headers=alice_headers).json()["submission_id"]
+    running_id = client.post("/v1/submissions", json=_payload(), headers=alice_headers).json()["submission_id"]
+    storage.update_submission(
+        blocked_id,
+        {
+            "status": "blocked",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "blocked_reason": "waiting",
+        },
+    )
+    storage.update_submission(
+        running_id,
+        {
+            "status": "running",
+            "created_at": "2026-01-01T00:01:00+00:00",
+            "started_at": "2026-01-01T00:02:00+00:00",
+        },
+    )
+
+    _login(client, "tok-alice")
+    page = client.get("/ui/submissions?status=active")
+    assert page.status_code == 200
+    assert page.text.index(running_id.replace("sub-", "", 1)) < page.text.index(blocked_id.replace("sub-", "", 1))
 
 
 def test_ui_submissions_search_filters_rows_and_preserves_return_to(

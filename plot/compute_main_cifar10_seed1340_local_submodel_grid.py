@@ -62,8 +62,7 @@ REGIME_TITLES = {
     "noniid": "Non-IID",
 }
 
-RATE_ORDER = (1.0, 0.5, 0.25, 0.125)
-RATE_STACK_ORDER = (0.125, 0.25, 0.5, 1.0)
+RATE_ORDER = (0.125, 0.25, 0.5, 1.0)
 RATE_LABELS = {
     1.0: "1",
     0.5: "1/2",
@@ -81,7 +80,7 @@ RUNS = (
     ("iid", "fiarse", "y51ex006"),
     ("noniid", "heterofl", "prg5qiyn"),
     ("noniid", "fedrolex", "bj8ua1of"),
-    ("noniid", "fiarse", None),
+    ("noniid", "fiarse", "b2jm399x"),
 )
 
 
@@ -244,8 +243,8 @@ def main() -> None:
     )
 
     apply_publication_style()
-    cycle_colors = default_cycle_colors(len(RATE_STACK_ORDER))
-    rate_colors = {rate: color for rate, color in zip(RATE_STACK_ORDER, cycle_colors, strict=True)}
+    cycle_colors = default_cycle_colors(len(RATE_ORDER))
+    rate_colors = {rate: color for rate, color in zip(RATE_ORDER, cycle_colors, strict=True)}
 
     fig, axes = plt.subplots(
         2,
@@ -263,15 +262,15 @@ def main() -> None:
 
             stacked_vals = [
                 [row.eval_acc for row in subset if abs(row.model_rate - rate) < 1e-9]
-                for rate in RATE_STACK_ORDER
+                for rate in RATE_ORDER
             ]
 
             ax.hist(
                 stacked_vals,
                 bins=bins,
                 stacked=True,
-                color=[rate_colors[rate] for rate in RATE_STACK_ORDER],
-                label=[RATE_LABELS[rate] for rate in RATE_STACK_ORDER],
+                color=[rate_colors[rate] for rate in RATE_ORDER],
+                label=[RATE_LABELS[rate] for rate in RATE_ORDER],
                 edgecolor="white",
                 linewidth=0.8,
                 alpha=0.75,

@@ -63,11 +63,16 @@
       ]
     },
     {
-      "run_id": null,
+      "run_id": "b2jm399x",
       "regime": "noniid",
       "method": "fiarse",
-      "rows": 0,
-      "rates": []
+      "rows": 80,
+      "rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
     }
   ],
   "rate_labels": {

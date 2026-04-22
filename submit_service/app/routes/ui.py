@@ -641,14 +641,18 @@ def _node_matches_query(record: dict[str, Any], query: str) -> bool:
 
 
 def _submission_row_view(record: dict[str, Any], role: str) -> dict[str, Any]:
+    status = str(record.get("status") or "unknown")
     return {
         "id": record.get("id"),
         "project_name": record.get("project_name") or "-",
         "experiment": record.get("experiment") or "-",
-        "status": record.get("status") or "unknown",
+        "status": status,
         "owner": record.get("user") if role == "admin" else None,
         "created_at": _fmt_dt(record.get("created_at")),
+        "started_at": _fmt_dt(record.get("started_at")),
         "finished_at": _fmt_dt(record.get("finished_at")),
+        "queue_wait": _fmt_queue_wait(record.get("created_at"), record.get("started_at"), status),
+        "runtime": _fmt_runtime(record.get("started_at"), record.get("finished_at"), status),
         "blocked_reason": record.get("blocked_reason") or record.get("error_message") or "",
         "namespace": record.get("namespace") or "-",
         "priority": record.get("priority"),
@@ -676,7 +680,8 @@ def _submission_detail_view(record: dict[str, Any], role: str) -> dict[str, Any]
         "created_at": _fmt_dt(record.get("created_at")),
         "started_at": _fmt_dt(record.get("started_at")),
         "finished_at": _fmt_dt(record.get("finished_at")),
-        "duration": _fmt_duration(record.get("started_at"), record.get("finished_at")),
+        "queue_wait": _fmt_queue_wait(record.get("created_at"), record.get("started_at"), record.get("status")),
+        "runtime": _fmt_runtime(record.get("started_at"), record.get("finished_at"), record.get("status")),
         "nomad_job_id": record.get("nomad_job_id") or "-",
         "artifact_url": _link_entry_view(record.get("artifact_url")),
         "submit_image": record.get("submit_image") or "-",
@@ -1082,11 +1087,37 @@ def _fmt_dt(value: Any) -> dict[str, str]:
     return {"label": dt.strftime("%Y-%m-%d %H:%M:%S"), "iso": dt.isoformat()}
 
 
-def _fmt_duration(start: Any, end: Any) -> str:
-    dt_start = _parse_dt(start)
+def _fmt_queue_wait(created: Any, started: Any, status: Any) -> str:
+    dt_created = _parse_dt(created)
+    if dt_created is None:
+        return "-"
+    dt_started = _parse_dt(started)
+    if dt_started is not None:
+        return _fmt_duration_between(dt_created, dt_started)
+    if str(status or "").lower() in {"queued", "blocked"}:
+        return _fmt_duration_between(dt_created, _now_like(dt_created))
+    return "-"
+
+
+def _fmt_runtime(started: Any, finished: Any, status: Any) -> str:
+    dt_started = _parse_dt(started)
+    if dt_started is None:
+        return "-"
+    dt_finished = _parse_dt(finished)
+    if dt_finished is not None:
+        return _fmt_duration_between(dt_started, dt_finished)
+    if str(status or "").lower() in {"running"}:
+        return _fmt_duration_between(dt_started, _now_like(dt_started))
+    return "-"
+
+
+def _now_like(dt: datetime) -> datetime:
+    return datetime.now(dt.tzinfo)
+
+
+def _fmt_duration_between(dt_start: datetime, dt_end: datetime) -> str:
     if dt_start is None:
         return "-"
-    dt_end = _parse_dt(end) or datetime.now(dt_start.tzinfo)
     delta = dt_end - dt_start
     total_seconds = int(delta.total_seconds())
     if total_seconds < 0:

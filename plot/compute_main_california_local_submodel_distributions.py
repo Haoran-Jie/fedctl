@@ -312,7 +312,7 @@ def main() -> None:
             alpha=0.7,
             label=f"rate={RATE_LABELS[rate]}",
         )
-        for rate in (1.0, 0.5, 0.25, 0.125)
+        for rate in RATE_ORDER
     ]
     fig.legend(handles=handles, loc="upper center", ncol=4, frameon=True, bbox_to_anchor=(0.5, 1.02))
     fig.tight_layout(rect=(0.0, 0.03, 1, 0.94))

@@ -247,7 +247,11 @@
     {% endfor %}
   </div>
   {% else %}
-  <p class="muted">No nodes matched the current search.</p>
+  <div class="empty-state">
+    <p>No nodes match your search</p>
+    <p class="muted">Try a different query or clear the search to see all nodes.</p>
+    <a class="button secondary" href="/ui/nodes">Reset search</a>
+  </div>
   {% endif %}
 </section>
 
