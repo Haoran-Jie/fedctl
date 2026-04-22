@@ -1,0 +1,13 @@
+regime,topology,method,run_id,target_reached,target_client_trips,target_wall_clock_s,final_acc
+iid,all_rpi5,fedavg,c97h9zuy,True,195,621.9268621740048,0.6061
+iid,all_rpi5,fedbuff,6eom2gov,True,240,637.3709185579937,0.6051
+iid,all_rpi5,fedstaleweight,ey33oqo6,True,280,712.561271737999,0.6068
+noniid,all_rpi5,fedavg,6l03ojrq,True,465,1424.2648917170009,0.6019
+noniid,all_rpi5,fedbuff,k2bpz79x,False,,,0.5956
+noniid,all_rpi5,fedstaleweight,59wlhy0n,True,630,1488.9608751759952,0.6025
+iid,mixed,fedavg,t9vlpy39,True,195,2091.3060326820014,0.6063
+iid,mixed,fedbuff,stlelmg4,True,370,1060.607330474999,0.6007
+iid,mixed,fedstaleweight,4k0nvn9k,True,280,862.7468097300007,0.6022
+noniid,mixed,fedavg,0ysztwpg,True,465,4337.9159391540015,0.603
+noniid,mixed,fedbuff,j81afai0,True,870,2353.767631171002,0.604
+noniid,mixed,fedstaleweight,wyc9rjxq,True,660,1806.368915264,0.6024

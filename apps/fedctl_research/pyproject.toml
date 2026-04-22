@@ -46,6 +46,7 @@ rpi5-batch-size = 32
 partitioning = "iid"
 partitioning-num-labels = 2
 partitioning-dirichlet-alpha = 0.1
+partitioning-total-partitions = 0
 partitioning-continuous-column = ""
 partitioning-continuous-strictness = 0.5
 masked-cross-entropy = "auto"

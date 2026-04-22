@@ -127,6 +127,13 @@ def get_partitioning_continuous_strictness(run_config: Mapping[str, object]) -> 
     return float(lookup_or_default(run_config, "partitioning-continuous-strictness", 0.5))
 
 
+def get_partitioning_total_partitions(run_config: Mapping[str, object]) -> int | None:
+    value = get_optional_int(run_config, "partitioning-total-partitions")
+    if value is not None and value <= 0:
+        return None
+    return value
+
+
 def get_masked_cross_entropy_mode(run_config: Mapping[str, object]) -> str:
     return str(lookup_or_default(run_config, "masked-cross-entropy", "auto")).strip().lower() or "auto"
 

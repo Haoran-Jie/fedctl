@@ -51,13 +51,13 @@
   </div>
 
   <div class="tab-bar" role="tablist" aria-label="Submission sections">
-    <button type="button" class="tab-button is-active" role="tab" aria-selected="true" aria-controls="tab-overview" id="tab-button-overview" data-tab-target="tab-overview">Overview</button>
+    <button type="button" class="tab-button is-active" role="tab" aria-selected="true" aria-controls="tab-logs" id="tab-button-logs" data-tab-target="tab-logs">Logs</button>
+    <button type="button" class="tab-button" role="tab" aria-selected="false" aria-controls="tab-overview" id="tab-button-overview" data-tab-target="tab-overview">Overview</button>
     <button type="button" class="tab-button" role="tab" aria-selected="false" aria-controls="tab-request" id="tab-button-request" data-tab-target="tab-request">Request</button>
-    <button type="button" class="tab-button" role="tab" aria-selected="false" aria-controls="tab-logs" id="tab-button-logs" data-tab-target="tab-logs">Logs</button>
     <button type="button" class="tab-button" role="tab" aria-selected="false" aria-controls="tab-jobs" id="tab-button-jobs" data-tab-target="tab-jobs">Jobs</button>
   </div>
 
-  <div id="tab-overview" class="tab-panel is-active" role="tabpanel" aria-labelledby="tab-button-overview">
+  <div id="tab-overview" class="tab-panel" role="tabpanel" aria-labelledby="tab-button-overview" hidden>
     <div class="detail-grid overview-grid">
       <article class="info-card overview-card overview-card-identity">
         <h3>Identity</h3>
@@ -159,7 +159,8 @@
           <div><dt>Created</dt><dd>{% if submission.created_at.iso %}<time datetime="{{ submission.created_at.iso }}" title="{{ submission.created_at.label }}" data-relative>{{ submission.created_at.label }}</time>{% else %}{{ submission.created_at.label }}{% endif %}</dd></div>
           <div><dt>Started</dt><dd>{% if submission.started_at.iso %}<time datetime="{{ submission.started_at.iso }}" title="{{ submission.started_at.label }}" data-relative>{{ submission.started_at.label }}</time>{% else %}{{ submission.started_at.label }}{% endif %}</dd></div>
           <div><dt>Finished</dt><dd>{% if submission.finished_at.iso %}<time datetime="{{ submission.finished_at.iso }}" title="{{ submission.finished_at.label }}" data-relative>{{ submission.finished_at.label }}</time>{% else %}{{ submission.finished_at.label }}{% endif %}</dd></div>
-          <div><dt>Duration</dt><dd>{{ submission.duration }}</dd></div>
+          <div><dt>Queue wait</dt><dd>{{ submission.queue_wait }}</dd></div>
+          <div><dt>Runtime</dt><dd>{{ submission.runtime }}</dd></div>
           <div><dt>Priority</dt><dd>{{ submission.priority }}</dd></div>
         </dl>
       </article>
@@ -263,38 +264,59 @@
         {% endfor %}
       </div>
       {% endif %}
-      <details class="request-context-detail">
-        <summary>Request context</summary>
-        <div class="request-context-content">
-          <div class="request-origin-grid">
-            {% if submission.submit_request_view.path_input %}
-            <div class="request-origin-item">
-              <span>Path input</span>
-              <code class="wrap">{{ submission.submit_request_view.path_input }}</code>
-            </div>
-            {% endif %}
-            {% if submission.submit_request_view.project_root %}
-            <div class="request-origin-item">
-              <span>Resolved project root</span>
-              <code class="wrap">{{ submission.submit_request_view.project_root }}</code>
-            </div>
-            {% endif %}
-            {% if submission.submit_request_view.cwd %}
-            <div class="request-origin-item">
-              <span>Working directory</span>
-              <code class="wrap">{{ submission.submit_request_view.cwd }}</code>
-            </div>
-            {% endif %}
+      <details class="request-inspector">
+        <summary class="request-inspector-summary">
+          <span class="request-inspector-chevron" aria-hidden="true">›</span>
+          <span class="request-inspector-title">Request context</span>
+          <span class="request-inspector-hint">filesystem origin &amp; CLI options</span>
+        </summary>
+        <div class="request-inspector-body">
+          {% if submission.submit_request_view.path_input or submission.submit_request_view.project_root or submission.submit_request_view.cwd %}
+          <div class="request-inspector-group">
+            <div class="request-inspector-group-head">Origin</div>
+            <dl class="request-inspector-rows">
+              {% if submission.submit_request_view.path_input %}
+              <div class="request-inspector-row">
+                <dt>Path input</dt>
+                <dd>
+                  <code class="request-inspector-value wrap">{{ submission.submit_request_view.path_input }}</code>
+                  <button type="button" class="request-inspector-copy" data-copy="{{ submission.submit_request_view.path_input }}" data-copy-label="Copy" data-copy-done-label="✓" data-copy-toast="Path copied" title="Copy path">⎘</button>
+                </dd>
+              </div>
+              {% endif %}
+              {% if submission.submit_request_view.project_root %}
+              <div class="request-inspector-row">
+                <dt>Project root</dt>
+                <dd>
+                  <code class="request-inspector-value wrap">{{ submission.submit_request_view.project_root }}</code>
+                  <button type="button" class="request-inspector-copy" data-copy="{{ submission.submit_request_view.project_root }}" data-copy-label="Copy" data-copy-done-label="✓" data-copy-toast="Path copied" title="Copy path">⎘</button>
+                </dd>
+              </div>
+              {% endif %}
+              {% if submission.submit_request_view.cwd %}
+              <div class="request-inspector-row">
+                <dt>Working dir</dt>
+                <dd>
+                  <code class="request-inspector-value wrap">{{ submission.submit_request_view.cwd }}</code>
+                  <button type="button" class="request-inspector-copy" data-copy="{{ submission.submit_request_view.cwd }}" data-copy-label="Copy" data-copy-done-label="✓" data-copy-toast="Path copied" title="Copy path">⎘</button>
+                </dd>
+              </div>
+              {% endif %}
+            </dl>
           </div>
+          {% endif %}
           {% if submission.submit_request_view.detail_items %}
-          <dl class="request-option-list">
-            {% for item in submission.submit_request_view.detail_items %}
-            <div>
-              <dt>{{ item.label }}</dt>
-              <dd class="wrap">{{ item.value }}</dd>
-            </div>
-            {% endfor %}
-          </dl>
+          <div class="request-inspector-group">
+            <div class="request-inspector-group-head">Options</div>
+            <dl class="request-inspector-rows">
+              {% for item in submission.submit_request_view.detail_items %}
+              <div class="request-inspector-row">
+                <dt>{{ item.label }}</dt>
+                <dd><span class="request-inspector-value wrap">{{ item.value }}</span></dd>
+              </div>
+              {% endfor %}
+            </dl>
+          </div>
           {% endif %}
         </div>
       </details>
@@ -327,9 +349,10 @@
                 <span class="mapping-summary">{{ entry.summary }}</span>
               </div>
               <div class="mapping-actions">
+                {% set default_stderr = 'false' if entry.kind == 'submit' else 'true' %}
                 <a
                   class="button secondary mapping-action"
-                  href="/ui/submissions/{{ submission.id }}?return_to={{ return_to | urlencode }}&job={{ entry.log_job | urlencode }}{% if entry.log_task %}&task={{ entry.log_task | urlencode }}{% endif %}#tab-logs"
+                  href="/ui/submissions/{{ submission.id }}?return_to={{ return_to | urlencode }}&job={{ entry.log_job | urlencode }}{% if entry.log_task %}&task={{ entry.log_task | urlencode }}{% endif %}&stderr={{ default_stderr }}#tab-logs"
                 >
                   Open logs
                 </a>
@@ -391,7 +414,7 @@
     </section>
   </div>
 
-  <div id="tab-logs" class="tab-panel" role="tabpanel" aria-labelledby="tab-button-logs" hidden>
+  <div id="tab-logs" class="tab-panel is-active" role="tabpanel" aria-labelledby="tab-button-logs">
     {% include 'logs_panel.html' %}
   </div>
 </section>
@@ -702,6 +725,11 @@
     logsFilterInput.value = initialUrl.searchParams.get('log_filter') || '';
     setWrapState(initialUrl.searchParams.get('log_wrap') !== 'off');
     renderLogs();
+
+    // Enable follow by default when the submission is running
+    if (logsPanel.dataset.logFollowDefault === 'on') {
+      setFollowState(true);
+    }
 
     logsFilterInput.addEventListener('input', renderLogs);
     wrapToggle.addEventListener('click', () => {

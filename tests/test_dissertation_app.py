@@ -2073,6 +2073,32 @@ def test_build_partition_request_includes_continuous_settings() -> None:
     assert request.partitioning_continuous_strictness == pytest.approx(0.5)
 
 
+def test_build_partition_request_can_override_partition_universe_size() -> None:
+    context = SimpleNamespace(
+        run_config={
+            "partitioning": "dirichlet",
+            "partitioning-num-labels": 2,
+            "partitioning-dirichlet-alpha": 0.3,
+            "partitioning-total-partitions": 15,
+            "seed": 1337,
+        },
+        node_config={"partition-id": 11, "num-partitions": 12},
+    )
+    msg = SimpleNamespace(content={})
+
+    request = build_partition_request(
+        context=context,
+        msg=msg,
+        task_name="cifar10_cnn",
+        method_label="fedavg",
+        split="train",
+        local_device_type="rpi5",
+    )
+
+    assert request.partition_id == 11
+    assert request.num_partitions == 15
+
+
 def test_masked_cross_entropy_matches_masked_logits() -> None:
     logits = torch.tensor([[1.0, 5.0, -2.0]], dtype=torch.float32)
     labels = torch.tensor([0])
@@ -2254,6 +2280,7 @@ def test_app_base_config_includes_target_stop_keys() -> None:
     assert "stop-on-target-score" in base_config
     assert "submodel-local-eval-enabled" in base_config
     assert "fedbuff-server-learning-rate" in base_config
+    assert "partitioning-total-partitions" in base_config
 
 
 def test_sync_strategy_logs_per_client_eval_events() -> None:

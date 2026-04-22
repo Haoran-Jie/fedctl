@@ -127,8 +127,9 @@ def list_visible_submissions_for_ui(
     # Other jobs: sort by created_at descending (newest first)
     other_jobs.sort(key=lambda row: str(row.get("created_at") or ""), reverse=True)
 
-    # Combine: blocked first, then others
-    filtered = blocked_jobs + other_jobs
+    # In active views, show executing/queued work before blocked waiters. Blocked jobs
+    # remain FIFO within their own group so queue order is still visible.
+    filtered = other_jobs + blocked_jobs
 
     # Apply final status filter sort if needed
     if status_filter == "all":

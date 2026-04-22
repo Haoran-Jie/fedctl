@@ -1,0 +1,138 @@
+{
+  "task": "cifar10_cnn",
+  "target_acc": 0.6,
+  "runs": [
+    {
+      "run_id": "c97h9zuy",
+      "regime": "iid",
+      "topology": "all_rpi5",
+      "method": "fedavg",
+      "points": 13,
+      "first_trip": 15,
+      "last_trip": 195,
+      "target_reached": true,
+      "target_client_trips": 195
+    },
+    {
+      "run_id": "6eom2gov",
+      "regime": "iid",
+      "topology": "all_rpi5",
+      "method": "fedbuff",
+      "points": 24,
+      "first_trip": 10,
+      "last_trip": 240,
+      "target_reached": true,
+      "target_client_trips": 240
+    },
+    {
+      "run_id": "ey33oqo6",
+      "regime": "iid",
+      "topology": "all_rpi5",
+      "method": "fedstaleweight",
+      "points": 28,
+      "first_trip": 10,
+      "last_trip": 280,
+      "target_reached": true,
+      "target_client_trips": 280
+    },
+    {
+      "run_id": "6l03ojrq",
+      "regime": "noniid",
+      "topology": "all_rpi5",
+      "method": "fedavg",
+      "points": 31,
+      "first_trip": 15,
+      "last_trip": 465,
+      "target_reached": true,
+      "target_client_trips": 465
+    },
+    {
+      "run_id": "k2bpz79x",
+      "regime": "noniid",
+      "topology": "all_rpi5",
+      "method": "fedbuff",
+      "points": 58,
+      "first_trip": 10,
+      "last_trip": 1000,
+      "target_reached": false,
+      "target_client_trips": null
+    },
+    {
+      "run_id": "59wlhy0n",
+      "regime": "noniid",
+      "topology": "all_rpi5",
+      "method": "fedstaleweight",
+      "points": 62,
+      "first_trip": 10,
+      "last_trip": 630,
+      "target_reached": true,
+      "target_client_trips": 630
+    },
+    {
+      "run_id": "t9vlpy39",
+      "regime": "iid",
+      "topology": "mixed",
+      "method": "fedavg",
+      "points": 13,
+      "first_trip": 15,
+      "last_trip": 195,
+      "target_reached": true,
+      "target_client_trips": 195
+    },
+    {
+      "run_id": "stlelmg4",
+      "regime": "iid",
+      "topology": "mixed",
+      "method": "fedbuff",
+      "points": 37,
+      "first_trip": 10,
+      "last_trip": 370,
+      "target_reached": true,
+      "target_client_trips": 370
+    },
+    {
+      "run_id": "4k0nvn9k",
+      "regime": "iid",
+      "topology": "mixed",
+      "method": "fedstaleweight",
+      "points": 28,
+      "first_trip": 10,
+      "last_trip": 280,
+      "target_reached": true,
+      "target_client_trips": 280
+    },
+    {
+      "run_id": "0ysztwpg",
+      "regime": "noniid",
+      "topology": "mixed",
+      "method": "fedavg",
+      "points": 31,
+      "first_trip": 15,
+      "last_trip": 465,
+      "target_reached": true,
+      "target_client_trips": 465
+    },
+    {
+      "run_id": "j81afai0",
+      "regime": "noniid",
+      "topology": "mixed",
+      "method": "fedbuff",
+      "points": 87,
+      "first_trip": 10,
+      "last_trip": 870,
+      "target_reached": true,
+      "target_client_trips": 870
+    },
+    {
+      "run_id": "wyc9rjxq",
+      "regime": "noniid",
+      "topology": "mixed",
+      "method": "fedstaleweight",
+      "points": 66,
+      "first_trip": 10,
+      "last_trip": 660,
+      "target_reached": true,
+      "target_client_trips": 660
+    }
+  ]
+}

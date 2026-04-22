@@ -1,0 +1,138 @@
+{
+  "task": "cifar10_cnn",
+  "target_acc": 0.6,
+  "runs": [
+    {
+      "run_id": "c97h9zuy",
+      "regime": "iid",
+      "topology": "all_rpi5",
+      "method": "fedavg",
+      "points": 13,
+      "first_wall_clock_s": 142.423918649,
+      "last_wall_clock_s": 688.523935965,
+      "target_reached": true,
+      "target_wall_clock_s": 621.9268621740048
+    },
+    {
+      "run_id": "6eom2gov",
+      "regime": "iid",
+      "topology": "all_rpi5",
+      "method": "fedbuff",
+      "points": 24,
+      "first_wall_clock_s": 128.486936474,
+      "last_wall_clock_s": 656.276215925,
+      "target_reached": true,
+      "target_wall_clock_s": 637.3709185579937
+    },
+    {
+      "run_id": "ey33oqo6",
+      "regime": "iid",
+      "topology": "all_rpi5",
+      "method": "fedstaleweight",
+      "points": 28,
+      "first_wall_clock_s": 117.003276076,
+      "last_wall_clock_s": 731.150555858,
+      "target_reached": true,
+      "target_wall_clock_s": 712.561271737999
+    },
+    {
+      "run_id": "6l03ojrq",
+      "regime": "noniid",
+      "topology": "all_rpi5",
+      "method": "fedavg",
+      "points": 31,
+      "first_wall_clock_s": 122.046871532,
+      "last_wall_clock_s": 1485.723886259,
+      "target_reached": true,
+      "target_wall_clock_s": 1424.2648917170009
+    },
+    {
+      "run_id": "k2bpz79x",
+      "regime": "noniid",
+      "topology": "all_rpi5",
+      "method": "fedbuff",
+      "points": 58,
+      "first_wall_clock_s": 122.255996142,
+      "last_wall_clock_s": 2340.14153665,
+      "target_reached": false,
+      "target_wall_clock_s": null
+    },
+    {
+      "run_id": "59wlhy0n",
+      "regime": "noniid",
+      "topology": "all_rpi5",
+      "method": "fedstaleweight",
+      "points": 62,
+      "first_wall_clock_s": 123.819778969,
+      "last_wall_clock_s": 1508.10829775,
+      "target_reached": true,
+      "target_wall_clock_s": 1488.9608751759952
+    },
+    {
+      "run_id": "t9vlpy39",
+      "regime": "iid",
+      "topology": "mixed",
+      "method": "fedavg",
+      "points": 13,
+      "first_wall_clock_s": 284.617014728,
+      "last_wall_clock_s": 2193.957491034,
+      "target_reached": true,
+      "target_wall_clock_s": 2091.3060326820014
+    },
+    {
+      "run_id": "stlelmg4",
+      "regime": "iid",
+      "topology": "mixed",
+      "method": "fedbuff",
+      "points": 37,
+      "first_wall_clock_s": 161.587051484,
+      "last_wall_clock_s": 1079.718210145,
+      "target_reached": true,
+      "target_wall_clock_s": 1060.607330474999
+    },
+    {
+      "run_id": "4k0nvn9k",
+      "regime": "iid",
+      "topology": "mixed",
+      "method": "fedstaleweight",
+      "points": 28,
+      "first_wall_clock_s": 159.193396669,
+      "last_wall_clock_s": 882.224145879,
+      "target_reached": true,
+      "target_wall_clock_s": 862.7468097300007
+    },
+    {
+      "run_id": "0ysztwpg",
+      "regime": "noniid",
+      "topology": "mixed",
+      "method": "fedavg",
+      "points": 31,
+      "first_wall_clock_s": 250.423671876,
+      "last_wall_clock_s": 4427.849248564,
+      "target_reached": true,
+      "target_wall_clock_s": 4337.9159391540015
+    },
+    {
+      "run_id": "j81afai0",
+      "regime": "noniid",
+      "topology": "mixed",
+      "method": "fedbuff",
+      "points": 87,
+      "first_wall_clock_s": 148.450775735,
+      "last_wall_clock_s": 2373.4650668,
+      "target_reached": true,
+      "target_wall_clock_s": 2353.767631171002
+    },
+    {
+      "run_id": "wyc9rjxq",
+      "regime": "noniid",
+      "topology": "mixed",
+      "method": "fedstaleweight",
+      "points": 66,
+      "first_wall_clock_s": 174.14607696,
+      "last_wall_clock_s": 1825.442647788,
+      "target_reached": true,
+      "target_wall_clock_s": 1806.368915264
+    }
+  ]
+}
