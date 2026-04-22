@@ -18,6 +18,7 @@ deploy:
   network:
     image: "REPLACE_NETEM_IMAGE"
     default_profile: med
+    default_assignment: "rpi4[*]=med,rpi5[*]=med"
     interface: eth0
     apply:
       superexec_serverapp: false

@@ -13,7 +13,7 @@
   <form method="get" action="/ui/submissions/{{ submission.id }}#tab-logs" class="grid-form logs-form log-controls" data-log-server-form>
     <input type="hidden" name="return_to" value="{{ return_to }}">
     <input type="hidden" name="log_filter" value="" data-log-filter-state>
-    <input type="hidden" name="log_wrap" value="on" data-log-wrap-state>
+    <input type="hidden" name="log_wrap" value="off" data-log-wrap-state>
     <label>Job
       <select name="job">
         {% for value, label in log_jobs %}
@@ -39,7 +39,7 @@
       <input type="search" value="" placeholder="error, traceback, clientapp" data-log-filter>
     </label>
     <div class="log-view-actions">
-      <button type="button" class="button secondary" data-log-wrap-toggle aria-pressed="true">Wrap on</button>
+      <button type="button" class="button secondary" data-log-wrap-toggle aria-pressed="false">Wrap off</button>
       <button type="button" class="button secondary" data-log-follow-toggle aria-pressed="false">Follow</button>
       <button
         type="button"
@@ -69,7 +69,7 @@
   </div>
   <div class="alert error" data-log-error {% if not logs_error %}hidden{% endif %}>{{ logs_error or '' }}</div>
   <div class="log-box-wrap" data-log-frame>
-    <div class="log-box ansi-log" data-log-box data-log-wrap="on">{{ logs_html | safe }}</div>
+    <div class="log-box ansi-log" data-log-box data-log-wrap="off">{{ logs_html | safe }}</div>
   </div>
   <textarea hidden data-log-raw>{{ logs_content or '' }}</textarea>
 </section>

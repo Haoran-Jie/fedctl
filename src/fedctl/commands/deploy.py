@@ -57,6 +57,7 @@ class _RepoDeployConfig:
     network_ingress_profiles: dict[str, object]
     network_egress_profiles: dict[str, object]
     network_default: str | None
+    network_default_assignment: list[str] | None
     network_interface: str | None
     network_scope: str | None
     network_image: str | None
@@ -139,6 +140,7 @@ def run_deploy(
     repo_network_ingress_profiles = repo_defaults.network_ingress_profiles
     repo_network_egress_profiles = repo_defaults.network_egress_profiles
     repo_network_default = repo_defaults.network_default
+    repo_network_default_assignment = repo_defaults.network_default_assignment
     repo_network_interface = repo_defaults.network_interface
     repo_network_scope = repo_defaults.network_scope
     repo_network_image = repo_defaults.network_image
@@ -162,7 +164,9 @@ def run_deploy(
             return 1
 
     if not supernodes_by_type and repo_supernodes and num_supernodes is None:
-        if not _has_untyped_net(net):
+        if not _has_untyped_net(net) and not (
+            not net and _has_untyped_net(repo_network_default_assignment)
+        ):
             supernodes_by_type = {
                 str(k): int(v) for k, v in repo_supernodes.items() if int(v) >= 0
             }
@@ -239,11 +243,12 @@ def run_deploy(
                 repo_network_ingress_profiles=repo_network_ingress_profiles,
                 repo_network_egress_profiles=repo_network_egress_profiles,
                 repo_network_default=repo_network_default,
+                repo_network_default_assignment=repo_network_default_assignment,
                 repo_network_interface=repo_network_interface,
                 repo_network_scope=repo_network_scope,
             )
         except ValueError as exc:
-            console.print(f"[red]✗ Invalid --net:[/red] {exc}")
+            console.print(f"[red]✗ Invalid network configuration:[/red] {exc}")
             return 1
         spec = default_deploy_spec(
             num_supernodes=num_supernodes,
@@ -332,14 +337,15 @@ def run_deploy(
                 repo_network_ingress_profiles=repo_network_ingress_profiles,
                 repo_network_egress_profiles=repo_network_egress_profiles,
                 repo_network_default=repo_network_default,
+                repo_network_default_assignment=repo_network_default_assignment,
                 repo_network_interface=repo_network_interface,
                 repo_network_scope=repo_network_scope,
             )
         except ValueError as exc:
-            console.print(f"[red]✗ Invalid --net:[/red] {exc}")
+            console.print(f"[red]✗ Invalid network configuration:[/red] {exc}")
             return 1
         if network_plan is not None and not repo_network_image:
-            console.print("[red]✗ Netem image is required when using --net.[/red]")
+            console.print("[red]✗ Netem image is required when network emulation is enabled.[/red]")
             console.print("[yellow]Hint:[/yellow] Set deploy.network.image in repo config.")
             return 1
         if placements is None:
@@ -525,6 +531,7 @@ def _repo_deploy_config(repo_cfg: dict[str, object]) -> _RepoDeployConfig:
         network_ingress_profiles=network_ingress_profiles,
         network_egress_profiles=network_egress_profiles,
         network_default=_as_optional_str(network.get("default_profile")),
+        network_default_assignment=_as_optional_str_list(network.get("default_assignment")),
         network_interface=_as_optional_str(network.get("interface")),
         network_scope=_as_optional_str(network.get("scope")),
         network_image=_as_optional_str(network.get("image")),
@@ -542,6 +549,16 @@ def _as_dict(value: object) -> dict[str, object]:
 def _as_optional_str(value: object) -> str | None:
     if isinstance(value, str) and value:
         return value
+    return None
+
+
+def _as_optional_str_list(value: object) -> list[str] | None:
+    if isinstance(value, str):
+        text = value.strip()
+        return [text] if text else None
+    if isinstance(value, list):
+        result = [str(item).strip() for item in value if str(item).strip()]
+        return result or None
     return None
 
 
@@ -599,10 +616,11 @@ def _resolve_network_plan(
     repo_network_ingress_profiles: dict[str, object],
     repo_network_egress_profiles: dict[str, object],
     repo_network_default: str | None,
+    repo_network_default_assignment: list[str] | None,
     repo_network_interface: str | None,
     repo_network_scope: str | None,
 ) -> tuple[NetworkPlan | None, list[SupernodePlacement] | None]:
-    net_values = net or []
+    net_values = net or repo_network_default_assignment or []
     if not net_values:
         return None, placements
     try:

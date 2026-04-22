@@ -22,6 +22,7 @@ deploy:
   network:
     image: "jiahborcn/netem:latest"
     default_profile: mild
+    default_assignment: "rpi5[*]=mild"
     interface: eth0
     apply:
       superexec_serverapp: false
