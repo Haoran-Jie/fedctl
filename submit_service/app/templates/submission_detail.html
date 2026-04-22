@@ -723,7 +723,7 @@
 
     const initialUrl = new URL(window.location.href);
     logsFilterInput.value = initialUrl.searchParams.get('log_filter') || '';
-    setWrapState(initialUrl.searchParams.get('log_wrap') !== 'off');
+    setWrapState(initialUrl.searchParams.get('log_wrap') === 'on');
     renderLogs();
 
     // Enable follow by default when the submission is running

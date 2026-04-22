@@ -36,6 +36,8 @@ deploy:
   network:
     image: "jiahborcn/netem:latest"
     default_profile: none
+    # Optional fallback used when CLI --net is absent.
+    # Example: default_assignment: "rpi5[*]=med,jetson[*]=high"
     interface: eth0
     apply:
       superexec_serverapp: false

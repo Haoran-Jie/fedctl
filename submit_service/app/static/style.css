@@ -1511,6 +1511,13 @@ td.cell-blocked { font-size: 0.88rem; color: var(--muted); }
   white-space: pre;
   overflow-wrap: normal;
 }
+.log-box[data-log-wrap="off"] .log-line {
+  width: max-content;
+  min-width: calc(100% - 3.2rem);
+  white-space: pre;
+  word-break: normal;
+  overflow-wrap: normal;
+}
 .log-box.has-scroll-more::after {
   content: '';
   position: absolute;

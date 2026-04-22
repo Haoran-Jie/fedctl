@@ -18,6 +18,7 @@ deploy:
   network:
     image: "REPLACE_NETEM_IMAGE"
     default_profile: mild
+    default_assignment: "rpi4[*]=mild,rpi5[*]=mild"
     interface: eth0
     apply:
       superexec_serverapp: false

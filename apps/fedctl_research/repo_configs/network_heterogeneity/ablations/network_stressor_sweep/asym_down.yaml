@@ -1,15 +1,15 @@
 deploy:
   supernodes:
-    rpi4: 0
-    rpi5: 20
+    rpi4: 5
+    rpi5: 10
   superexec:
     env:
       WANDB_API_KEY: "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"
       WANDB_PROJECT: "fedctl"
       WANDB_ENTITY: "samueljie1-the-university-of-cambridge"
   placement:
-    allow_oversubscribe: true
-    spread_across_hosts: false
+    allow_oversubscribe: false
+    spread_across_hosts: true
     prefer_spread_across_hosts: true
   resources:
     supernode:
@@ -21,8 +21,8 @@ deploy:
     superlink: { cpu: 1000, mem: 1024 }
   network:
     image: "jiahborcn/netem:latest"
-    default_profile: med
-    default_assignment: "rpi5[*]=med"
+    default_profile: asym_down
+    default_assignment: "rpi4[*]=(asym_down,none),rpi5[*]=(asym_down,none)"
     interface: eth0
     apply:
       superexec_serverapp: false
@@ -30,9 +30,11 @@ deploy:
     profiles:
       none: {}
       mild: { delay_ms: 20, jitter_ms: 5, loss_pct: 0.0, rate_mbit: 100, rate_latency_ms: 50, rate_burst_kbit: 256 }
-      med: { delay_ms: 60, jitter_ms: 10, loss_pct: 1.0, rate_mbit: 50, rate_latency_ms: 50, rate_burst_kbit: 256 }
-      asym_up: { delay_ms: 120, jitter_ms: 20, loss_pct: 1.0, rate_mbit: 20, rate_latency_ms: 50, rate_burst_kbit: 256 }
-      asym_down: { delay_ms: 30, jitter_ms: 5, loss_pct: 0.5, rate_mbit: 80, rate_latency_ms: 50, rate_burst_kbit: 256 }
+      med: { delay_ms: 60, jitter_ms: 15, loss_pct: 0.5, rate_mbit: 50, rate_latency_ms: 50, rate_burst_kbit: 256 }
+    ingress_profiles:
+      asym_down: { delay_ms: 90, jitter_ms: 20, loss_pct: 0.5, rate_mbit: 20, rate_latency_ms: 50, rate_burst_kbit: 256 }
+    egress_profiles:
+      asym_up: { delay_ms: 90, jitter_ms: 20, loss_pct: 0.5, rate_mbit: 20, rate_latency_ms: 50, rate_burst_kbit: 256 }
 
 submit:
   image: "128.232.61.111:5000/fedctl-submit:latest"
