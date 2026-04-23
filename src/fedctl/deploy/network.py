@@ -18,7 +18,6 @@ class NetAssignment:
 
 @dataclass(frozen=True)
 class NetworkPlan:
-    scope: str
     default_profile: str
     interface: str
     profiles: dict[str, dict[str, float | int]]
@@ -109,11 +108,7 @@ def plan_network(
     profiles: dict[str, dict[str, float | int]] | None,
     ingress_profiles: dict[str, dict[str, float | int]] | None = None,
     egress_profiles: dict[str, dict[str, float | int]] | None = None,
-    scope: str | None = None,
 ) -> NetworkPlan:
-    scope_value = (scope or "allocation").strip() or "allocation"
-    if scope_value not in {"allocation", "node"}:
-        raise ValueError(f"Invalid network scope: {scope_value}")
     interface_value = (interface or "eth0").strip() or "eth0"
     if interface_value not in {"eth0", "wlan0", "auto"}:
         raise ValueError(f"Invalid network interface: {interface_value}")
@@ -122,13 +117,17 @@ def plan_network(
     profile_defs = _normalize_profiles(profiles)
     ingress_defs = _merge_profiles(profile_defs, _normalize_profiles(ingress_profiles))
     egress_defs = _merge_profiles(profile_defs, _normalize_profiles(egress_profiles))
+    _validate_default_profile(
+        default_name,
+        ingress_defs=ingress_defs,
+        egress_defs=egress_defs,
+    )
 
     assignment_map = _init_assignment_lists(placements, default_name)
     ingress_map = _init_assignment_lists(placements, default_name)
     egress_map = _init_assignment_lists(placements, default_name)
     if not assignment_map:
         return NetworkPlan(
-            scope=scope_value,
             default_profile=default_name,
             interface=interface_value,
             profiles=profile_defs,
@@ -189,7 +188,6 @@ def plan_network(
         egress_targets[assignment.index - 1] = assignment.egress_profile
 
     return NetworkPlan(
-        scope=scope_value,
         default_profile=default_name,
         interface=interface_value,
         profiles=profile_defs,
@@ -198,6 +196,33 @@ def plan_network(
         assignments=assignment_map,
         ingress_assignments=ingress_map,
         egress_assignments=egress_map,
+    )
+
+
+def _validate_default_profile(
+    default_name: str,
+    *,
+    ingress_defs: dict[str, dict[str, float | int]],
+    egress_defs: dict[str, dict[str, float | int]],
+) -> None:
+    if default_name == "none":
+        return
+
+    missing: list[str] = []
+    if default_name not in ingress_defs:
+        missing.append("ingress")
+    if default_name not in egress_defs:
+        missing.append("egress")
+    if not missing:
+        return
+
+    available_ingress = ", ".join(sorted(ingress_defs)) or "(none)"
+    available_egress = ", ".join(sorted(egress_defs)) or "(none)"
+    missing_text = " and ".join(missing)
+    raise ValueError(
+        f"Unknown default net profile '{default_name}' for {missing_text}. "
+        f"Available ingress profiles: {available_ingress}. "
+        f"Available egress profiles: {available_egress}."
     )
 
 

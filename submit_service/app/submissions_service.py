@@ -90,6 +90,7 @@ def list_visible_submissions(
     principal: AuthPrincipal,
     *,
     limit: int = 20,
+    offset: int = 0,
     status_filter: str | None = None,
     active_only: bool = False,
 ) -> list[SubmissionRecord]:
@@ -97,6 +98,7 @@ def list_visible_submissions(
     statuses = _submission_statuses_for_filter(effective_filter)
     rows = storage.list_submissions(
         limit=limit,
+        offset=offset,
         statuses=statuses,
         user=None if principal.role == "admin" else principal.name,
     )
@@ -109,36 +111,47 @@ def list_visible_submissions_for_ui(
     principal: AuthPrincipal,
     *,
     status_filter: str = "all",
-    limit: int = 200,
+    limit: int = 100,
+    offset: int = 0,
+    search_query: str | None = None,
 ) -> list[dict[str, Any]]:
     rows = storage.list_submissions(
         limit=limit,
+        offset=offset,
+        statuses=_submission_statuses_for_filter(status_filter),
         user=None if principal.role == "admin" else principal.name,
+        query=search_query,
+        order="ui",
     )
-    filtered = [row for row in rows if _matches_status_filter(row, status_filter)]
+    return rows
 
-    # Separate blocked and non-blocked for different sorting
-    blocked_jobs = [r for r in filtered if str(r.get("status") or "") == "blocked"]
-    other_jobs = [r for r in filtered if str(r.get("status") or "") != "blocked"]
 
-    # Blocked jobs: sort by created_at ascending (oldest first = FCFS)
-    blocked_jobs.sort(key=lambda row: str(row.get("created_at") or ""))
+def count_visible_submissions_for_ui(
+    storage: Storage,
+    principal: AuthPrincipal,
+    *,
+    status_filter: str = "all",
+    search_query: str | None = None,
+) -> int:
+    return storage.count_submissions(
+        statuses=_submission_statuses_for_filter(status_filter),
+        user=None if principal.role == "admin" else principal.name,
+        query=search_query,
+    )
 
-    # Other jobs: sort by created_at descending (newest first)
-    other_jobs.sort(key=lambda row: str(row.get("created_at") or ""), reverse=True)
 
-    # In active views, show executing/queued work before blocked waiters. Blocked jobs
-    # remain FIFO within their own group so queue order is still visible.
-    filtered = other_jobs + blocked_jobs
-
-    # Apply final status filter sort if needed
-    if status_filter == "all":
-        # Active jobs (blocked, running, queued) first, then others
-        active = [r for r in filtered if str(r.get("status") or "") in _ACTIVE_STATUSES]
-        inactive = [r for r in filtered if str(r.get("status") or "") not in _ACTIVE_STATUSES]
-        filtered = active + inactive
-
-    return filtered
+def submission_stats_for_principal(
+    storage: Storage,
+    principal: AuthPrincipal,
+) -> dict[str, int]:
+    user = None if principal.role == "admin" else principal.name
+    return {
+        "total": storage.count_submissions(user=user),
+        "active": storage.count_submissions(statuses=list(_ACTIVE_STATUSES), user=user),
+        "blocked": storage.count_submissions(statuses=["blocked"], user=user),
+        "failed": storage.count_submissions(statuses=["failed"], user=user),
+        "completed": storage.count_submissions(statuses=["completed"], user=user),
+    }
 
 
 def submission_stats_for_ui(rows: list[dict[str, Any]]) -> dict[str, int]:

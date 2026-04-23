@@ -320,7 +320,50 @@ def test_ui_submissions_search_filters_rows_and_preserves_return_to(
     assert other_id not in page.text
     assert 'name="q"' in page.text
     assert 'value="vision"' in page.text
-    assert "return_to=%2Fui%2Fsubmissions%3Fstatus%3Dall%26q%3Dvision" in page.text
+    assert "return_to=/ui/submissions%3Fstatus%3Dall%26q%3Dvision" in page.text
+
+
+def test_ui_submissions_paginates_and_preserves_filters(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = _make_ui_client(tmp_path, monkeypatch)
+    storage = client.app.state.storage
+    alice_headers = {"Authorization": "Bearer tok-alice"}
+
+    first_id = client.post("/v1/submissions", json=_payload(), headers=alice_headers).json()["submission_id"]
+    second_id = client.post("/v1/submissions", json=_payload(), headers=alice_headers).json()["submission_id"]
+    third_id = client.post("/v1/submissions", json=_payload(), headers=alice_headers).json()["submission_id"]
+
+    storage.update_submission(
+        first_id,
+        {"status": "completed", "experiment": "vision-first", "created_at": "2026-01-01T00:01:00+00:00"},
+    )
+    storage.update_submission(
+        second_id,
+        {"status": "completed", "experiment": "vision-second", "created_at": "2026-01-01T00:02:00+00:00"},
+    )
+    storage.update_submission(
+        third_id,
+        {"status": "completed", "experiment": "vision-third", "created_at": "2026-01-01T00:03:00+00:00"},
+    )
+
+    _login(client, "tok-alice")
+    page_one = client.get("/ui/submissions?status=completed&q=vision&limit=2")
+    assert page_one.status_code == 200
+    assert "Showing 1-2 of 3" in page_one.text
+    assert "Page 1 of 2" in page_one.text
+    assert "vision-third" in page_one.text
+    assert "vision-second" in page_one.text
+    assert "vision-first" not in page_one.text
+    assert "/ui/submissions?status=completed&amp;q=vision&amp;page=2&amp;limit=2" in page_one.text
+
+    page_two = client.get("/ui/submissions?status=completed&q=vision&page=2&limit=2")
+    assert page_two.status_code == 200
+    assert "Showing 3-3 of 3" in page_two.text
+    assert "Page 2 of 2" in page_two.text
+    assert "vision-first" in page_two.text
+    assert "vision-third" not in page_two.text
+    assert "return_to=/ui/submissions%3Fstatus%3Dcompleted%26q%3Dvision%26page%3D2%26limit%3D2" in page_two.text
 
 
 def test_ui_non_admin_redirected_from_nodes(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:

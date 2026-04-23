@@ -118,27 +118,37 @@ class Storage:
         self,
         limit: int = 20,
         *,
+        offset: int = 0,
         statuses: list[str] | None = None,
         user: str | None = None,
+        query: str | None = None,
+        order: str = "created_desc",
     ) -> list[dict[str, Any]]:
-        clauses: list[str] = []
-        params: list[Any] = []
-        if statuses:
-            placeholders = ", ".join("?" for _ in statuses)
-            clauses.append(f"status IN ({placeholders})")
-            params.extend(statuses)
-        if user:
-            clauses.append("user = ?")
-            params.append(user)
-        where = ""
-        if clauses:
-            where = " WHERE " + " AND ".join(clauses)
+        where, params = _submission_where(statuses=statuses, user=user, query=query)
+        order_sql = _submission_order(order)
+        limit = max(1, int(limit))
+        offset = max(0, int(offset))
         with self._connect() as conn:
             rows = conn.execute(
-                f"SELECT * FROM submissions{where} ORDER BY created_at DESC LIMIT ?",
-                (*params, limit),
+                f"SELECT * FROM submissions{where} {order_sql} LIMIT ? OFFSET ?",
+                (*params, limit, offset),
             ).fetchall()
         return [self._row_to_record(row) for row in rows]
+
+    def count_submissions(
+        self,
+        *,
+        statuses: list[str] | None = None,
+        user: str | None = None,
+        query: str | None = None,
+    ) -> int:
+        where, params = _submission_where(statuses=statuses, user=user, query=query)
+        with self._connect() as conn:
+            row = conn.execute(
+                f"SELECT COUNT(*) AS count FROM submissions{where}",
+                params,
+            ).fetchone()
+        return int(row["count"]) if row is not None else 0
 
     def list_dispatch_candidates(
         self,
@@ -253,3 +263,49 @@ def _safe_json_loads(raw: str) -> Any:
         return json.loads(raw)
     except json.JSONDecodeError:
         return [] if raw.strip().startswith("[") else {}
+
+
+def _submission_where(
+    *,
+    statuses: list[str] | None,
+    user: str | None,
+    query: str | None,
+) -> tuple[str, tuple[Any, ...]]:
+    clauses: list[str] = []
+    params: list[Any] = []
+    if statuses:
+        placeholders = ", ".join("?" for _ in statuses)
+        clauses.append(f"status IN ({placeholders})")
+        params.extend(statuses)
+    if user:
+        clauses.append("user = ?")
+        params.append(user)
+    search_query = (query or "").strip().casefold()
+    if search_query:
+        pattern = f"%{search_query}%"
+        searchable = ["id", "project_name", "experiment", "user", "namespace"]
+        clauses.append(
+            "("
+            + " OR ".join(f"LOWER(COALESCE({field}, '')) LIKE ?" for field in searchable)
+            + ")"
+        )
+        params.extend([pattern] * len(searchable))
+    where = ""
+    if clauses:
+        where = " WHERE " + " AND ".join(clauses)
+    return where, tuple(params)
+
+
+def _submission_order(order: str) -> str:
+    if order == "ui":
+        return (
+            "ORDER BY "
+            "CASE "
+            "WHEN status IN ('running', 'queued') THEN 0 "
+            "WHEN status = 'blocked' THEN 1 "
+            "ELSE 2 END ASC, "
+            "CASE WHEN status = 'blocked' THEN created_at END ASC, "
+            "CASE WHEN status != 'blocked' THEN created_at END DESC, "
+            "id DESC"
+        )
+    return "ORDER BY created_at DESC, id DESC"

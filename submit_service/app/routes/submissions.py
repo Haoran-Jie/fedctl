@@ -91,7 +91,8 @@ def create_submission(
 @router.get("/v1/submissions", response_model=list[SubmissionRecord])
 def list_submissions(
     request: Request,
-    limit: int = Query(20, ge=1, le=200),
+    limit: int = Query(20, ge=1, le=1000),
+    offset: int = Query(0, ge=0),
     active_only: bool = Query(False),
     status: str | None = Query(None),
     cfg: SubmitConfig = Depends(get_config),
@@ -108,6 +109,7 @@ def list_submissions(
         storage,
         principal,
         limit=limit,
+        offset=offset,
         status_filter=status_filter,
         active_only=active_only,
     )

@@ -15,13 +15,14 @@ from fastapi.templating import Jinja2Templates
 from ..config import SubmitConfig
 from ..submissions_service import (
     cancel_submission_record,
+    count_visible_submissions_for_ui,
     get_submission_or_404,
     is_cancellable,
     is_purgeable,
     list_visible_submissions_for_ui,
     purge_submission_record,
     resolve_submission_logs_detail,
-    submission_stats_for_ui,
+    submission_stats_for_principal,
 )
 from ..ui_auth import current_ui_principal, login_via_token, logout, require_ui_admin
 
@@ -31,6 +32,8 @@ _TEMPLATE_DIR = Path(__file__).resolve().parents[1] / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATE_DIR))
 
 _STATUS_FILTERS = ["active", "completed", "failed", "cancelled", "all"]
+_SUBMISSIONS_UI_DEFAULT_LIMIT = 100
+_SUBMISSIONS_UI_MAX_LIMIT = 1000
 _LOG_JOBS = [
     ("submit", "Submit"),
     ("superlink", "SuperLink"),
@@ -440,24 +443,40 @@ def submissions_page(
     request: Request,
     status: str = Query("active"),
     q: str | None = Query(None),
+    page: int = Query(1, ge=1),
+    limit: int = Query(_SUBMISSIONS_UI_DEFAULT_LIMIT, ge=1, le=_SUBMISSIONS_UI_MAX_LIMIT),
 ) -> HTMLResponse | RedirectResponse:
     principal = current_ui_principal(request)
     if principal is None:
         return RedirectResponse(url="/ui/login", status_code=303)
     status_filter = status if status in _STATUS_FILTERS else "active"
     search_query = (q or "").strip()
-    visible_rows = list_visible_submissions_for_ui(
+    auth_principal = principal.as_auth_principal()
+    total_rows = count_visible_submissions_for_ui(
         request.app.state.storage,
-        principal.as_auth_principal(),
-        status_filter="all",
+        auth_principal,
+        status_filter=status_filter,
+        search_query=search_query,
     )
+    page_count = max(1, (total_rows + limit - 1) // limit)
+    current_page = min(page, page_count)
+    offset = (current_page - 1) * limit
     rows = list_visible_submissions_for_ui(
         request.app.state.storage,
-        principal.as_auth_principal(),
+        auth_principal,
         status_filter=status_filter,
+        limit=limit,
+        offset=offset,
+        search_query=search_query,
     )
-    if search_query:
-        rows = [row for row in rows if _submission_matches_query(row, search_query)]
+    pagination = _pagination_context(
+        status_filter=status_filter,
+        q=search_query,
+        page=current_page,
+        limit=limit,
+        total_rows=total_rows,
+        page_count=page_count,
+    )
     return _render(
         request,
         "submissions_list.html",
@@ -465,10 +484,17 @@ def submissions_page(
             "status_filter": status_filter,
             "status_filters": _STATUS_FILTERS,
             "search_query": search_query,
-            "stats": submission_stats_for_ui(visible_rows),
+            "stats": submission_stats_for_principal(request.app.state.storage, auth_principal),
             "rows": [_submission_row_view(row, principal.role) for row in rows],
             "quick_command": _submission_list_command(status_filter),
-            "return_to": _submission_list_return_to(status_filter=status_filter, q=search_query),
+            "return_to": _submission_list_return_to(
+                status_filter=status_filter,
+                q=search_query,
+                page=current_page,
+                limit=limit,
+            ),
+            "pagination": pagination,
+            "limit": limit,
         },
     )
 
@@ -811,11 +837,58 @@ def _append_notice(url: str, message: str, kind: str = "success") -> str:
     )
 
 
-def _submission_list_return_to(*, status_filter: str, q: str) -> str:
+def _submission_list_return_to(
+    *,
+    status_filter: str,
+    q: str,
+    page: int = 1,
+    limit: int = _SUBMISSIONS_UI_DEFAULT_LIMIT,
+) -> str:
     params = {"status": status_filter}
     if q:
         params["q"] = q
+    if page > 1:
+        params["page"] = str(page)
+    if limit != _SUBMISSIONS_UI_DEFAULT_LIMIT:
+        params["limit"] = str(limit)
     return urlunsplit(("", "", "/ui/submissions", urlencode(params), ""))
+
+
+def _pagination_context(
+    *,
+    status_filter: str,
+    q: str,
+    page: int,
+    limit: int,
+    total_rows: int,
+    page_count: int,
+) -> dict[str, Any]:
+    def url_for(page_value: int) -> str:
+        return _submission_list_return_to(
+            status_filter=status_filter,
+            q=q,
+            page=page_value,
+            limit=limit,
+        )
+
+    if total_rows <= 0:
+        start = 0
+        end = 0
+    else:
+        start = (page - 1) * limit + 1
+        end = min(total_rows, page * limit)
+    return {
+        "page": page,
+        "limit": limit,
+        "total": total_rows,
+        "page_count": page_count,
+        "start": start,
+        "end": end,
+        "has_previous": page > 1,
+        "has_next": page < page_count,
+        "previous_url": url_for(page - 1) if page > 1 else None,
+        "next_url": url_for(page + 1) if page < page_count else None,
+    }
 
 
 def _contains_query(values: list[object], query: str) -> bool:

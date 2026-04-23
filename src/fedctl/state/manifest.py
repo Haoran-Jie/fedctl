@@ -59,7 +59,6 @@ class SupernodePlacementManifest:
 
 @dataclass(frozen=True)
 class SupernodesNetworkManifest:
-    scope: str
     default_profile: str
     profiles: dict[str, dict[str, float | int]]
     assignments: dict[str, list[str]]
@@ -71,7 +70,6 @@ class SupernodesNetworkManifest:
 
     def to_dict(self) -> dict[str, object]:
         data: dict[str, object] = {
-            "scope": self.scope,
             "default_profile": self.default_profile,
             "profiles": self.profiles,
             "assignments": self.assignments,

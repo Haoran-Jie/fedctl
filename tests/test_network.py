@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from fedctl.deploy.network import assignment_key, parse_net_assignments, plan_network
 from fedctl.deploy.plan import SupernodePlacement, plan_supernodes
 from fedctl.commands.deploy import _resolve_network_plan
@@ -81,7 +83,6 @@ def test_resolve_network_plan_uses_repo_default_assignment_without_cli_net() -> 
         repo_network_default="none",
         repo_network_default_assignment=["rpi4[*]=med,rpi5[*]=med"],
         repo_network_interface="eth0",
-        repo_network_scope=None,
     )
 
     assert resolved_placements == placements
@@ -111,7 +112,6 @@ def test_resolve_network_plan_cli_net_overrides_repo_default_assignment() -> Non
         repo_network_default="none",
         repo_network_default_assignment=["rpi4[*]=mild,rpi5[*]=mild"],
         repo_network_interface="eth0",
-        repo_network_scope=None,
     )
 
     assert plan is not None
@@ -140,7 +140,6 @@ def test_resolve_network_plan_repo_default_assignment_supports_asymmetry() -> No
         repo_network_default="none",
         repo_network_default_assignment=["rpi4[*]=(none,asym_up),rpi5[*]=(asym_down,none)"],
         repo_network_interface="eth0",
-        repo_network_scope=None,
     )
 
     assert plan is not None
@@ -148,6 +147,35 @@ def test_resolve_network_plan_repo_default_assignment_supports_asymmetry() -> No
     assert plan.egress_assignments[assignment_key("rpi4")] == ["asym_up"]
     assert plan.ingress_assignments[assignment_key("rpi5")] == ["asym_down"]
     assert plan.egress_assignments[assignment_key("rpi5")] == ["none"]
+
+
+def test_plan_network_rejects_unknown_default_profile() -> None:
+    placements = [
+        SupernodePlacement(device_type="rpi5", instance_idx=1, node_id=None),
+    ]
+
+    with pytest.raises(ValueError, match="Unknown default net profile 'med'"):
+        plan_network(
+            assignments=[],
+            placements=placements,
+            default_profile="med",
+            profiles={"none": {}},
+        )
+
+
+def test_plan_network_rejects_directionally_incomplete_default_profile() -> None:
+    placements = [
+        SupernodePlacement(device_type="rpi5", instance_idx=1, node_id=None),
+    ]
+
+    with pytest.raises(ValueError, match="for ingress"):
+        plan_network(
+            assignments=[],
+            placements=placements,
+            default_profile="asym_up",
+            profiles={"none": {}},
+            egress_profiles={"asym_up": {"delay_ms": 80}},
+        )
 
 
 def test_plan_supernodes_uses_all_available_nodes_without_off_by_one() -> None:
