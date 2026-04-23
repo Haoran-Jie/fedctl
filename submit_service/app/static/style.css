@@ -152,9 +152,11 @@ input, select, button, textarea { font-family: inherit; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 0.35rem;
   min-height: 2.4rem;
   padding: 0.5rem 0.85rem;
   border-radius: 999px;
+  white-space: nowrap;
 }
 .topbar-username {
   background: linear-gradient(135deg, #ffffff 0%, #b8f3e6 42%, #93c5fd 100%);
@@ -830,6 +832,74 @@ button, .button {
 .doc-section-intro {
   font-size: 0.95rem;
   margin-bottom: 1.2rem !important;
+}
+.doc-bullet-grid,
+.doc-related-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.85rem;
+}
+.doc-bullet-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.72rem;
+  align-items: start;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(29, 111, 95, 0.12);
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(246, 251, 250, 0.96)),
+    #f6fbfa;
+}
+.doc-bullet-card p {
+  margin: 0;
+  color: var(--text);
+}
+.doc-bullet-marker {
+  width: 0.58rem;
+  height: 0.58rem;
+  margin-top: 0.43rem;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 0 0.28rem rgba(29, 111, 95, 0.12);
+}
+.doc-example-card {
+  display: grid;
+  gap: 0.75rem;
+}
+.doc-example-copy h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1.02rem;
+}
+.doc-example-copy p {
+  margin: 0;
+}
+.doc-related-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(29, 111, 95, 0.12);
+  border-radius: 14px;
+  color: var(--accent-dark);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(246, 251, 250, 0.96)),
+    #f6fbfa;
+  text-decoration: none;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+.doc-related-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(29, 111, 95, 0.24);
+  box-shadow: 0 12px 24px rgba(36, 64, 73, 0.08);
+}
+.doc-related-card span {
+  font-weight: 800;
+}
+.doc-related-card small {
+  color: var(--muted);
+  white-space: nowrap;
 }
 
 .doc-code-block {
@@ -3395,6 +3465,14 @@ td.cell-blocked { font-size: 0.88rem; color: var(--muted); }
   .panel,
   .hero-panel {
     border-radius: 18px;
+  }
+  .sticky-shell {
+    position: static;
+    top: auto;
+    z-index: auto;
+    margin: 0 0 1rem;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
   .hero-panel h1 {
     font-size: clamp(1.75rem, 10vw, 2.25rem);
