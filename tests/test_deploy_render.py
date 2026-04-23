@@ -248,6 +248,7 @@ def test_render_deploy_supernodes_netem_task() -> None:
     assert first_task["Config"]["cap_add"] == ["NET_ADMIN"]
     assert first_task["Env"]["NET_PROFILE"] == "med"
     assert "while [ -z \"$${SUP_LINK_ADDR:-}\" ]" in first_task["Config"]["args"][0]
+    assert "[netem-json]" in first_task["Config"]["args"][0]
     assert groups[1]["Tasks"][0]["Name"] == "supernode-rpi5-2"
     assert "Env" not in groups[1]["Tasks"][0]
 

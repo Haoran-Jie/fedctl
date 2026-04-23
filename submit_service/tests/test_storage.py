@@ -58,6 +58,67 @@ def test_storage_create_and_list(tmp_path) -> None:
     assert filtered == []
 
 
+def test_storage_list_submissions_supports_offset_count_search_and_ui_order(tmp_path) -> None:
+    db_path = tmp_path / "submit.db"
+    storage = Storage(StorageConfig(db_url=f"sqlite:///{db_path}"))
+    storage.init_db()
+
+    rows = [
+        ("sub-completed-new", "completed", "vision-new", "2026-01-01T00:05:00+00:00"),
+        ("sub-running", "running", "vision-running", "2026-01-01T00:04:00+00:00"),
+        ("sub-queued", "queued", "vision-queued", "2026-01-01T00:03:00+00:00"),
+        ("sub-blocked-old", "blocked", "vision-blocked", "2026-01-01T00:01:00+00:00"),
+        ("sub-blocked-new", "blocked", "vision-blocked", "2026-01-01T00:02:00+00:00"),
+        ("sub-other", "completed", "language", "2026-01-01T00:06:00+00:00"),
+    ]
+    for sub_id, status, experiment, created_at in rows:
+        storage.create_submission(
+            {
+                "id": sub_id,
+                "user": "tester",
+                "project_name": "proj",
+                "experiment": experiment,
+                "status": status,
+                "created_at": created_at,
+                "started_at": None,
+                "finished_at": None,
+                "nomad_job_id": None,
+                "artifact_url": "s3://bucket/proj.tar.gz",
+                "submit_image": "example/submit:latest",
+                "node_class": "submit",
+                "args": ["-m", "fedctl.submit.runner"],
+                "env": {},
+                "priority": 50,
+                "logs_location": None,
+                "result_location": None,
+                "result_artifacts": [],
+                "error_message": None,
+                "blocked_reason": None,
+                "namespace": "default",
+            }
+        )
+
+    assert storage.count_submissions(user="tester", query="vision") == 5
+
+    page = storage.list_submissions(
+        limit=3,
+        offset=0,
+        user="tester",
+        query="vision",
+        order="ui",
+    )
+    assert [row["id"] for row in page] == ["sub-running", "sub-queued", "sub-blocked-old"]
+
+    next_page = storage.list_submissions(
+        limit=3,
+        offset=3,
+        user="tester",
+        query="vision",
+        order="ui",
+    )
+    assert [row["id"] for row in next_page] == ["sub-blocked-new", "sub-completed-new"]
+
+
 def test_storage_list_dispatch_candidates_orders_by_priority_then_age(tmp_path) -> None:
     db_path = tmp_path / "submit.db"
     storage = Storage(StorageConfig(db_url=f"sqlite:///{db_path}"))

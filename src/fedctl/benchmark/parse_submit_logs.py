@@ -14,6 +14,7 @@ from fedctl.deploy.plan import SupernodePlacement, parse_supernodes
 
 COMM_PREFIX = "[comm-json]"
 MSGBENCH_PREFIX = "[msgbench-json]"
+NETEM_PREFIX = "[netem-json]"
 ROUND_TIMING_RE = re.compile(
     r"^\[round\s+(?P<round>\d+)\]\s+"
     r"(?P<metric>fit_phase_time_s|eval_phase_time_s|round_end_to_end_time_s|total_time_s)"
@@ -267,7 +268,56 @@ def _parse_qdisc_rows(
         expected_ingress = expected.get(task, {}).get("ingress_profile")
         expected_egress = expected.get(task, {}).get("egress_profile")
         stream = "stderr" if ".stderr." in path.name else "stdout"
-        for line in path.read_text(encoding="utf-8").splitlines():
+        lines = path.read_text(encoding="utf-8").splitlines()
+
+        verify_rows: list[dict[str, Any]] = []
+        idx = 0
+        while idx < len(lines):
+            json_blob, end_idx = _extract_prefixed_json_blob(lines, idx, NETEM_PREFIX)
+            if json_blob is None:
+                idx += 1
+                continue
+            parsed = _parse_netem_verification_line(json_blob)
+            if parsed is not None:
+                verify_rows.append(
+                    {
+                        "scenario": ctx.scenario,
+                        "replicate": ctx.replicate,
+                        "submission_id": ctx.submission_id,
+                        "task": task,
+                        "stream": stream,
+                        "direction": parsed["direction"],
+                        "verification_source": "netem_json",
+                        "iface": parsed["iface"],
+                        "source_iface": parsed["source_iface"],
+                        "enabled": parsed["enabled"],
+                        "observed_profile": parsed["observed_profile"],
+                        "qdisc_applied": parsed["qdisc_applied"],
+                        "delay_ms_expected": parsed["delay_ms_expected"],
+                        "jitter_ms_expected": parsed["jitter_ms_expected"],
+                        "loss_pct_expected": parsed["loss_pct_expected"],
+                        "rate_mbit_expected": parsed["rate_mbit_expected"],
+                        "delay_ms_applied": parsed["delay_ms_applied"],
+                        "jitter_ms_applied": parsed["jitter_ms_applied"],
+                        "loss_pct_applied": parsed["loss_pct_applied"],
+                        "rate_mbit_applied": parsed["rate_mbit_applied"],
+                        "expected_ingress_profile": (
+                            parsed["expected_ingress_profile"] or expected_ingress
+                        ),
+                        "expected_egress_profile": (
+                            parsed["expected_egress_profile"] or expected_egress
+                        ),
+                        "raw_line": "\n".join(parsed["raw_lines"]),
+                        "raw_lines_json": json.dumps(parsed["raw_lines"], separators=(",", ":")),
+                    }
+                )
+            idx = end_idx + 1
+
+        if verify_rows:
+            rows.extend(verify_rows)
+            continue
+
+        for line in lines:
             parsed = _parse_qdisc_line(line)
             if not parsed:
                 continue
@@ -279,7 +329,16 @@ def _parse_qdisc_rows(
                     "task": task,
                     "stream": stream,
                     "direction": parsed["direction"],
+                    "verification_source": "raw_qdisc",
+                    "iface": None,
+                    "source_iface": None,
+                    "enabled": None,
+                    "observed_profile": None,
                     "qdisc_applied": True,
+                    "delay_ms_expected": None,
+                    "jitter_ms_expected": None,
+                    "loss_pct_expected": None,
+                    "rate_mbit_expected": None,
                     "delay_ms_applied": parsed["delay_ms"],
                     "jitter_ms_applied": parsed["jitter_ms"],
                     "loss_pct_applied": parsed["loss_pct"],
@@ -287,6 +346,7 @@ def _parse_qdisc_rows(
                     "expected_ingress_profile": expected_ingress,
                     "expected_egress_profile": expected_egress,
                     "raw_line": line.strip(),
+                    "raw_lines_json": None,
                 }
             )
     return rows
@@ -462,6 +522,42 @@ def _parse_msgbench_line(blob: str) -> dict[str, Any] | None:
         "target_mode": str(payload.get("target_mode", "")),
         "selected_nodes_json": json.dumps(clean_nodes, separators=(",", ":")),
         "timestamp_s": _as_float(payload.get("timestamp_s")) or 0.0,
+    }
+
+
+def _parse_netem_verification_line(blob: str) -> dict[str, Any] | None:
+    if not blob:
+        return None
+    try:
+        payload = json.loads(blob)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(payload, dict):
+        return None
+
+    raw_lines = payload.get("raw_lines")
+    clean_raw_lines: list[str] = []
+    if isinstance(raw_lines, list):
+        clean_raw_lines = [str(line).strip() for line in raw_lines if str(line).strip()]
+
+    return {
+        "direction": str(payload.get("direction", "")),
+        "iface": str(payload.get("iface", "")),
+        "source_iface": str(payload.get("source_iface", "")),
+        "enabled": _as_bool(payload.get("enabled")),
+        "observed_profile": str(payload.get("observed_profile", "")),
+        "qdisc_applied": bool(payload.get("qdisc_applied")),
+        "delay_ms_expected": _as_float(payload.get("delay_ms_expected")),
+        "jitter_ms_expected": _as_float(payload.get("jitter_ms_expected")),
+        "loss_pct_expected": _as_float(payload.get("loss_pct_expected")),
+        "rate_mbit_expected": _as_float(payload.get("rate_mbit_expected")),
+        "delay_ms_applied": _as_float(payload.get("delay_ms_applied")),
+        "jitter_ms_applied": _as_float(payload.get("jitter_ms_applied")),
+        "loss_pct_applied": _as_float(payload.get("loss_pct_applied")),
+        "rate_mbit_applied": _as_float(payload.get("rate_mbit_applied")),
+        "expected_ingress_profile": str(payload.get("expected_ingress_profile", "")),
+        "expected_egress_profile": str(payload.get("expected_egress_profile", "")),
+        "raw_lines": clean_raw_lines,
     }
 
 
@@ -666,7 +762,16 @@ def main() -> int:
             "task",
             "stream",
             "direction",
+            "verification_source",
+            "iface",
+            "source_iface",
+            "enabled",
+            "observed_profile",
             "qdisc_applied",
+            "delay_ms_expected",
+            "jitter_ms_expected",
+            "loss_pct_expected",
+            "rate_mbit_expected",
             "delay_ms_applied",
             "jitter_ms_applied",
             "loss_pct_applied",
@@ -674,6 +779,7 @@ def main() -> int:
             "expected_ingress_profile",
             "expected_egress_profile",
             "raw_line",
+            "raw_lines_json",
         ],
     )
     _write_csv(
@@ -728,6 +834,18 @@ def _as_float(value: Any) -> float | None:
             return float(value)
         except ValueError:
             return None
+    return None
+
+
+def _as_bool(value: Any) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"true", "1", "yes"}:
+            return True
+        if normalized in {"false", "0", "no"}:
+            return False
     return None
 
 

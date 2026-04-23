@@ -176,6 +176,14 @@
           data-auto-submit="260"
         >
       </div>
+      <div class="filter-group filter-group-limit">
+        <label for="submission-limit">Rows</label>
+        <select id="submission-limit" name="limit" data-auto-submit-change>
+          {% for option in [50, 100, 200, 500, 1000] %}
+          <option value="{{ option }}"{% if limit == option %} selected{% endif %}>{{ option }}</option>
+          {% endfor %}
+        </select>
+      </div>
     </form>
   </div>
 
@@ -253,6 +261,24 @@
     </tbody>
   </table>
   </div>
+  <nav class="pagination-bar" aria-label="Submissions pagination" data-pagination>
+    <p class="pagination-summary">
+      Showing {{ pagination.start }}-{{ pagination.end }} of {{ pagination.total }}
+    </p>
+    <div class="pagination-actions">
+      {% if pagination.has_previous %}
+      <a class="button secondary pagination-button" href="{{ pagination.previous_url }}">Previous</a>
+      {% else %}
+      <span class="button secondary pagination-button is-disabled" aria-disabled="true">Previous</span>
+      {% endif %}
+      <span class="pagination-page">Page {{ pagination.page }} of {{ pagination.page_count }}</span>
+      {% if pagination.has_next %}
+      <a class="button secondary pagination-button" href="{{ pagination.next_url }}">Next</a>
+      {% else %}
+      <span class="button secondary pagination-button is-disabled" aria-disabled="true">Next</span>
+      {% endif %}
+    </div>
+  </nav>
   {% else %}
   {% if stats.total == 0 %}
   <div class="empty-state">
@@ -304,6 +330,8 @@
           const nextTable = nextPanel.querySelector('.data-table');
           const currentEmpty = document.querySelector('.dashboard-panel .empty-state');
           const nextEmpty = nextPanel.querySelector('.empty-state');
+          const currentPagination = document.querySelector('.dashboard-panel [data-pagination]');
+          const nextPagination = nextPanel.querySelector('[data-pagination]');
           if (currentTable && nextTable) {
             currentTable.querySelector('tbody').innerHTML = nextTable.querySelector('tbody').innerHTML;
           } else if (!currentTable && nextTableWrap) {
@@ -312,6 +340,14 @@
           } else if (currentTableWrap && !nextTable) {
             const replacement = nextEmpty || nextPanel.querySelector('.muted');
             if (replacement) currentTableWrap.replaceWith(replacement);
+          }
+          if (currentPagination && nextPagination) {
+            currentPagination.innerHTML = nextPagination.innerHTML;
+          } else if (!currentPagination && nextPagination) {
+            const currentTableWrap = document.querySelector('.dashboard-panel .table-scroll');
+            if (currentTableWrap) currentTableWrap.insertAdjacentElement('afterend', nextPagination);
+          } else if (currentPagination && !nextPagination) {
+            currentPagination.remove();
           }
         }
       } catch (_) { /* silent */ }

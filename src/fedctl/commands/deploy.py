@@ -59,7 +59,6 @@ class _RepoDeployConfig:
     network_default: str | None
     network_default_assignment: list[str] | None
     network_interface: str | None
-    network_scope: str | None
     network_image: str | None
     network_apply: dict[str, object]
     allow_oversubscribe: object
@@ -142,7 +141,6 @@ def run_deploy(
     repo_network_default = repo_defaults.network_default
     repo_network_default_assignment = repo_defaults.network_default_assignment
     repo_network_interface = repo_defaults.network_interface
-    repo_network_scope = repo_defaults.network_scope
     repo_network_image = repo_defaults.network_image
     repo_network_apply = repo_defaults.network_apply
     repo_allow_oversubscribe = repo_defaults.allow_oversubscribe
@@ -245,7 +243,6 @@ def run_deploy(
                 repo_network_default=repo_network_default,
                 repo_network_default_assignment=repo_network_default_assignment,
                 repo_network_interface=repo_network_interface,
-                repo_network_scope=repo_network_scope,
             )
         except ValueError as exc:
             console.print(f"[red]✗ Invalid network configuration:[/red] {exc}")
@@ -339,7 +336,6 @@ def run_deploy(
                 repo_network_default=repo_network_default,
                 repo_network_default_assignment=repo_network_default_assignment,
                 repo_network_interface=repo_network_interface,
-                repo_network_scope=repo_network_scope,
             )
         except ValueError as exc:
             console.print(f"[red]✗ Invalid network configuration:[/red] {exc}")
@@ -533,7 +529,6 @@ def _repo_deploy_config(repo_cfg: dict[str, object]) -> _RepoDeployConfig:
         network_default=_as_optional_str(network.get("default_profile")),
         network_default_assignment=_as_optional_str_list(network.get("default_assignment")),
         network_interface=_as_optional_str(network.get("interface")),
-        network_scope=_as_optional_str(network.get("scope")),
         network_image=_as_optional_str(network.get("image")),
         network_apply=network_apply,
         allow_oversubscribe=placement.get("allow_oversubscribe"),
@@ -618,7 +613,6 @@ def _resolve_network_plan(
     repo_network_default: str | None,
     repo_network_default_assignment: list[str] | None,
     repo_network_interface: str | None,
-    repo_network_scope: str | None,
 ) -> tuple[NetworkPlan | None, list[SupernodePlacement] | None]:
     net_values = net or repo_network_default_assignment or []
     if not net_values:
@@ -657,7 +651,6 @@ def _resolve_network_plan(
         profiles=profiles,
         ingress_profiles=ingress_profiles,
         egress_profiles=egress_profiles,
-        scope=repo_network_scope,
     )
     return plan, placements_for_network
 
@@ -745,7 +738,6 @@ def _build_manifest(
         network_manifest = None
         if network_plan is not None:
             network_manifest = SupernodesNetworkManifest(
-                scope=network_plan.scope,
                 default_profile=network_plan.default_profile,
                 interface=network_plan.interface,
                 profiles=network_plan.profiles,

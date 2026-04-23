@@ -66,6 +66,7 @@ def test_parse_benchmark_dir_outputs_tables(tmp_path: Path) -> None:
 
     assert qdisc
     assert qdisc[0]["task"] == "supernode-1"
+    assert qdisc[0]["verification_source"] == "raw_qdisc"
 
 
 def test_parse_benchmark_dir_extended_parses_msgbench(tmp_path: Path) -> None:
@@ -168,3 +169,42 @@ def test_parse_benchmark_dir_extended_parses_wrapped_msgbench(tmp_path: Path) ->
     assert msgbench[0]["request_total_bytes"] == 65536
     assert msgbench[0]["reply_total_bytes"] == 65536
     assert msgbench[0]["source_log"] == "superexec_serverapp.stdout.log"
+
+
+def test_parse_benchmark_dir_prefers_structured_netem_verification_rows(tmp_path: Path) -> None:
+    run_dir = tmp_path / "raw" / "S_netem_json" / "r1"
+    submission = {
+        "id": "sub-netem-1",
+        "status": "completed",
+        "started_at": "2026-02-27T10:00:00+00:00",
+        "finished_at": "2026-02-27T10:02:00+00:00",
+        "args": ["-m", "fedctl.submit.runner", "--num-supernodes", "1"],
+    }
+    _write(run_dir / "submission.json", json.dumps(submission))
+    _write(run_dir / "submit.stdout.log", "submit wrapper header\n")
+    _write(
+        run_dir / "supernodes.supernode-1.stdout.log",
+        "\n".join(
+            [
+                '[netem-json] {"event":"verify","direction":"egress","iface":"eth0","source_iface":"eth0","enabled":true,"observed_profile":"mild","expected_egress_profile":"mild","expected_ingress_profile":"none","delay_ms_expected":20.0,"jitter_ms_expected":5.0,"loss_pct_expected":1.5,"rate_mbit_expected":50.0,"qdisc_applied":true,"delay_ms_applied":20.0,"jitter_ms_applied":5.0,"loss_pct_applied":1.5,"rate_mbit_applied":50.0,"raw_lines":["qdisc tbf 1: root refcnt 2 rate 50Mbit burst 32Kb lat 400.0ms","qdisc netem 10: parent 1:1 limit 1000 delay 20ms 5ms loss 1.5%"]}',
+                '[netem-json] {"event":"verify","direction":"ingress","iface":"ifb0","source_iface":"eth0","enabled":false,"observed_profile":"none","expected_egress_profile":"mild","expected_ingress_profile":"none","delay_ms_expected":null,"jitter_ms_expected":null,"loss_pct_expected":null,"rate_mbit_expected":null,"qdisc_applied":false,"delay_ms_applied":null,"jitter_ms_applied":null,"loss_pct_applied":null,"rate_mbit_applied":null,"raw_lines":[]}',
+                "qdisc netem 10: parent 1:1 limit 1000 delay 999ms 999ms loss 99%",
+            ]
+        ),
+    )
+
+    _runs, _round_timing, _round_comm, qdisc = parse_benchmark_dir(tmp_path)
+
+    assert len(qdisc) == 2
+    egress = next(row for row in qdisc if row["direction"] == "egress")
+    ingress = next(row for row in qdisc if row["direction"] == "ingress")
+    assert egress["verification_source"] == "netem_json"
+    assert egress["observed_profile"] == "mild"
+    assert egress["iface"] == "eth0"
+    assert egress["rate_mbit_expected"] == 50.0
+    assert egress["rate_mbit_applied"] == 50.0
+    assert egress["expected_egress_profile"] == "mild"
+    assert "qdisc tbf 1: root" in egress["raw_line"]
+    assert ingress["verification_source"] == "netem_json"
+    assert ingress["enabled"] is False
+    assert ingress["qdisc_applied"] is False
