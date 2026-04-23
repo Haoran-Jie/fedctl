@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% block title %}{{ submission.id }} | fedctl submit service{% endblock %}
 {% block content %}
+{% set default_tab = 'tab-logs' if submission.status in ['running', 'failed', 'queued', 'blocked'] else 'tab-overview' %}
 <div class="page-crumbs">
   <a href="{{ return_to }}">Submissions</a>
   <span>/</span>
@@ -22,10 +23,6 @@
       <span>Namespace</span>
       <strong>{{ submission.namespace }}</strong>
     </div>
-    <div class="summary-chip">
-      <span>Priority</span>
-      <strong>{{ submission.priority }}</strong>
-    </div>
   </div>
 </section>
 
@@ -37,12 +34,12 @@
     <div class="actions">
       <a class="button secondary" href="{{ return_to }}">Back to submissions</a>
       {% if submission.can_cancel %}
-      <form method="post" action="/ui/submissions/{{ submission.id }}/cancel" onsubmit="return confirm('Cancel this submission? This will stop the running job.')">
+      <form method="post" action="/ui/submissions/{{ submission.id }}/cancel" data-confirm="Cancel this submission? This will stop the running job." data-loading-label="Cancelling...">
         <button type="submit">Cancel submission</button>
       </form>
       {% endif %}
       {% if submission.can_purge %}
-      <form method="post" action="/ui/submissions/{{ submission.id }}/purge" onsubmit="return confirm('Purge this submission? This permanently deletes its history and cannot be undone.')">
+      <form method="post" action="/ui/submissions/{{ submission.id }}/purge" data-confirm="Purge this submission? This permanently deletes its history and cannot be undone." data-loading-label="Purging...">
         <input type="hidden" name="return_to" value="{{ return_to }}">
         <button type="submit" class="danger-button">Purge submission</button>
       </form>
@@ -51,13 +48,13 @@
   </div>
 
   <div class="tab-bar" role="tablist" aria-label="Submission sections">
-    <button type="button" class="tab-button is-active" role="tab" aria-selected="true" aria-controls="tab-logs" id="tab-button-logs" data-tab-target="tab-logs">Logs</button>
-    <button type="button" class="tab-button" role="tab" aria-selected="false" aria-controls="tab-overview" id="tab-button-overview" data-tab-target="tab-overview">Overview</button>
-    <button type="button" class="tab-button" role="tab" aria-selected="false" aria-controls="tab-request" id="tab-button-request" data-tab-target="tab-request">Request</button>
-    <button type="button" class="tab-button" role="tab" aria-selected="false" aria-controls="tab-jobs" id="tab-button-jobs" data-tab-target="tab-jobs">Jobs</button>
+    <button type="button" class="tab-button{% if default_tab == 'tab-logs' %} is-active{% endif %}" role="tab" aria-selected="{% if default_tab == 'tab-logs' %}true{% else %}false{% endif %}" aria-controls="tab-logs" id="tab-button-logs" data-tab-target="tab-logs">Logs</button>
+    <button type="button" class="tab-button{% if default_tab == 'tab-overview' %} is-active{% endif %}" role="tab" aria-selected="{% if default_tab == 'tab-overview' %}true{% else %}false{% endif %}" aria-controls="tab-overview" id="tab-button-overview" data-tab-target="tab-overview">Overview</button>
+    <button type="button" class="tab-button{% if default_tab == 'tab-request' %} is-active{% endif %}" role="tab" aria-selected="{% if default_tab == 'tab-request' %}true{% else %}false{% endif %}" aria-controls="tab-request" id="tab-button-request" data-tab-target="tab-request">Request</button>
+    <button type="button" class="tab-button{% if default_tab == 'tab-jobs' %} is-active{% endif %}" role="tab" aria-selected="{% if default_tab == 'tab-jobs' %}true{% else %}false{% endif %}" aria-controls="tab-jobs" id="tab-button-jobs" data-tab-target="tab-jobs">Jobs</button>
   </div>
 
-  <div id="tab-overview" class="tab-panel" role="tabpanel" aria-labelledby="tab-button-overview" hidden>
+  <div id="tab-overview" class="tab-panel{% if default_tab == 'tab-overview' %} is-active{% endif %}" role="tabpanel" aria-labelledby="tab-button-overview"{% if default_tab != 'tab-overview' %} hidden{% endif %}>
     <div class="detail-grid overview-grid">
       <article class="info-card overview-card overview-card-identity">
         <h3>Identity</h3>
@@ -161,7 +158,6 @@
           <div><dt>Finished</dt><dd>{% if submission.finished_at.iso %}<time datetime="{{ submission.finished_at.iso }}" title="{{ submission.finished_at.label }}" data-relative>{{ submission.finished_at.label }}</time>{% else %}{{ submission.finished_at.label }}{% endif %}</dd></div>
           <div><dt>Queue wait</dt><dd>{{ submission.queue_wait }}</dd></div>
           <div><dt>Runtime</dt><dd>{{ submission.runtime }}</dd></div>
-          <div><dt>Priority</dt><dd>{{ submission.priority }}</dd></div>
         </dl>
       </article>
     </div>
@@ -222,7 +218,7 @@
     {% endif %}
   </div>
 
-  <div id="tab-request" class="tab-panel" role="tabpanel" aria-labelledby="tab-button-request" hidden>
+  <div id="tab-request" class="tab-panel{% if default_tab == 'tab-request' %} is-active{% endif %}" role="tabpanel" aria-labelledby="tab-button-request"{% if default_tab != 'tab-request' %} hidden{% endif %}>
     <section class="tab-section">
       <div class="section-head">
         <div class="section-copy">
@@ -327,7 +323,7 @@
     </section>
   </div>
 
-  <div id="tab-jobs" class="tab-panel" role="tabpanel" aria-labelledby="tab-button-jobs" hidden>
+  <div id="tab-jobs" class="tab-panel{% if default_tab == 'tab-jobs' %} is-active{% endif %}" role="tabpanel" aria-labelledby="tab-button-jobs"{% if default_tab != 'tab-jobs' %} hidden{% endif %}>
     <section class="tab-section">
       <div class="section-head">
         <div class="section-copy">
@@ -414,7 +410,7 @@
     </section>
   </div>
 
-  <div id="tab-logs" class="tab-panel is-active" role="tabpanel" aria-labelledby="tab-button-logs">
+  <div id="tab-logs" class="tab-panel{% if default_tab == 'tab-logs' %} is-active{% endif %}" role="tabpanel" aria-labelledby="tab-button-logs"{% if default_tab != 'tab-logs' %} hidden{% endif %}>
     {% include 'logs_panel.html' %}
   </div>
 </section>
@@ -429,6 +425,7 @@
         const active = button.dataset.tabTarget === targetId;
         button.classList.toggle('is-active', active);
         button.setAttribute('aria-selected', active ? 'true' : 'false');
+        button.setAttribute('tabindex', active ? '0' : '-1');
       });
       panels.forEach((panel) => {
         const active = panel.id === targetId;

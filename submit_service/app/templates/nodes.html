@@ -90,6 +90,7 @@
         </div>
         <span class="node-group-count">{{ group.nodes | length }} node{% if group.nodes | length != 1 %}s{% endif %}</span>
       </div>
+      <div class="table-scroll node-table-scroll" tabindex="0" aria-label="{{ group.label }} node inventory table">
       <table class="data-table node-table">
         <thead>
           <tr>
@@ -125,7 +126,7 @@
                   <span class="resource-label">CPU</span>
                   <span class="resource-stats">{{ used_cpu }}/{{ total_cpu }} ({{ cpu_pct }}%)</span>
                 </div>
-                <div class="resource-bar-container" data-node="{{ node.name }}" data-resource="cpu" title="CPU: {{ used_cpu }}/{{ total_cpu }}{% if allocations.get('running_jobs') %} | Jobs: {{ allocations.get('running_jobs') | join(', ') }}{% endif %}">
+                <div class="resource-bar-container" aria-label="{{ node.name }} CPU usage: {{ used_cpu }} of {{ total_cpu }} CPU, {{ cpu_pct }} percent" data-node="{{ node.name }}" data-resource="cpu" title="CPU: {{ used_cpu }}/{{ total_cpu }}{% if allocations.get('running_jobs') %} | Jobs: {{ allocations.get('running_jobs') | join(', ') }}{% endif %}">
                   <div class="resource-bar-fill" style="width: {{ cpu_pct }}%"></div>
                   <div class="resource-bar resource-bar-segments">
                     {% for alloc in alloc_items %}
@@ -135,6 +136,8 @@
                            style="width: {{ ((alloc_cpu / total_cpu) * 100) }}%"
                            data-alloc-id="{{ alloc.get('id') }}"
                            data-job-id="{{ alloc.get('job_id') }}"
+                           tabindex="0"
+                           aria-label="{{ alloc.get('job_id') }} uses {{ alloc_cpu }} CPU on {{ node.name }}"
                            title="{{ alloc.get('job_id') }}: {{ alloc_cpu }} CPU">
                       </div>
                       {% endif %}
@@ -157,7 +160,7 @@
                   <span class="resource-label">Memory</span>
                   <span class="resource-stats">{{ (used_mem / 1024) | int }}GB/{{ (total_mem / 1024) | int }}GB ({{ mem_pct }}%)</span>
                 </div>
-                <div class="resource-bar-container" data-node="{{ node.name }}" data-resource="memory" title="Memory: {{ (used_mem / 1024) | int }}GB/{{ (total_mem / 1024) | int }}GB{% if allocations.get('running_jobs') %} | Jobs: {{ allocations.get('running_jobs') | join(', ') }}{% endif %}">
+                <div class="resource-bar-container" aria-label="{{ node.name }} memory usage: {{ (used_mem / 1024) | int }}GB of {{ (total_mem / 1024) | int }}GB, {{ mem_pct }} percent" data-node="{{ node.name }}" data-resource="memory" title="Memory: {{ (used_mem / 1024) | int }}GB/{{ (total_mem / 1024) | int }}GB{% if allocations.get('running_jobs') %} | Jobs: {{ allocations.get('running_jobs') | join(', ') }}{% endif %}">
                   <div class="resource-bar-fill" style="width: {{ mem_pct }}%"></div>
                   <div class="resource-bar resource-bar-segments">
                     {% for alloc in alloc_items %}
@@ -167,6 +170,8 @@
                            style="width: {{ ((alloc_mem / total_mem) * 100) }}%"
                            data-alloc-id="{{ alloc.get('id') }}"
                            data-job-id="{{ alloc.get('job_id') }}"
+                           tabindex="0"
+                           aria-label="{{ alloc.get('job_id') }} uses {{ (alloc_mem / 1024) | int }}GB memory on {{ node.name }}"
                            title="{{ alloc.get('job_id') }}: {{ (alloc_mem / 1024) | int }}GB">
                       </div>
                       {% endif %}
@@ -243,6 +248,7 @@
           {% endfor %}
         </tbody>
       </table>
+      </div>
     </section>
     {% endfor %}
   </div>
@@ -263,7 +269,7 @@
     segments.forEach(segment => {
       const jobId = segment.dataset.jobId;
 
-      segment.addEventListener('mouseenter', function() {
+      const highlight = function() {
         // Highlight all segments for this job
         segments.forEach(s => {
           if (s.dataset.jobId === jobId) {
@@ -273,15 +279,20 @@
             s.style.opacity = '0.4';
           }
         });
-      });
+      };
 
-      segment.addEventListener('mouseleave', function() {
+      const reset = function() {
         // Reset all segments
         segments.forEach(s => {
           s.style.opacity = '1';
           s.style.filter = 'brightness(1)';
         });
-      });
+      };
+
+      segment.addEventListener('mouseenter', highlight);
+      segment.addEventListener('focus', highlight);
+      segment.addEventListener('mouseleave', reset);
+      segment.addEventListener('blur', reset);
     });
   });
 </script>

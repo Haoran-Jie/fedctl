@@ -5,9 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}fedctl submit service{% endblock %}</title>
     <link rel="icon" type="image/png" href="{{ request.url_for('ui-static', path='fedctl-circle.png') }}">
-    <link rel="stylesheet" href="{{ request.url_for('ui-static', path='style.css') }}?v=12">
+    <link rel="stylesheet" href="{{ request.url_for('ui-static', path='style.css') }}?v=16">
   </head>
   <body>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
     <header class="topbar">
       <div class="brand-wrap">
         <a class="brand" href="/ui/submissions" aria-label="fedctl submit service home">
@@ -23,12 +24,12 @@
         <a class="nav-link{% if '/ui/nodes' in request.url.path %} is-active{% endif %}" href="/ui/nodes">Nodes</a>
         {% endif %}
         <form method="post" action="/ui/logout">
-          <button type="submit" class="topbar-button">Log out {{ principal.name }}</button>
+          <button type="submit" class="topbar-button">Log out <span class="topbar-username">{{ principal.name }}</span></button>
         </form>
       </nav>
       {% endif %}
     </header>
-    <main class="page">
+    <main class="page" id="main-content" tabindex="-1">
       {% block content %}{% endblock %}
     </main>
     <div class="toast-stack" data-toast-root aria-live="polite" aria-atomic="true"></div>
@@ -233,6 +234,24 @@
           });
         });
 
+        document.querySelectorAll('form[data-confirm]').forEach((form) => {
+          form.addEventListener('submit', (event) => {
+            const message = form.dataset.confirm;
+            if (message && !window.confirm(message)) {
+              event.preventDefault();
+              return;
+            }
+            form.querySelectorAll('button[type="submit"], input[type="submit"]').forEach((button) => {
+              button.disabled = true;
+              button.setAttribute('aria-disabled', 'true');
+              if (button instanceof HTMLButtonElement) {
+                button.dataset.originalLabel = button.dataset.originalLabel || button.textContent.trim();
+                button.textContent = form.dataset.loadingLabel || 'Working...';
+              }
+            });
+          });
+        });
+
         const helpNavLinks = Array.from(document.querySelectorAll('[data-help-nav-link]'));
         const helpSections = Array.from(document.querySelectorAll('[data-help-section][id]'));
         const backToTopButton = document.querySelector('[data-back-to-top]');
@@ -261,7 +280,8 @@
         };
 
         backToTopButton?.addEventListener('click', () => {
-          window.scrollTo({ top: 0, behavior: 'smooth' });
+          const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          window.scrollTo({ top: 0, behavior: reducedMotion ? 'auto' : 'smooth' });
         });
 
         const formatRelativeTime = (isoString) => {
