@@ -107,6 +107,18 @@ def test_ui_help_page_shows_submit_commands(tmp_path, monkeypatch: pytest.Monkey
     assert 'data-back-to-top' in page.text
 
 
+def test_ui_help_command_detail_shows_rich_guidance(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    client = _make_ui_client(tmp_path, monkeypatch)
+    _login(client, "tok-alice")
+
+    page = client.get("/ui/help/submit-run")
+    assert page.status_code == 200
+    assert "When to use it" in page.text
+    assert "Dissertation experiment with explicit config" in page.text
+    assert "Related commands" in page.text
+    assert "submit logs" in page.text
+
+
 def test_ui_user_scope_cancel_and_purge(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
     client = _make_ui_client(tmp_path, monkeypatch)
     storage = client.app.state.storage

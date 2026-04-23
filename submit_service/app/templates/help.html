@@ -55,8 +55,8 @@
         {% for command in commands %}
         {% set command_slug = command.name | lower | replace(' ', '-') %}
         {% set detail_url = request.url_for('help_command_detail', command_slug=command_slug) %}
-        <article class="help-command-card help-command-summary {% if command.importance == 'primary' %}help-command-primary{% endif %}" data-help-section>
-          <a href="{{ detail_url }}" class="help-command-link">
+        <article id="command-{{ command_slug }}" class="help-command-card help-command-summary {% if command.importance == 'primary' %}help-command-primary{% endif %}" data-help-section>
+          <a href="{{ detail_url }}" class="help-command-link" data-copy-label="Link">
             <div class="help-command-head">
               <div class="help-command-title">
                 <h3>{{ command.name }}</h3>

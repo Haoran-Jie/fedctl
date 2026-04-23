@@ -44,10 +44,47 @@ _HELP_COMMANDS = [
         "summary": "Package a local Flower project, upload the archive, and create a queued submission.",
         "importance": "primary",
         "syntax": "fedctl submit run <project-dir> [OPTIONS]",
+        "details": [
+            "Use this command to turn a local Flower app or research project into a submit-service job. The runner inspects the project, builds or reuses the required images, uploads the project archive, creates the submission record, and dispatches work through Nomad.",
+            "For dissertation experiments, the most repeatable form is to pass the project directory, an explicit experiment config, a deployment config via --repo-config, a seeded submit image, and a seed.",
+        ],
+        "use_cases": [
+            "Launch a quick local Flower project with the default deployment settings.",
+            "Run a tracked experiment from a TOML config and fixed random seed.",
+            "Keep Nomad jobs around after completion when you need live allocation logs for debugging.",
+        ],
         "examples": [
-            "fedctl submit run ../quickstart-pytorch",
-            "fedctl submit run ../quickstart-pytorch --exp pytorch-baseline-r1",
-            "fedctl submit run ../quickstart-pytorch --priority 70 --no-destroy",
+            {
+                "title": "Minimal project submission",
+                "body": "Submit the project with default options and stream the runner output.",
+                "command": "fedctl submit run ../quickstart-pytorch",
+            },
+            {
+                "title": "Named run for easier tracking",
+                "body": "Give the submission and W&B run a readable experiment name.",
+                "command": "fedctl submit run ../quickstart-pytorch --exp pytorch-baseline-r1",
+            },
+            {
+                "title": "Dissertation experiment with explicit config",
+                "body": "Use the research app, an experiment config, a deployment config, a fixed seed, and the cluster submit image.",
+                "command": (
+                    "./.venv/bin/fedctl submit run apps/fedctl_research \\\n"
+                    "  --experiment-config apps/fedctl_research/experiment_configs/network_heterogeneity/main/cifar10_cnn/iid/all_rpi5/fedbuff.toml \\\n"
+                    "  --repo-config apps/fedctl_research/repo_configs/network_heterogeneity/main/all_rpi5/none.yaml \\\n"
+                    "  --submit-image 128.232.61.111:5000/fedctl-submit:latest \\\n"
+                    "  --seed 1337"
+                ),
+            },
+            {
+                "title": "Debug failed deployment state",
+                "body": "Keep Nomad jobs after completion or failure so their live allocation state can be inspected.",
+                "command": "fedctl submit run ../quickstart-pytorch --exp debug-r1 --no-destroy --verbose",
+            },
+            {
+                "title": "Override one run-config value",
+                "body": "Patch a Flower run-config key without creating a new experiment TOML.",
+                "command": "fedctl submit run apps/fedctl_research --run-config-override num-server-rounds=5 --seed 1337",
+            },
         ],
         "flags": [
             {"name": "--experiment-config", "type": "PATH", "description": "Path to experiment config file"},
@@ -79,44 +116,120 @@ _HELP_COMMANDS = [
             "This is the main entrypoint for normal users.",
             "It handles inspect, archive, upload, and submit in one flow.",
             "Use --no-destroy when you want to inspect live Nomad jobs after completion.",
+            "By default, output is streamed and Nomad jobs are destroyed after completion.",
         ],
+        "related": ["submit ls", "submit status", "submit logs", "submit results"],
     },
     {
         "name": "submit ls",
         "summary": "List recent submissions from the submit service.",
         "importance": "standard",
         "syntax": "fedctl submit ls [--active|--completed|--failed|--cancelled|--all] [--limit N]",
+        "details": [
+            "Use this command as the queue overview. It is intentionally lightweight and is the quickest way to see which submissions are running, blocked, queued, or recently finished.",
+            "The web UI shows the same underlying records, but this command is more convenient from a terminal during experiment batches.",
+        ],
+        "use_cases": [
+            "Check whether the queue is blocked before submitting another batch.",
+            "Find the submission ID needed for logs, status, cancellation, or results.",
+            "Review terminal submissions after a long run sequence.",
+        ],
         "examples": [
-            "fedctl submit ls",
-            "fedctl submit ls --completed",
-            "fedctl submit ls --limit 50",
+            {
+                "title": "Show active submissions",
+                "body": "List running, submitting, blocked, and queued work.",
+                "command": "fedctl submit ls --active",
+            },
+            {
+                "title": "Show recent completed submissions",
+                "body": "Useful when collecting result artifact links after a batch.",
+                "command": "fedctl submit ls --completed --limit 50",
+            },
+            {
+                "title": "Audit everything visible to you",
+                "body": "Include active and terminal records in one listing.",
+                "command": "fedctl submit ls --all --limit 100",
+            },
         ],
         "notes": [
             "Default output shows the active queue even when no status flag is provided.",
+            "Use --all when you are not sure whether a submission is still active or already terminal.",
         ],
+        "related": ["submit status", "submit logs", "submit cancel", "submit results"],
     },
     {
         "name": "submit status",
         "summary": "Show the current status, blocked reason, or failure message for one submission.",
         "importance": "standard",
         "syntax": "fedctl submit status <submission-id>",
+        "details": [
+            "Status is the first diagnostic command for a single submission. It tells you whether the submit service thinks the job is queued, blocked, submitting, running, completed, failed, or cancelled.",
+            "When a submission is blocked, the status output should explain the queue-gating reason, such as strict placement waiting for another running submission or insufficient typed compute nodes.",
+        ],
+        "use_cases": [
+            "Check whether a submission is blocked by resource gating or actually running.",
+            "Confirm that a cancelled or failed submission reached a terminal state.",
+            "Get the failure message before switching to logs for deeper inspection.",
+        ],
         "examples": [
-            "fedctl submit status sub-20260227182713-5413",
+            {
+                "title": "Inspect one submission",
+                "body": "Use the ID from submit ls or the web UI.",
+                "command": "fedctl submit status sub-20260227182713-5413",
+            },
+            {
+                "title": "Typical blocked-run workflow",
+                "body": "List active submissions, then inspect the blocked record.",
+                "command": "fedctl submit ls --active\nfedctl submit status sub-20260227182713-5413",
+            },
         ],
         "notes": [
             "Use this first when a run looks stuck or blocked.",
+            "If status says running but no progress appears, inspect submit logs first, then downstream Flower logs.",
         ],
+        "related": ["submit ls", "submit logs", "submit cancel", "submit inventory"],
     },
     {
         "name": "submit logs",
         "summary": "Read live or archived logs for the submit job and downstream Flower jobs.",
         "importance": "standard",
         "syntax": "fedctl submit logs <submission-id> [OPTIONS]",
+        "details": [
+            "Logs are server-mediated: the CLI asks the submit service for the requested stream. The service first checks live Nomad allocations and then falls back to archived logs when they are available.",
+            "Start with the submit job logs for packaging, build, upload, and deployment failures. If deployment succeeded, switch to superlink, supernodes, or superexec logs to inspect the Flower runtime.",
+        ],
+        "use_cases": [
+            "Debug project packaging, Docker build, registry push, or Nomad deployment failures.",
+            "Follow the submit runner while a job is starting.",
+            "Inspect one supernode or clientapp stream by index after Flower has started.",
+            "Read archived logs after cleanup has destroyed the live Nomad allocations.",
+        ],
         "examples": [
-            "fedctl submit logs sub-20260227182713-5413",
-            "fedctl submit logs sub-20260227182713-5413 --job superlink --stderr",
-            "fedctl submit logs sub-20260227182713-5413 --job supernodes --index 2",
-            "fedctl submit logs sub-20260227182713-5413 --job superexec_clientapps --index 2 --stdout",
+            {
+                "title": "Read submit-runner output",
+                "body": "This is the first place to look for inspect, build, upload, and deploy errors.",
+                "command": "fedctl submit logs sub-20260227182713-5413",
+            },
+            {
+                "title": "Follow a live submit job",
+                "body": "Stream output while the runner is still active.",
+                "command": "fedctl submit logs sub-20260227182713-5413 --follow",
+            },
+            {
+                "title": "Inspect SuperLink errors",
+                "body": "Use stderr when the Flower server/link layer crashes or rejects connections.",
+                "command": "fedctl submit logs sub-20260227182713-5413 --job superlink --stderr",
+            },
+            {
+                "title": "Inspect a specific supernode",
+                "body": "Grouped jobs use one-based indices.",
+                "command": "fedctl submit logs sub-20260227182713-5413 --job supernodes --index 2",
+            },
+            {
+                "title": "Inspect a specific clientapp",
+                "body": "Use clientapp logs for task/model/data errors raised inside the research app.",
+                "command": "fedctl submit logs sub-20260227182713-5413 --job superexec_clientapps --index 2 --stdout",
+            },
         ],
         "flags": [
             {"name": "--job", "type": "TEXT", "description": "Job to read logs from (submit, superlink, supernodes, superexec_serverapp, superexec_clientapps)"},
@@ -128,60 +241,159 @@ _HELP_COMMANDS = [
         "notes": [
             "Use --job supernodes with either --task or --index to target one supernode task.",
             "When Nomad allocations are gone, the service falls back to archived logs if available.",
+            "--index is one-based, so --index 1 selects the first grouped task.",
         ],
+        "related": ["submit status", "submit results", "submit inventory"],
     },
     {
         "name": "submit cancel",
         "summary": "Stop an active submission and mark it cancelled.",
         "importance": "standard",
         "syntax": "fedctl submit cancel <submission-id>",
+        "details": [
+            "Cancellation is the safe way to stop work that is queued, blocked, submitting, or running. The submit service marks the submission as cancelled and asks Nomad to stop related jobs when applicable.",
+            "Use cancellation instead of deleting records directly; it preserves enough history to understand what was stopped.",
+        ],
+        "use_cases": [
+            "Stop a run submitted with the wrong experiment or deployment config.",
+            "Clear a blocked queue entry so the next submission can proceed.",
+            "Abort a running job before purging Nomad jobs manually.",
+        ],
         "examples": [
-            "fedctl submit cancel sub-20260227182713-5413",
+            {
+                "title": "Cancel one submission",
+                "body": "Use the exact submission ID from submit ls or the web UI.",
+                "command": "fedctl submit cancel sub-20260227182713-5413",
+            },
+            {
+                "title": "Check active queue before cancelling",
+                "body": "Confirm the target ID and status first.",
+                "command": "fedctl submit ls --active\nfedctl submit status sub-20260227182713-5413\nfedctl submit cancel sub-20260227182713-5413",
+            },
         ],
         "notes": [
             "Use this for queued, running, or blocked submissions.",
+            "After cancellation, use submit status or the web UI to confirm the record is terminal.",
         ],
+        "related": ["submit ls", "submit status", "submit purge"],
     },
     {
         "name": "submit purge",
         "summary": "Delete submission history, either for one terminal submission or for all history.",
         "importance": "standard",
         "syntax": "fedctl submit purge [submission-id]",
+        "details": [
+            "Purge is for cleanup of submission-service records, not for stopping active work. Cancel active work first, then purge once the submission is terminal.",
+            "Purging without an ID is intentionally broad: it clears submission history visible to the caller according to service permissions. Use the single-ID form when you only want to remove one completed, failed, or cancelled record.",
+        ],
+        "use_cases": [
+            "Remove old terminal records from the UI after collecting results.",
+            "Clear a cancelled or failed test submission.",
+            "Reset the submit-service history during operator maintenance.",
+        ],
         "examples": [
-            "fedctl submit purge sub-20260227182713-5413",
-            "fedctl submit purge",
+            {
+                "title": "Purge one terminal submission",
+                "body": "This removes the submit-service record for one completed, failed, or cancelled run.",
+                "command": "fedctl submit purge sub-20260227182713-5413",
+            },
+            {
+                "title": "Purge all visible history",
+                "body": "Use this only for deliberate cleanup after confirming no active records are needed.",
+                "command": "fedctl submit purge",
+            },
+            {
+                "title": "Safe cleanup sequence",
+                "body": "Cancel first if the run is still active, then purge after it becomes terminal.",
+                "command": "fedctl submit cancel sub-20260227182713-5413\nfedctl submit status sub-20260227182713-5413\nfedctl submit purge sub-20260227182713-5413",
+            },
         ],
         "notes": [
             "Purging a single submission is allowed for the owner or admin, but only after it is completed, failed, or cancelled.",
             "Purging without an ID clears the whole submission history and is the stronger action.",
+            "Purge does not replace Nomad operational cleanup for live jobs.",
         ],
+        "related": ["submit cancel", "submit ls", "submit status"],
     },
     {
         "name": "submit results",
         "summary": "Show or download result artifact URLs recorded for a submission.",
         "importance": "standard",
         "syntax": "fedctl submit results <submission-id> [--download] [--out PATH]",
+        "details": [
+            "Use results after a submission has completed and uploaded artifacts. Without --download, the command reports result locations; with --download, it writes artifacts into a local directory.",
+            "Result availability depends on the submit runner and research app producing artifacts. If no artifacts are listed, inspect submit logs to check whether upload occurred.",
+        ],
+        "use_cases": [
+            "Copy artifact URLs for a completed experiment.",
+            "Download result bundles into a local analysis directory.",
+            "Check whether a completed submission uploaded expected outputs.",
+        ],
         "examples": [
-            "fedctl submit results sub-20260227182713-5413",
-            "fedctl submit results sub-20260227182713-5413 --download --out ./results",
+            {
+                "title": "Show recorded artifact locations",
+                "body": "Use this first to confirm that the submission produced results.",
+                "command": "fedctl submit results sub-20260227182713-5413",
+            },
+            {
+                "title": "Download artifacts locally",
+                "body": "Write all downloadable result artifacts under ./results.",
+                "command": "fedctl submit results sub-20260227182713-5413 --download --out ./results",
+            },
+            {
+                "title": "Check completion before downloading",
+                "body": "Avoid downloading before artifact upload has finished.",
+                "command": "fedctl submit status sub-20260227182713-5413\nfedctl submit results sub-20260227182713-5413 --download --out ./results",
+            },
         ],
         "notes": [
             "This is useful when the runner uploaded result files and you want the URLs or local copies.",
+            "For failed submissions, logs are usually more useful than results unless partial artifacts were uploaded.",
         ],
+        "related": ["submit status", "submit logs", "submit ls"],
     },
     {
         "name": "submit inventory",
         "summary": "Inspect the Nomad node inventory exposed by the submit service.",
         "importance": "standard",
         "syntax": "fedctl submit inventory [--status STATUS] [--class CLASS] [--device-type TYPE] [--detail] [--json]",
+        "details": [
+            "Inventory exposes the submit service's view of Nomad node readiness and allocation pressure. It is useful for understanding why a placement is blocked before submitting or while a submission waits.",
+            "Use --detail for human-readable allocation pressure and --json when feeding the data into scripts.",
+        ],
+        "use_cases": [
+            "Check how many ready compute nodes are available.",
+            "Verify whether rpi4 or rpi5 nodes are saturated before submitting typed workloads.",
+            "Inspect submit/link nodes separately from compute workers.",
+            "Export node state as JSON for a capacity debugging script.",
+        ],
         "examples": [
-            "fedctl submit inventory",
-            "fedctl submit inventory --status ready --class submit",
-            "fedctl submit inventory --detail",
+            {
+                "title": "Show all visible inventory",
+                "body": "Get the current cluster overview from the submit service.",
+                "command": "fedctl submit inventory",
+            },
+            {
+                "title": "Filter ready submit nodes",
+                "body": "Useful when debugging whether the submit runner can be placed.",
+                "command": "fedctl submit inventory --status ready --class submit",
+            },
+            {
+                "title": "Inspect ready RPi5 compute nodes",
+                "body": "Use this before all-RPi5 or device-typed runs.",
+                "command": "fedctl submit inventory --status ready --class compute --device-type rpi5 --detail",
+            },
+            {
+                "title": "Export inventory as JSON",
+                "body": "Use JSON output for scripts or precise resource inspection.",
+                "command": "fedctl submit inventory --detail --json",
+            },
         ],
         "notes": [
             "This is mainly an operator/admin command for checking cluster capacity and placement constraints.",
+            "If a strict submission is blocked, inventory helps explain whether the issue is node count, device type, CPU, or memory pressure.",
         ],
+        "related": ["submit ls", "submit status", "submit run"],
     },
 ]
 _ANSI_RE = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")

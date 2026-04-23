@@ -11,9 +11,11 @@
   <aside class="doc-sidebar">
     <nav class="doc-nav">
       <a href="#overview" class="doc-nav-link">Overview</a>
+      {% if command.use_cases %}<a href="#when-to-use" class="doc-nav-link">When to use</a>{% endif %}
       <a href="#usage" class="doc-nav-link">Usage</a>
       <a href="#examples" class="doc-nav-link">Examples</a>
       {% if command.notes %}<a href="#notes" class="doc-nav-link">Notes</a>{% endif %}
+      {% if command.related %}<a href="#related" class="doc-nav-link">Related</a>{% endif %}
     </nav>
   </aside>
 
@@ -22,12 +24,29 @@
     <section id="overview" class="doc-section">
       <h2>Overview</h2>
       <p>{{ command.summary }}</p>
+      {% for paragraph in command.details or [] %}
+      <p>{{ paragraph }}</p>
+      {% endfor %}
       {% if command.importance == 'primary' %}
       <div class="doc-callout doc-callout-info">
         <strong>Primary command:</strong> This is one of the most commonly used commands in fedctl. Start here when getting familiar with the submit service.
       </div>
       {% endif %}
     </section>
+
+    {% if command.use_cases %}
+    <section id="when-to-use" class="doc-section">
+      <h2>When to use it</h2>
+      <div class="doc-bullet-grid">
+        {% for item in command.use_cases %}
+        <div class="doc-bullet-card">
+          <span class="doc-bullet-marker" aria-hidden="true"></span>
+          <p>{{ item }}</p>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
 
     <!-- Usage -->
     <section id="usage" class="doc-section">
@@ -72,6 +91,7 @@
 
       <div class="doc-examples">
         {% for example in command.examples %}
+        {% if example is string %}
         <div class="terminal-card">
           <div class="terminal-bar">
             <div class="terminal-controls" aria-hidden="true">
@@ -94,6 +114,36 @@
             <pre><code><span class="terminal-prompt">$</span> {{ example }}</code></pre>
           </div>
         </div>
+        {% else %}
+        <article class="doc-example-card">
+          <div class="doc-example-copy">
+            <h3>{{ example.title }}</h3>
+            {% if example.body %}<p>{{ example.body }}</p>{% endif %}
+          </div>
+          <div class="terminal-card">
+            <div class="terminal-bar">
+              <div class="terminal-controls" aria-hidden="true">
+                <span class="terminal-control terminal-control-close"></span>
+                <span class="terminal-control terminal-control-min"></span>
+                <span class="terminal-control terminal-control-max"></span>
+              </div>
+              <span class="terminal-title">Example</span>
+              <button
+                type="button"
+                class="button secondary copy-button"
+                data-copy="{{ example.command }}"
+                data-copy-label="Copy"
+                data-copy-done-label="Copied"
+              >
+                Copy
+              </button>
+            </div>
+            <div class="terminal-body">
+              <pre><code><span class="terminal-prompt">$</span> {{ example.command }}</code></pre>
+            </div>
+          </div>
+        </article>
+        {% endif %}
         {% endfor %}
       </div>
     </section>
@@ -108,6 +158,21 @@
           <li>{{ note }}</li>
           {% endfor %}
         </ul>
+      </div>
+    </section>
+    {% endif %}
+
+    {% if command.related %}
+    <section id="related" class="doc-section">
+      <h2>Related commands</h2>
+      <div class="doc-related-grid">
+        {% for related in command.related %}
+        {% set related_slug = related | lower | replace(' ', '-') %}
+        <a class="doc-related-card" href="{{ request.url_for('help_command_detail', command_slug=related_slug) }}">
+          <span>{{ related }}</span>
+          <small>Open details →</small>
+        </a>
+        {% endfor %}
       </div>
     </section>
     {% endif %}

@@ -16,7 +16,7 @@ from common import (
     save_figure_dual,
     write_json_plot,
 )
-from network_main_common import (
+from network_common import (
     METHOD_LABELS,
     METHOD_ORDER,
     REGIME_LABELS,
@@ -83,7 +83,7 @@ def main() -> None:
     colors = dict(zip(METHOD_ORDER, default_cycle_colors(len(METHOD_ORDER)), strict=True))
     linestyles = {"fedavg": "-", "fedbuff": "--", "fedstaleweight": "-."}
 
-    fig, axes = plt.subplots(2, 2, figsize=(PUBLICATION_FIGURE_WIDTH, 7), sharex=True, sharey=True)
+    fig, axes = plt.subplots(2, 2, figsize=(PUBLICATION_FIGURE_WIDTH, 6), sharex=True, sharey=True)
     for row_idx, regime in enumerate(REGIME_ORDER):
         for col_idx, topology in enumerate(TOPOLOGY_ORDER):
             ax = axes[row_idx, col_idx]
