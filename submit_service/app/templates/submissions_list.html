@@ -49,7 +49,8 @@
     </div>
     <div class="queue-legend">
       <span class="queue-legend-item" title="Job is currently executing on the cluster"><span class="queue-legend-dot queue-legend-dot-running"></span>Executing</span>
-      <span class="queue-legend-item" title="Job is queued and waiting for cluster resources (CPU, GPU, memory) to become available"><span class="queue-legend-dot queue-legend-dot-waiting"></span>Waiting resources</span>
+      <span class="queue-legend-item" title="Job is queued for dispatch"><span class="queue-legend-dot queue-legend-dot-queued"></span>Queued</span>
+      <span class="queue-legend-item" title="Job is blocked while resources become available"><span class="queue-legend-dot queue-legend-dot-waiting"></span>Waiting resources</span>
     </div>
   </div>
 
@@ -73,7 +74,34 @@
     </div>
     {% endif %}
 
-    {% if running_rows and waiting_rows %}
+    {% if running_rows and (submitting_rows or waiting_rows) %}
+    <div class="queue-connector" aria-hidden="true">
+      <div class="queue-connector-line"></div>
+      <div class="queue-connector-arrow"></div>
+    </div>
+    {% endif %}
+
+    {% if submitting_rows %}
+    <div class="queue-stage queue-stage-queued">
+      <div class="queue-stage-label">
+        <span class="queue-stage-dot queue-stage-dot-queued"></span>
+        Queued
+        <span class="queue-stage-count">{{ submitting_rows | length }}</span>
+      </div>
+      <div class="queue-stage-track">
+        {% for row in submitting_rows %}
+        <a class="queue-card queue-card-queued" href="/ui/submissions/{{ row.id }}?return_to={{ return_to | urlencode }}">
+          <span class="queue-card-sequence" title="Position in queue (FCFS)">#{{ loop.index }}</span>
+          <span class="queue-card-name" title="{{ row.experiment }}">{{ row.experiment }}</span>
+          <span class="queue-card-id">{{ row.id | replace('sub-', '', 1) }}</span>
+          <span class="queue-card-time">{% if row.created_at.iso %}<time datetime="{{ row.created_at.iso }}" data-relative>{{ row.created_at.label }}</time>{% else %}{{ row.created_at.label }}{% endif %}</span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if submitting_rows and waiting_rows %}
     <div class="queue-connector" aria-hidden="true">
       <div class="queue-connector-line"></div>
       <div class="queue-connector-arrow"></div>
@@ -100,7 +128,7 @@
     </div>
     {% endif %}
 
-    {% if not running_rows and not waiting_rows %}
+    {% if not running_rows and not submitting_rows and not waiting_rows %}
     <div class="empty-queue">
       <p class="empty-queue-icon">✓</p>
       <p class="empty-queue-message">No active submissions</p>
@@ -151,7 +179,8 @@
     </form>
   </div>
 
-  <div class="status-legend">
+  <details class="status-legend">
+    <summary>Status legend</summary>
     <div class="legend-grid">
       <div class="legend-item">
         <span class="legend-marker" style="background-color: var(--running);"></span>
@@ -189,9 +218,10 @@
         </div>
       </div>
     </div>
-  </div>
+  </details>
   {% if rows %}
-  <table class="data-table">
+  <div class="table-scroll submissions-table-scroll" tabindex="0" aria-label="Recent submissions table">
+  <table class="data-table submissions-table">
     <thead>
       <tr>
         <th class="col-id">ID</th>
@@ -207,21 +237,22 @@
     <tbody>
       {% for row in rows %}
       <tr data-href="/ui/submissions/{{ row.id }}?return_to={{ return_to | urlencode }}">
-        <td class="cell-id" title="{{ row.id }}">
+        <td class="cell-id" title="{{ row.id }}" data-label="ID">
           <a class="primary-link" href="/ui/submissions/{{ row.id }}?return_to={{ return_to | urlencode }}">{{ row.id | replace('sub-', '', 1) }}</a>
           <div class="table-subtext">{{ row.namespace }}</div>
         </td>
-        <td>{{ row.project_name }}</td>
-        <td class="cell-experiment" title="{{ row.experiment }}">{{ row.experiment }}</td>
-        <td>{% set status = row.status %}{% include '_status_badge.html' %}</td>
-        <td class="cell-time">{% if row.created_at.iso %}<time datetime="{{ row.created_at.iso }}" title="{{ row.created_at.label }}" data-two-line>{% set parts = row.created_at.label.split(' ') %}<span class="time-date">{{ parts[0] }}</span>{% if parts|length > 1 %}<span class="time-clock">{{ parts[1] }}</span>{% endif %}</time>{% else %}{{ row.created_at.label }}{% endif %}</td>
-        <td class="cell-duration cell-runtime">{{ row.runtime }}</td>
-        {% if status_filter != 'active' %}<td class="cell-time">{% if row.finished_at.iso %}<time datetime="{{ row.finished_at.iso }}" title="{{ row.finished_at.label }}" data-two-line>{% set parts = row.finished_at.label.split(' ') %}<span class="time-date">{{ parts[0] }}</span>{% if parts|length > 1 %}<span class="time-clock">{{ parts[1] }}</span>{% endif %}</time>{% else %}{{ row.finished_at.label }}{% endif %}</td>{% endif %}
-        {% if status_filter != 'completed' %}<td class="cell-blocked">{{ row.blocked_reason or '-' }}</td>{% endif %}
+        <td data-label="Project">{{ row.project_name }}</td>
+        <td class="cell-experiment" title="{{ row.experiment }}" data-label="Experiment">{{ row.experiment }}</td>
+        <td data-label="Status">{% set status = row.status %}{% include '_status_badge.html' %}</td>
+        <td class="cell-time" data-label="Created">{% if row.created_at.iso %}<time datetime="{{ row.created_at.iso }}" title="{{ row.created_at.label }}" data-two-line>{% set parts = row.created_at.label.split(' ') %}<span class="time-date">{{ parts[0] }}</span>{% if parts|length > 1 %}<span class="time-clock">{{ parts[1] }}</span>{% endif %}</time>{% else %}{{ row.created_at.label }}{% endif %}</td>
+        <td class="cell-duration cell-runtime" data-label="Runtime">{{ row.runtime }}</td>
+        {% if status_filter != 'active' %}<td class="cell-time" data-label="Finished">{% if row.finished_at.iso %}<time datetime="{{ row.finished_at.iso }}" title="{{ row.finished_at.label }}" data-two-line>{% set parts = row.finished_at.label.split(' ') %}<span class="time-date">{{ parts[0] }}</span>{% if parts|length > 1 %}<span class="time-clock">{{ parts[1] }}</span>{% endif %}</time>{% else %}{{ row.finished_at.label }}{% endif %}</td>{% endif %}
+        {% if status_filter != 'completed' %}<td class="cell-blocked" data-label="Blocked / error">{{ row.blocked_reason or '-' }}</td>{% endif %}
       </tr>
       {% endfor %}
     </tbody>
   </table>
+  </div>
   {% else %}
   {% if stats.total == 0 %}
   <div class="empty-state">
@@ -267,31 +298,42 @@
           currentQueue.remove();
         }
         if (nextPanel) {
+          const currentTableWrap = document.querySelector('.dashboard-panel .table-scroll');
+          const nextTableWrap = nextPanel.querySelector('.table-scroll');
           const currentTable = document.querySelector('.dashboard-panel .data-table');
           const nextTable = nextPanel.querySelector('.data-table');
           const currentEmpty = document.querySelector('.dashboard-panel .empty-state');
           const nextEmpty = nextPanel.querySelector('.empty-state');
           if (currentTable && nextTable) {
             currentTable.querySelector('tbody').innerHTML = nextTable.querySelector('tbody').innerHTML;
-          } else if (!currentTable && nextTable) {
+          } else if (!currentTable && nextTableWrap) {
             const target = currentEmpty || document.querySelector('.dashboard-panel .muted');
-            if (target) target.replaceWith(nextTable);
-          } else if (currentTable && !nextTable) {
+            if (target) target.replaceWith(nextTableWrap);
+          } else if (currentTableWrap && !nextTable) {
             const replacement = nextEmpty || nextPanel.querySelector('.muted');
-            if (replacement) currentTable.replaceWith(replacement);
+            if (replacement) currentTableWrap.replaceWith(replacement);
           }
         }
       } catch (_) { /* silent */ }
     };
 
-    timerId = window.setInterval(refresh, REFRESH_INTERVAL);
+    const shouldPauseRefresh = () => {
+      const active = document.activeElement;
+      return Boolean(active && active.closest('input, select, textarea, button, a, details, .table-scroll'));
+    };
+
+    const refreshIfIdle = () => {
+      if (!shouldPauseRefresh()) refresh();
+    };
+
+    timerId = window.setInterval(refreshIfIdle, REFRESH_INTERVAL);
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) {
         window.clearInterval(timerId);
         timerId = null;
       } else if (!timerId) {
-        refresh();
-        timerId = window.setInterval(refresh, REFRESH_INTERVAL);
+        refreshIfIdle();
+        timerId = window.setInterval(refreshIfIdle, REFRESH_INTERVAL);
       }
     });
 
