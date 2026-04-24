@@ -1717,6 +1717,14 @@ def test_partitioning_device_correlated_label_skew_splits_early_and_late_partiti
     assert len(rpi5_train.label_sets_by_partition) == 5
     assert all(len(label_set) == 2 for label_set in rpi4_train.label_sets_by_partition)
     assert all(len(label_set) == 2 for label_set in rpi5_train.label_sets_by_partition)
+    assert all(
+        set(label_set).issubset(set(range(5)))
+        for label_set in rpi4_train.label_sets_by_partition
+    )
+    assert all(
+        set(label_set).issubset(set(range(5, 10)))
+        for label_set in rpi5_train.label_sets_by_partition
+    )
     assert rpi4_train.label_sets_by_partition != rpi5_train.label_sets_by_partition
 
 
@@ -1850,8 +1858,9 @@ def test_partitioning_device_correlated_label_skew_uses_explicit_partition_devic
         ),
         partition_device_types=("rpi4", "rpi4", "rpi5", "rpi5", "rpi5"),
     ).partition_result
-    assert set(train.label_sets_by_partition[0]).issubset(set(range(5)))
-    assert set(train.label_sets_by_partition[-1]).issubset(set(range(5, 10)))
+    for partition_id, device_type in enumerate(("rpi4", "rpi4", "rpi5", "rpi5", "rpi5")):
+        expected_labels = set(range(5)) if device_type == "rpi4" else set(range(5, 10))
+        assert set(train.label_sets_by_partition[partition_id]).issubset(expected_labels)
 
 
 def test_partitioning_loader_seed_does_not_change_membership() -> None:
@@ -1983,6 +1992,14 @@ def test_typed_device_correlated_requests_partition_within_device_group() -> Non
     assert len(rpi5_result.indices_by_partition) == 5
     assert all(len(label_set) == 2 for label_set in rpi4_result.label_sets_by_partition)
     assert all(len(label_set) == 2 for label_set in rpi5_result.label_sets_by_partition)
+    assert all(
+        set(label_set).issubset(set(range(5)))
+        for label_set in rpi4_result.label_sets_by_partition
+    )
+    assert all(
+        set(label_set).issubset(set(range(5, 10)))
+        for label_set in rpi5_result.label_sets_by_partition
+    )
     assert rpi4_result.label_sets_by_partition != rpi5_result.label_sets_by_partition
 
 
@@ -2112,8 +2129,9 @@ def test_masked_cross_entropy_matches_masked_logits() -> None:
     assert torch.allclose(actual, expected)
 
 
-def test_masked_cross_entropy_auto_only_enables_for_balanced_label_skew() -> None:
+def test_masked_cross_entropy_auto_enables_for_balanced_label_skew_modes() -> None:
     assert should_use_masked_cross_entropy("auto", partitioning="label-skew-balanced") is True
+    assert should_use_masked_cross_entropy("auto", partitioning="device-correlated-label-skew") is True
     assert should_use_masked_cross_entropy("auto", partitioning="iid") is False
     assert should_use_masked_cross_entropy("auto", partitioning="dirichlet") is False
 

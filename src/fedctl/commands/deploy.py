@@ -9,6 +9,7 @@ from fedctl.config.io import load_config
 from fedctl.config.repo import (
     get_cluster_image_registry,
     get_image_registry,
+    get_repo_config_label,
     rewrite_image_registry,
     resolve_repo_config,
 )
@@ -113,11 +114,12 @@ def run_deploy(
     if dry_run and not out:
         out = "rendered"
 
-    repo_cfg = resolve_repo_config(
+    repo_resolution = resolve_repo_config(
         repo_config=repo_config,
         profile_name=profile,
         include_profile=True,
-    ).data
+    )
+    repo_cfg = repo_resolution.data
     external_registry = get_image_registry(repo_cfg)
     internal_registry = get_cluster_image_registry(repo_cfg)
     cluster_image = rewrite_image_registry(
@@ -132,7 +134,9 @@ def run_deploy(
     repo_superexec_serverapp_resources = repo_defaults.superexec_serverapp_resources
     repo_superlink_resources = repo_defaults.superlink_resources
     repo_superexec_env = repo_defaults.superexec_env
-    runtime_superexec_env = _runtime_superexec_env()
+    runtime_superexec_env = _runtime_superexec_env(
+        repo_config_label=get_repo_config_label(repo_cfg, path=repo_resolution.path)
+    )
     if runtime_superexec_env:
         repo_superexec_env = {**repo_superexec_env, **runtime_superexec_env}
     repo_network_profiles = repo_defaults.network_profiles
@@ -585,7 +589,7 @@ def _normalize_single_resource(
     return {"cpu": int(cpu), "mem": int(mem)}
 
 
-def _runtime_superexec_env() -> dict[str, str]:
+def _runtime_superexec_env(*, repo_config_label: str | None = None) -> dict[str, str]:
     env: dict[str, str] = {}
     submission_id = os.environ.get("FEDCTL_SUBMISSION_ID") or os.environ.get(
         "SUBMIT_SUBMISSION_ID"
@@ -594,6 +598,9 @@ def _runtime_superexec_env() -> dict[str, str]:
         env["FEDCTL_SUBMISSION_ID"] = str(submission_id)
     for key in _RUNTIME_SUPEREXEC_ENV_KEYS:
         if key == "FEDCTL_SUBMISSION_ID":
+            continue
+        if key == "FEDCTL_REPO_CONFIG_LABEL" and repo_config_label:
+            env[key] = repo_config_label
             continue
         value = os.environ.get(key)
         if value:

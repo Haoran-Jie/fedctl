@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fedctl.commands.deploy import _repo_deploy_config
+from fedctl.commands.deploy import _repo_deploy_config, _runtime_superexec_env
 from fedctl.config.io import ensure_config_exists, load_raw_toml, save_raw_toml
 from fedctl.config.repo import (
     get_cluster_image_registry,
@@ -197,6 +197,16 @@ def test_repo_deploy_config_extracts_superexec_env_map() -> None:
         "WANDB_PROJECT": "fedctl",
         "WANDB_ENTITY": "samueljie",
     }
+
+
+def test_runtime_superexec_env_prefers_resolved_repo_config_label(monkeypatch) -> None:
+    monkeypatch.setenv("FEDCTL_REPO_CONFIG_LABEL", "asym-down")
+    monkeypatch.setenv("FEDCTL_EXPERIMENT_CONFIG", "configs/demo.toml")
+
+    env = _runtime_superexec_env(repo_config_label="mild")
+
+    assert env["FEDCTL_REPO_CONFIG_LABEL"] == "mild"
+    assert env["FEDCTL_EXPERIMENT_CONFIG"] == "configs/demo.toml"
 
 
 def test_repo_deploy_config_extracts_spread_across_hosts() -> None:
