@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}{{ submission.id }} | fedctl submit service{% endblock %}
+{% block title %}{{ submission.id }} | fedctl{% endblock %}
 {% block content %}
 {% set default_tab = 'tab-logs' if submission.status in ['running', 'failed', 'queued', 'blocked'] else 'tab-overview' %}
 <div class="page-crumbs">

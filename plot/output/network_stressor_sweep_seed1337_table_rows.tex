@@ -1,0 +1,29 @@
+\multirow{5}{*}{\texttt{none}} & \multirow{5}{=}{\raggedright No added impairment} & \texttt{FedAvg} & 465 & 4338 & 60.3 & -- & -- & -- / -- & -- \\
+ & & \texttt{FedBuff} \(K=10\) & 870 & 2354 & 60.4 & 13.9 & 10.1 & 3.32 / 1.06 & 0.37 \\
+ & & \texttt{FedStaleWeight} \(K=10\) & 660 & 1806 & 60.2 & 13.9 & 29.4 & 3.30 / 1.05 & 0.37 \\
+ & & \texttt{FedBuff} \(K=5\) & 530 & 3500 & 60.6 & 22.8 & 19.2 & 4.08 / 2.35 & 0.15 \\
+ & & \texttt{FedStaleWeight} \(K=5\) & \(>750\) & \(>4811\) & 40.3 & 22.3 & 30.9 & 4.23 / 2.34 & 0.16 \\
+\midrule
+\multirow{5}{*}{\texttt{mild}} & \multirow{5}{=}{\raggedright 20 ms, 5 ms jitter, 100 Mbit/s} & \texttt{FedAvg} & 465 & 4442 & 60.2 & -- & -- & -- / -- & -- \\
+ & & \texttt{FedBuff} \(K=10\) & 830 & 4347 & 60.9 & 20.8 & 17.5 & 2.28 / 1.14 & 0.19 \\
+ & & \texttt{FedStaleWeight} \(K=10\) & 610 & 3202 & 60.1 & 21.1 & 32.5 & 2.26 / 1.13 & 0.19 \\
+ & & \texttt{FedBuff} \(K=5\) & 520 & 3405 & 60.2 & 22.5 & 18.8 & 4.15 / 2.33 & 0.15 \\
+ & & \texttt{FedStaleWeight} \(K=5\) & \(>750\) & \(>4913\) & 48.9 & 23.9 & 31.7 & 3.97 / 2.39 & 0.15 \\
+\midrule
+\multirow{5}{*}{\texttt{med}} & \multirow{5}{=}{\raggedright 60 ms, 15 ms jitter, 0.5\% loss, 50 Mbit/s} & \texttt{FedAvg} & 465 & 5075 & 60.3 & -- & -- & -- / -- & -- \\
+ & & \texttt{FedBuff} \(K=10\) & 810 & 4165 & 60.9 & 21.0 & 17.7 & 2.28 / 1.14 & 0.19 \\
+ & & \texttt{FedStaleWeight} \(K=10\) & 580 & 3040 & 60.1 & 21.0 & 32.0 & 2.26 / 1.13 & 0.19 \\
+ & & \texttt{FedBuff} \(K=5\) & 580 & 3753 & 60.1 & 22.8 & 19.2 & 4.08 / 2.36 & 0.15 \\
+ & & \texttt{FedStaleWeight} \(K=5\) & \(>750\) & \(>4779\) & 45.1 & 23.1 & 31.3 & 4.08 / 2.37 & 0.16 \\
+\midrule
+\multirow{5}{*}{\makecell[l]{\texttt{asym}\\\texttt{up}}} & \multirow{5}{=}{\raggedright Egress only: 90 ms, 20 ms jitter, 0.5\% loss, 20 Mbit/s} & \texttt{FedAvg} & 450 & 4951 & 60.0 & -- & -- & -- / -- & -- \\
+ & & \texttt{FedBuff} \(K=10\) & 880 & 4578 & 60.3 & 21.0 & 17.7 & 2.29 / 1.14 & 0.19 \\
+ & & \texttt{FedStaleWeight} \(K=10\) & 620 & 3293 & 60.0 & 20.8 & 32.6 & 2.29 / 1.13 & 0.19 \\
+ & & \texttt{FedBuff} \(K=5\) & 500 & 3261 & 60.1 & 23.0 & 19.2 & 4.15 / 2.33 & 0.15 \\
+ & & \texttt{FedStaleWeight} \(K=5\) & \(>750\) & \(>4882\) & 39.6 & 22.8 & 30.9 & 4.13 / 2.36 & 0.15 \\
+\midrule
+\multirow{5}{*}{\makecell[l]{\texttt{asym}\\\texttt{down}}} & \multirow{5}{=}{\raggedright Ingress only: 90 ms, 20 ms jitter, 0.5\% loss, 20 Mbit/s} & \texttt{FedAvg} & 465 & 5123 & 60.1 & -- & -- & -- / -- & -- \\
+ & & \texttt{FedBuff} \(K=10\) & 870 & 4456 & 60.7 & 21.1 & 17.8 & 2.29 / 1.13 & 0.20 \\
+ & & \texttt{FedStaleWeight} \(K=10\) & 680 & 3574 & 60.1 & 21.0 & 32.2 & 2.26 / 1.14 & 0.19 \\
+ & & \texttt{FedBuff} \(K=5\) & 515 & 3385 & 60.6 & 22.7 & 19.0 & 4.13 / 2.34 & 0.15 \\
+ & & \texttt{FedStaleWeight} \(K=5\) & \(>750\) & \(>4885\) & 48.2 & 22.9 & 31.2 & 4.15 / 2.35 & 0.15 \\

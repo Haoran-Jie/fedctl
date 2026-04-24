@@ -32,7 +32,7 @@ def should_use_masked_cross_entropy(mode: str, *, partitioning: str) -> bool:
         return False
     if normalized != "auto":
         raise ValueError(f"Unsupported masked-cross-entropy mode: {mode}")
-    return partitioning == "label-skew-balanced"
+    return partitioning in {"label-skew-balanced", "device-correlated-label-skew"}
 
 
 def create_optimizer(

@@ -1,0 +1,411 @@
+{
+  "runs": [
+    {
+      "method": "fedbuff",
+      "buffer_size": 5,
+      "run_id": "f8r1yqsh",
+      "source": "network_stressor_sweep",
+      "updates_in_first_60_steps": 300,
+      "max_staleness_first_60_steps": 6
+    },
+    {
+      "method": "fedbuff",
+      "buffer_size": 10,
+      "run_id": "j81afai0",
+      "source": "network_main",
+      "updates_in_first_60_steps": 600,
+      "max_staleness_first_60_steps": 5
+    },
+    {
+      "method": "fedstaleweight",
+      "buffer_size": 5,
+      "run_id": "qjnt77fk",
+      "source": "network_stressor_sweep",
+      "updates_in_first_60_steps": 300,
+      "max_staleness_first_60_steps": 6
+    },
+    {
+      "method": "fedstaleweight",
+      "buffer_size": 10,
+      "run_id": "wyc9rjxq",
+      "source": "network_main",
+      "updates_in_first_60_steps": 600,
+      "max_staleness_first_60_steps": 5
+    }
+  ],
+  "client_order_by_run": {
+    "f8r1yqsh": [
+      {
+        "row": 0,
+        "device_type": "rpi5",
+        "slot": 0,
+        "node_id": "1287847929735971682"
+      },
+      {
+        "row": 1,
+        "device_type": "rpi5",
+        "slot": 1,
+        "node_id": "2149541508140645213"
+      },
+      {
+        "row": 2,
+        "device_type": "rpi5",
+        "slot": 2,
+        "node_id": "2597728084587060721"
+      },
+      {
+        "row": 3,
+        "device_type": "rpi5",
+        "slot": 3,
+        "node_id": "2941161713698846158"
+      },
+      {
+        "row": 4,
+        "device_type": "rpi5",
+        "slot": 4,
+        "node_id": "8335552894148306858"
+      },
+      {
+        "row": 5,
+        "device_type": "rpi5",
+        "slot": 5,
+        "node_id": "8604023571656330016"
+      },
+      {
+        "row": 6,
+        "device_type": "rpi5",
+        "slot": 6,
+        "node_id": "14244411391788972660"
+      },
+      {
+        "row": 7,
+        "device_type": "rpi5",
+        "slot": 7,
+        "node_id": "14273504822268314706"
+      },
+      {
+        "row": 8,
+        "device_type": "rpi5",
+        "slot": 8,
+        "node_id": "15850264181746673684"
+      },
+      {
+        "row": 9,
+        "device_type": "rpi5",
+        "slot": 9,
+        "node_id": "17865354463084643977"
+      },
+      {
+        "row": 10,
+        "device_type": "rpi4",
+        "slot": 0,
+        "node_id": "3881793369496197376"
+      },
+      {
+        "row": 11,
+        "device_type": "rpi4",
+        "slot": 1,
+        "node_id": "8772456477865701634"
+      },
+      {
+        "row": 12,
+        "device_type": "rpi4",
+        "slot": 2,
+        "node_id": "13203157195360056689"
+      },
+      {
+        "row": 13,
+        "device_type": "rpi4",
+        "slot": 3,
+        "node_id": "15227569813693182211"
+      },
+      {
+        "row": 14,
+        "device_type": "rpi4",
+        "slot": 4,
+        "node_id": "16788588506036931967"
+      }
+    ],
+    "j81afai0": [
+      {
+        "row": 0,
+        "device_type": "rpi5",
+        "slot": 0,
+        "node_id": "1584522094463059646"
+      },
+      {
+        "row": 1,
+        "device_type": "rpi5",
+        "slot": 1,
+        "node_id": "4062665300245713518"
+      },
+      {
+        "row": 2,
+        "device_type": "rpi5",
+        "slot": 2,
+        "node_id": "4255954338395240267"
+      },
+      {
+        "row": 3,
+        "device_type": "rpi5",
+        "slot": 3,
+        "node_id": "4392353453518496575"
+      },
+      {
+        "row": 4,
+        "device_type": "rpi5",
+        "slot": 4,
+        "node_id": "5018383628358028546"
+      },
+      {
+        "row": 5,
+        "device_type": "rpi5",
+        "slot": 5,
+        "node_id": "6323874847507668831"
+      },
+      {
+        "row": 6,
+        "device_type": "rpi5",
+        "slot": 6,
+        "node_id": "12941662399831504032"
+      },
+      {
+        "row": 7,
+        "device_type": "rpi5",
+        "slot": 7,
+        "node_id": "14051556509977617442"
+      },
+      {
+        "row": 8,
+        "device_type": "rpi5",
+        "slot": 8,
+        "node_id": "14555662308487818369"
+      },
+      {
+        "row": 9,
+        "device_type": "rpi5",
+        "slot": 9,
+        "node_id": "16868506971220395663"
+      },
+      {
+        "row": 10,
+        "device_type": "rpi4",
+        "slot": 0,
+        "node_id": "6651852218780769558"
+      },
+      {
+        "row": 11,
+        "device_type": "rpi4",
+        "slot": 1,
+        "node_id": "7128656950960683477"
+      },
+      {
+        "row": 12,
+        "device_type": "rpi4",
+        "slot": 2,
+        "node_id": "10578321295934146575"
+      },
+      {
+        "row": 13,
+        "device_type": "rpi4",
+        "slot": 3,
+        "node_id": "11318486243711775647"
+      },
+      {
+        "row": 14,
+        "device_type": "rpi4",
+        "slot": 4,
+        "node_id": "16072773922927026733"
+      }
+    ],
+    "qjnt77fk": [
+      {
+        "row": 0,
+        "device_type": "rpi5",
+        "slot": 0,
+        "node_id": "896775163675660341"
+      },
+      {
+        "row": 1,
+        "device_type": "rpi5",
+        "slot": 1,
+        "node_id": "4683632349069956873"
+      },
+      {
+        "row": 2,
+        "device_type": "rpi5",
+        "slot": 2,
+        "node_id": "5222417339526945149"
+      },
+      {
+        "row": 3,
+        "device_type": "rpi5",
+        "slot": 3,
+        "node_id": "6215234868637464946"
+      },
+      {
+        "row": 4,
+        "device_type": "rpi5",
+        "slot": 4,
+        "node_id": "7297919272018408700"
+      },
+      {
+        "row": 5,
+        "device_type": "rpi5",
+        "slot": 5,
+        "node_id": "7603686806869693173"
+      },
+      {
+        "row": 6,
+        "device_type": "rpi5",
+        "slot": 6,
+        "node_id": "15582841797723284017"
+      },
+      {
+        "row": 7,
+        "device_type": "rpi5",
+        "slot": 7,
+        "node_id": "15980536126010578087"
+      },
+      {
+        "row": 8,
+        "device_type": "rpi5",
+        "slot": 8,
+        "node_id": "16927370002107440448"
+      },
+      {
+        "row": 9,
+        "device_type": "rpi5",
+        "slot": 9,
+        "node_id": "17016751288753646263"
+      },
+      {
+        "row": 10,
+        "device_type": "rpi4",
+        "slot": 0,
+        "node_id": "1106452684517361202"
+      },
+      {
+        "row": 11,
+        "device_type": "rpi4",
+        "slot": 1,
+        "node_id": "12320115007545255888"
+      },
+      {
+        "row": 12,
+        "device_type": "rpi4",
+        "slot": 2,
+        "node_id": "12621472256357421695"
+      },
+      {
+        "row": 13,
+        "device_type": "rpi4",
+        "slot": 3,
+        "node_id": "15582433766348017990"
+      },
+      {
+        "row": 14,
+        "device_type": "rpi4",
+        "slot": 4,
+        "node_id": "17800990170816024406"
+      }
+    ],
+    "wyc9rjxq": [
+      {
+        "row": 0,
+        "device_type": "rpi5",
+        "slot": 0,
+        "node_id": "1130382377234520328"
+      },
+      {
+        "row": 1,
+        "device_type": "rpi5",
+        "slot": 1,
+        "node_id": "1146448262528906639"
+      },
+      {
+        "row": 2,
+        "device_type": "rpi5",
+        "slot": 2,
+        "node_id": "1549428503323130992"
+      },
+      {
+        "row": 3,
+        "device_type": "rpi5",
+        "slot": 3,
+        "node_id": "2674329795352316453"
+      },
+      {
+        "row": 4,
+        "device_type": "rpi5",
+        "slot": 4,
+        "node_id": "2795449456720375876"
+      },
+      {
+        "row": 5,
+        "device_type": "rpi5",
+        "slot": 5,
+        "node_id": "3479756592480443297"
+      },
+      {
+        "row": 6,
+        "device_type": "rpi5",
+        "slot": 6,
+        "node_id": "3680455845863148156"
+      },
+      {
+        "row": 7,
+        "device_type": "rpi5",
+        "slot": 7,
+        "node_id": "5604631451148144719"
+      },
+      {
+        "row": 8,
+        "device_type": "rpi5",
+        "slot": 8,
+        "node_id": "10046690198433913037"
+      },
+      {
+        "row": 9,
+        "device_type": "rpi5",
+        "slot": 9,
+        "node_id": "14221522034919978677"
+      },
+      {
+        "row": 10,
+        "device_type": "rpi4",
+        "slot": 0,
+        "node_id": "1995703350423172274"
+      },
+      {
+        "row": 11,
+        "device_type": "rpi4",
+        "slot": 1,
+        "node_id": "4897081056469117276"
+      },
+      {
+        "row": 12,
+        "device_type": "rpi4",
+        "slot": 2,
+        "node_id": "10215560291820793388"
+      },
+      {
+        "row": 13,
+        "device_type": "rpi4",
+        "slot": 3,
+        "node_id": "10552751226423781724"
+      },
+      {
+        "row": 14,
+        "device_type": "rpi4",
+        "slot": 4,
+        "node_id": "13908849995728687717"
+      }
+    ]
+  },
+  "max_steps": 60,
+  "staleness_color_cap": 6,
+  "paths": {
+    "pdf": "(PosixPath('/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/plot/output/network_async_participation_staleness.pdf'), PosixPath('/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/writeup/figures/network_async_participation_staleness.pdf'))"
+  }
+}

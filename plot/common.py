@@ -33,7 +33,7 @@ PUBLICATION_FONT_FAMILY = {
     'font.family': 'serif',
     'font.serif': ['Latin Modern Roman', 'Computer Modern Roman', 'CMU Serif', 'DejaVu Serif'],
     'mathtext.fontset': 'cm',
-    'text.latex.preamble': r'\usepackage[T1]{fontenc}\usepackage{lmodern}',
+    'text.latex.preamble': r'\usepackage[T1]{fontenc}\usepackage{newtxtext,newtxmath}',
 }
 
 
@@ -59,6 +59,10 @@ def apply_publication_style() -> None:
     plt.rcParams.update(PUBLICATION_FONT_SIZES)
     plt.rcParams.update(PUBLICATION_FONT_FAMILY)
 
+def apply_publication_style_no_grid() -> None:
+    plt.style.use(['science'])
+    plt.rcParams.update(PUBLICATION_FONT_SIZES)
+    plt.rcParams.update(PUBLICATION_FONT_FAMILY)
 
 def default_cycle_colors(count: int) -> list[str]:
     colors = plt.rcParams['axes.prop_cycle'].by_key().get('color', [])
