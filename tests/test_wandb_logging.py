@@ -171,6 +171,8 @@ def test_wandb_experiment_logger_logs_and_finishes(monkeypatch) -> None:
     logger.log_client_eval_metrics(1, {"eval-acc": 0.75})
     logger.log_server_eval_metrics(1, {"eval-acc": 0.8, "eval-loss": 0.4})
     logger.log_server_eval_trip_metrics(17, {"eval-acc": 0.8, "eval-loss": 0.4})
+    logger.log_server_eval_group_metrics(1, "rpi4-held", {"eval-acc": 0.7, "eval-loss": 0.5})
+    logger.log_server_eval_group_trip_metrics(17, "rpi4-held", {"eval-acc": 0.7, "eval-loss": 0.5})
     logger.log_system_metrics(
         1,
         {
@@ -197,18 +199,22 @@ def test_wandb_experiment_logger_logs_and_finishes(monkeypatch) -> None:
     logger.finish()
 
     run = fake_wandb.runs[0]
-    assert [step for _, step in run.logged] == [None, None, None, None, None]
+    assert [step for _, step in run.logged] == [None, None, None, None, None, None, None]
     assert run.logged[0][0]["train/train-loss"] == 0.5
     assert run.logged[0][0]["server_round"] == 1
     assert run.logged[1][0]["eval_client/eval-acc"] == 0.75
     assert run.logged[2][0]["eval_server/eval-loss"] == 0.4
     assert run.logged[3][0]["eval_server_trip/eval-loss"] == 0.4
     assert run.logged[3][0]["client_trip"] == 17
-    assert run.logged[4][0]["system/round-train-duration-s"] == 3.2
-    assert run.logged[4][0]["round_system/train_duration_s"] == 3.2
-    assert run.logged[4][0]["round_cost/avg_flops"] == 1234
-    assert run.logged[4][0]["round_device/rpi4/examples_per_second_mean"] == 12.5
+    assert run.logged[4][0]["eval_server_group/rpi4-held/eval-acc"] == 0.7
     assert run.logged[4][0]["server_round"] == 1
+    assert run.logged[5][0]["eval_server_group_trip/rpi4-held/eval-acc"] == 0.7
+    assert run.logged[5][0]["client_trip"] == 17
+    assert run.logged[6][0]["system/round-train-duration-s"] == 3.2
+    assert run.logged[6][0]["round_system/train_duration_s"] == 3.2
+    assert run.logged[6][0]["round_cost/avg_flops"] == 1234
+    assert run.logged[6][0]["round_device/rpi4/examples_per_second_mean"] == 12.5
+    assert run.logged[6][0]["server_round"] == 1
     assert run.summary["runtime/total_server_s"] == 12.5
     assert run.summary["run_system/total_server_s"] == 12.5
     assert run.summary["model/full/param_count"] == 100
@@ -226,6 +232,10 @@ def test_wandb_experiment_logger_logs_and_finishes(monkeypatch) -> None:
     assert run.summary["fedctl_attempt_started_at"] == "2026-04-09T11:00:00Z"
     assert run.finished is True
     assert ("eval_server_trip/*", {"step_metric": "client_trip"}) in fake_wandb.metric_definitions
+    assert ("eval_server_group/rpi4-held/*", {"step_metric": "server_round"}) in fake_wandb.metric_definitions
+    assert ("eval_server_group/rpi5-held/*", {"step_metric": "server_round"}) in fake_wandb.metric_definitions
+    assert ("eval_server_group_trip/rpi4-held/*", {"step_metric": "client_trip"}) in fake_wandb.metric_definitions
+    assert ("eval_server_group_trip/rpi5-held/*", {"step_metric": "client_trip"}) in fake_wandb.metric_definitions
     assert ("train/*", {"step_metric": "server_round"}) in fake_wandb.metric_definitions
     assert ("fedbuff/*", {"step_metric": "server_step"}) in fake_wandb.metric_definitions
 

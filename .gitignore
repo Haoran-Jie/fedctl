@@ -18,7 +18,7 @@ refs/heterofl/
 refs/FIARSE/
 refs/heterofl_fedctl/data/
 refs/FedRolex-main
-tasks/
+/tasks/
 apps/fedctl_research/experiment_configs
 .claude/
 apps/fedctl_research/data/

@@ -1,0 +1,2 @@
+"""California Housing regression task."""
+
