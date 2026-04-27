@@ -292,6 +292,27 @@ class WandbExperimentLogger(ExperimentLogger):
     ) -> None:
         self._log("eval_server_trip", client_trip, metrics, axis_key="client_trip")
 
+    def log_server_eval_group_metrics(
+        self,
+        server_round: int,
+        group_name: str,
+        metrics: MetricRecord | Mapping[str, Any] | None,
+    ) -> None:
+        self._log(f"eval_server_group/{group_name}", server_round, metrics)
+
+    def log_server_eval_group_trip_metrics(
+        self,
+        client_trip: int,
+        group_name: str,
+        metrics: MetricRecord | Mapping[str, Any] | None,
+    ) -> None:
+        self._log(
+            f"eval_server_group_trip/{group_name}",
+            client_trip,
+            metrics,
+            axis_key="client_trip",
+        )
+
     def log_system_metrics(self, server_round: int, metrics: MetricRecord | Mapping[str, Any] | None) -> None:
         if self.disabled:
             return
@@ -603,6 +624,10 @@ def create_experiment_logger(context: Context) -> ExperimentLogger:
         ("round_device/*", "server_round"),
         ("progress/*", "client_trip"),
         ("eval_server_trip/*", "client_trip"),
+        ("eval_server_group/rpi4-held/*", "server_round"),
+        ("eval_server_group/rpi5-held/*", "server_round"),
+        ("eval_server_group_trip/rpi4-held/*", "client_trip"),
+        ("eval_server_group_trip/rpi5-held/*", "client_trip"),
         ("fedbuff/*", "server_step"),
         ("fedstaleweight/*", "server_step"),
         ("client_update/round_table", "server_round"),

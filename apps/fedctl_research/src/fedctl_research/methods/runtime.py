@@ -110,6 +110,31 @@ def _artifact_eval_payload(
     return payload
 
 
+def _device_correlated_eval_loaders(
+    task: object,
+    *,
+    base_seed: int | None,
+    method_label: str,
+) -> dict[str, object]:
+    if not hasattr(task, "load_centralized_test_dataset_for_labels"):
+        return {}
+    task_name = str(getattr(task, "name", "")).strip()
+    if task_name not in {"cifar10_cnn", "cifar10_preresnet18"}:
+        return {}
+    loader_fn = getattr(task, "load_centralized_test_dataset_for_labels")
+    low_labels = frozenset(range(0, 5))
+    high_labels = frozenset(range(5, 10))
+    seed = (
+        derive_seed(base_seed, method_label, "device-group-eval-loader", task_name)
+        if base_seed is not None
+        else None
+    )
+    return {
+        "rpi4-held": loader_fn(low_labels, seed=seed),
+        "rpi5-held": loader_fn(high_labels, seed=seed),
+    }
+
+
 def _metric_score_value(task: object, metrics: Mapping[str, object]) -> float | None:
     score_name = _task_score_name(task)
     for key in (f"eval-{score_name}", "eval-score", "eval-acc"):
@@ -624,6 +649,16 @@ def central_evaluate_fn(
             else None
         )
     )
+    group_testloaders = (
+        _device_correlated_eval_loaders(
+            task,
+            base_seed=base_seed,
+            method_label=method_label,
+        )
+        if str(lookup_or_default(context.run_config, "partitioning", "")).strip()
+        == "device-correlated-label-skew"
+        else {}
+    )
 
     def evaluate(server_round: int, arrays: ArrayRecord) -> MetricRecord | None:
         eval_started_at = time.perf_counter()
@@ -634,6 +669,15 @@ def central_evaluate_fn(
         )
         task.load_model_state(model, arrays.to_torch_state_dict())
         loss, score = task.test(model, testloader, device="cpu")
+        group_metrics_by_name: dict[str, MetricRecord] = {}
+        for group_name, group_loader in group_testloaders.items():
+            group_loss, group_score = task.test(model, group_loader, device="cpu")
+            group_metrics_by_name[group_name] = _evaluation_metric_record(
+                task,
+                loss=float(group_loss),
+                score=float(group_score),
+                server_round=server_round,
+            )
         eval_duration_s = time.perf_counter() - eval_started_at
         metrics = _evaluation_metric_record(
             task,
@@ -649,6 +693,45 @@ def central_evaluate_fn(
             client_trips_total = int(progress_payload.get("client_trips_total", 0))
             if client_trips_total > 0:
                 experiment_logger.log_server_eval_trip_metrics(client_trips_total, metrics)
+            for group_name, group_metrics in group_metrics_by_name.items():
+                if hasattr(experiment_logger, "log_server_eval_group_metrics"):
+                    experiment_logger.log_server_eval_group_metrics(
+                        server_round,
+                        group_name,
+                        group_metrics,
+                    )
+                if (
+                    client_trips_total > 0
+                    and hasattr(experiment_logger, "log_server_eval_group_trip_metrics")
+                ):
+                    experiment_logger.log_server_eval_group_trip_metrics(
+                        client_trips_total,
+                        group_name,
+                        group_metrics,
+                    )
+            if group_metrics_by_name:
+                summary_payload: dict[str, float] = {}
+                group_scores: dict[str, float] = {}
+                for group_name, group_metrics in group_metrics_by_name.items():
+                    group_score = _metric_score_value(task, group_metrics)
+                    if group_score is None:
+                        continue
+                    group_scores[group_name] = float(group_score)
+                    summary_payload[
+                        f"final/eval_server_group/{group_name}/eval-{_task_score_label(task)}"
+                    ] = float(group_score)
+                    summary_payload[
+                        f"final/eval_server_group/{group_name}/eval-score"
+                    ] = float(group_score)
+                    summary_payload[
+                        f"final/eval_server_group/{group_name}/eval-acc"
+                    ] = float(group_score)
+                if "rpi4-held" in group_scores and "rpi5-held" in group_scores:
+                    summary_payload[
+                        "final/eval_server_group/gap-rpi5-minus-rpi4"
+                    ] = group_scores["rpi5-held"] - group_scores["rpi4-held"]
+                if summary_payload and hasattr(experiment_logger, "log_summary_metrics"):
+                    experiment_logger.log_summary_metrics(summary_payload)
             experiment_logger.log_system_metrics(
                 server_round,
                 {"round-server-eval-duration-s": float(eval_duration_s)},
@@ -659,10 +742,30 @@ def central_evaluate_fn(
                 "round_server_eval_duration_s": float(eval_duration_s),
             }
             payload.update(_artifact_eval_payload(task, loss=float(loss), score=float(score)))
+            for group_name, group_metrics in group_metrics_by_name.items():
+                group_score = _metric_score_value(task, group_metrics)
+                if group_score is None:
+                    continue
+                payload[f"eval_{group_name.replace('-', '_')}_score"] = float(group_score)
+                payload[f"eval_{group_name.replace('-', '_')}_acc"] = float(group_score)
+            if "rpi4-held" in group_metrics_by_name and "rpi5-held" in group_metrics_by_name:
+                rpi4_score = _metric_score_value(task, group_metrics_by_name["rpi4-held"])
+                rpi5_score = _metric_score_value(task, group_metrics_by_name["rpi5-held"])
+                if rpi4_score is not None and rpi5_score is not None:
+                    payload["eval_group_gap_rpi5_minus_rpi4"] = float(rpi5_score) - float(rpi4_score)
             payload.update(progress_payload)
             artifact_logger.log_evaluation_event(payload)
         client_trips_total = int(progress_payload.get("client_trips_total", 0))
         if emit_server_log:
+            group_suffix = ""
+            if group_metrics_by_name:
+                parts = []
+                for group_name, group_metrics in group_metrics_by_name.items():
+                    group_score = _metric_score_value(task, group_metrics)
+                    if group_score is not None:
+                        parts.append(f"{group_name}_{_task_score_label(task)}={float(group_score):.4f}")
+                if parts:
+                    group_suffix = " " + " ".join(parts)
             server_log(
                 method_label=method_label,
                 message=(
@@ -671,6 +774,7 @@ def central_evaluate_fn(
                     f" eval_loss={float(loss):.4f}"
                     f" client_trips={client_trips_total}"
                     f" duration_s={float(eval_duration_s):.2f}"
+                    f"{group_suffix}"
                 ),
             )
         if (

@@ -95,6 +95,8 @@ class _Logger:
         self.eval_calls: list[tuple[int, dict[str, float | int]]] = []
         self.server_eval_calls: list[tuple[int, dict[str, float | int]]] = []
         self.server_eval_trip_calls: list[tuple[int, dict[str, float | int]]] = []
+        self.server_eval_group_calls: list[tuple[int, str, dict[str, float | int]]] = []
+        self.server_eval_group_trip_calls: list[tuple[int, str, dict[str, float | int]]] = []
         self.system_calls: list[tuple[int, dict[str, float | int]]] = []
         self.progress_calls: list[tuple[int, dict[str, float | int]]] = []
         self.async_calls: list[tuple[str, int, dict[str, float | int]]] = []
@@ -116,6 +118,12 @@ class _Logger:
 
     def log_server_eval_trip_metrics(self, client_trip: int, metrics) -> None:
         self.server_eval_trip_calls.append((client_trip, dict(metrics or {})))
+
+    def log_server_eval_group_metrics(self, server_round: int, group_name: str, metrics) -> None:
+        self.server_eval_group_calls.append((server_round, group_name, dict(metrics or {})))
+
+    def log_server_eval_group_trip_metrics(self, client_trip: int, group_name: str, metrics) -> None:
+        self.server_eval_group_trip_calls.append((client_trip, group_name, dict(metrics or {})))
 
     def log_system_metrics(self, server_round: int, metrics) -> None:
         self.system_calls.append((server_round, dict(metrics or {})))
@@ -2187,6 +2195,91 @@ def test_central_evaluate_logs_server_eval_duration(monkeypatch: pytest.MonkeyPa
     assert system_metrics["round-server-eval-duration-s"] >= 0.0
     assert artifact_logger.evaluations
     assert "round_server_eval_duration_s" in artifact_logger.evaluations[-1]
+
+
+def test_central_evaluate_logs_device_correlated_group_accuracy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _FakeTask:
+        name = "cifar10_cnn"
+        primary_score_name = "acc"
+        primary_score_direction = "max"
+
+        def build_model_for_rate(self, model_rate: float, *, global_model_rate: float = 1.0):
+            return {}
+
+        def load_model_state(self, model, state_dict) -> None:
+            model.update(state_dict)
+
+        def load_centralized_test_dataset(self, batch_size: int = 256, *, seed: int | None = None):
+            return "all"
+
+        def load_centralized_test_dataset_for_labels(
+            self,
+            labels,
+            batch_size: int = 256,
+            *,
+            seed: int | None = None,
+        ):
+            del batch_size, seed
+            return tuple(sorted(int(label) for label in labels))
+
+        def test(self, model, testloader, device: str):
+            del model, device
+            if testloader == "all":
+                return 0.3, 0.60
+            if testloader == (0, 1, 2, 3, 4):
+                return 0.5, 0.40
+            if testloader == (5, 6, 7, 8, 9):
+                return 0.2, 0.80
+            raise AssertionError(f"unexpected testloader {testloader!r}")
+
+    monkeypatch.setattr("fedctl_research.methods.runtime.resolve_task", lambda _name: _FakeTask())
+    logger = _Logger()
+    artifact_logger = _ArtifactLogger()
+    context = SimpleNamespace(
+        run_config={
+            "task": "cifar10_cnn",
+            "global-model-rate": 1.0,
+            "partitioning": "device-correlated-label-skew",
+            "seed": 1337,
+        },
+        node_config={},
+    )
+    arrays = ArrayRecord(OrderedDict({"w": torch.tensor([1.0])}))
+    evaluate = central_evaluate_fn(
+        context,
+        method_label="fedbuff",
+        experiment_logger=logger,
+        artifact_logger=artifact_logger,
+        progress_provider=lambda: {"client_trips_total": 15},
+        num_server_rounds=1,
+    )
+
+    result = evaluate(1, arrays)
+
+    assert result is not None
+    assert dict(result)["eval-acc"] == pytest.approx(0.60)
+    grouped = {
+        group_name: metrics
+        for _, group_name, metrics in logger.server_eval_group_calls
+    }
+    assert grouped["rpi4-held"]["eval-acc"] == pytest.approx(0.40)
+    assert grouped["rpi5-held"]["eval-acc"] == pytest.approx(0.80)
+    trip_grouped = {
+        group_name: (client_trip, metrics)
+        for client_trip, group_name, metrics in logger.server_eval_group_trip_calls
+    }
+    assert trip_grouped["rpi4-held"][0] == 15
+    assert trip_grouped["rpi5-held"][1]["eval-acc"] == pytest.approx(0.80)
+    final_summary = logger.summary_calls[-1]
+    assert final_summary["final/eval_server_group/rpi4-held/eval-acc"] == pytest.approx(0.40)
+    assert final_summary["final/eval_server_group/rpi5-held/eval-acc"] == pytest.approx(0.80)
+    assert final_summary["final/eval_server_group/gap-rpi5-minus-rpi4"] == pytest.approx(0.40)
+    evaluation_event = artifact_logger.evaluations[-1]
+    assert evaluation_event["eval_rpi4_held_acc"] == pytest.approx(0.40)
+    assert evaluation_event["eval_rpi5_held_acc"] == pytest.approx(0.80)
+    assert evaluation_event["eval_group_gap_rpi5_minus_rpi4"] == pytest.approx(0.40)
 
 
 def test_target_stop_controller_records_crossing_and_censoring() -> None:
