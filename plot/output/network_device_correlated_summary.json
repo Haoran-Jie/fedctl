@@ -1,0 +1,52 @@
+{
+  "methods": {
+    "fedavg": {
+      "seeds": [
+        1337,
+        1338,
+        1339
+      ],
+      "run_ids": [
+        "x855vst0",
+        "wuufqbcy",
+        "1ey5gjrc"
+      ],
+      "class_group_seed_count": {
+        "rpi4_held": 2,
+        "rpi5_held": 2
+      }
+    },
+    "fedbuff": {
+      "seeds": [
+        1337,
+        1338,
+        1339
+      ],
+      "run_ids": [
+        "4pwdz3n5",
+        "vi55i8zz",
+        "p90mzxul"
+      ],
+      "class_group_seed_count": {
+        "rpi4_held": 2,
+        "rpi5_held": 2
+      }
+    },
+    "fedstaleweight": {
+      "seeds": [
+        1337,
+        1338,
+        1339
+      ],
+      "run_ids": [
+        "otboqbw9",
+        "ykl56p5a",
+        "wpinnavy"
+      ],
+      "class_group_seed_count": {
+        "rpi4_held": 2,
+        "rpi5_held": 2
+      }
+    }
+  }
+}

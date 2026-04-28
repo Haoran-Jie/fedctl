@@ -81,9 +81,9 @@ def main() -> None:
 
     apply_publication_style()
     colors = dict(zip(METHOD_ORDER, default_cycle_colors(len(METHOD_ORDER)), strict=True))
-    linestyles = {"fedavg": "-", "fedbuff": "--", "fedstaleweight": "-."}
+    linestyles = {"fedavg": "-", "fedasync": "-", "fedbuff": "--", "fedstaleweight": "-."}
 
-    fig, axes = plt.subplots(2, 2, figsize=(PUBLICATION_FIGURE_WIDTH, 6), sharex=True, sharey=True)
+    fig, axes = plt.subplots(2, 2, figsize=(PUBLICATION_FIGURE_WIDTH, 6), sharex=True, sharey=False)
     for row_idx, regime in enumerate(REGIME_ORDER):
         for col_idx, topology in enumerate(TOPOLOGY_ORDER):
             ax = axes[row_idx, col_idx]
@@ -141,19 +141,22 @@ def main() -> None:
                     )
 
             ax.axhline(TARGET_ACC, color="#444444", linestyle=":", linewidth=1.4)
-            if row_idx == 0:
-                ax.set_title(TOPOLOGY_LABELS[topology])
             ax.set_xlim(0, MAX_SECONDS)
-            ax.set_ylim(0.30, 0.66)
+            if row_idx == 0:
+                ax.set_ylim(0.38, 0.66)
+                ax.set_yticks([0.40, 0.50, 0.60])
+            if row_idx == 1:
+                ax.set_ylim(0.25, 0.69)
+                ax.set_yticks([0.30, 0.40, 0.50, 0.60])
             ax.set_xticks([0, 1000, 2000, 3000, 4000])
             ax.text(
-                0.03,
-                0.95,
-                REGIME_LABELS[regime],
+                0.5,
+                1.2,
+                f"{REGIME_LABELS[regime]}, {TOPOLOGY_LABELS[topology]}",
                 transform=ax.transAxes,
-                ha="left",
+                ha="center",
                 va="top",
-                fontsize=14,
+                fontsize=16,
                 color="#333333",
                 bbox={
                     "boxstyle": "round,pad=0.20",
@@ -179,9 +182,8 @@ def main() -> None:
 
     handles, labels = axes[0, 0].get_legend_handles_labels()
     by_label = dict(zip(labels, handles, strict=False))
-    fig.legend(by_label.values(), by_label.keys(), loc="upper center", ncol=3, frameon=True, bbox_to_anchor=(0.5, 1.02))
-    fig.tight_layout(rect=(0.0, 0.0, 1.0, 0.93))
-
+    fig.legend(by_label.values(), by_label.keys(), loc="upper center", ncol=4, frameon=True, bbox_to_anchor=(0.5, 1.02))
+    fig.tight_layout(pad=2.5, h_pad=0.5, w_pad=2.5)
     outputs = save_figure_dual(fig, "network_main_accuracy_vs_wall_clock")
     left_pdf, right_pdf = outputs["pdf"]
     print(

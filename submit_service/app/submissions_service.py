@@ -114,6 +114,7 @@ def list_visible_submissions_for_ui(
     limit: int = 100,
     offset: int = 0,
     search_query: str | None = None,
+    default_priority: int = 50,
 ) -> list[dict[str, Any]]:
     rows = storage.list_submissions(
         limit=limit,
@@ -122,6 +123,7 @@ def list_visible_submissions_for_ui(
         user=None if principal.role == "admin" else principal.name,
         query=search_query,
         order="ui",
+        default_priority=default_priority,
     )
     return rows
 

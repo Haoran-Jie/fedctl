@@ -36,6 +36,20 @@ PUBLICATION_FONT_FAMILY = {
     'text.latex.preamble': r'\usepackage[T1]{fontenc}\usepackage{newtxtext,newtxmath}',
 }
 
+PUBLICATION_AXES_STYLE = {
+    # Match the plot frame and tick marks to the grid so the data marks stay visually dominant.
+    'axes.edgecolor': '0.65',
+    'grid.color': '0.65',
+    'grid.alpha': 1.0,
+    'xtick.color': '0.65',
+    'ytick.color': '0.65',
+    'xtick.minor.visible': False,
+    'ytick.minor.visible': False,
+    'xtick.labelcolor': 'black',
+    'ytick.labelcolor': 'black',
+    'axes.labelcolor': 'black',
+}
+
 
 def ensure_output_dirs() -> None:
     PLOT_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -58,11 +72,13 @@ def apply_publication_style() -> None:
     plt.style.use(['science', 'grid'])
     plt.rcParams.update(PUBLICATION_FONT_SIZES)
     plt.rcParams.update(PUBLICATION_FONT_FAMILY)
+    plt.rcParams.update(PUBLICATION_AXES_STYLE)
 
 def apply_publication_style_no_grid() -> None:
     plt.style.use(['science'])
     plt.rcParams.update(PUBLICATION_FONT_SIZES)
     plt.rcParams.update(PUBLICATION_FONT_FAMILY)
+    plt.rcParams.update(PUBLICATION_AXES_STYLE)
 
 def default_cycle_colors(count: int) -> list[str]:
     colors = plt.rcParams['axes.prop_cycle'].by_key().get('color', [])
@@ -137,3 +153,13 @@ def save_figure_plot_with_writeup_pdf(
     return {
         'pdf': (pdf_plot, pdf_writeup),
     }
+
+
+def darken_color_hls(color: str, factor: float = 0.8) -> str:
+    import matplotlib.colors as mcolors
+    import colorsys
+    r, g, b = mcolors.to_rgb(color)
+    h, l, s = colorsys.rgb_to_hls(r, g, b)
+    l = max(0, l * factor)
+    r, g, b = colorsys.hls_to_rgb(h, l, s)
+    return mcolors.to_hex((r, g, b))

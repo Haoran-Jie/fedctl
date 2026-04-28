@@ -1819,9 +1819,6 @@ td.cell-blocked { font-size: 0.88rem; color: var(--muted); }
   border-radius: 14px;
   background: #f2f7f8;
   margin-bottom: 0.9rem;
-  position: sticky;
-  top: calc(var(--sticky-top-offset) + 0.15rem);
-  z-index: 4;
   box-shadow: 0 8px 18px rgba(36, 64, 73, 0.08);
 }
 .log-view-toolbar {

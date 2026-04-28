@@ -1,0 +1,205 @@
+{
+  "max_steps": 60,
+  "expected_seed_coverage": {
+    "fedbuff_k5": {
+      "seeds": [
+        1337,
+        1338,
+        1339
+      ],
+      "run_ids": [
+        "f8r1yqsh",
+        "3sduvg0n",
+        "w54p73te"
+      ]
+    },
+    "fedbuff_k10": {
+      "seeds": [
+        1337,
+        1338,
+        1339
+      ],
+      "run_ids": [
+        "j81afai0",
+        "kouohvbb",
+        "o7i4mdii"
+      ]
+    },
+    "fedstaleweight_k5": {
+      "seeds": [
+        1337,
+        1339
+      ],
+      "run_ids": [
+        "qjnt77fk",
+        "yk3uqpnh"
+      ]
+    },
+    "fedstaleweight_k10": {
+      "seeds": [
+        1337,
+        1338,
+        1339
+      ],
+      "run_ids": [
+        "wyc9rjxq",
+        "b0xxbbi7",
+        "9qv2c0qb"
+      ]
+    }
+  },
+  "panels": {
+    "rpi4": {
+      "fedbuff_k5": {
+        "n": 188,
+        "seeds": [
+          1337,
+          1338,
+          1339
+        ],
+        "run_ids": [
+          "3sduvg0n",
+          "f8r1yqsh",
+          "w54p73te"
+        ],
+        "mean": 4.372340425531915,
+        "median": 4.0,
+        "q1": 4.0,
+        "q3": 5.0,
+        "min": 1.0,
+        "max": 8.0
+      },
+      "fedbuff_k10": {
+        "n": 262,
+        "seeds": [
+          1337,
+          1338,
+          1339
+        ],
+        "run_ids": [
+          "j81afai0",
+          "kouohvbb",
+          "o7i4mdii"
+        ],
+        "mean": 3.236641221374046,
+        "median": 3.0,
+        "q1": 3.0,
+        "q3": 3.0,
+        "min": 1.0,
+        "max": 6.0
+      },
+      "fedstaleweight_k5": {
+        "n": 124,
+        "seeds": [
+          1337,
+          1339
+        ],
+        "run_ids": [
+          "qjnt77fk",
+          "yk3uqpnh"
+        ],
+        "mean": 4.354838709677419,
+        "median": 4.0,
+        "q1": 4.0,
+        "q3": 5.0,
+        "min": 1.0,
+        "max": 8.0
+      },
+      "fedstaleweight_k10": {
+        "n": 260,
+        "seeds": [
+          1337,
+          1338,
+          1339
+        ],
+        "run_ids": [
+          "9qv2c0qb",
+          "b0xxbbi7",
+          "wyc9rjxq"
+        ],
+        "mean": 3.1653846153846152,
+        "median": 3.0,
+        "q1": 3.0,
+        "q3": 3.0,
+        "min": 1.0,
+        "max": 7.0
+      }
+    },
+    "rpi5": {
+      "fedbuff_k5": {
+        "n": 712,
+        "seeds": [
+          1337,
+          1338,
+          1339
+        ],
+        "run_ids": [
+          "3sduvg0n",
+          "f8r1yqsh",
+          "w54p73te"
+        ],
+        "mean": 2.2570224719101124,
+        "median": 2.0,
+        "q1": 2.0,
+        "q3": 3.0,
+        "min": 0.0,
+        "max": 5.0
+      },
+      "fedbuff_k10": {
+        "n": 1538,
+        "seeds": [
+          1337,
+          1338,
+          1339
+        ],
+        "run_ids": [
+          "j81afai0",
+          "kouohvbb",
+          "o7i4mdii"
+        ],
+        "mean": 1.0461638491547465,
+        "median": 1.0,
+        "q1": 1.0,
+        "q3": 1.0,
+        "min": 0.0,
+        "max": 2.0
+      },
+      "fedstaleweight_k5": {
+        "n": 476,
+        "seeds": [
+          1337,
+          1339
+        ],
+        "run_ids": [
+          "qjnt77fk",
+          "yk3uqpnh"
+        ],
+        "mean": 2.2710084033613445,
+        "median": 2.0,
+        "q1": 2.0,
+        "q3": 3.0,
+        "min": 0.0,
+        "max": 4.0
+      },
+      "fedstaleweight_k10": {
+        "n": 1510,
+        "seeds": [
+          1337,
+          1338,
+          1339
+        ],
+        "run_ids": [
+          "9qv2c0qb",
+          "b0xxbbi7",
+          "wyc9rjxq"
+        ],
+        "mean": 1.0556291390728476,
+        "median": 1.0,
+        "q1": 1.0,
+        "q3": 1.0,
+        "min": 0.0,
+        "max": 2.0
+      }
+    }
+  }
+}

@@ -38,9 +38,8 @@
 </section>
 
 {% if status_filter == 'active' and rows %}
-{% set running_rows = rows | selectattr('status', 'equalto', 'running') | list %}
-{% set submitting_rows = rows | selectattr('status', 'equalto', 'queued') | list %}
-{% set waiting_rows = rows | selectattr('status', 'equalto', 'blocked') | list %}
+{% set running_rows = queue_running_rows %}
+{% set pending_rows = queue_pending_rows %}
 <section class="panel queue-panel" data-queue-panel>
   <div class="queue-header">
     <div>
@@ -74,61 +73,38 @@
     </div>
     {% endif %}
 
-    {% if running_rows and (submitting_rows or waiting_rows) %}
+    {% if running_rows and pending_rows %}
     <div class="queue-connector" aria-hidden="true">
       <div class="queue-connector-line"></div>
       <div class="queue-connector-arrow"></div>
     </div>
     {% endif %}
 
-    {% if submitting_rows %}
+    {% if pending_rows %}
     <div class="queue-stage queue-stage-queued">
       <div class="queue-stage-label">
         <span class="queue-stage-dot queue-stage-dot-queued"></span>
-        Queued
-        <span class="queue-stage-count">{{ submitting_rows | length }}</span>
+        Pending dispatch
+        <span class="queue-stage-count">{{ pending_rows | length }}</span>
       </div>
       <div class="queue-stage-track">
-        {% for row in submitting_rows %}
-        <a class="queue-card queue-card-queued" href="/ui/submissions/{{ row.id }}?return_to={{ return_to | urlencode }}">
-          <span class="queue-card-sequence" title="Position in queue (FCFS)">#{{ loop.index }}</span>
+        {% for row in pending_rows %}
+        <a class="queue-card {% if row.status == 'blocked' %}queue-card-waiting{% else %}queue-card-queued{% endif %}" href="/ui/submissions/{{ row.id }}?return_to={{ return_to | urlencode }}">
+          <span class="queue-card-sequence" title="Priority-aware dispatch position">#{{ loop.index }}</span>
           <span class="queue-card-name" title="{{ row.experiment }}">{{ row.experiment }}</span>
           <span class="queue-card-id">{{ row.id | replace('sub-', '', 1) }}</span>
-          <span class="queue-card-time">{% if row.created_at.iso %}<time datetime="{{ row.created_at.iso }}" data-relative>{{ row.created_at.label }}</time>{% else %}{{ row.created_at.label }}{% endif %}</span>
-        </a>
-        {% endfor %}
-      </div>
-    </div>
-    {% endif %}
-
-    {% if submitting_rows and waiting_rows %}
-    <div class="queue-connector" aria-hidden="true">
-      <div class="queue-connector-line"></div>
-      <div class="queue-connector-arrow"></div>
-    </div>
-    {% endif %}
-
-    {% if waiting_rows %}
-    <div class="queue-stage queue-stage-waiting">
-      <div class="queue-stage-label">
-        <span class="queue-stage-dot queue-stage-dot-waiting"></span>
-        Waiting resources
-        <span class="queue-stage-count">{{ waiting_rows | length }}</span>
-      </div>
-      <div class="queue-stage-track">
-        {% for row in waiting_rows %}
-        <a class="queue-card queue-card-waiting" href="/ui/submissions/{{ row.id }}?return_to={{ return_to | urlencode }}">
-          <span class="queue-card-sequence" title="Position in queue (FCFS)">#{{ loop.index }}</span>
-          <span class="queue-card-name" title="{{ row.experiment }}">{{ row.experiment }}</span>
-          <span class="queue-card-id">{{ row.id | replace('sub-', '', 1) }}</span>
+          {% if row.status == 'blocked' %}
           <span class="queue-card-reason">{{ row.blocked_reason }}</span>
+          {% else %}
+          <span class="queue-card-time">{% if row.created_at.iso %}<time datetime="{{ row.created_at.iso }}" data-relative>{{ row.created_at.label }}</time>{% else %}{{ row.created_at.label }}{% endif %}</span>
+          {% endif %}
         </a>
         {% endfor %}
       </div>
     </div>
     {% endif %}
 
-    {% if not running_rows and not submitting_rows and not waiting_rows %}
+    {% if not running_rows and not pending_rows %}
     <div class="empty-queue">
       <p class="empty-queue-icon">✓</p>
       <p class="empty-queue-message">No active submissions</p>

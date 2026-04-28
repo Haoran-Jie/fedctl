@@ -301,6 +301,74 @@ def test_ui_active_list_orders_running_before_blocked(tmp_path, monkeypatch: pyt
     assert page.text.index(running_id.replace("sub-", "", 1)) < page.text.index(blocked_id.replace("sub-", "", 1))
 
 
+def test_ui_queue_panel_keeps_priority_order_across_queued_and_blocked(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = _make_ui_client(tmp_path, monkeypatch)
+    storage = client.app.state.storage
+
+    alice_headers = {"Authorization": "Bearer tok-alice"}
+    queued_id = client.post("/v1/submissions", json=_payload(), headers=alice_headers).json()["submission_id"]
+    blocked_id = client.post("/v1/submissions", json=_payload(), headers=alice_headers).json()["submission_id"]
+    storage.update_submission(
+        queued_id,
+        {
+            "status": "queued",
+            "created_at": "2026-01-01T00:00:00+00:00",
+            "priority": 50,
+        },
+    )
+    storage.update_submission(
+        blocked_id,
+        {
+            "status": "blocked",
+            "created_at": "2026-01-01T00:01:00+00:00",
+            "priority": 100,
+            "blocked_reason": "strict placement waits",
+        },
+    )
+
+    _login(client, "tok-alice")
+    page = client.get("/ui/submissions?status=active")
+
+    assert page.status_code == 200
+    assert "Pending dispatch" in page.text
+    assert page.text.index(blocked_id.replace("sub-", "", 1)) < page.text.index(
+        queued_id.replace("sub-", "", 1)
+    )
+
+
+def test_queue_panel_rows_sorts_pending_like_dispatcher() -> None:
+    rows = [
+        {
+            "id": "sub-low",
+            "status": "blocked",
+            "priority": 50,
+            "created_at": {"iso": "2026-01-01T00:00:00+00:00"},
+        },
+        {
+            "id": "sub-high",
+            "status": "blocked",
+            "priority": 100,
+            "created_at": {"iso": "2026-01-01T00:01:00+00:00"},
+        },
+        {
+            "id": "sub-default",
+            "status": "queued",
+            "priority": None,
+            "created_at": {"iso": "2026-01-01T00:02:00+00:00"},
+        },
+    ]
+
+    queue_rows = ui_routes._queue_panel_rows(rows, default_priority=50)
+
+    assert [row["id"] for row in queue_rows["pending"]] == [
+        "sub-high",
+        "sub-low",
+        "sub-default",
+    ]
+
+
 def test_ui_submissions_search_filters_rows_and_preserves_return_to(
     tmp_path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -295,14 +295,14 @@ def plot_heatmaps(rows: list[UpdateRow]) -> dict[str, object]:
     plt.rcParams.update(
         {
             'ytick.labelsize': 10,
-            'xtick.labelsize': 12,
+            'xtick.labelsize': 10,
         }
     )
 
     max_staleness = max((row.staleness for row in rows if row.server_step <= MAX_STEPS), default=1)
     norm_cap = max(1, max_staleness)
 
-    fig, axes = plt.subplots(2, 2, figsize=(PUBLICATION_FIGURE_WIDTH, 6), sharex=True, sharey=True)
+    fig, axes = plt.subplots(2, 2, figsize=(PUBLICATION_FIGURE_WIDTH, 5), sharex=True, sharey=True)
     cmap = plt.colormaps["Reds"].copy()
     cmap.set_bad("white")
     spec_by_cell = (

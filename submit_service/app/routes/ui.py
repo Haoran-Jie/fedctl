@@ -468,7 +468,10 @@ def submissions_page(
         limit=limit,
         offset=offset,
         search_query=search_query,
+        default_priority=request.app.state.cfg.default_priority,
     )
+    row_views = [_submission_row_view(row, principal.role) for row in rows]
+    queue_rows = _queue_panel_rows(row_views, default_priority=request.app.state.cfg.default_priority)
     pagination = _pagination_context(
         status_filter=status_filter,
         q=search_query,
@@ -485,7 +488,9 @@ def submissions_page(
             "status_filters": _STATUS_FILTERS,
             "search_query": search_query,
             "stats": submission_stats_for_principal(request.app.state.storage, auth_principal),
-            "rows": [_submission_row_view(row, principal.role) for row in rows],
+            "rows": row_views,
+            "queue_running_rows": queue_rows["running"],
+            "queue_pending_rows": queue_rows["pending"],
             "quick_command": _submission_list_command(status_filter),
             "return_to": _submission_list_return_to(
                 status_filter=status_filter,
@@ -942,6 +947,27 @@ def _submission_row_view(record: dict[str, Any], role: str) -> dict[str, Any]:
         "namespace": record.get("namespace") or "-",
         "priority": record.get("priority"),
     }
+
+
+def _queue_panel_rows(
+    rows: list[dict[str, Any]],
+    *,
+    default_priority: int,
+) -> dict[str, list[dict[str, Any]]]:
+    running = [row for row in rows if row.get("status") == "running"]
+    pending = [row for row in rows if row.get("status") in {"queued", "blocked"}]
+
+    def pending_key(row: dict[str, Any]) -> tuple[int, str, str]:
+        priority = row.get("priority")
+        if priority is None:
+            priority = default_priority
+        created_at = row.get("created_at")
+        created_iso = ""
+        if isinstance(created_at, dict):
+            created_iso = str(created_at.get("iso") or "")
+        return (-int(priority), created_iso, str(row.get("id") or ""))
+
+    return {"running": running, "pending": sorted(pending, key=pending_key)}
 
 
 
