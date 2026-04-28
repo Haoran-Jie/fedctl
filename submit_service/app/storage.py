@@ -123,9 +123,10 @@ class Storage:
         user: str | None = None,
         query: str | None = None,
         order: str = "created_desc",
+        default_priority: int = 50,
     ) -> list[dict[str, Any]]:
         where, params = _submission_where(statuses=statuses, user=user, query=query)
-        order_sql = _submission_order(order)
+        order_sql = _submission_order(order, default_priority=default_priority)
         limit = max(1, int(limit))
         offset = max(0, int(offset))
         with self._connect() as conn:
@@ -296,16 +297,19 @@ def _submission_where(
     return where, tuple(params)
 
 
-def _submission_order(order: str) -> str:
+def _submission_order(order: str, *, default_priority: int = 50) -> str:
     if order == "ui":
+        safe_default_priority = int(default_priority)
         return (
             "ORDER BY "
             "CASE "
-            "WHEN status IN ('running', 'queued') THEN 0 "
-            "WHEN status = 'blocked' THEN 1 "
+            "WHEN status = 'running' THEN 0 "
+            "WHEN status IN ('queued', 'blocked') THEN 1 "
             "ELSE 2 END ASC, "
-            "CASE WHEN status = 'blocked' THEN created_at END ASC, "
-            "CASE WHEN status != 'blocked' THEN created_at END DESC, "
+            f"CASE WHEN status IN ('queued', 'blocked') THEN COALESCE(priority, {safe_default_priority}) END DESC, "
+            "CASE WHEN status IN ('queued', 'blocked') THEN created_at END ASC, "
+            "CASE WHEN status IN ('queued', 'blocked') THEN id END ASC, "
+            "CASE WHEN status NOT IN ('queued', 'blocked') THEN created_at END DESC, "
             "id DESC"
         )
     return "ORDER BY created_at DESC, id DESC"

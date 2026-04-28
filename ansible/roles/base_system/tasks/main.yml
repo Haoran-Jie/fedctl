@@ -1,0 +1,44 @@
+---
+- name: Ensure systemd-timesyncd is enabled and running
+  ansible.builtin.systemd:
+    name: systemd-timesyncd
+    enabled: true
+    state: started
+
+- name: Wait for NTP synchronization before apt
+  ansible.builtin.command:
+    argv:
+      - timedatectl
+      - show
+      - -p
+      - NTPSynchronized
+      - --value
+  register: base_system_ntp_sync
+  changed_when: false
+  until: base_system_ntp_sync.stdout | trim == 'yes'
+  retries: 20
+  delay: 3
+
+- name: Install baseline packages
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - git
+      - python3
+      - python3-pip
+      - python3-venv
+      - unzip
+    state: present
+    update_cache: true
+
+- name: Set system hostname from inventory
+  ansible.builtin.hostname:
+    name: "{{ inventory_hostname }}"
+
+- name: Ensure localhost hostname mapping exists
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: '^127\\.0\\.1\\.1\\s+'
+    line: "127.0.1.1 {{ inventory_hostname }}"
+    state: present

@@ -39,6 +39,42 @@
       "target_client_trips": 195
     },
     {
+      "run_id": "od0jg2h8",
+      "seed": 1337,
+      "regime": "iid",
+      "topology": "all_rpi5",
+      "method": "fedasync",
+      "points": 25,
+      "first_trip": 10,
+      "last_trip": 250,
+      "target_reached": true,
+      "target_client_trips": 250
+    },
+    {
+      "run_id": "uk2fzey8",
+      "seed": 1338,
+      "regime": "iid",
+      "topology": "all_rpi5",
+      "method": "fedasync",
+      "points": 27,
+      "first_trip": 10,
+      "last_trip": 270,
+      "target_reached": true,
+      "target_client_trips": 270
+    },
+    {
+      "run_id": "r0x2kswp",
+      "seed": 1339,
+      "regime": "iid",
+      "topology": "all_rpi5",
+      "method": "fedasync",
+      "points": 25,
+      "first_trip": 10,
+      "last_trip": 250,
+      "target_reached": true,
+      "target_client_trips": 250
+    },
+    {
       "run_id": "6eom2gov",
       "seed": 1337,
       "regime": "iid",
@@ -145,6 +181,42 @@
       "last_trip": 465,
       "target_reached": true,
       "target_client_trips": 465
+    },
+    {
+      "run_id": "5y70d2gw",
+      "seed": 1337,
+      "regime": "noniid",
+      "topology": "all_rpi5",
+      "method": "fedasync",
+      "points": 89,
+      "first_trip": 10,
+      "last_trip": 890,
+      "target_reached": true,
+      "target_client_trips": 890
+    },
+    {
+      "run_id": "0d4oxuo7",
+      "seed": 1338,
+      "regime": "noniid",
+      "topology": "all_rpi5",
+      "method": "fedasync",
+      "points": 100,
+      "first_trip": 10,
+      "last_trip": 1000,
+      "target_reached": false,
+      "target_client_trips": null
+    },
+    {
+      "run_id": "o222rgnw",
+      "seed": 1339,
+      "regime": "noniid",
+      "topology": "all_rpi5",
+      "method": "fedasync",
+      "points": 97,
+      "first_trip": 10,
+      "last_trip": 970,
+      "target_reached": true,
+      "target_client_trips": 970
     },
     {
       "run_id": "k2bpz79x",
@@ -255,6 +327,42 @@
       "target_client_trips": 195
     },
     {
+      "run_id": "iqm77w4f",
+      "seed": 1337,
+      "regime": "iid",
+      "topology": "mixed",
+      "method": "fedasync",
+      "points": 14,
+      "first_trip": 10,
+      "last_trip": 140,
+      "target_reached": true,
+      "target_client_trips": 140
+    },
+    {
+      "run_id": "69uz6jnf",
+      "seed": 1338,
+      "regime": "iid",
+      "topology": "mixed",
+      "method": "fedasync",
+      "points": 13,
+      "first_trip": 10,
+      "last_trip": 130,
+      "target_reached": true,
+      "target_client_trips": 130
+    },
+    {
+      "run_id": "5uvtgprx",
+      "seed": 1339,
+      "regime": "iid",
+      "topology": "mixed",
+      "method": "fedasync",
+      "points": 14,
+      "first_trip": 10,
+      "last_trip": 140,
+      "target_reached": true,
+      "target_client_trips": 140
+    },
+    {
       "run_id": "stlelmg4",
       "seed": 1337,
       "regime": "iid",
@@ -361,6 +469,42 @@
       "last_trip": 465,
       "target_reached": true,
       "target_client_trips": 465
+    },
+    {
+      "run_id": "u2awvlob",
+      "seed": 1337,
+      "regime": "noniid",
+      "topology": "mixed",
+      "method": "fedasync",
+      "points": 37,
+      "first_trip": 10,
+      "last_trip": 370,
+      "target_reached": true,
+      "target_client_trips": 370
+    },
+    {
+      "run_id": "vnxrt39a",
+      "seed": 1338,
+      "regime": "noniid",
+      "topology": "mixed",
+      "method": "fedasync",
+      "points": 44,
+      "first_trip": 10,
+      "last_trip": 440,
+      "target_reached": true,
+      "target_client_trips": 440
+    },
+    {
+      "run_id": "utho3iov",
+      "seed": 1339,
+      "regime": "noniid",
+      "topology": "mixed",
+      "method": "fedasync",
+      "points": 36,
+      "first_trip": 10,
+      "last_trip": 360,
+      "target_reached": true,
+      "target_client_trips": 360
     },
     {
       "run_id": "j81afai0",

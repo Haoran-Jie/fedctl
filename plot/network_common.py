@@ -18,9 +18,10 @@ TASK = "cifar10_cnn"
 TARGET_ACC = 0.60
 BUDGET_TRIPS = 1000
 
-METHOD_ORDER = ("fedavg", "fedbuff", "fedstaleweight")
+METHOD_ORDER = ("fedavg", "fedasync", "fedbuff", "fedstaleweight")
 METHOD_LABELS = {
     "fedavg": "FedAvg",
+    "fedasync": "FedAsync",
     "fedbuff": "FedBuff",
     "fedstaleweight": "FedStaleWeight",
 }
@@ -32,7 +33,7 @@ REGIME_LABELS = {
 TOPOLOGY_ORDER = ("all_rpi5", "mixed")
 TOPOLOGY_LABELS = {
     "all_rpi5": "all rpi5",
-    "mixed": "rpi5+rpi4",
+    "mixed": "mixed",
 }
 
 
@@ -42,7 +43,7 @@ class RunSpec:
     topology: str
     method: str
     seed: int
-    run_id: str
+    run_id: str | None
 
 
 @dataclass(frozen=True)
@@ -127,6 +128,9 @@ RUNS = (
     RunSpec("iid", "all_rpi5", "fedavg", 1337, "c97h9zuy"),
     RunSpec("iid", "all_rpi5", "fedavg", 1338, "vu1dgghm"),
     RunSpec("iid", "all_rpi5", "fedavg", 1339, "evb7ctp1"),
+    RunSpec("iid", "all_rpi5", "fedasync", 1337, "od0jg2h8"),
+    RunSpec("iid", "all_rpi5", "fedasync", 1338, "uk2fzey8"),
+    RunSpec("iid", "all_rpi5", "fedasync", 1339, "r0x2kswp"),
     RunSpec("iid", "all_rpi5", "fedbuff", 1337, "6eom2gov"),
     RunSpec("iid", "all_rpi5", "fedbuff", 1338, "jvq0wis5"),
     RunSpec("iid", "all_rpi5", "fedbuff", 1339, "nkc9y10n"),
@@ -136,6 +140,9 @@ RUNS = (
     RunSpec("noniid", "all_rpi5", "fedavg", 1337, "6l03ojrq"),
     RunSpec("noniid", "all_rpi5", "fedavg", 1338, "ypycfovi"),
     RunSpec("noniid", "all_rpi5", "fedavg", 1339, "l7hyd4rp"),
+    RunSpec("noniid", "all_rpi5", "fedasync", 1337, "5y70d2gw"),
+    RunSpec("noniid", "all_rpi5", "fedasync", 1338, "0d4oxuo7"),
+    RunSpec("noniid", "all_rpi5", "fedasync", 1339, "o222rgnw"),
     RunSpec("noniid", "all_rpi5", "fedbuff", 1337, "k2bpz79x"),
     RunSpec("noniid", "all_rpi5", "fedbuff", 1338, "y1zp1xa5"),
     RunSpec("noniid", "all_rpi5", "fedbuff", 1339, "gxhcey0d"),
@@ -145,6 +152,9 @@ RUNS = (
     RunSpec("iid", "mixed", "fedavg", 1337, "t9vlpy39"),
     RunSpec("iid", "mixed", "fedavg", 1338, "5vjjx5qo"),
     RunSpec("iid", "mixed", "fedavg", 1339, "3apbb0nc"),
+    RunSpec("iid", "mixed", "fedasync", 1337, "iqm77w4f"),
+    RunSpec("iid", "mixed", "fedasync", 1338, "69uz6jnf"),
+    RunSpec("iid", "mixed", "fedasync", 1339, "5uvtgprx"),
     RunSpec("iid", "mixed", "fedbuff", 1337, "stlelmg4"),
     RunSpec("iid", "mixed", "fedbuff", 1338, "3f1a6ign"),
     RunSpec("iid", "mixed", "fedbuff", 1339, "gmlpn1sy"),
@@ -154,6 +164,9 @@ RUNS = (
     RunSpec("noniid", "mixed", "fedavg", 1337, "0ysztwpg"),
     RunSpec("noniid", "mixed", "fedavg", 1338, "kqc9pciy"),
     RunSpec("noniid", "mixed", "fedavg", 1339, "5cari6u0"),
+    RunSpec("noniid", "mixed", "fedasync", 1337, "u2awvlob"),
+    RunSpec("noniid", "mixed", "fedasync", 1338, "vnxrt39a"),
+    RunSpec("noniid", "mixed", "fedasync", 1339, "utho3iov"),
     RunSpec("noniid", "mixed", "fedbuff", 1337, "j81afai0"),
     RunSpec("noniid", "mixed", "fedbuff", 1338, "kouohvbb"),
     RunSpec("noniid", "mixed", "fedbuff", 1339, "o7i4mdii"),
@@ -228,6 +241,8 @@ def _summary_number(summary: dict[str, object], keys: tuple[str, ...]) -> float 
 
 
 def _fetch_run(api: wandb.Api, spec: RunSpec) -> tuple[list[EvalPoint], SummaryRow]:
+    if spec.run_id is None:
+        raise ValueError("cannot fetch a pending W&B run")
     run = api.run(f"{ENTITY}/{PROJECT}/{spec.run_id}")
     points: list[EvalPoint] = []
     seen: set[tuple[int | None, float | None, float]] = set()
@@ -349,7 +364,7 @@ def load_cached(raw_filename: str, summary_filename: str) -> tuple[list[EvalPoin
                 )
             )
 
-    expected_run_ids = {spec.run_id for spec in run_specs()}
+    expected_run_ids = {spec.run_id for spec in run_specs() if spec.run_id is not None}
     cached_run_ids = {summary.run_id for summary in summaries}
     if cached_run_ids != expected_run_ids:
         return [], []
@@ -412,6 +427,8 @@ def fetch_or_load(raw_filename: str, summary_filename: str) -> tuple[list[EvalPo
     all_points: list[EvalPoint] = []
     all_summaries: list[SummaryRow] = []
     for spec in run_specs():
+        if spec.run_id is None:
+            continue
         run_points, summary = _fetch_run(api, spec)
         all_points.extend(run_points)
         all_summaries.append(summary)
@@ -567,7 +584,7 @@ def aggregate_targets(summaries: list[SummaryRow]) -> list[AggregateTargetRow]:
 def aggregate_diagnostics(summaries: list[SummaryRow]) -> list[AggregateDiagnosticRow]:
     grouped: dict[tuple[str, str], list[SummaryRow]] = defaultdict(list)
     for summary in summaries:
-        if summary.topology != "mixed" or summary.method not in {"fedbuff", "fedstaleweight"}:
+        if summary.topology != "mixed" or summary.method not in {"fedasync", "fedbuff", "fedstaleweight"}:
             continue
         grouped[(summary.regime, summary.method)].append(summary)
 

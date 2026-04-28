@@ -1,9 +1,9 @@
 {
-  "points": 135,
+  "points": 215,
   "points_by_pair": {
-    "pair_a_c": 27,
+    "pair_a_c": 54,
     "pair_a_e": 81,
-    "pair_c_e": 27
+    "pair_c_e": 80
   },
   "missing": []
 }

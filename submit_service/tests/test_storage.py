@@ -64,14 +64,14 @@ def test_storage_list_submissions_supports_offset_count_search_and_ui_order(tmp_
     storage.init_db()
 
     rows = [
-        ("sub-completed-new", "completed", "vision-new", "2026-01-01T00:05:00+00:00"),
-        ("sub-running", "running", "vision-running", "2026-01-01T00:04:00+00:00"),
-        ("sub-queued", "queued", "vision-queued", "2026-01-01T00:03:00+00:00"),
-        ("sub-blocked-old", "blocked", "vision-blocked", "2026-01-01T00:01:00+00:00"),
-        ("sub-blocked-new", "blocked", "vision-blocked", "2026-01-01T00:02:00+00:00"),
-        ("sub-other", "completed", "language", "2026-01-01T00:06:00+00:00"),
+        ("sub-completed-new", "completed", "vision-new", "2026-01-01T00:05:00+00:00", 50),
+        ("sub-running", "running", "vision-running", "2026-01-01T00:04:00+00:00", 50),
+        ("sub-queued", "queued", "vision-queued", "2026-01-01T00:03:00+00:00", 50),
+        ("sub-blocked-old", "blocked", "vision-blocked", "2026-01-01T00:01:00+00:00", 50),
+        ("sub-blocked-new", "blocked", "vision-blocked", "2026-01-01T00:02:00+00:00", 100),
+        ("sub-other", "completed", "language", "2026-01-01T00:06:00+00:00", 50),
     ]
-    for sub_id, status, experiment, created_at in rows:
+    for sub_id, status, experiment, created_at, priority in rows:
         storage.create_submission(
             {
                 "id": sub_id,
@@ -88,7 +88,7 @@ def test_storage_list_submissions_supports_offset_count_search_and_ui_order(tmp_
                 "node_class": "submit",
                 "args": ["-m", "fedctl.submit.runner"],
                 "env": {},
-                "priority": 50,
+                "priority": priority,
                 "logs_location": None,
                 "result_location": None,
                 "result_artifacts": [],
@@ -107,7 +107,7 @@ def test_storage_list_submissions_supports_offset_count_search_and_ui_order(tmp_
         query="vision",
         order="ui",
     )
-    assert [row["id"] for row in page] == ["sub-running", "sub-queued", "sub-blocked-old"]
+    assert [row["id"] for row in page] == ["sub-running", "sub-blocked-new", "sub-blocked-old"]
 
     next_page = storage.list_submissions(
         limit=3,
@@ -116,7 +116,7 @@ def test_storage_list_submissions_supports_offset_count_search_and_ui_order(tmp_
         query="vision",
         order="ui",
     )
-    assert [row["id"] for row in next_page] == ["sub-blocked-new", "sub-completed-new"]
+    assert [row["id"] for row in next_page] == ["sub-queued", "sub-completed-new"]
 
 
 def test_storage_list_dispatch_candidates_orders_by_priority_then_age(tmp_path) -> None:
