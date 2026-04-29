@@ -12,14 +12,15 @@ from .submissions import authenticate
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-DEFAULT_PRESIGN_TTL = 21600
+DEFAULT_PRESIGN_TTL = 604800
+MAX_PRESIGN_TTL = 604800
 
 
 class PresignRequest(BaseModel):
     bucket: str = Field(min_length=1)
     key: str = Field(min_length=1)
     method: Literal["GET", "PUT"]
-    expires: int | None = Field(default=None, ge=60, le=86400)
+    expires: int | None = Field(default=None, ge=60, le=MAX_PRESIGN_TTL)
 
 
 class PresignResponse(BaseModel):
