@@ -35,22 +35,32 @@ RUN_SPECS = {
     ("fedavg", 1337): "x855vst0",
     ("fedbuff", 1337): "4pwdz3n5",
     ("fedstaleweight", 1337): "otboqbw9",
+    ("fedasync", 1337): "da37radj",
     ("fedavg", 1338): "wuufqbcy",
     ("fedbuff", 1338): "vi55i8zz",
     ("fedstaleweight", 1338): "ykl56p5a",
+    ("fedasync", 1338): "mivsq04b",
     ("fedavg", 1339): "1ey5gjrc",
     ("fedbuff", 1339): "p90mzxul",
     ("fedstaleweight", 1339): "wpinnavy",
+    ("fedasync", 1339): "cnscgnem",
 }
 METHOD_LABELS = {
     "fedavg": "FedAvg",
     "fedbuff": "FedBuff",
     "fedstaleweight": "FedStaleWeight",
+    "fedasync": "FedAsync",
 }
-METHOD_ORDER = ("fedavg", "fedbuff", "fedstaleweight")
-ASYNC_METHODS = ("fedbuff", "fedstaleweight")
+METHOD_ORDER = ("fedavg", "fedbuff", "fedstaleweight", "fedasync")
+ASYNC_METHODS = ("fedbuff", "fedstaleweight", "fedasync")
+ASYNC_SHARE_PLOT_ORDER = ("fedasync", "fedbuff", "fedstaleweight")
+METHOD_UPDATES_PER_STEP = {
+    "fedbuff": 10,
+    "fedstaleweight": 10,
+    "fedasync": 1,
+}
 POPULATION_RPI4_SHARE = 5 / 15
-ROLLING_WINDOW = 10
+SHARE_ROLLING_TRIPS = 100
 
 
 @dataclass(frozen=True)
@@ -313,7 +323,7 @@ def _fmt_fixed_or_pm(values: list[float], *, decimals: int = 0) -> str:
     return _fmt_mean_pm(values, decimals=decimals)
 
 
-def _rolling_mean(values: np.ndarray, *, window: int = ROLLING_WINDOW) -> np.ndarray:
+def _rolling_mean(values: np.ndarray, *, window: int) -> np.ndarray:
     if values.size == 0:
         return values
     result = np.empty_like(values, dtype=float)
@@ -421,26 +431,28 @@ def _aggregate_shares(
         if row.method == method:
             by_seed[row.seed].append(row)
 
+    updates_per_step = METHOD_UPDATES_PER_STEP[method]
+    rolling_window = max(1, SHARE_ROLLING_TRIPS // updates_per_step)
     per_seed: list[tuple[np.ndarray, np.ndarray]] = []
-    values_by_step: dict[int, list[float]] = defaultdict(list)
+    values_by_trip: dict[int, list[float]] = defaultdict(list)
     for seed_rows in by_seed.values():
         ordered = sorted(seed_rows, key=lambda row: row.server_step)
-        xs = np.array([row.server_step for row in ordered], dtype=int)
-        ys = _rolling_mean(np.array([selector(row) for row in ordered], dtype=float))
+        xs = np.array([row.server_step * updates_per_step for row in ordered], dtype=int)
+        ys = _rolling_mean(np.array([selector(row) for row in ordered], dtype=float), window=rolling_window)
         per_seed.append((xs, ys))
         for x, y in zip(xs, ys, strict=True):
-            values_by_step[int(x)].append(float(y))
+            values_by_trip[int(x)].append(float(y))
 
-    steps = np.array(sorted(values_by_step), dtype=int)
-    means = np.array([np.mean(values_by_step[int(step)]) for step in steps], dtype=float)
+    trips = np.array(sorted(values_by_trip), dtype=int)
+    means = np.array([np.mean(values_by_trip[int(trip)]) for trip in trips], dtype=float)
     stds = np.array(
         [
-            np.std(values_by_step[int(step)], ddof=1) if len(values_by_step[int(step)]) > 1 else 0.0
-            for step in steps
+            np.std(values_by_trip[int(trip)], ddof=1) if len(values_by_trip[int(trip)]) > 1 else 0.0
+            for trip in trips
         ],
         dtype=float,
     )
-    return steps, means, stds, per_seed
+    return trips, means, stds, per_seed
 
 
 def main() -> None:
@@ -481,14 +493,16 @@ def main() -> None:
             linestyle="-",
         )
 
-        for method in ASYNC_METHODS:
+        for method in ASYNC_SHARE_PLOT_ORDER:
             xs, means, stds, per_seed = _aggregate_shares(method, shares, selector)
             for seed_xs, seed_ys in per_seed:
-                ax.plot(seed_xs, seed_ys, color=colors[method], linewidth=0.8, alpha=0.20)
-            ax.plot(xs, means, color=colors[method], linewidth=2.5)
+                trace_alpha = 0.08 if method == "fedasync" else 0.20
+                trace_width = 0.5 if method == "fedasync" else 0.8
+                ax.plot(seed_xs, seed_ys, color=colors[method], linewidth=trace_width, alpha=trace_alpha, zorder=2)
+            ax.plot(xs, means, color=colors[method], linewidth=2.5, zorder=3)
             ax.fill_between(xs, means - stds, means + stds, color=colors[method], alpha=0.16, linewidth=0)
 
-        ax.set_xlabel("Server step")
+        ax.set_xlabel("Completed client trips")
         ax.set_ylabel(ylabel)
         ax.set_ylim(-0.02, 0.55)
         ax.yaxis.set_major_formatter(lambda value, _pos: f"{100 * value:.0f}\\%")
@@ -502,7 +516,7 @@ def main() -> None:
         handles=legend_handles,
         labels=[METHOD_LABELS[method] for method in METHOD_ORDER],
         loc="upper center",
-        ncol=3,
+        ncol=4,
         frameon=True,
         bbox_to_anchor=(0.5, 1.05),
     )

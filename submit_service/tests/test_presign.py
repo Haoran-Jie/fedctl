@@ -58,3 +58,29 @@ def test_presign_uses_server_default_ttl_when_expires_omitted(
         "Key": "fedctl-submits/project.tar.gz",
     }
     assert captured["expires"] == 21600
+
+
+def test_presign_allows_s3_sigv4_max_ttl(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    client = _make_client(tmp_path, monkeypatch)
+
+    captured: dict[str, object] = {}
+
+    class FakeS3Client:
+        def generate_presigned_url(self, operation, *, Params, ExpiresIn):
+            captured["expires"] = ExpiresIn
+            return "https://signed.example/object"
+
+    monkeypatch.setattr("submit_service.app.routes.presign._s3_client", lambda: FakeS3Client())
+
+    response = client.post(
+        "/v1/presign",
+        json={
+            "bucket": "fedctl-submits",
+            "key": "fedctl-submits/project.tar.gz",
+            "method": "GET",
+            "expires": 604800,
+        },
+    )
+
+    assert response.status_code == 200
+    assert captured["expires"] == 604800

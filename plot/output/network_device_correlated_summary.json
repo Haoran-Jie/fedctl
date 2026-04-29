@@ -47,6 +47,22 @@
         "rpi4_held": 2,
         "rpi5_held": 2
       }
+    },
+    "fedasync": {
+      "seeds": [
+        1337,
+        1338,
+        1339
+      ],
+      "run_ids": [
+        "da37radj",
+        "mivsq04b",
+        "cnscgnem"
+      ],
+      "class_group_seed_count": {
+        "rpi4_held": 3,
+        "rpi5_held": 3
+      }
     }
   }
 }

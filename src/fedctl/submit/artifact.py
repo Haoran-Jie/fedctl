@@ -11,7 +11,7 @@ class ArtifactUploadError(RuntimeError):
     pass
 
 
-DEFAULT_PRESIGN_TTL = 21600
+DEFAULT_PRESIGN_TTL = 604800
 
 
 def upload_artifact(
