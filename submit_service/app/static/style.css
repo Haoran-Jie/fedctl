@@ -20,6 +20,7 @@
   --glass-strong: rgba(251, 254, 253, 0.82);
   --glass-edge: rgba(255, 255, 255, 0.48);
   --glass-shadow: 0 16px 34px rgba(26, 46, 58, 0.12);
+  --detail-tall-panel-height: 60rem;
 }
 
 * { box-sizing: border-box; }
@@ -1682,6 +1683,10 @@ td.cell-blocked { font-size: 0.88rem; color: var(--muted); }
   max-height: 34rem;
   overflow: auto;
   padding-right: 0.2rem;
+}
+.job-mapping-scroll-block {
+  min-height: var(--detail-tall-panel-height);
+  max-height: var(--detail-tall-panel-height);
 }
 .section-block h2 {
   margin: 0 0 0.85rem;
@@ -3562,6 +3567,10 @@ td.cell-blocked { font-size: 0.88rem; color: var(--muted); }
   .overview-grid { grid-template-columns: 1fr; }
   .mapping-grid {
     padding-left: 0.95rem;
+  }
+  .job-mapping-scroll-block {
+    min-height: 0;
+    max-height: 34rem;
   }
   .mapping-head {
     flex-direction: column;
