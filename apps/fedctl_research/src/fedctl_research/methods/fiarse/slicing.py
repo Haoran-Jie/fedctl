@@ -1,4 +1,4 @@
-"""Structured importance-aware slicing helpers for FIARSE-lite."""
+"""Structured importance-aware slicing helpers for FIARSE."""
 
 from __future__ import annotations
 

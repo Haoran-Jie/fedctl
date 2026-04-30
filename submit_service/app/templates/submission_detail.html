@@ -331,7 +331,7 @@
           <p class="muted">Nomad job and task mapping recorded by the submit runner.</p>
         </div>
       </div>
-      <div class="section-block scroll-section-block">
+      <div class="section-block scroll-section-block{% if submission.job_entries %} job-mapping-scroll-block{% endif %}">
         {% if submission.job_entries %}
         <div class="mapping-grid">
           {% for entry in submission.job_entries %}
