@@ -21,12 +21,16 @@ _SESSION_KEY = "ui_principal"
 
 
 def login_via_token(request: Request, cfg: SubmitConfig, token: str) -> UISessionPrincipal:
-    if not (cfg.tokens or cfg.token_identities):
+    if not (cfg.tokens or cfg.token_identities or cfg.registration_enabled):
         raise HTTPException(
             status_code=503,
             detail="UI login requires configured submit-service tokens.",
         )
-    principal = principal_for_token(token, cfg)
+    principal = principal_for_token(
+        token,
+        cfg,
+        storage=getattr(request.app.state, "storage", None),
+    )
     if principal is None:
         raise HTTPException(status_code=403, detail="Invalid token")
     data = {"name": principal.name, "role": principal.role}

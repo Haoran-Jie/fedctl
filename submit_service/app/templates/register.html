@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block title %}Register token | fedctl{% endblock %}
+{% block content %}
+<section class="panel narrow">
+  <div class="eyebrow">Internal access</div>
+  <h1>Register bearer token</h1>
+  <p class="muted">Create a user-scoped bearer token for the CLI and web UI. Leave the token field blank to let the service generate a strong token.</p>
+  {% if error %}
+  <div class="alert error">{{ error }}</div>
+  {% endif %}
+  {% if registered %}
+  <div class="alert success">
+    <strong>Token registered for {{ registered.name }}</strong>
+    <p>Save this token now. The service stores only a hash and cannot show it again.</p>
+  </div>
+  <div class="quick-command">
+    <span class="quick-command-label">Bearer token</span>
+    <code>{{ registered.token }}</code>
+  </div>
+  <div class="quick-command">
+    <span class="quick-command-label">CLI setup</span>
+    <code>export FEDCTL_SUBMIT_TOKEN={{ registered.token }}</code>
+  </div>
+  <p><a class="button" href="/ui/login">Go to login</a></p>
+  {% else %}
+  <form method="post" action="/ui/register" class="stack">
+    <label for="name">Username</label>
+    <input id="name" name="name" type="text" required autofocus placeholder="flwruser11">
+    <label for="token">Bearer token</label>
+    <input id="token" name="token" type="password" placeholder="Leave blank to generate">
+    <label for="registration_code">Registration code</label>
+    <input id="registration_code" name="registration_code" type="password" placeholder="Required if configured">
+    <button type="submit">Register token</button>
+  </form>
+  <p class="muted"><a href="/ui/login">Back to login</a></p>
+  {% endif %}
+</section>
+{% endblock %}

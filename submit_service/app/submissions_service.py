@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import secrets
+import re
 from typing import Any
 import hashlib
 import json
+import sqlite3
 
 from fastapi import HTTPException, Request
 import httpx
@@ -30,25 +33,34 @@ class ResolvedLogs:
 _ACTIVE_STATUSES = {"queued", "running", "blocked"}
 _CANCELLABLE_STATUSES = {"queued", "running", "blocked"}
 _PURGEABLE_STATUSES = {"completed", "failed", "cancelled"}
+_REGISTERED_TOKEN_PREFIX = "fedctl_"
+_MIN_REGISTERED_TOKEN_LENGTH = 24
+_USERNAME_RE = re.compile(r"^[A-Za-z0-9_.-]{3,64}$")
 
 
 def authenticate_request(request: Request, cfg: SubmitConfig) -> AuthPrincipal:
     auth_header = request.headers.get("Authorization", "")
-    if cfg.tokens or cfg.token_identities:
-        if not auth_header.startswith("Bearer "):
-            raise HTTPException(status_code=401, detail="Missing bearer token")
+    if auth_header.startswith("Bearer "):
         token = auth_header.replace("Bearer ", "", 1).strip()
-        principal = principal_for_token(token, cfg)
+        principal = principal_for_token(token, cfg, storage=getattr(request.app.state, "storage", None))
         if principal is None:
             raise HTTPException(status_code=403, detail="Invalid token")
         return principal
+    if cfg.tokens or cfg.token_identities or cfg.registration_enabled:
+        if not cfg.allow_unauth:
+            raise HTTPException(status_code=401, detail="Missing bearer token")
     if not cfg.allow_unauth:
         raise HTTPException(status_code=401, detail="Unauthorized")
     return AuthPrincipal(name="anonymous", role="admin", token=None)
 
 
 
-def principal_for_token(token: str, cfg: SubmitConfig) -> AuthPrincipal | None:
+def principal_for_token(
+    token: str,
+    cfg: SubmitConfig,
+    *,
+    storage: Storage | None = None,
+) -> AuthPrincipal | None:
     token = token.strip()
     if not token:
         return None
@@ -57,7 +69,49 @@ def principal_for_token(token: str, cfg: SubmitConfig) -> AuthPrincipal | None:
         return AuthPrincipal(name=identity.name, role=identity.role, token=token)
     if token in cfg.tokens:
         return AuthPrincipal(name=_legacy_token_name(token), role="admin", token=token)
+    if storage is not None:
+        registered = storage.get_bearer_token(_token_hash(token))
+        if registered is not None:
+            name = registered.get("name")
+            role = registered.get("role")
+            if isinstance(name, str) and isinstance(role, str) and role in {"user", "admin"}:
+                return AuthPrincipal(name=name, role=role, token=token)
     return None
+
+
+def register_bearer_token(
+    storage: Storage,
+    cfg: SubmitConfig,
+    *,
+    name: str,
+    token: str | None = None,
+    registration_code: str | None = None,
+) -> dict[str, str]:
+    if not cfg.registration_enabled:
+        raise HTTPException(status_code=403, detail="Token registration is disabled.")
+    if cfg.registration_code and not secrets.compare_digest(
+        cfg.registration_code, (registration_code or "").strip()
+    ):
+        raise HTTPException(status_code=403, detail="Invalid registration code.")
+    clean_name = _clean_registered_name(name)
+    issued_token = _clean_registered_token(token) if token else _generate_bearer_token()
+    try:
+        record = storage.create_bearer_token(
+            token_hash=_token_hash(issued_token),
+            name=clean_name,
+            role="user",
+            created_at=utcnow().isoformat(),
+        )
+    except sqlite3.IntegrityError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="That username or bearer token is already registered.",
+        ) from exc
+    return {
+        "name": str(record["name"]),
+        "role": str(record["role"]),
+        "token": issued_token,
+    }
 
 
 
@@ -68,6 +122,34 @@ def ensure_submission_access(record: dict[str, Any], principal: AuthPrincipal) -
     if isinstance(owner, str) and owner == principal.name:
         return
     raise HTTPException(status_code=404, detail="Submission not found")
+
+
+def _token_hash(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def _generate_bearer_token() -> str:
+    return f"{_REGISTERED_TOKEN_PREFIX}{secrets.token_urlsafe(32)}"
+
+
+def _clean_registered_name(name: str) -> str:
+    cleaned = (name or "").strip()
+    if not _USERNAME_RE.fullmatch(cleaned):
+        raise HTTPException(
+            status_code=422,
+            detail="Username must be 3-64 characters and use only letters, numbers, dot, dash, or underscore.",
+        )
+    return cleaned
+
+
+def _clean_registered_token(token: str) -> str:
+    cleaned = (token or "").strip()
+    if len(cleaned) < _MIN_REGISTERED_TOKEN_LENGTH or any(ch.isspace() for ch in cleaned):
+        raise HTTPException(
+            status_code=422,
+            detail=f"Bearer token must be at least {_MIN_REGISTERED_TOKEN_LENGTH} characters with no whitespace.",
+        )
+    return cleaned
 
 
 

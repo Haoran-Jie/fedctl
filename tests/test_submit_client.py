@@ -103,6 +103,30 @@ def test_submit_client_check_auth_uses_tiny_submission_query(monkeypatch) -> Non
     assert captured["headers"]["Authorization"] == "Bearer token-123"
 
 
+def test_submit_client_register_token_posts_registration_payload(monkeypatch) -> None:
+    captured = {}
+
+    def fake_request(method, url, json=None, params=None, headers=None, timeout=None):
+        captured["method"] = method
+        captured["url"] = url
+        captured["json"] = json
+        captured["headers"] = headers
+        return DummyResp(
+            200,
+            "{}",
+            json_obj={"name": "alice", "role": "user", "token": "fedctl_generated"},
+        )
+
+    monkeypatch.setattr(httpx, "request", fake_request)
+    client = SubmitServiceClient(endpoint="http://submit.example")
+    response = client.register_token(name="alice", registration_code="cammlsys")
+
+    assert response["token"] == "fedctl_generated"
+    assert captured["method"] == "POST"
+    assert captured["url"] == "http://submit.example/v1/tokens/register"
+    assert captured["json"] == {"name": "alice", "registration_code": "cammlsys"}
+
+
 def test_submit_client_list_submissions_status_filter(monkeypatch) -> None:
     captured = {}
 

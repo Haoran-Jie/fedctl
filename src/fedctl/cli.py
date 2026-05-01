@@ -444,6 +444,55 @@ def submit_results(
         )
     )
 
+
+@submit_app.command("register-token")
+def submit_register_token(
+    name: str | None = typer.Option(
+        None,
+        "--name",
+        help="Username for the registered token.",
+    ),
+    registration_code: str | None = typer.Option(
+        None,
+        "--registration-code",
+        help="Registration code, if the submit service requires one.",
+    ),
+    token: str | None = typer.Option(
+        None,
+        "--token",
+        help=(
+            "Optional bearer token to register. "
+            "Omit to let the service generate one."
+        ),
+    ),
+    deploy_config: str | None = typer.Option(
+        None, "--deploy-config", help="Path to deploy config YAML."
+    ),
+    legacy_repo_config: str | None = typer.Option(None, "--repo-config", hidden=True),
+    print_token: bool = typer.Option(
+        False,
+        "--print-token",
+        help="Print the registered token after saving it locally.",
+    ),
+) -> None:
+    """Register a user-scoped submit-service bearer token."""
+    from fedctl.commands.submit import run_submit_register_token
+
+    resolved_deploy_config = _resolve_deploy_config_option(
+        deploy_config=deploy_config,
+        legacy_repo_config=legacy_repo_config,
+    )
+    raise SystemExit(
+        run_submit_register_token(
+            name=name,
+            registration_code=registration_code,
+            token=token,
+            deploy_config=resolved_deploy_config,
+            print_token=print_token,
+        )
+    )
+
+
 def _format_deploy_config(value: str | None) -> str:
     if not value:
         return "-"

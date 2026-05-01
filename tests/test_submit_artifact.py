@@ -379,6 +379,46 @@ def test_prompted_submit_token_is_not_written_to_repo_deploy_config(
     assert yaml.safe_load(user_deploy_cfg_path.read_text())["submit"]["token"] == "prompt-token"
 
 
+def test_run_submit_register_token_prompts_and_saves_token(
+    monkeypatch, tmp_path: Path, capsys
+) -> None:
+    saved: dict[str, object] = {}
+    registered: dict[str, object] = {}
+
+    class FakeSubmitClient:
+        def register_token(self, **kwargs):
+            registered.update(kwargs)
+            return {"name": kwargs["name"], "role": "user", "token": "fedctl_secret"}
+
+    monkeypatch.setattr(submit_cmd, "_submit_service_client", lambda **_: FakeSubmitClient())
+    monkeypatch.setattr(submit_cmd, "_interactive_stdin", lambda: True)
+    monkeypatch.setattr(submit_cmd.getpass, "getuser", lambda: "alice")
+    monkeypatch.setattr(submit_cmd.getpass, "getpass", lambda _: "cammlsys")
+
+    def fake_store_submit_token(token: str, *, deploy_cfg_path: Path | None) -> Path:
+        saved["token"] = token
+        saved["deploy_cfg_path"] = deploy_cfg_path
+        return tmp_path / "deploy-default.yaml"
+
+    monkeypatch.setattr(submit_cmd, "_store_submit_token", fake_store_submit_token)
+
+    status = submit_cmd.run_submit_register_token(
+        name=None,
+        registration_code=None,
+        token=None,
+    )
+
+    output = capsys.readouterr().out
+    assert status == 0
+    assert registered == {
+        "name": "alice",
+        "registration_code": "cammlsys",
+        "token": None,
+    }
+    assert saved == {"token": "fedctl_secret", "deploy_cfg_path": None}
+    assert "fedctl_secret" not in output
+
+
 def test_run_submit_auto_generates_experiment_from_experiment_config(
     monkeypatch, tmp_path: Path
 ) -> None:

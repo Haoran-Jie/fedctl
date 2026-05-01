@@ -954,6 +954,71 @@ def run_submit_inventory(
     return 0
 
 
+def run_submit_register_token(
+    *,
+    name: str | None,
+    registration_code: str | None,
+    token: str | None,
+    deploy_config: str | None = None,
+    print_token: bool = False,
+) -> int:
+    client = _submit_service_client(deploy_config=deploy_config, validate_auth=False)
+    if client is None or isinstance(client, _SubmitAuthFailed):
+        console.print(
+            "[red]✗ Submit service endpoint not configured.[/red] "
+            "Set submit.endpoint in your deploy config or FEDCTL_SUBMIT_ENDPOINT."
+        )
+        return 1
+
+    resolved_name = (
+        name or os.environ.get("FEDCTL_SUBMIT_USER") or getpass.getuser()
+    ).strip()
+    if not resolved_name:
+        console.print("[red]✗ Username is required.[/red]")
+        return 1
+
+    resolved_registration_code = registration_code
+    if resolved_registration_code is None and _interactive_stdin():
+        try:
+            entered = getpass.getpass("Registration code (leave blank if not required): ")
+        except (EOFError, KeyboardInterrupt):
+            console.print("[red]✗ Registration cancelled.[/red]")
+            return 1
+        resolved_registration_code = entered.strip() or None
+
+    try:
+        registered = client.register_token(
+            name=resolved_name,
+            registration_code=resolved_registration_code,
+            token=token,
+        )
+    except SubmitServiceError as exc:
+        console.print(f"[red]✗ Token registration failed:[/red] {exc}")
+        return 1
+
+    issued_token = registered.get("token")
+    if not isinstance(issued_token, str) or not issued_token.strip():
+        console.print("[red]✗ Token registration response did not include a token.[/red]")
+        return 1
+
+    path = _store_submit_token(issued_token, deploy_cfg_path=None)
+    _print_ok(f"Registered bearer token for {registered.get('name') or resolved_name}")
+    _print_ok(f"Saved submit token: {path}")
+    if os.environ.get("FEDCTL_SUBMIT_TOKEN"):
+        console.print(
+            "[yellow]Note:[/yellow] FEDCTL_SUBMIT_TOKEN is set; "
+            "it overrides saved config."
+        )
+    if print_token:
+        console.print(issued_token)
+    else:
+        console.print(
+            "[yellow]Note:[/yellow] Token was saved locally and is not printed. "
+            "Use --print-token to display it."
+        )
+    return 0
+
+
 def _build_project_archive(
     project_root: Path,
     project_name: str,

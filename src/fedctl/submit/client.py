@@ -28,6 +28,20 @@ class SubmitServiceClient:
     def create_submission(self, payload: dict[str, Any]) -> dict[str, Any]:
         return self._request("POST", "/v1/submissions", json_payload=payload)
 
+    def register_token(
+        self,
+        *,
+        name: str,
+        registration_code: str | None = None,
+        token: str | None = None,
+    ) -> dict[str, Any]:
+        payload: dict[str, str] = {"name": name}
+        if registration_code:
+            payload["registration_code"] = registration_code
+        if token:
+            payload["token"] = token
+        return self._request("POST", "/v1/tokens/register", json_payload=payload)
+
     def check_auth(self) -> None:
         self._request("GET", "/v1/submissions", params={"limit": "1", "status": "all"})
 

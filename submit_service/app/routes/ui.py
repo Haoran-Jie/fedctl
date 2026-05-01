@@ -21,6 +21,7 @@ from ..submissions_service import (
     is_purgeable,
     list_visible_submissions_for_ui,
     purge_submission_record,
+    register_bearer_token,
     resolve_submission_logs_detail,
     submission_stats_for_principal,
 )
@@ -148,7 +149,7 @@ _HELP_CONFIG_SECTIONS = [
         "details": [
             "Use a deploy config when you need to tell fedctl where and how to run the project. It is deployment-side state: submit-service endpoint and token, artifact storage, submit runner image, image registry, Nomad resource defaults, placement rules, and network impairment profiles.",
             "The deploy config is consumed by the local CLI and the submit runner. Flower does not receive this file as run config; Flower only receives the normalized experiment/run config plus the project archive.",
-            "Fresh installs create a CamMLSys-oriented default deploy config on first fedctl use. For most users, setup should be pip install fedctl, add a bearer token through submit.token or FEDCTL_SUBMIT_TOKEN, then run fedctl submit run <project>.",
+            "Fresh installs create a CamMLSys-oriented default deploy config on first fedctl use. For most users, setup should be pip install fedctl, register a bearer token with fedctl submit register-token, then run fedctl submit run <project>.",
         ],
         "flow": [
             "Resolve the deploy config from --deploy-config, project .fedctl/fedctl.yaml, or the active user profile.",
@@ -163,7 +164,7 @@ _HELP_CONFIG_SECTIONS = [
                 "items": [
                     "fedctl creates ~/.config/fedctl/config.toml and ~/.config/fedctl/deploy-default.yaml on first CLI use.",
                     "The generated deploy-default.yaml points at the shared CamMLSys submit service and registry.",
-                    "The intentionally blank value is submit.token; set it in the file or export FEDCTL_SUBMIT_TOKEN.",
+                    "The intentionally blank value is submit.token; populate it with fedctl submit register-token, set it in the file, or export FEDCTL_SUBMIT_TOKEN.",
                     "Interactive submit commands can prompt for a missing or invalid bearer token and persist it to the user deploy config.",
                 ],
             },
@@ -180,7 +181,7 @@ _HELP_CONFIG_SECTIONS = [
                 "title": "Important fields",
                 "items": [
                     "submit.endpoint chooses the submit service API.",
-                    "submit.token or FEDCTL_SUBMIT_TOKEN provides the bearer token.",
+                    "submit.token or FEDCTL_SUBMIT_TOKEN provides the bearer token; fedctl submit register-token can create and save this value for a user.",
                     "submit.image chooses the fedctl submit runner image.",
                     "deploy.image_registry is the visible canonical registry field; use 128.232.61.111:5000 for CamMLSys.",
                     "deploy.supernodes is optional. If omitted, fedctl can fall back to the Flower project's local-simulation.num-supernodes unless overridden by CLI flags or a deploy preset.",
@@ -200,7 +201,7 @@ _HELP_CONFIG_SECTIONS = [
                     {
                         "path": "submit.token",
                         "type": "string",
-                        "description": "Bearer token for the submit service. It may be left blank when FEDCTL_SUBMIT_TOKEN is set, and interactive CLI auth can persist a prompted token here for user config files.",
+                        "description": "Bearer token for the submit service. It may be left blank when FEDCTL_SUBMIT_TOKEN is set, and fedctl submit register-token or interactive CLI auth can persist a token here for user config files.",
                     },
                     {
                         "path": "submit.user",
@@ -382,11 +383,17 @@ _HELP_CONFIG_SECTIONS = [
         ],
         "notes": [
             "Resolution order is --deploy-config, project .fedctl/fedctl.yaml, then the active user profile.",
-            "Fresh installs create a CamMLSys default deploy config; add submit.token or set FEDCTL_SUBMIT_TOKEN.",
+            "Fresh installs create a CamMLSys default deploy config; use fedctl submit register-token, add submit.token, or set FEDCTL_SUBMIT_TOKEN.",
             "deploy.image_registry is the canonical registry field for CamMLSys runs.",
             "deploy.supernodes is optional; when omitted, fedctl can fall back to the Flower project's local-simulation.num-supernodes.",
         ],
-        "related_commands": ["submit run", "submit status", "submit logs", "submit inventory"],
+        "related_commands": [
+            "submit register-token",
+            "submit run",
+            "submit status",
+            "submit logs",
+            "submit inventory",
+        ],
     },
 ]
 _HELP_COMMANDS = [
@@ -470,6 +477,51 @@ _HELP_COMMANDS = [
             "By default, output is streamed and Nomad jobs are destroyed after completion.",
         ],
         "related": ["submit ls", "submit status", "submit logs", "submit results"],
+    },
+    {
+        "name": "submit register-token",
+        "summary": "Register a user-scoped bearer token and save it in the user deploy config.",
+        "importance": "standard",
+        "syntax": "fedctl submit register-token --name <username> [--registration-code CODE]",
+        "details": [
+            "Use this command for first-time setup when the submit service has self-registration enabled. It calls the registration API without requiring an existing bearer token, receives a user-scoped token, and stores it locally.",
+            "If the service requires a registration code and stdin is interactive, the CLI prompts for it without echoing the input. The token itself is not printed unless --print-token is passed.",
+        ],
+        "use_cases": [
+            "Set up a fresh fedctl install without manually editing YAML.",
+            "Create a replacement user token after an old one is revoked.",
+            "Check that submit-service registration is enabled before running experiments.",
+        ],
+        "examples": [
+            {
+                "title": "Register with an interactive code prompt",
+                "body": "The returned token is saved to the user deploy config.",
+                "command": "fedctl submit register-token --name alice",
+            },
+            {
+                "title": "Register non-interactively",
+                "body": "Useful for setup scripts when the registration code is already available.",
+                "command": "fedctl submit register-token --name alice --registration-code <code>",
+            },
+            {
+                "title": "Use an explicit deploy config for the endpoint",
+                "body": "The endpoint can come from a deploy config while the token is saved to user config.",
+                "command": "fedctl submit register-token --name alice --deploy-config .fedctl/fedctl.yaml",
+            },
+        ],
+        "flags": [
+            {"name": "--name", "type": "TEXT", "description": "Username attached to the registered token"},
+            {"name": "--registration-code", "type": "TEXT", "description": "Registration code if the submit service requires one"},
+            {"name": "--token", "type": "TEXT", "description": "Optional caller-provided bearer token; omit to let the service generate one"},
+            {"name": "--deploy-config", "type": "PATH", "description": "Deploy config used to find submit.endpoint"},
+            {"name": "--print-token", "type": "FLAG", "description": "Print the token after saving it locally"},
+        ],
+        "notes": [
+            "Registration must be enabled on the submit service by the operator.",
+            "Registered tokens are normal user tokens; they do not grant admin access.",
+            "FEDCTL_SUBMIT_TOKEN still overrides the token saved in the deploy config.",
+        ],
+        "related": ["submit run", "submit ls", "submit status"],
     },
     {
         "name": "submit ls",
@@ -762,7 +814,11 @@ def home(request: Request) -> RedirectResponse:
 def login_page(request: Request) -> HTMLResponse | RedirectResponse:
     if current_ui_principal(request) is not None:
         return RedirectResponse(url="/ui/submissions", status_code=303)
-    return _render(request, "login.html", {"error": None})
+    return _render(
+        request,
+        "login.html",
+        {"error": None, "registration_enabled": request.app.state.cfg.registration_enabled},
+    )
 
 
 @router.post("/ui/login", response_class=HTMLResponse, response_model=None)
@@ -774,10 +830,50 @@ def login_submit(request: Request, token: str = Form(...)) -> HTMLResponse | Red
         return _render(
             request,
             "login.html",
-            {"error": exc.detail if isinstance(exc.detail, str) else "Login failed."},
+            {
+                "error": exc.detail if isinstance(exc.detail, str) else "Login failed.",
+                "registration_enabled": request.app.state.cfg.registration_enabled,
+            },
             status_code=exc.status_code,
         )
     return RedirectResponse(url="/ui/submissions", status_code=303)
+
+
+@router.get("/ui/register", response_class=HTMLResponse, response_model=None)
+def register_page(request: Request) -> HTMLResponse | RedirectResponse:
+    cfg: SubmitConfig = request.app.state.cfg
+    if not cfg.registration_enabled:
+        return RedirectResponse(url="/ui/login", status_code=303)
+    return _render(request, "register.html", {"error": None, "registered": None})
+
+
+@router.post("/ui/register", response_class=HTMLResponse, response_model=None)
+def register_submit(
+    request: Request,
+    name: str = Form(...),
+    token: str | None = Form(None),
+    registration_code: str | None = Form(None),
+) -> HTMLResponse:
+    cfg: SubmitConfig = request.app.state.cfg
+    try:
+        registered = register_bearer_token(
+            request.app.state.storage,
+            cfg,
+            name=name,
+            token=token,
+            registration_code=registration_code,
+        )
+    except HTTPException as exc:
+        return _render(
+            request,
+            "register.html",
+            {
+                "error": exc.detail if isinstance(exc.detail, str) else "Registration failed.",
+                "registered": None,
+            },
+            status_code=exc.status_code,
+        )
+    return _render(request, "register.html", {"error": None, "registered": registered})
 
 
 @router.post("/ui/logout", response_model=None)
@@ -870,14 +966,15 @@ def help_page(request: Request) -> HTMLResponse | RedirectResponse:
                     "command": "python -m pip install fedctl",
                 },
                 {
-                    "title": "Authenticate once",
+                    "title": "Register a bearer token",
                     "body": (
                         "The first fedctl command creates ~/.config/fedctl/config.toml and "
-                        "~/.config/fedctl/deploy-default.yaml. Add your submit-service bearer token "
-                        "when prompted, or export FEDCTL_SUBMIT_TOKEN before running commands."
+                        "~/.config/fedctl/deploy-default.yaml. Register a user-scoped bearer token from the CLI; "
+                        "the command prompts for the registration code if the service requires one, then saves the token locally. "
+                        "FEDCTL_SUBMIT_TOKEN remains available for temporary overrides."
                     ),
                     "command": (
-                        "export FEDCTL_SUBMIT_TOKEN=<your-bearer-token>\n"
+                        "fedctl submit register-token --name <username>\n"
                         "fedctl submit ls"
                     ),
                 },

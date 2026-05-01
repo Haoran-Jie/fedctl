@@ -168,6 +168,51 @@ def test_token_map_enforces_owner_scope_and_admin_override(
     assert admin_cancel_bob.json()["status"] == "cancelled"
 
 
+def test_register_bearer_token_creates_user_scoped_token(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("SUBMIT_REPO_CONFIG", str(tmp_path / "missing-fedctl.yaml"))
+    monkeypatch.setenv("SUBMIT_DB_URL", f"sqlite:///{tmp_path / 'submit.db'}")
+    monkeypatch.delenv("FEDCTL_SUBMIT_TOKENS", raising=False)
+    monkeypatch.delenv("FEDCTL_SUBMIT_TOKEN_MAP", raising=False)
+    monkeypatch.setenv("FEDCTL_SUBMIT_ALLOW_UNAUTH", "false")
+    monkeypatch.setenv("SUBMIT_REGISTRATION_ENABLED", "true")
+    monkeypatch.setenv("SUBMIT_REGISTRATION_CODE", "cammlsys")
+    monkeypatch.setenv("SUBMIT_DISPATCH_MODE", "queue")
+    app = create_app()
+    client = TestClient(app)
+
+    missing_code = client.post("/v1/tokens/register", json={"name": "alice"})
+    assert missing_code.status_code == 403
+
+    registered = client.post(
+        "/v1/tokens/register",
+        json={"name": "alice", "registration_code": "cammlsys"},
+    )
+    assert registered.status_code == 200
+    data = registered.json()
+    assert data["name"] == "alice"
+    assert data["role"] == "user"
+    assert data["token"].startswith("fedctl_")
+
+    headers = {"Authorization": f"Bearer {data['token']}"}
+    submission = client.post("/v1/submissions", json=_payload(), headers=headers)
+    assert submission.status_code == 200
+    assert submission.json()["user"] == "alice"
+
+    duplicate = client.post(
+        "/v1/tokens/register",
+        json={"name": "alice", "registration_code": "cammlsys"},
+    )
+    assert duplicate.status_code == 409
+
+    short_token = client.post(
+        "/v1/tokens/register",
+        json={"name": "bob", "token": "short", "registration_code": "cammlsys"},
+    )
+    assert short_token.status_code == 422
+
+
 def test_owner_can_purge_single_terminal_submission_only(
     tmp_path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
