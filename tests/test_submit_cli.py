@@ -106,6 +106,43 @@ def test_submit_register_token_help_hides_legacy_repo_config_option() -> None:
     assert "--repo-config" not in result.output
 
 
+def test_submit_set_token_routes_to_runner(monkeypatch) -> None:
+    runner = CliRunner()
+    captured = {}
+
+    def fake_run_submit_token_set(**kwargs):
+        captured.update(kwargs)
+        return 0
+
+    monkeypatch.setattr(submit_commands, "run_submit_token_set", fake_run_submit_token_set)
+    result = runner.invoke(
+        cli.app,
+        [
+            "submit",
+            "set-token",
+            "fedctl_secret",
+            "--deploy-config",
+            "cluster.yaml",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert captured == {
+        "token": "fedctl_secret",
+        "deploy_config": "cluster.yaml",
+        "validate": True,
+    }
+
+
+def test_submit_set_token_help_hides_legacy_repo_config_option() -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli.app, ["submit", "set-token", "--help"])
+
+    assert result.exit_code == 0
+    assert "--deploy-config" in result.output
+    assert "--repo-config" not in result.output
+
+
 def test_submit_cancel_routes_to_runner(monkeypatch) -> None:
     runner = CliRunner()
     captured = {}

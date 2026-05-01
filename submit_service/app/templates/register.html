@@ -18,7 +18,12 @@
     <code>{{ registered.token }}</code>
   </div>
   <div class="quick-command">
-    <span class="quick-command-label">CLI setup</span>
+    <span class="quick-command-label">Save to fedctl config</span>
+    <code>fedctl submit set-token</code>
+  </div>
+  <p class="muted">Run the command above, paste the bearer token when prompted, and fedctl will save it to your user deploy config.</p>
+  <div class="quick-command">
+    <span class="quick-command-label">Temporary shell only</span>
     <code>export FEDCTL_SUBMIT_TOKEN={{ registered.token }}</code>
   </div>
   <p><a class="button" href="/ui/login">Go to login</a></p>

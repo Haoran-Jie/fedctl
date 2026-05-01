@@ -116,6 +116,7 @@ def test_ui_registers_generated_bearer_token(tmp_path, monkeypatch: pytest.Monke
     assert form.status_code == 200
     assert "Token registered for alice" in form.text
     assert "fedctl_" in form.text
+    assert "fedctl submit set-token" in form.text
     assert "export FEDCTL_SUBMIT_TOKEN=fedctl_" in form.text
     match = re.search(r"fedctl_[A-Za-z0-9_-]+", form.text)
     assert match is not None
@@ -132,6 +133,7 @@ def test_ui_help_page_shows_submit_commands(tmp_path, monkeypatch: pytest.Monkey
     assert page.status_code == 200
     assert "fedctl submit run" in page.text
     assert "fedctl submit register-token" in page.text
+    assert "fedctl submit set-token" in page.text
     assert "fedctl submit inventory" in page.text
     assert "Most important" in page.text
     assert "On this page" in page.text
@@ -188,6 +190,7 @@ def test_ui_help_config_detail_pages_show_rich_guidance(tmp_path, monkeypatch: p
     assert "These are the deploy-config fields currently consumed by fedctl." in deploy_page.text
     assert "Fresh-install setup" in deploy_page.text
     assert "Resolution order" in deploy_page.text
+    assert "omits submit.token" in deploy_page.text
     assert "submit.endpoint" in deploy_page.text
     assert "submit.token" in deploy_page.text
     assert "submit.image" in deploy_page.text
@@ -224,6 +227,11 @@ def test_ui_help_command_detail_shows_rich_guidance(tmp_path, monkeypatch: pytes
     assert "Register a user-scoped bearer token" in register_page.text
     assert "--registration-code" in register_page.text
     assert "--print-token" in register_page.text
+
+    set_token_page = client.get("/ui/help/submit-set-token")
+    assert set_token_page.status_code == 200
+    assert "Save an existing submit-service bearer token" in set_token_page.text
+    assert "--no-validate" in set_token_page.text
 
 
 def test_ui_user_scope_cancel_and_purge(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
