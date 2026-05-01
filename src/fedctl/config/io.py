@@ -12,9 +12,8 @@ from .schema import FedctlConfig, ProfileConfig
 
 DEFAULT_NOMAD_ENDPOINT = "http://128.232.61.111:4646"
 DEFAULT_SUBMIT_ENDPOINT = "http://fedctl.cl.cam.ac.uk"
-DEFAULT_EXTERNAL_IMAGE_REGISTRY = "100.82.158.122:5000"
-DEFAULT_CLUSTER_IMAGE_REGISTRY = "128.232.61.111:5000"
-DEFAULT_SUBMIT_IMAGE = f"{DEFAULT_CLUSTER_IMAGE_REGISTRY}/fedctl-submit:latest"
+DEFAULT_IMAGE_REGISTRY = "128.232.61.111:5000"
+DEFAULT_SUBMIT_IMAGE = f"{DEFAULT_IMAGE_REGISTRY}/fedctl-submit:latest"
 DEFAULT_ARTIFACT_STORE = "s3+presign://fedctl-submits/fedctl-submits"
 
 
@@ -27,6 +26,7 @@ def _default_deploy_config_text() -> str:
 # You can also leave this file untouched and export FEDCTL_SUBMIT_TOKEN.
 
 deploy:
+  image_registry: "{DEFAULT_IMAGE_REGISTRY}"
   superexec:
     # Optional env vars injected into SuperExec server/client containers.
     # Use this for remote experiment auth/config such as W&B.
@@ -68,11 +68,6 @@ submit:
   endpoint: "{DEFAULT_SUBMIT_ENDPOINT}"
   token: ""
   user: "{submit_user}"
-
-submit-service:
-  image_registry: "{DEFAULT_CLUSTER_IMAGE_REGISTRY}"
-
-image_registry: "{DEFAULT_EXTERNAL_IMAGE_REGISTRY}"
 """
 
 

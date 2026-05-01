@@ -4,6 +4,8 @@ import os
 import json
 import re
 import shlex
+import getpass
+import sys
 from urllib.parse import urlparse
 import tarfile
 import tempfile
@@ -14,9 +16,11 @@ from typing import Iterable
 from rich.text import Text
 import httpx
 import tomlkit
+import yaml
 
-from fedctl.config.io import DEFAULT_SUBMIT_ENDPOINT, load_config
+from fedctl.config.io import load_config
 from fedctl.config.merge import get_effective_config
+from fedctl.config.paths import deploy_default_config_path, user_config_dir
 from fedctl.config.deploy import (
     get_cluster_image_registry,
     get_deploy_config_label,
@@ -63,6 +67,13 @@ _ARCHIVE_SKIP_DIRS = {
     ".ruff_cache",
 }
 _SUBMIT_NODE_CLASS = "submit"
+
+
+class _SubmitAuthFailed:
+    pass
+
+
+_SUBMIT_AUTH_FAILED = _SubmitAuthFailed()
 
 
 def _print_step(idx: int, total: int, title: str) -> None:
@@ -182,14 +193,13 @@ def run_submit(
         if deploy_allow_oversubscribe is not None:
             allow_oversubscribe = deploy_allow_oversubscribe
 
-    submit_client = _submit_service_client(deploy_cfg=deploy_cfg)
-    if submit_client and _submit_token_missing_for_default_endpoint(submit_client):
-        console.print("[red]✗ Missing submit-service bearer token.[/red]")
-        location = str(deploy_cfg_path) if deploy_cfg_path else "the deploy config"
-        console.print(
-            "[yellow]Hint:[/yellow] Set submit.token in "
-            f"{location}, or export FEDCTL_SUBMIT_TOKEN."
-        )
+    submit_client = _submit_service_client(
+        deploy_cfg=deploy_cfg,
+        deploy_cfg_path=deploy_cfg_path,
+        prompt_for_token=True,
+        validate_auth=True,
+    )
+    if submit_client is _SUBMIT_AUTH_FAILED:
         return 1
     submission_id = None
     if not submit_client:
@@ -442,7 +452,9 @@ def run_submit(
 
 
 def run_submit_status(*, submission_id: str) -> int:
-    submit_client = _submit_service_client()
+    submit_client = _submit_service_client(prompt_for_token=True, validate_auth=True)
+    if submit_client is _SUBMIT_AUTH_FAILED:
+        return 1
     if submit_client:
         try:
             record = submit_client.get_submission(submission_id)
@@ -511,7 +523,9 @@ def run_submit_status(*, submission_id: str) -> int:
 
 
 def run_submit_cancel(*, submission_id: str) -> int:
-    submit_client = _submit_service_client()
+    submit_client = _submit_service_client(prompt_for_token=True, validate_auth=True)
+    if submit_client is _SUBMIT_AUTH_FAILED:
+        return 1
     if not submit_client:
         console.print("[red]✗ Submit service not configured.[/red]")
         console.print("[yellow]Hint:[/yellow] Set FEDCTL_SUBMIT_ENDPOINT or repo submit.endpoint.")
@@ -537,7 +551,9 @@ def run_submit_logs(
     follow: bool,
     index: int,
 ) -> int:
-    submit_client = _submit_service_client()
+    submit_client = _submit_service_client(prompt_for_token=True, validate_auth=True)
+    if submit_client is _SUBMIT_AUTH_FAILED:
+        return 1
     if submit_client:
         try:
             if follow:
@@ -698,7 +714,9 @@ _ACTIVE_SUBMISSION_STATUSES = {"queued", "running", "blocked"}
 
 
 def run_submit_ls(*, limit: int, status_filter: str = "active") -> int:
-    submit_client = _submit_service_client()
+    submit_client = _submit_service_client(prompt_for_token=True, validate_auth=True)
+    if submit_client is _SUBMIT_AUTH_FAILED:
+        return 1
     if submit_client:
         try:
             entries = submit_client.list_submissions(limit=limit, status_filter=status_filter)
@@ -761,7 +779,9 @@ def _submit_ls_matches_status(status: object, status_filter: str) -> bool:
 
 
 def run_submit_purge(*, submission_id: str | None = None) -> int:
-    submit_client = _submit_service_client()
+    submit_client = _submit_service_client(prompt_for_token=True, validate_auth=True)
+    if submit_client is _SUBMIT_AUTH_FAILED:
+        return 1
     if submit_client:
         try:
             if submission_id:
@@ -805,7 +825,9 @@ def run_submit_results(
     download: bool = False,
     out: str | None = None,
 ) -> int:
-    submit_client = _submit_service_client()
+    submit_client = _submit_service_client(prompt_for_token=True, validate_auth=True)
+    if submit_client is _SUBMIT_AUTH_FAILED:
+        return 1
     if not submit_client:
         console.print("[red]✗ Submit service not configured.[/red]")
         console.print("[yellow]Hint:[/yellow] Set FEDCTL_SUBMIT_ENDPOINT or repo submit.endpoint.")
@@ -870,7 +892,9 @@ def run_submit_inventory(
     device_type: str | None = None,
     detail: bool = False,
 ) -> int:
-    submit_client = _submit_service_client()
+    submit_client = _submit_service_client(prompt_for_token=True, validate_auth=True)
+    if submit_client is _SUBMIT_AUTH_FAILED:
+        return 1
     if not submit_client:
         console.print("[red]✗ Submit service not configured.[/red]")
         console.print("[yellow]Hint:[/yellow] Set FEDCTL_SUBMIT_ENDPOINT or repo submit.endpoint.")
@@ -1345,51 +1369,193 @@ def _rewrite_local_endpoint(endpoint: str) -> str:
     return f"{scheme}://${{attr.unique.network.ip-address}}:{port}"
 
 
-def _submit_token_missing_for_default_endpoint(submit_client: SubmitServiceClient) -> bool:
-    token = getattr(submit_client, "token", None)
-    if isinstance(token, str) and token.strip():
-        return False
-    endpoint = getattr(submit_client, "endpoint", "")
-    if not isinstance(endpoint, str) or not endpoint.strip():
-        return False
-    return _endpoint_host(endpoint) == _endpoint_host(DEFAULT_SUBMIT_ENDPOINT)
-
-
-def _endpoint_host(endpoint: str) -> str | None:
-    try:
-        parsed = urlparse(endpoint)
-    except Exception:
-        return None
-    host = parsed.hostname
-    return host.lower() if isinstance(host, str) else None
-
-
 def _submit_service_client(
     *,
     deploy_cfg: dict[str, object] | None = None,
     deploy_config: str | None = None,
-) -> SubmitServiceClient | None:
+    deploy_cfg_path: Path | None = None,
+    prompt_for_token: bool = False,
+    validate_auth: bool = False,
+) -> SubmitServiceClient | None | _SubmitAuthFailed:
     endpoint = os.environ.get("FEDCTL_SUBMIT_ENDPOINT")
     token = os.environ.get("FEDCTL_SUBMIT_TOKEN")
     user = os.environ.get("FEDCTL_SUBMIT_USER")
+    token_source = "env" if token else None
 
     if deploy_cfg is None:
-        deploy_cfg = resolve_deploy_config(
+        deploy_resolution = resolve_deploy_config(
             deploy_config=deploy_config,
             include_profile=True,
-        ).data
+        )
+        deploy_cfg = deploy_resolution.data
+        deploy_cfg_path = deploy_resolution.path
 
     submit_cfg = parse_submit_deploy_config(deploy_cfg or {})
     if not endpoint:
         endpoint = submit_cfg.endpoint
     if not token:
         token = submit_cfg.token
+        if token:
+            token_source = "deploy_config"
     if not user:
         user = submit_cfg.user
 
     if not endpoint:
         return None
-    return SubmitServiceClient(endpoint=endpoint, token=token, user=user)
+    client = SubmitServiceClient(endpoint=endpoint, token=token, user=user)
+    if not validate_auth:
+        return client
+    return _ensure_submit_service_auth(
+        client,
+        deploy_cfg_path=deploy_cfg_path,
+        prompt_for_token=prompt_for_token,
+        token_source=token_source,
+    )
+
+
+def _ensure_submit_service_auth(
+    client: SubmitServiceClient,
+    *,
+    deploy_cfg_path: Path | None,
+    prompt_for_token: bool,
+    token_source: str | None,
+) -> SubmitServiceClient | _SubmitAuthFailed:
+    try:
+        client.check_auth()
+        return client
+    except SubmitServiceError as exc:
+        if not _submit_auth_error(exc):
+            console.print(f"[red]✗ Submit service error:[/red] {exc}")
+            return _SUBMIT_AUTH_FAILED
+        if prompt_for_token and _interactive_stdin():
+            console.print("[yellow]Submit-service bearer token is missing or invalid.[/yellow]")
+            prompted = _prompt_for_submit_token()
+            if prompted is None:
+                return _SUBMIT_AUTH_FAILED
+            prompted_client = SubmitServiceClient(
+                endpoint=client.endpoint,
+                token=prompted,
+                user=client.user,
+                timeout=client.timeout,
+            )
+            return _validate_and_store_prompted_submit_token(
+                prompted_client,
+                deploy_cfg_path=deploy_cfg_path,
+                token_source=token_source,
+            )
+        _print_submit_token_hint(client, deploy_cfg_path=deploy_cfg_path)
+        return _SUBMIT_AUTH_FAILED
+
+
+def _validate_and_store_prompted_submit_token(
+    client: SubmitServiceClient,
+    *,
+    deploy_cfg_path: Path | None,
+    token_source: str | None,
+) -> SubmitServiceClient | _SubmitAuthFailed:
+    try:
+        client.check_auth()
+    except SubmitServiceError as exc:
+        if _submit_auth_error(exc):
+            console.print("[red]✗ Invalid submit-service bearer token.[/red]")
+        else:
+            console.print(f"[red]✗ Submit service error:[/red] {exc}")
+        return _SUBMIT_AUTH_FAILED
+
+    token = client.token.strip() if isinstance(client.token, str) else ""
+    if token:
+        try:
+            path = _store_submit_token(token, deploy_cfg_path=deploy_cfg_path)
+        except OSError as exc:
+            console.print(f"[yellow]Warning:[/yellow] Could not save submit token: {exc}")
+        else:
+            _print_ok(f"Saved submit token: {path}")
+            if token_source == "env":
+                console.print(
+                    "[yellow]Note:[/yellow] FEDCTL_SUBMIT_TOKEN is set; it overrides saved config."
+                )
+    return client
+
+
+def _has_submit_token(client: SubmitServiceClient) -> bool:
+    token = getattr(client, "token", None)
+    return isinstance(token, str) and bool(token.strip())
+
+
+def _interactive_stdin() -> bool:
+    return bool(getattr(sys.stdin, "isatty", lambda: False)())
+
+
+def _prompt_for_submit_token() -> str | None:
+    try:
+        token = getpass.getpass("Submit-service bearer token: ")
+    except (EOFError, KeyboardInterrupt):
+        console.print("[red]✗ Submit-service bearer token required.[/red]")
+        return None
+    token = token.strip()
+    if not token:
+        console.print("[red]✗ Submit-service bearer token required.[/red]")
+        return None
+    return token
+
+
+def _submit_auth_error(exc: SubmitServiceError) -> bool:
+    message = str(exc)
+    return " 401" in message or " 403" in message
+
+
+def _print_submit_token_hint(
+    client: SubmitServiceClient,
+    *,
+    deploy_cfg_path: Path | None,
+) -> None:
+    if _has_submit_token(client):
+        console.print("[red]✗ Invalid submit-service bearer token.[/red]")
+    else:
+        console.print("[red]✗ Missing submit-service bearer token.[/red]")
+    location = str(_submit_token_persist_path(deploy_cfg_path))
+    console.print(
+        "[yellow]Hint:[/yellow] Set submit.token in "
+        f"{location}, or export FEDCTL_SUBMIT_TOKEN."
+    )
+
+
+def _store_submit_token(token: str, *, deploy_cfg_path: Path | None) -> Path:
+    path = _submit_token_persist_path(deploy_cfg_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    data: dict[str, object] = {}
+    if path.exists():
+        loaded = yaml.safe_load(path.read_text(encoding="utf-8"))
+        if isinstance(loaded, dict):
+            data = loaded
+    submit = data.get("submit")
+    if not isinstance(submit, dict):
+        submit = {}
+        data["submit"] = submit
+    submit["token"] = token
+    path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+    try:
+        path.chmod(0o600)
+    except OSError:
+        pass
+    return path
+
+
+def _submit_token_persist_path(deploy_cfg_path: Path | None) -> Path:
+    if deploy_cfg_path is not None and _is_user_config_path(deploy_cfg_path):
+        return deploy_cfg_path
+    profile_path = resolve_deploy_config(include_profile=True).path
+    if profile_path is not None and _is_user_config_path(profile_path):
+        return profile_path
+    return deploy_default_config_path()
+
+
+def _is_user_config_path(path: Path) -> bool:
+    try:
+        path.resolve().relative_to(user_config_dir().resolve())
+        return True
+    except ValueError:
+        return False
 
 
 def _timestamp_compact() -> str:

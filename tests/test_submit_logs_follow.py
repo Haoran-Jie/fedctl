@@ -22,7 +22,7 @@ def test_run_submit_logs_follow_uses_stream_path(monkeypatch) -> None:
     def fake_print_streamed_logs(lines):
         captured["lines"] = list(lines)
 
-    monkeypatch.setattr(submit_cmd, "_submit_service_client", lambda: FakeClient())
+    monkeypatch.setattr(submit_cmd, "_submit_service_client", lambda **_: FakeClient())
     monkeypatch.setattr(submit_cmd, "_print_streamed_logs", fake_print_streamed_logs)
 
     status = submit_cmd.run_submit_logs(

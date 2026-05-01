@@ -673,6 +673,37 @@ button, .button {
   margin: 0.45rem 0 0;
   white-space: pre-wrap;
 }
+.help-config-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 1rem;
+}
+.help-config-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.help-config-card:hover {
+  transform: none;
+}
+.help-config-subtitle {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+.help-config-command,
+.help-config-snippet {
+  padding: 0.85rem;
+  border: 1px solid rgba(29, 111, 95, 0.12);
+  border-radius: 12px;
+  background: rgba(29, 111, 95, 0.05);
+}
+.help-config-command pre,
+.help-config-snippet pre {
+  overflow-x: auto;
+}
 .help-command-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));

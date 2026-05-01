@@ -10,8 +10,7 @@ from typer.testing import CliRunner
 import fedctl.cli as cli
 from fedctl.config.io import (
     DEFAULT_ARTIFACT_STORE,
-    DEFAULT_CLUSTER_IMAGE_REGISTRY,
-    DEFAULT_EXTERNAL_IMAGE_REGISTRY,
+    DEFAULT_IMAGE_REGISTRY,
     DEFAULT_NOMAD_ENDPOINT,
     DEFAULT_SUBMIT_ENDPOINT,
     DEFAULT_SUBMIT_IMAGE,
@@ -232,7 +231,7 @@ def test_ensure_config_creates_default_deploy_config_file(tmp_path: Path, monkey
     text = deploy_cfg.read_text(encoding="utf-8")
     assert "deploy:" in text
     assert "submit:" in text
-    assert "submit-service:" in text
+    assert "submit-service:" not in text
 
     data = yaml.safe_load(text)
     assert data["submit"]["image"] == DEFAULT_SUBMIT_IMAGE
@@ -240,10 +239,8 @@ def test_ensure_config_creates_default_deploy_config_file(tmp_path: Path, monkey
     assert data["submit"]["endpoint"] == DEFAULT_SUBMIT_ENDPOINT
     assert data["submit"]["token"] == ""
     assert data["submit"]["user"] == "alice"
-    assert data["submit-service"]["image_registry"] == DEFAULT_CLUSTER_IMAGE_REGISTRY
-    assert "nomad_endpoint" not in data["submit-service"]
-    assert "dispatch_mode" not in data["submit-service"]
-    assert data["image_registry"] == DEFAULT_EXTERNAL_IMAGE_REGISTRY
+    assert data["deploy"]["image_registry"] == DEFAULT_IMAGE_REGISTRY
+    assert "image_registry" not in data
     assert "supernodes" not in data["deploy"]
 
 

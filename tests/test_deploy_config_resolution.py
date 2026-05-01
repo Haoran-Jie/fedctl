@@ -107,7 +107,20 @@ def test_explicit_missing_deploy_config_disables_fallback(
     assert resolved.data == {}
 
 
-def test_cluster_image_registry_prefers_submit_service_section() -> None:
+def test_cluster_image_registry_defaults_to_image_registry() -> None:
+    deploy_cfg = {"deploy": {"image_registry": "100.108.13.23:5000"}}
+
+    assert get_image_registry(deploy_cfg) == "100.108.13.23:5000"
+    assert get_cluster_image_registry(deploy_cfg) == "100.108.13.23:5000"
+
+
+def test_image_registry_accepts_legacy_top_level_key() -> None:
+    deploy_cfg = {"image_registry": "100.108.13.23:5000"}
+
+    assert get_image_registry(deploy_cfg) == "100.108.13.23:5000"
+
+
+def test_cluster_image_registry_accepts_legacy_submit_service_override() -> None:
     deploy_cfg = {
         "image_registry": "100.108.13.23:5000",
         "submit-service": {"image_registry": "192.168.8.101:5000"},

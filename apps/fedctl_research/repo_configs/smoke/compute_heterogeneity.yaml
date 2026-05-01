@@ -1,4 +1,5 @@
 deploy:
+  image_registry: "REPLACE_IMAGE_REGISTRY"
   supernodes:
     rpi4: 2
     rpi5: 2
@@ -32,7 +33,3 @@ submit:
   token: "REPLACE_SUBMIT_TOKEN"
   user: "REPLACE_SUBMIT_USER"
 
-submit-service:
-  image_registry: "REPLACE_CLUSTER_IMAGE_REGISTRY"
-
-image_registry: "REPLACE_LAPTOP_IMAGE_REGISTRY"

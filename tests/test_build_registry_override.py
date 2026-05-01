@@ -26,7 +26,7 @@ def test_build_and_record_prefers_env_registry_override(
         build_cmd,
         "resolve_deploy_config",
         lambda **_: SimpleNamespace(
-            data={"image_registry": "100.82.158.122:5000"},
+            data={"deploy": {"image_registry": "192.168.8.101:5000"}},
             path=None,
         ),
     )

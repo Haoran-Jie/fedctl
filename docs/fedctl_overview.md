@@ -3,33 +3,33 @@
 This repository has two layers.
 
 - `src/fedctl/`: the generic control plane for building, deploying, submitting, and inspecting Flower runs on the Nomad cluster
-- `apps/fedctl_research/`: the dissertation Flower app, including methods, tasks, experiment TOMLs, and deployment-side repo-config templates
+- `apps/fedctl_research/`: the dissertation Flower app, including methods, tasks, experiment TOMLs, and deployment config templates under `repo_configs/`
 
 The important design boundary is:
 
 - experiment config = scientific definition of the run
-- repo config = deployment definition of the run
+- deploy config = deployment definition of the run
 
 That split is what keeps model/method comparisons separate from placement and network conditions.
 
 ## Core commands
 
-### Direct remote execution
+### Submit remote execution
 
 ```bash
-fedctl run apps/fedctl_research \
+fedctl submit run apps/fedctl_research \
   --experiment-config apps/fedctl_research/experiment_configs/smoke/compute_heterogeneity/fashion_mnist_mlp/heterofl.toml \
-  --repo-config apps/fedctl_research/repo_configs/smoke/compute_heterogeneity.yaml
+  --deploy-config apps/fedctl_research/repo_configs/smoke/compute_heterogeneity.yaml
 ```
 
-Use this when you want the workstation to drive the deploy-and-run flow directly.
+Use `fedctl submit run` as the normal entrypoint; direct deploy/run commands are retained as hidden internal/debug commands.
 
-### Queued remote execution
+### Named dissertation run
 
 ```bash
 fedctl submit run apps/fedctl_research \
   --experiment-config apps/fedctl_research/experiment_configs/compute_heterogeneity/main/cifar10_cnn/fedrolex.toml \
-  --repo-config apps/fedctl_research/repo_configs/compute_heterogeneity/main/none.yaml \
+  --deploy-config apps/fedctl_research/repo_configs/compute_heterogeneity/main/none.yaml \
   --exp fedrolex-main-cifar10-cnn
 ```
 
@@ -55,8 +55,11 @@ fedctl submit results <submission-id>
 
 ## Deployment-side config usage
 
-The deployment presets now live under `apps/fedctl_research/repo_configs/`.
-They are checked in as templates, so replace cluster-specific endpoints, tokens, image registries, and W&B credentials before real runs.
+The deployment configs now live under `apps/fedctl_research/repo_configs/`.
+Fresh installs also get a user-level deploy config at `~/.config/fedctl/deploy-default.yaml`.
+That generated config already points at the CamMLSys submit service, Nomad endpoint, artifact store, and cluster registry. Add only the submit-service bearer token (`submit.token`, or `FEDCTL_SUBMIT_TOKEN`) before running a project without a project-local deploy config.
+
+Checked-in deployment configs are still used for named dissertation runs and specialized placement/network experiments. Treat those as templates for experiment-specific topology and W&B settings, not as the basic first-install setup.
 
 The active families are:
 
