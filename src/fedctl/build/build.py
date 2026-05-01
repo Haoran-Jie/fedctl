@@ -13,7 +13,6 @@ def build_image(
     context_dir: Path,
     no_cache: bool = False,
     platform: str | None = None,
-    quiet: bool = False,
 ) -> None:
     cmd = ["docker", "build", "-t", image, "-f", str(dockerfile_path)]
     if no_cache:

@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 import fedctl.commands.submit as submit_cmd
 import fedctl.submit.artifact as artifact
+from fedctl.config.io import DEFAULT_SUBMIT_ENDPOINT
 from fedctl.project.experiment_config import resolve_experiment_config
 
 
@@ -109,7 +110,7 @@ def test_run_submit_passes_submit_service_context_to_artifact_upload(
     )
     monkeypatch.setattr(
         submit_cmd,
-        "resolve_repo_config",
+        "resolve_deploy_config",
         lambda **_: SimpleNamespace(
             data={
                 "submit": {
@@ -169,12 +170,11 @@ def test_run_submit_passes_submit_service_context_to_artifact_upload(
         supernodes=None,
         net=None,
         allow_oversubscribe=None,
-        repo_config=None,
+        deploy_config=None,
         experiment="demo-exp",
         timeout_seconds=120,
         federation="remote-deployment",
         stream=True,
-        verbose=False,
         destroy=True,
         submit_image=None,
         artifact_store=None,
@@ -193,6 +193,78 @@ def test_run_submit_passes_submit_service_context_to_artifact_upload(
     assert submit_request["project_root"] == str(project_root.resolve())
     assert "fedctl submit run" in submit_request["command_preview"]
     assert submit_request["options"]["experiment"] == "demo-exp"
+
+
+def test_run_submit_requires_token_for_default_submit_service(
+    monkeypatch, tmp_path: Path
+) -> None:
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    deploy_cfg_path = tmp_path / "deploy-default.yaml"
+
+    monkeypatch.setattr(
+        submit_cmd,
+        "inspect_flwr_project",
+        lambda _: SimpleNamespace(
+            project_name="demo-project",
+            local_sim_num_supernodes=None,
+            root=project_root,
+        ),
+    )
+    monkeypatch.setattr(
+        submit_cmd,
+        "resolve_deploy_config",
+        lambda **_: SimpleNamespace(
+            data={
+                "submit": {
+                    "image": "submit-image:latest",
+                    "artifact_store": "s3+presign://fedctl-submits/fedctl-submits",
+                    "endpoint": DEFAULT_SUBMIT_ENDPOINT,
+                    "token": "",
+                }
+            },
+            path=deploy_cfg_path,
+        ),
+    )
+    monkeypatch.setattr(
+        submit_cmd,
+        "_submit_service_client",
+        lambda **_: submit_cmd.SubmitServiceClient(
+            endpoint=DEFAULT_SUBMIT_ENDPOINT,
+            token=None,
+        ),
+    )
+    monkeypatch.setattr(
+        submit_cmd,
+        "_build_project_archive",
+        lambda *_, **__: (_ for _ in ()).throw(AssertionError("should not package")),
+    )
+
+    status = submit_cmd.run_submit(
+        path=str(project_root),
+        flwr_version="1.25.0",
+        image=None,
+        no_cache=False,
+        platform=None,
+        context=None,
+        push=False,
+        num_supernodes=2,
+        auto_supernodes=True,
+        supernodes=None,
+        net=None,
+        allow_oversubscribe=None,
+        deploy_config=None,
+        experiment="demo-exp",
+        timeout_seconds=120,
+        federation="remote-deployment",
+        stream=True,
+        destroy=True,
+        submit_image=None,
+        artifact_store=None,
+        priority=50,
+    )
+
+    assert status == 1
 
 
 def test_run_submit_auto_generates_experiment_from_experiment_config(
@@ -233,7 +305,7 @@ model-rate-proportions = [0.25, 0.25, 0.25, 0.25]
     )
     monkeypatch.setattr(
         submit_cmd,
-        "resolve_repo_config",
+        "resolve_deploy_config",
         lambda **_: SimpleNamespace(
             data={
                 "submit": {
@@ -291,12 +363,11 @@ model-rate-proportions = [0.25, 0.25, 0.25, 0.25]
         supernodes=None,
         net=None,
         allow_oversubscribe=None,
-        repo_config=None,
+        deploy_config=None,
         experiment=None,
         timeout_seconds=120,
         federation="remote-deployment",
         stream=True,
-        verbose=False,
         destroy=True,
         submit_image=None,
         artifact_store=None,
@@ -347,7 +418,7 @@ model-rate-proportions = [1.0]
     archive = tmp_path / "project.tar.gz"
     archive.write_bytes(b"artifact-bytes")
     captured: dict[str, object] = {}
-    repo_cfg_path = tmp_path / "main_network_heterogeneity_mild.yaml"
+    deploy_cfg_path = tmp_path / "main_network_heterogeneity_mild.yaml"
 
     monkeypatch.setattr(
         submit_cmd,
@@ -360,7 +431,7 @@ model-rate-proportions = [1.0]
     )
     monkeypatch.setattr(
         submit_cmd,
-        "resolve_repo_config",
+        "resolve_deploy_config",
         lambda **_: SimpleNamespace(
             data={
                 "deploy": {"network": {"default_profile": "mild"}},
@@ -371,7 +442,7 @@ model-rate-proportions = [1.0]
                     "token": "token-from-config",
                 },
             },
-            path=repo_cfg_path,
+            path=deploy_cfg_path,
         ),
     )
 
@@ -411,12 +482,11 @@ model-rate-proportions = [1.0]
         supernodes=None,
         net=None,
         allow_oversubscribe=None,
-        repo_config=str(repo_cfg_path),
+        deploy_config=str(deploy_cfg_path),
         experiment=None,
         timeout_seconds=120,
         federation="remote-deployment",
         stream=True,
-        verbose=False,
         destroy=True,
         submit_image=None,
         artifact_store=None,
@@ -532,7 +602,7 @@ model-rate-proportions = [0.25, 0.25, 0.25, 0.25]
     )
     monkeypatch.setattr(
         submit_cmd,
-        "resolve_repo_config",
+        "resolve_deploy_config",
         lambda **_: SimpleNamespace(
             data={
                 "submit": {
@@ -590,12 +660,11 @@ model-rate-proportions = [0.25, 0.25, 0.25, 0.25]
         supernodes=None,
         net=None,
         allow_oversubscribe=None,
-        repo_config=None,
+        deploy_config=None,
         experiment="custom-exp",
         timeout_seconds=120,
         federation="remote-deployment",
         stream=True,
-        verbose=False,
         destroy=True,
         submit_image=None,
         artifact_store=None,
@@ -628,7 +697,7 @@ def test_run_submit_omits_superexec_image_when_not_explicitly_provided(
     )
     monkeypatch.setattr(
         submit_cmd,
-        "resolve_repo_config",
+        "resolve_deploy_config",
         lambda **_: SimpleNamespace(
             data={
                 "submit": {
@@ -689,12 +758,11 @@ def test_run_submit_omits_superexec_image_when_not_explicitly_provided(
         supernodes=None,
         net=None,
         allow_oversubscribe=None,
-        repo_config=None,
+        deploy_config=None,
         experiment="demo-exp",
         timeout_seconds=120,
         federation="remote-deployment",
         stream=True,
-        verbose=False,
         destroy=True,
         submit_image=None,
         artifact_store=None,
@@ -728,7 +796,7 @@ def test_run_submit_rewrites_explicit_superexec_image_to_internal_registry(
     )
     monkeypatch.setattr(
         submit_cmd,
-        "resolve_repo_config",
+        "resolve_deploy_config",
         lambda **_: SimpleNamespace(
             data={
                 "submit": {
@@ -789,12 +857,11 @@ def test_run_submit_rewrites_explicit_superexec_image_to_internal_registry(
         supernodes=None,
         net=None,
         allow_oversubscribe=None,
-        repo_config=None,
+        deploy_config=None,
         experiment="demo-exp",
         timeout_seconds=120,
         federation="remote-deployment",
         stream=True,
-        verbose=False,
         destroy=True,
         submit_image=None,
         artifact_store=None,
@@ -813,7 +880,7 @@ def test_run_submit_rewrites_explicit_superexec_image_to_internal_registry(
     assert payload["env"]["FEDCTL_IMAGE_REGISTRY"] == "192.168.8.101:5000"
 
 
-def test_run_submit_uses_repo_deploy_supernodes_and_placement_defaults(
+def test_run_submit_uses_deploy_config_supernodes_and_placement_defaults(
     monkeypatch, tmp_path: Path
 ) -> None:
     project_root = tmp_path / "project"
@@ -833,7 +900,7 @@ def test_run_submit_uses_repo_deploy_supernodes_and_placement_defaults(
     )
     monkeypatch.setattr(
         submit_cmd,
-        "resolve_repo_config",
+        "resolve_deploy_config",
         lambda **_: SimpleNamespace(
             data={
                 "deploy": {
@@ -894,12 +961,11 @@ def test_run_submit_uses_repo_deploy_supernodes_and_placement_defaults(
         supernodes=None,
         net=None,
         allow_oversubscribe=None,
-        repo_config=None,
+        deploy_config=None,
         experiment="demo-exp",
         timeout_seconds=120,
         federation="remote-deployment",
         stream=True,
-        verbose=False,
         destroy=True,
         submit_image=None,
         artifact_store=None,

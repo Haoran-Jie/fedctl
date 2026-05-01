@@ -49,7 +49,7 @@ _HELP_COMMANDS = [
         "syntax": "fedctl submit run <project-dir> [OPTIONS]",
         "details": [
             "Use this command to turn a local Flower app or research project into a submit-service job. The runner inspects the project, builds or reuses the required images, uploads the project archive, creates the submission record, and dispatches work through Nomad.",
-            "For dissertation experiments, the most repeatable form is to pass the project directory, an explicit experiment config, a deployment config via --repo-config, a seeded submit image, and a seed.",
+            "For dissertation experiments, the most repeatable form is to pass the project directory, an explicit experiment config, a deployment config via --deploy-config, a seeded submit image, and a seed.",
         ],
         "use_cases": [
             "Launch a quick local Flower project with the default deployment settings.",
@@ -73,7 +73,7 @@ _HELP_COMMANDS = [
                 "command": (
                     "./.venv/bin/fedctl submit run apps/fedctl_research \\\n"
                     "  --experiment-config apps/fedctl_research/experiment_configs/network_heterogeneity/main/cifar10_cnn/iid/all_rpi5/fedbuff.toml \\\n"
-                    "  --repo-config apps/fedctl_research/repo_configs/network_heterogeneity/main/all_rpi5/none.yaml \\\n"
+                    "  --deploy-config apps/fedctl_research/repo_configs/network_heterogeneity/main/all_rpi5/none.yaml \\\n"
                     "  --submit-image 128.232.61.111:5000/fedctl-submit:latest \\\n"
                     "  --seed 1337"
                 ),
@@ -104,7 +104,7 @@ _HELP_COMMANDS = [
             {"name": "--supernodes", "type": "TEXT", "description": "Supernode resource config (repeatable)"},
             {"name": "--net", "type": "TEXT", "description": "Network config (repeatable)"},
             {"name": "--allow-oversubscribe/--no-allow-oversubscribe", "type": "FLAG", "description": "Allow resource oversubscription"},
-            {"name": "--repo-config", "type": "PATH", "description": "Path to repo config file"},
+            {"name": "--deploy-config", "type": "PATH", "description": "Path to deploy config file"},
             {"name": "--exp", "type": "TEXT", "description": "Experiment name"},
             {"name": "--timeout", "type": "INTEGER", "description": "Timeout in seconds (default: 120)"},
             {"name": "--federation", "type": "TEXT", "description": "Federation config (default: remote-deployment)"},
@@ -1032,6 +1032,7 @@ def _submit_request_view(submit_request: dict[str, Any]) -> dict[str, Any]:
         "push",
         "platform",
         "context",
+        "deploy_config",
         "repo_config",
         "verbose",
         "supernodes",

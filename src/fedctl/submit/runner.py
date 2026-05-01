@@ -8,7 +8,6 @@ import os
 import signal
 import tarfile
 import tempfile
-import shutil
 import threading
 import time
 from contextlib import contextmanager
@@ -29,7 +28,6 @@ from fedctl.util.console import console
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
-_DEFAULT_MAX_ARCHIVED_LOG_CHARS = 2_000_000
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -68,7 +66,6 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--timeout", type=int, default=120)
     parser.add_argument("--federation", default="remote-deployment")
     parser.add_argument("--no-stream", dest="stream", action="store_false")
-    parser.add_argument("--verbose", action="store_true")
     parser.add_argument("--no-destroy", dest="destroy", action="store_false")
     parser.set_defaults(destroy=True)
     args = parser.parse_args(argv)
@@ -84,7 +81,6 @@ def main(argv: list[str] | None = None) -> int:
     if submission_id:
         os.environ["FEDCTL_SUBMISSION_ID"] = submission_id
 
-    # _print_docker_info()
     project_path = _resolve_project_path(Path(args.path), args.project_dir)
     project_info = inspect_flwr_project(project_path)
     effective_experiment = resolve_run_experiment_name(
@@ -165,7 +161,6 @@ def main(argv: list[str] | None = None) -> int:
                 timeout_seconds=args.timeout,
                 federation=args.federation,
                 stream=args.stream,
-                verbose=args.verbose,
                 profile=profile,
                 endpoint=endpoint,
                 namespace=namespace,
@@ -196,8 +191,6 @@ def _effective_num_supernodes(
 
 
 def _resolve_project_path(path: Path, project_dir: str | None) -> Path:
-    # _print_tree(path.parent if path.parent != Path("") else Path("."), "workspace tree")
-
     if project_dir:
         candidate = path.parent / project_dir
         if candidate.exists():
@@ -212,7 +205,6 @@ def _resolve_project_path(path: Path, project_dir: str | None) -> Path:
     base = path.parent
     extracted = _extract_archives_to_temp(base)
     if extracted and extracted.exists():
-        # _print_tree(extracted, "extracted tree")
         if project_dir:
             candidate = extracted / project_dir
             if candidate.exists():
@@ -226,15 +218,6 @@ def _resolve_project_path(path: Path, project_dir: str | None) -> Path:
         if resolved:
             return resolved
     return path
-
-
-def _print_docker_info() -> None:
-    docker_path = shutil.which("docker")
-    console.print(f"[yellow]Debug:[/yellow] PATH={os.environ.get('PATH')}")
-    if not docker_path:
-        console.print("[yellow]Debug:[/yellow] docker not found on PATH")
-        return
-    console.print(f"[yellow]Debug:[/yellow] docker path: {docker_path}")
 
 
 def _extract_archives_to_temp(base: Path) -> Path | None:
@@ -272,24 +255,6 @@ def _find_project_dir(base: Path) -> Path | None:
     if len(candidates) == 1:
         return candidates[0]
     return None
-
-
-def _print_tree(base: Path, label: str, max_entries: int = 200) -> None:
-    if not base.exists():
-        console.print(f"[yellow]Debug:[/yellow] {label}: {base} does not exist")
-        return
-    lines = []
-    for root, dirs, files in os.walk(base):
-        dirs.sort()
-        files.sort()
-        rel_root = str(Path(root).relative_to(base)) or "."
-        lines.append(f"{rel_root}/")
-        for name in files:
-            lines.append(f"  {name}")
-        if len(lines) >= max_entries:
-            lines.append("  ...")
-            break
-    console.print(f"[yellow]Debug:[/yellow] {label} {base}:\n" + "\n".join(lines))
 
 
 def _report_jobs(
@@ -1122,33 +1087,6 @@ def _bundle_name(submission_id: str | None, experiment: str | None) -> str:
     base = submission_id or experiment or "results"
     safe = "".join(ch if ch.isalnum() or ch in {"-", "_"} else "_" for ch in base)
     return f"{safe}-results.tar.gz"
-
-
-def _truncate_log_text(text: str, *, max_chars: int | None = None) -> str:
-    limit = _archive_log_char_limit(max_chars)
-    if limit <= 0 or len(text) <= limit:
-        return text
-    keep = limit // 2
-    return (
-        text[:keep]
-        + "\n\n...[log truncated for archive size]...\n\n"
-        + text[-keep:]
-    )
-
-
-def _archive_log_char_limit(max_chars: int | None = None) -> int:
-    if max_chars is not None and max_chars > 0:
-        return max_chars
-    raw = os.environ.get("FEDCTL_LOG_ARCHIVE_MAX_CHARS", "").strip()
-    if not raw:
-        return _DEFAULT_MAX_ARCHIVED_LOG_CHARS
-    try:
-        parsed = int(raw)
-    except ValueError:
-        return _DEFAULT_MAX_ARCHIVED_LOG_CHARS
-    if parsed <= 0:
-        return 0
-    return parsed
 
 
 def _archive_object_name(entry: dict[str, object]) -> str:

@@ -463,13 +463,15 @@ def _attempt_started_at() -> str:
     return os.environ.get("FEDCTL_ATTEMPT_STARTED_AT", "").strip()
 
 
-def _repo_config_label() -> str:
-    value = os.environ.get("FEDCTL_REPO_CONFIG_LABEL", "").strip()
+def _deploy_config_label() -> str:
+    value = os.environ.get("FEDCTL_DEPLOY_CONFIG_LABEL", "").strip()
+    if not value:
+        value = os.environ.get("FEDCTL_REPO_CONFIG_LABEL", "").strip()
     return value or "default"
 
 
 def _profile_tag() -> str:
-    return f"profile-{_repo_config_label()}"
+    return f"profile-{_deploy_config_label()}"
 
 
 def _seed_label(run_config: Mapping[str, object]) -> str:
@@ -548,7 +550,7 @@ def _resolve_run_identity(run_config: Mapping[str, object]) -> _RunIdentity:
     capacity_split = _capacity_split_label(run_config)
     canonical_key = (
         f"{_study_key(os.environ.get('FEDCTL_EXPERIMENT_CONFIG'))}"
-        f"/{task}/{method}/{node_count}/{capacity_split}/seed{seed}/profile-{_repo_config_label()}"
+        f"/{task}/{method}/{node_count}/{capacity_split}/seed{seed}/profile-{_deploy_config_label()}"
     )
     return _RunIdentity(
         canonical_key=canonical_key,
@@ -596,7 +598,8 @@ def create_experiment_logger(context: Context) -> ExperimentLogger:
             "fedctl_experiment": experiment,
             "fedctl_method": method,
             "fedctl_task": task,
-            "fedctl_repo_config_label": _repo_config_label(),
+            "fedctl_deploy_config_label": _deploy_config_label(),
+            "fedctl_repo_config_label": _deploy_config_label(),
             "fedctl_node_count_label": _node_count_label(run_config),
             "fedctl_capacity_split_label": _capacity_split_label(run_config),
             "fedctl_flwr_home": os.environ.get("FLWR_HOME", ""),

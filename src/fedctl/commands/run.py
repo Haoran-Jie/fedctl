@@ -31,7 +31,7 @@ from fedctl.project.experiment_config import (
     materialize_run_config,
     resolve_experiment_config,
 )
-from fedctl.config.repo import get_repo_config_label, resolve_repo_config
+from fedctl.config.deploy import get_deploy_config_label, resolve_deploy_config
 from fedctl.project.flwr_config import resolve_flwr_home
 from fedctl.util.console import console
 
@@ -63,7 +63,7 @@ def run_run(
     supernodes: list[str] | None = None,
     net: list[str] | None = None,
     allow_oversubscribe: bool | None = None,
-    repo_config: str | None = None,
+    deploy_config: str | None = None,
     experiment: str | None = None,
     timeout_seconds: int = 120,
     no_wait: bool = False,
@@ -73,7 +73,6 @@ def run_run(
     token: str | None = None,
     federation: str = "remote-deployment",
     stream: bool = True,
-    verbose: bool = False,
     pre_cleanup: Callable[[], None] | None = None,
     destroy: bool = True,
 ) -> int:
@@ -115,7 +114,7 @@ def run_run(
                 supernodes=supernodes,
                 net=net,
                 allow_oversubscribe=allow_oversubscribe,
-                repo_config=repo_config,
+                deploy_config=deploy_config,
                 timeout_seconds=timeout_seconds,
                 no_wait=no_wait,
                 namespace=namespace,
@@ -124,7 +123,6 @@ def run_run(
                 token=token,
                 federation=federation,
                 stream=stream,
-                verbose=verbose,
                 pre_cleanup=pre_cleanup,
                 destroy=destroy,
             )
@@ -203,7 +201,6 @@ def run_run(
                     platform=platform,
                     context=context,
                     push=push,
-                    verbose=verbose,
                 )
                 _print_ok(f"Built image: {image_tag}")
             except BuildError as exc:
@@ -213,18 +210,23 @@ def run_run(
     deploy_num_supernodes = None if supernodes else num_supernodes
 
     _print_step(3, 5, "Deploy to Nomad")
-    resolved_repo = resolve_repo_config(
-        repo_config=repo_config,
+    resolved_deploy = resolve_deploy_config(
+        deploy_config=deploy_config,
         include_project_local=True,
         project_root=info.root,
     )
-    resolved_repo_config = str(resolved_repo.path) if resolved_repo.path else None
-    repo_config_label = get_repo_config_label(resolved_repo.data, path=resolved_repo.path)
+    resolved_deploy_config = _resolve_run_deploy_config(
+        deploy_config=deploy_config,
+        project_root=info.root,
+    )
+    deploy_config_label = get_deploy_config_label(
+        resolved_deploy.data, path=resolved_deploy.path
+    )
     with _temporary_run_tracking_env(
         experiment_config=(
             resolved_experiment_config.runner_path if resolved_experiment_config else None
         ),
-        repo_config_label=repo_config_label,
+        deploy_config_label=deploy_config_label,
     ):
         deploy_status = run_deploy(
             dry_run=False,
@@ -234,7 +236,7 @@ def run_run(
             supernodes=supernodes,
             net=net,
             allow_oversubscribe=allow_oversubscribe,
-            repo_config=resolved_repo_config,
+            deploy_config=resolved_deploy_config,
             image=image_tag,
             flwr_version=flwr_version,
             experiment=exp_name,
@@ -347,21 +349,35 @@ def resolve_run_experiment_name(*, project_name: str | None, experiment: str | N
     return normalize_experiment_name(experiment or f"{base_project}-{_timestamp_compact()}")
 
 
+def _resolve_run_deploy_config(
+    *, deploy_config: str | Path | None, project_root: Path
+) -> str | None:
+    if deploy_config is not None:
+        return str(deploy_config)
+    resolved = resolve_deploy_config(
+        deploy_config=None,
+        include_project_local=True,
+        project_root=project_root,
+    )
+    return str(resolved.path) if resolved.path else None
+
+
 def _timestamp_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
 @contextmanager
 def _temporary_run_tracking_env(
-    *, experiment_config: str | None, repo_config_label: str | None
+    *, experiment_config: str | None, deploy_config_label: str | None
 ):
     updates = {
         "FEDCTL_ATTEMPT_STARTED_AT": os.environ.get("FEDCTL_ATTEMPT_STARTED_AT", _timestamp_iso()),
     }
     if experiment_config:
         updates["FEDCTL_EXPERIMENT_CONFIG"] = experiment_config
-    if repo_config_label:
-        updates["FEDCTL_REPO_CONFIG_LABEL"] = repo_config_label
+    if deploy_config_label:
+        updates["FEDCTL_DEPLOY_CONFIG_LABEL"] = deploy_config_label
+        updates["FEDCTL_REPO_CONFIG_LABEL"] = deploy_config_label
     previous = {key: os.environ.get(key) for key in updates}
     os.environ.update(updates)
     try:
@@ -550,7 +566,7 @@ def _run_seed_sweep(
     supernodes: list[str] | None,
     net: list[str] | None,
     allow_oversubscribe: bool | None,
-    repo_config: str | None,
+    deploy_config: str | None,
     timeout_seconds: int,
     no_wait: bool,
     namespace: str | None,
@@ -559,7 +575,6 @@ def _run_seed_sweep(
     token: str | None,
     federation: str,
     stream: bool,
-    verbose: bool,
     pre_cleanup: Callable[[], None] | None,
     destroy: bool,
 ) -> int:
@@ -587,7 +602,7 @@ def _run_seed_sweep(
             supernodes=supernodes,
             net=net,
             allow_oversubscribe=allow_oversubscribe,
-            repo_config=repo_config,
+            deploy_config=deploy_config,
             experiment=child_experiment,
             timeout_seconds=timeout_seconds,
             no_wait=no_wait,
@@ -597,7 +612,6 @@ def _run_seed_sweep(
             token=token,
             federation=federation,
             stream=stream,
-            verbose=verbose,
             pre_cleanup=pre_cleanup,
             destroy=destroy,
         )

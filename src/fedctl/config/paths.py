@@ -22,5 +22,5 @@ def config_path() -> Path:
     return user_config_dir() / "config.toml"
 
 
-def repo_default_config_path() -> Path:
-    return user_config_dir() / "repo-default.yaml"
+def deploy_default_config_path() -> Path:
+    return user_config_dir() / "deploy-default.yaml"

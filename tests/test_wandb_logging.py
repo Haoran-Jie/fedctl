@@ -91,7 +91,7 @@ def test_create_experiment_logger_uses_run_config_and_env(monkeypatch) -> None:
         "FEDCTL_EXPERIMENT_CONFIG",
         "apps/fedctl_research/experiment_configs/compute_heterogeneity/main/cifar10_cnn/iid/fedrolex.toml",
     )
-    monkeypatch.setenv("FEDCTL_REPO_CONFIG_LABEL", "none")
+    monkeypatch.setenv("FEDCTL_DEPLOY_CONFIG_LABEL", "none")
     monkeypatch.setenv("FEDCTL_SUBMISSION_ID", "sub-20260409-3017")
     monkeypatch.setenv("FEDCTL_ATTEMPT_STARTED_AT", "2026-04-09T10:00:00Z")
 
@@ -134,6 +134,7 @@ def test_create_experiment_logger_uses_run_config_and_env(monkeypatch) -> None:
     assert init_kwargs["config"]["fedctl_canonical_key"] == (
         "compute-main/cifar10_cnn/fedrolex/n20/split-1x25_0p5x25_0p25x25_0p125x25/seed1337/profile-none"
     )
+    assert init_kwargs["config"]["fedctl_deploy_config_label"] == "none"
     assert init_kwargs["config"]["fedctl_repo_config_label"] == "none"
     assert init_kwargs["config"]["fedctl_node_count_label"] == "n20"
     assert init_kwargs["config"]["fedctl_capacity_split_label"] == "split-1x25_0p5x25_0p25x25_0p125x25"

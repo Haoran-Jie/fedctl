@@ -238,7 +238,6 @@ def test_runner_args_include_experiment_config_when_present() -> None:
         federation="remote-deployment",
         stream=True,
         timeout_seconds=120,
-        verbose=False,
         destroy=True,
     )
 
@@ -268,7 +267,6 @@ def test_runner_args_include_seed_and_run_config_overrides() -> None:
         federation="remote-deployment",
         stream=True,
         timeout_seconds=120,
-        verbose=False,
         destroy=True,
     )
 

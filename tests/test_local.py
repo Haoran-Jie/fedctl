@@ -24,6 +24,7 @@ def test_local_status_reads_state(tmp_path, monkeypatch) -> None:
 
 def test_local_up_writes_state(tmp_path, monkeypatch) -> None:
     monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
     monkeypatch.setattr(local_module.shutil, "which", lambda _: "/usr/bin/nomad")
 
     class FakePopen:

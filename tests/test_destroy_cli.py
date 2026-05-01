@@ -3,6 +3,7 @@ from __future__ import annotations
 from typer.testing import CliRunner
 
 import fedctl.cli as cli
+import fedctl.commands.destroy as destroy_commands
 
 
 def test_destroy_passes_remote_connection_options(monkeypatch) -> None:
@@ -13,7 +14,7 @@ def test_destroy_passes_remote_connection_options(monkeypatch) -> None:
         captured.update(kwargs)
         return 0
 
-    monkeypatch.setattr(cli, "run_destroy", fake_run_destroy)
+    monkeypatch.setattr(destroy_commands, "run_destroy", fake_run_destroy)
     result = runner.invoke(
         cli.app,
         [

@@ -268,56 +268,6 @@ def _supernodes_context(spec: DeploySpec) -> dict[str, Any]:
     }
 
 
-def _netem_task(spec: DeploySpec, placement: SupernodePlacement) -> dict[str, Any] | None:
-    network_plan = spec.supernodes.network
-    netem_image = spec.supernodes.netem_image
-    if network_plan is None or not netem_image:
-        return None
-    egress_profile = _network_profile_for(network_plan, placement, direction="egress")
-    ingress_profile = _network_profile_for(network_plan, placement, direction="ingress")
-    egress_data = _profile_data(network_plan, egress_profile, direction="egress")
-    ingress_data = _profile_data(network_plan, ingress_profile, direction="ingress")
-    return _netem_task_for_profile(
-        egress_profile,
-        egress_data,
-        netem_image,
-        ingress_profile=ingress_profile,
-        ingress_data=ingress_data,
-    )
-
-
-def _netem_task_for_profile(
-    profile_name: str,
-    profile_data: dict[str, float | int],
-    netem_image: str,
-    *,
-    ingress_profile: str | None = None,
-    ingress_data: dict[str, float | int] | None = None,
-) -> dict[str, Any] | None:
-    if profile_name == "none" and (not ingress_profile or ingress_profile == "none"):
-        return None
-    env = _netem_env(profile_name, profile_data)
-    if ingress_profile:
-        env.update(_netem_ingress_env(ingress_profile, ingress_data or {}))
-    return {
-        "Name": "netem",
-        "Driver": "docker",
-        "Lifecycle": {"Hook": "prestart", "Sidecar": True},
-        "User": "root",
-        "Config": {
-            "image": netem_image,
-            "command": "/bin/sh",
-            "args": ["-c", _netem_script()],
-            "cap_add": ["NET_ADMIN"],
-        },
-        "Env": env,
-        "Resources": {
-            "CPU": 50,
-            "MemoryMB": 64,
-        },
-    }
-
-
 def _netem_env(
     profile_name: str,
     profile_data: dict[str, float | int],

@@ -11,7 +11,6 @@ from typing import Iterable, Optional, Tuple
 
 from rich.console import Console
 
-from fedctl.config.schema import EffectiveConfig
 from fedctl.nomad.client import NomadClient
 from fedctl.nomad.errors import NomadConnectionError, NomadHTTPError, NomadTLSError
 from fedctl.util.console import print_table

@@ -317,17 +317,17 @@ def test_network_heterogeneity_experiment_config_tree_contains_expected_families
         assert path.exists(), path
 
 
-def test_fedbuff_repo_config_tree_contains_expected_profiles() -> None:
-    repo_root = Path(__file__).resolve().parents[1] / "apps" / "fedctl_research" / "repo_configs"
+def test_fedbuff_deploy_config_tree_contains_expected_profiles() -> None:
+    deploy_root = Path(__file__).resolve().parents[1] / "apps" / "fedctl_research" / "repo_configs"
     expected = [
-        repo_root / "smoke" / "compute_heterogeneity.yaml",
-        repo_root / "smoke" / "network_heterogeneity.yaml",
-        repo_root / "compute_heterogeneity" / "main" / "none.yaml",
-        repo_root / "network_heterogeneity" / "main" / "mixed" / "none.yaml",
-        repo_root / "network_heterogeneity" / "main" / "all_rpi5" / "mild.yaml",
-        repo_root / "network_heterogeneity" / "main" / "all_rpi5" / "med.yaml",
-        repo_root / "network_heterogeneity" / "ablations" / "deployment_stressors" / "asym_down.yaml",
-        repo_root / "network_heterogeneity" / "ablations" / "scale_concurrency" / "scale_async" / "med.yaml",
+        deploy_root / "smoke" / "compute_heterogeneity.yaml",
+        deploy_root / "smoke" / "network_heterogeneity.yaml",
+        deploy_root / "compute_heterogeneity" / "main" / "none.yaml",
+        deploy_root / "network_heterogeneity" / "main" / "mixed" / "none.yaml",
+        deploy_root / "network_heterogeneity" / "main" / "all_rpi5" / "mild.yaml",
+        deploy_root / "network_heterogeneity" / "main" / "all_rpi5" / "med.yaml",
+        deploy_root / "network_heterogeneity" / "ablations" / "deployment_stressors" / "asym_down.yaml",
+        deploy_root / "network_heterogeneity" / "ablations" / "scale_concurrency" / "scale_async" / "med.yaml",
     ]
     for path in expected:
         assert path.exists(), path

@@ -24,7 +24,7 @@ def test_build_and_record_prefers_env_registry_override(
     )
     monkeypatch.setattr(
         build_cmd,
-        "resolve_repo_config",
+        "resolve_deploy_config",
         lambda **_: SimpleNamespace(
             data={"image_registry": "100.82.158.122:5000"},
             path=None,

@@ -2,16 +2,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fedctl.commands.deploy import _repo_deploy_config, _runtime_superexec_env
+from fedctl.commands.deploy import _deploy_config_defaults, _runtime_superexec_env
 from fedctl.config.io import ensure_config_exists, load_raw_toml, save_raw_toml
-from fedctl.config.repo import (
+from fedctl.config.deploy import (
     get_cluster_image_registry,
     get_image_registry,
-    get_repo_config_label,
-    get_repo_network_profile_label,
-    load_repo_config,
-    resolve_repo_config,
-    resolve_repo_config_path,
+    get_deploy_config_label,
+    get_deploy_network_profile_label,
+    load_deploy_config,
+    resolve_deploy_config,
+    resolve_deploy_config_path,
     rewrite_image_registry,
 )
 
@@ -20,13 +20,13 @@ def _use_tmp_xdg(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
 
 
-def _set_default_profile_repo_config(path: Path) -> None:
+def _set_default_profile_deploy_config(path: Path) -> None:
     doc = load_raw_toml()
-    doc["profiles"]["default"]["repo_config"] = str(path)
+    doc["profiles"]["default"]["deploy_config"] = str(path)
     save_raw_toml(doc)
 
 
-def test_resolve_repo_config_path_prefers_explicit(tmp_path: Path, monkeypatch) -> None:
+def test_resolve_deploy_config_path_prefers_explicit(tmp_path: Path, monkeypatch) -> None:
     _use_tmp_xdg(monkeypatch, tmp_path)
     ensure_config_exists()
 
@@ -36,13 +36,13 @@ def test_resolve_repo_config_path_prefers_explicit(tmp_path: Path, monkeypatch) 
 
     profile_cfg = tmp_path / "profile-fedctl.yaml"
     profile_cfg.write_text("submit:\n  image: profile/image:latest\n", encoding="utf-8")
-    _set_default_profile_repo_config(profile_cfg)
+    _set_default_profile_deploy_config(profile_cfg)
 
     explicit_cfg = tmp_path / "explicit-fedctl.yaml"
     explicit_cfg.write_text("submit:\n  image: explicit/image:latest\n", encoding="utf-8")
 
-    resolved = resolve_repo_config_path(
-        repo_config=str(explicit_cfg),
+    resolved = resolve_deploy_config_path(
+        deploy_config=str(explicit_cfg),
         project_root=tmp_path / "proj",
         include_project_local=True,
         include_profile=True,
@@ -50,7 +50,7 @@ def test_resolve_repo_config_path_prefers_explicit(tmp_path: Path, monkeypatch) 
     assert resolved == explicit_cfg.resolve()
 
 
-def test_resolve_repo_config_path_uses_project_before_profile(
+def test_resolve_deploy_config_path_uses_project_before_profile(
     tmp_path: Path, monkeypatch
 ) -> None:
     _use_tmp_xdg(monkeypatch, tmp_path)
@@ -62,9 +62,9 @@ def test_resolve_repo_config_path_uses_project_before_profile(
 
     profile_cfg = tmp_path / "profile-fedctl.yaml"
     profile_cfg.write_text("submit:\n  image: profile/image:latest\n", encoding="utf-8")
-    _set_default_profile_repo_config(profile_cfg)
+    _set_default_profile_deploy_config(profile_cfg)
 
-    resolved = resolve_repo_config_path(
+    resolved = resolve_deploy_config_path(
         project_root=tmp_path / "proj",
         include_project_local=True,
         include_profile=True,
@@ -72,7 +72,7 @@ def test_resolve_repo_config_path_uses_project_before_profile(
     assert resolved == project_cfg.resolve()
 
 
-def test_resolve_repo_config_path_uses_profile_fallback(
+def test_resolve_deploy_config_path_uses_profile_fallback(
     tmp_path: Path, monkeypatch
 ) -> None:
     _use_tmp_xdg(monkeypatch, tmp_path)
@@ -80,15 +80,15 @@ def test_resolve_repo_config_path_uses_profile_fallback(
 
     profile_cfg = tmp_path / "profile-fedctl.yaml"
     profile_cfg.write_text("submit:\n  image: profile/image:latest\n", encoding="utf-8")
-    _set_default_profile_repo_config(profile_cfg)
+    _set_default_profile_deploy_config(profile_cfg)
 
-    resolved = resolve_repo_config_path(
+    resolved = resolve_deploy_config_path(
         include_profile=True,
     )
     assert resolved == profile_cfg.resolve()
 
 
-def test_explicit_missing_repo_config_disables_fallback(
+def test_explicit_missing_deploy_config_disables_fallback(
     tmp_path: Path, monkeypatch
 ) -> None:
     _use_tmp_xdg(monkeypatch, tmp_path)
@@ -96,11 +96,11 @@ def test_explicit_missing_repo_config_disables_fallback(
 
     profile_cfg = tmp_path / "profile-fedctl.yaml"
     profile_cfg.write_text("submit:\n  image: profile/image:latest\n", encoding="utf-8")
-    _set_default_profile_repo_config(profile_cfg)
+    _set_default_profile_deploy_config(profile_cfg)
 
     missing_cfg = tmp_path / "missing-fedctl.yaml"
-    resolved = resolve_repo_config(
-        repo_config=str(missing_cfg),
+    resolved = resolve_deploy_config(
+        deploy_config=str(missing_cfg),
         include_profile=True,
     )
     assert resolved.path is None
@@ -108,17 +108,17 @@ def test_explicit_missing_repo_config_disables_fallback(
 
 
 def test_cluster_image_registry_prefers_submit_service_section() -> None:
-    repo_cfg = {
+    deploy_cfg = {
         "image_registry": "100.108.13.23:5000",
         "submit-service": {"image_registry": "192.168.8.101:5000"},
     }
 
-    assert get_image_registry(repo_cfg) == "100.108.13.23:5000"
-    assert get_cluster_image_registry(repo_cfg) == "192.168.8.101:5000"
+    assert get_image_registry(deploy_cfg) == "100.108.13.23:5000"
+    assert get_cluster_image_registry(deploy_cfg) == "192.168.8.101:5000"
 
 
-def test_repo_config_label_prefers_network_default_profile(tmp_path: Path) -> None:
-    repo_cfg = {
+def test_deploy_config_label_prefers_network_default_profile(tmp_path: Path) -> None:
+    deploy_cfg = {
         "deploy": {
             "network": {
                 "default_profile": "mild",
@@ -127,15 +127,15 @@ def test_repo_config_label_prefers_network_default_profile(tmp_path: Path) -> No
     }
     path = tmp_path / "main_network_heterogeneity_mild.yaml"
 
-    assert get_repo_network_profile_label(repo_cfg) == "mild"
-    assert get_repo_config_label(repo_cfg, path=path) == "mild"
+    assert get_deploy_network_profile_label(deploy_cfg) == "mild"
+    assert get_deploy_config_label(deploy_cfg, path=path) == "mild"
 
 
-def test_repo_config_label_falls_back_to_path_stem(tmp_path: Path) -> None:
+def test_deploy_config_label_falls_back_to_path_stem(tmp_path: Path) -> None:
     path = tmp_path / "main_compute_heterogeneity.yaml"
 
-    assert get_repo_network_profile_label({}) is None
-    assert get_repo_config_label({}, path=path) == "main-compute-heterogeneity"
+    assert get_deploy_network_profile_label({}) is None
+    assert get_deploy_config_label({}, path=path) == "main-compute-heterogeneity"
 
 
 def test_rewrite_image_registry_only_rewrites_matching_source() -> None:
@@ -159,9 +159,9 @@ def test_rewrite_image_registry_only_rewrites_matching_source() -> None:
     )
 
 
-def test_load_repo_config_preserves_superexec_env_map(tmp_path: Path) -> None:
-    repo_cfg = tmp_path / "fedctl.yaml"
-    repo_cfg.write_text(
+def test_load_deploy_config_preserves_superexec_env_map(tmp_path: Path) -> None:
+    deploy_cfg = tmp_path / "fedctl.yaml"
+    deploy_cfg.write_text(
         "deploy:\n"
         "  superexec:\n"
         "    env:\n"
@@ -170,7 +170,7 @@ def test_load_repo_config_preserves_superexec_env_map(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    loaded = load_repo_config(config_path=repo_cfg)
+    loaded = load_deploy_config(config_path=deploy_cfg)
 
     assert loaded["deploy"]["superexec"]["env"] == {
         "WANDB_PROJECT": "fedctl",
@@ -178,8 +178,8 @@ def test_load_repo_config_preserves_superexec_env_map(tmp_path: Path) -> None:
     }
 
 
-def test_repo_deploy_config_extracts_superexec_env_map() -> None:
-    repo_defaults = _repo_deploy_config(
+def test_deploy_config_defaults_extracts_superexec_env_map() -> None:
+    deploy_defaults = _deploy_config_defaults(
         {
             "deploy": {
                 "superexec": {
@@ -193,24 +193,25 @@ def test_repo_deploy_config_extracts_superexec_env_map() -> None:
         }
     )
 
-    assert repo_defaults.superexec_env == {
+    assert deploy_defaults.superexec_env == {
         "WANDB_PROJECT": "fedctl",
         "WANDB_ENTITY": "samueljie",
     }
 
 
-def test_runtime_superexec_env_prefers_resolved_repo_config_label(monkeypatch) -> None:
+def test_runtime_superexec_env_prefers_resolved_deploy_config_label(monkeypatch) -> None:
     monkeypatch.setenv("FEDCTL_REPO_CONFIG_LABEL", "asym-down")
     monkeypatch.setenv("FEDCTL_EXPERIMENT_CONFIG", "configs/demo.toml")
 
-    env = _runtime_superexec_env(repo_config_label="mild")
+    env = _runtime_superexec_env(deploy_config_label="mild")
 
+    assert env["FEDCTL_DEPLOY_CONFIG_LABEL"] == "mild"
     assert env["FEDCTL_REPO_CONFIG_LABEL"] == "mild"
     assert env["FEDCTL_EXPERIMENT_CONFIG"] == "configs/demo.toml"
 
 
-def test_repo_deploy_config_extracts_spread_across_hosts() -> None:
-    repo_defaults = _repo_deploy_config(
+def test_deploy_config_defaults_extracts_spread_across_hosts() -> None:
+    deploy_defaults = _deploy_config_defaults(
         {
             "deploy": {
                 "placement": {
@@ -221,12 +222,12 @@ def test_repo_deploy_config_extracts_spread_across_hosts() -> None:
         }
     )
 
-    assert repo_defaults.allow_oversubscribe is True
-    assert repo_defaults.spread_across_hosts is True
+    assert deploy_defaults.allow_oversubscribe is True
+    assert deploy_defaults.spread_across_hosts is True
 
 
-def test_repo_deploy_config_extracts_prefer_spread_across_hosts() -> None:
-    repo_defaults = _repo_deploy_config(
+def test_deploy_config_defaults_extracts_prefer_spread_across_hosts() -> None:
+    deploy_defaults = _deploy_config_defaults(
         {
             "deploy": {
                 "placement": {
@@ -238,13 +239,13 @@ def test_repo_deploy_config_extracts_prefer_spread_across_hosts() -> None:
         }
     )
 
-    assert repo_defaults.allow_oversubscribe is True
-    assert repo_defaults.spread_across_hosts is False
-    assert repo_defaults.prefer_spread_across_hosts is True
+    assert deploy_defaults.allow_oversubscribe is True
+    assert deploy_defaults.spread_across_hosts is False
+    assert deploy_defaults.prefer_spread_across_hosts is True
 
 
-def test_repo_deploy_config_extracts_experiment_side_resource_overrides() -> None:
-    repo_defaults = _repo_deploy_config(
+def test_deploy_config_defaults_extracts_experiment_side_resource_overrides() -> None:
+    deploy_defaults = _deploy_config_defaults(
         {
             "deploy": {
                 "resources": {
@@ -256,6 +257,6 @@ def test_repo_deploy_config_extracts_experiment_side_resource_overrides() -> Non
         }
     )
 
-    assert repo_defaults.superexec_clientapp_resources == {"cpu": 900, "mem": 768}
-    assert repo_defaults.superexec_serverapp_resources == {"cpu": 1200, "mem": 1536}
-    assert repo_defaults.superlink_resources == {"cpu": 600, "mem": 320}
+    assert deploy_defaults.superexec_clientapp_resources == {"cpu": 900, "mem": 768}
+    assert deploy_defaults.superexec_serverapp_resources == {"cpu": 1200, "mem": 1536}
+    assert deploy_defaults.superlink_resources == {"cpu": 600, "mem": 320}
