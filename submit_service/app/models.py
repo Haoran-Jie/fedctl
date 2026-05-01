@@ -28,6 +28,18 @@ class SubmissionLogsUpdate(BaseModel):
     logs_archive: dict[str, Any] | None = None
 
 
+class TokenRegistrationRequest(BaseModel):
+    name: str
+    token: str | None = None
+    registration_code: str | None = None
+
+
+class TokenRegistrationResponse(BaseModel):
+    name: str
+    role: str
+    token: str
+
+
 class SubmissionRecord(BaseModel):
     submission_id: str
     user: str

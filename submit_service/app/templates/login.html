@@ -13,6 +13,9 @@
     <input id="token" name="token" type="password" required autofocus>
     <button type="submit">Log in</button>
   </form>
+  {% if registration_enabled %}
+  <p class="muted">Need a token? <a href="/ui/register">Register a bearer token</a>.</p>
+  {% endif %}
   <div class="hint-card">
     <strong>CLI remains the primary entrypoint</strong>
     <p>Use the web UI for monitoring, logs, cancellation, and cluster visibility. Submit new project runs from a machine with <code>fedctl</code> installed.</p>

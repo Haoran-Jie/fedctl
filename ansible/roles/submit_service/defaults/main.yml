@@ -14,6 +14,8 @@ submit_ui_enabled: false
 submit_ui_session_secret: ""
 submit_ui_cookie_name: "fedctl_submit_session"
 submit_ui_cookie_secure: false
+submit_registration_enabled: false
+submit_registration_code: ""
 submit_aws_shared_credentials_file: ""
 submit_aws_config_file: ""
 submit_aws_profile: ""

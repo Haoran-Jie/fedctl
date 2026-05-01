@@ -64,6 +64,48 @@ def test_submit_run_help_hides_legacy_repo_config_option() -> None:
     assert "--repo-config" not in result.output
 
 
+def test_submit_register_token_routes_to_runner(monkeypatch) -> None:
+    runner = CliRunner()
+    captured = {}
+
+    def fake_run_submit_register_token(**kwargs):
+        captured.update(kwargs)
+        return 0
+
+    monkeypatch.setattr(
+        submit_commands,
+        "run_submit_register_token",
+        fake_run_submit_register_token,
+    )
+    result = runner.invoke(
+        cli.app,
+        [
+            "submit",
+            "register-token",
+            "--name",
+            "alice",
+            "--registration-code",
+            "cammlsys",
+            "--deploy-config",
+            "cluster.yaml",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert captured["name"] == "alice"
+    assert captured["registration_code"] == "cammlsys"
+    assert captured["deploy_config"] == "cluster.yaml"
+
+
+def test_submit_register_token_help_hides_legacy_repo_config_option() -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli.app, ["submit", "register-token", "--help"])
+
+    assert result.exit_code == 0
+    assert "--deploy-config" in result.output
+    assert "--repo-config" not in result.output
+
+
 def test_submit_cancel_routes_to_runner(monkeypatch) -> None:
     runner = CliRunner()
     captured = {}

@@ -13,6 +13,8 @@ from ..models import (
     SubmissionJobsUpdate,
     SubmissionLogsUpdate,
     SubmissionRecord,
+    TokenRegistrationRequest,
+    TokenRegistrationResponse,
 )
 from ..storage import Storage, new_submission_id, utcnow
 from ..submissions_service import (
@@ -22,6 +24,7 @@ from ..submissions_service import (
     get_submission_or_404,
     list_visible_submissions,
     purge_submission_record,
+    register_bearer_token,
     resolve_submission_logs,
 )
 from ..workers.dispatcher import dispatch_submission
@@ -41,6 +44,23 @@ def get_storage(request: Request) -> Storage:
 
 def authenticate(request: Request, cfg: SubmitConfig) -> AuthPrincipal:
     return authenticate_request(request, cfg)
+
+
+@router.post("/v1/tokens/register", response_model=TokenRegistrationResponse)
+def register_token(
+    payload: TokenRegistrationRequest,
+    request: Request,
+    cfg: SubmitConfig = Depends(get_config),
+    storage: Storage = Depends(get_storage),
+) -> TokenRegistrationResponse:
+    registered = register_bearer_token(
+        storage,
+        cfg,
+        name=payload.name,
+        token=payload.token,
+        registration_code=payload.registration_code,
+    )
+    return TokenRegistrationResponse(**registered)
 
 
 @router.post("/v1/submissions", response_model=SubmissionRecord)

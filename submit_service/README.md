@@ -114,6 +114,33 @@ Notes:
 - Keep at least one `role=admin` token if submit-runner should report jobs/results back to the service.
 - Legacy `FEDCTL_SUBMIT_TOKENS` still works as admin-only tokens for backward compatibility.
 
+Optional self-registration keeps bearer-token auth but lets users create their own
+user-scoped token. Enable it only deliberately, preferably with a registration
+code:
+
+```bash
+export SUBMIT_REGISTRATION_ENABLED=true
+export SUBMIT_REGISTRATION_CODE=change-me
+```
+
+Users can then register through the fedctl CLI:
+
+```bash
+fedctl submit register-token --name alice --registration-code change-me
+```
+
+The command stores the returned bearer token in the user deploy config and does
+not print it by default. Users can also open `/ui/register` or call the API
+directly:
+
+```bash
+curl -X POST http://127.0.0.1:8080/v1/tokens/register \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"alice","registration_code":"change-me"}'
+```
+
+The service returns the bearer token once and stores only its SHA-256 hash.
+
 Or configure these in `.fedctl/fedctl.yaml` (env vars still take precedence):
 
 ```yaml

@@ -74,6 +74,16 @@ class Storage:
                 conn.execute("ALTER TABLE submissions ADD COLUMN submit_request_json TEXT")
             except sqlite3.OperationalError:
                 pass
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS bearer_tokens (
+                    token_hash TEXT PRIMARY KEY,
+                    name TEXT NOT NULL UNIQUE,
+                    role TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                )
+                """
+            )
 
     def create_submission(self, payload: dict[str, Any]) -> dict[str, Any]:
         args = payload.pop("args", []) or []
@@ -207,6 +217,32 @@ class Storage:
         with self._connect() as conn:
             conn.execute(sql, params)
         return self.get_submission(submission_id)
+
+    def create_bearer_token(
+        self,
+        *,
+        token_hash: str,
+        name: str,
+        role: str,
+        created_at: str,
+    ) -> dict[str, Any]:
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO bearer_tokens (token_hash, name, role, created_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (token_hash, name, role, created_at),
+            )
+        return self.get_bearer_token(token_hash)
+
+    def get_bearer_token(self, token_hash: str) -> dict[str, Any] | None:
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT * FROM bearer_tokens WHERE token_hash = ?",
+                (token_hash,),
+            ).fetchone()
+        return dict(row) if row is not None else None
 
     def set_status(
         self,

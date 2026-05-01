@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
@@ -91,6 +92,38 @@ def test_ui_requires_session_and_login_succeeds(tmp_path, monkeypatch: pytest.Mo
     assert ">Search</button>" not in page.text
 
 
+def test_ui_registers_generated_bearer_token(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("SUBMIT_REPO_CONFIG", str(tmp_path / "missing-fedctl.yaml"))
+    monkeypatch.setenv("SUBMIT_DB_URL", f"sqlite:///{tmp_path / 'submit.db'}")
+    monkeypatch.delenv("FEDCTL_SUBMIT_TOKENS", raising=False)
+    monkeypatch.delenv("FEDCTL_SUBMIT_TOKEN_MAP", raising=False)
+    monkeypatch.setenv("FEDCTL_SUBMIT_ALLOW_UNAUTH", "false")
+    monkeypatch.setenv("SUBMIT_DISPATCH_MODE", "queue")
+    monkeypatch.setenv("SUBMIT_UI_ENABLED", "true")
+    monkeypatch.setenv("SUBMIT_UI_SESSION_SECRET", "test-ui-secret")
+    monkeypatch.setenv("SUBMIT_REGISTRATION_ENABLED", "true")
+    monkeypatch.setenv("SUBMIT_REGISTRATION_CODE", "cammlsys")
+    client = TestClient(create_app())
+
+    login = client.get("/ui/login")
+    assert login.status_code == 200
+    assert "Register a bearer token" in login.text
+
+    form = client.post(
+        "/ui/register",
+        data={"name": "alice", "registration_code": "cammlsys"},
+    )
+    assert form.status_code == 200
+    assert "Token registered for alice" in form.text
+    assert "fedctl_" in form.text
+    assert "export FEDCTL_SUBMIT_TOKEN=fedctl_" in form.text
+    match = re.search(r"fedctl_[A-Za-z0-9_-]+", form.text)
+    assert match is not None
+    login = client.post("/ui/login", data={"token": match.group(0)}, follow_redirects=False)
+    assert login.status_code == 303
+    assert login.headers["location"] == "/ui/submissions"
+
+
 def test_ui_help_page_shows_submit_commands(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
     client = _make_ui_client(tmp_path, monkeypatch)
     _login(client, "tok-alice")
@@ -98,12 +131,16 @@ def test_ui_help_page_shows_submit_commands(tmp_path, monkeypatch: pytest.Monkey
     page = client.get("/ui/help")
     assert page.status_code == 200
     assert "fedctl submit run" in page.text
+    assert "fedctl submit register-token" in page.text
     assert "fedctl submit inventory" in page.text
     assert "Most important" in page.text
     assert "On this page" in page.text
     assert 'href="#quickstart"' in page.text
     assert "Install fedctl" in page.text
     assert "python -m pip install fedctl" in page.text
+    assert "Register a bearer token" in page.text
+    assert "Register a user-scoped bearer token from the CLI" in page.text
+    assert "fedctl submit register-token --name &lt;username&gt;" in page.text
     assert "submit-service bearer token" in page.text
     assert "~/.config/fedctl/config.toml" in page.text
     assert "~/.config/fedctl/deploy-default.yaml" in page.text
@@ -181,6 +218,12 @@ def test_ui_help_command_detail_shows_rich_guidance(tmp_path, monkeypatch: pytes
     assert "Dissertation experiment with explicit config" in page.text
     assert "Related commands" in page.text
     assert "submit logs" in page.text
+
+    register_page = client.get("/ui/help/submit-register-token")
+    assert register_page.status_code == 200
+    assert "Register a user-scoped bearer token" in register_page.text
+    assert "--registration-code" in register_page.text
+    assert "--print-token" in register_page.text
 
 
 def test_ui_user_scope_cancel_and_purge(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
