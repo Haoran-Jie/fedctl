@@ -818,7 +818,7 @@ def submissions_page(
         search_query=search_query,
         default_priority=request.app.state.cfg.default_priority,
     )
-    row_views = [_submission_row_view(row, principal.role) for row in rows]
+    row_views = [_submission_row_view(row, principal.as_auth_principal()) for row in rows]
     queue_rows = _queue_panel_rows(row_views, default_priority=request.app.state.cfg.default_priority)
     pagination = _pagination_context(
         status_filter=status_filter,
@@ -1339,20 +1339,33 @@ def _node_matches_query(record: dict[str, Any], query: str) -> bool:
 
 
 
-def _submission_row_view(record: dict[str, Any], role: str) -> dict[str, Any]:
+def _submission_row_view(record: dict[str, Any], principal: Any) -> dict[str, Any]:
     status = str(record.get("status") or "unknown")
+    owner = record.get("user")
+    is_admin = getattr(principal, "role", "") == "admin"
+    is_owner = isinstance(owner, str) and owner == getattr(principal, "name", None)
+    can_view_detail = is_admin or is_owner
+    project_name = record.get("project_name") or "-"
+    experiment = record.get("experiment") or "-"
+    blocked_reason = record.get("blocked_reason") or record.get("error_message") or ""
+    if not can_view_detail:
+        project_name = "Private"
+        experiment = "Private submission"
+        blocked_reason = ""
     return {
         "id": record.get("id"),
-        "project_name": record.get("project_name") or "-",
-        "experiment": record.get("experiment") or "-",
+        "project_name": project_name,
+        "experiment": experiment,
         "status": status,
-        "owner": record.get("user") if role == "admin" else None,
+        "owner": owner if (is_admin or not is_owner) else None,
+        "is_owner": is_owner,
+        "can_view_detail": can_view_detail,
         "created_at": _fmt_dt(record.get("created_at")),
         "started_at": _fmt_dt(record.get("started_at")),
         "finished_at": _fmt_dt(record.get("finished_at")),
         "queue_wait": _fmt_queue_wait(record.get("created_at"), record.get("started_at"), status),
         "runtime": _fmt_runtime(record.get("started_at"), record.get("finished_at"), status),
-        "blocked_reason": record.get("blocked_reason") or record.get("error_message") or "",
+        "blocked_reason": blocked_reason,
         "namespace": record.get("namespace") or "-",
         "priority": record.get("priority"),
     }

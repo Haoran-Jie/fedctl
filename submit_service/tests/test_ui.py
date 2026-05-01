@@ -235,6 +235,39 @@ def test_ui_user_scope_cancel_and_purge(tmp_path, monkeypatch: pytest.MonkeyPatc
     assert foreign.status_code == 404
 
 
+def test_ui_active_queue_shows_foreign_runs_without_detail_access(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    client = _make_ui_client(tmp_path, monkeypatch)
+
+    alice_headers = {"Authorization": "Bearer tok-alice"}
+    bob_headers = {"Authorization": "Bearer tok-bob"}
+    alice_id = client.post("/v1/submissions", json=_payload(), headers=alice_headers).json()["submission_id"]
+    bob_payload = _payload()
+    bob_payload["project_name"] = "secret-project"
+    bob_payload["experiment"] = "secret-experiment"
+    bob_id = client.post("/v1/submissions", json=bob_payload, headers=bob_headers).json()["submission_id"]
+
+    _login(client, "tok-alice")
+    active = client.get("/ui/submissions?status=active")
+    assert active.status_code == 200
+    assert alice_id in active.text
+    assert bob_id in active.text
+    assert f'href="/ui/submissions/{alice_id}' in active.text
+    assert f'href="/ui/submissions/{bob_id}' not in active.text
+    assert f'data-href="/ui/submissions/{bob_id}' not in active.text
+    assert "tok-bob" not in active.text
+    assert "bob" in active.text
+    assert "Private submission" in active.text
+    assert "secret-project" not in active.text
+    assert "secret-experiment" not in active.text
+
+    detail = client.get(f"/ui/submissions/{bob_id}")
+    assert detail.status_code == 404
+    logs = client.get(f"/ui/submissions/{bob_id}/logs")
+    assert logs.status_code == 404
+
+
 def test_ui_shows_wait_and_runtime_columns(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
     client = _make_ui_client(tmp_path, monkeypatch)
     storage = client.app.state.storage

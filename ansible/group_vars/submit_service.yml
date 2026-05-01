@@ -119,7 +119,7 @@ submit_tokens:
 submit_token_map:
   flwruser1:
     name: flwruser1
-    role: admin
+    role: user
   flwruser2:
     name: flwruser2
     role: user
