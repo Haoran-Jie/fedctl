@@ -26,6 +26,7 @@ from fedctl.config.deploy import (
     get_deploy_config_label,
     get_deploy_network_profile_label,
     parse_submit_deploy_config,
+    SubmitDeployConfig,
     get_image_registry,
     rewrite_image_registry,
     resolve_deploy_config,
@@ -1019,6 +1020,62 @@ def run_submit_register_token(
     return 0
 
 
+def run_submit_token_set(
+    *,
+    token: str | None,
+    deploy_config: str | None = None,
+    validate: bool = True,
+) -> int:
+    resolved_token = token.strip() if isinstance(token, str) else ""
+    if not resolved_token:
+        prompted = _prompt_for_submit_token()
+        if prompted is None:
+            return 1
+        resolved_token = prompted
+
+    deploy_resolution = resolve_deploy_config(
+        deploy_config=deploy_config,
+        include_profile=True,
+    )
+    submit_cfg = parse_submit_deploy_config(deploy_resolution.data or {})
+    endpoint = os.environ.get("FEDCTL_SUBMIT_ENDPOINT") or submit_cfg.endpoint
+    user = os.environ.get("FEDCTL_SUBMIT_USER") or submit_cfg.user
+
+    if validate:
+        if not endpoint:
+            console.print(
+                "[red]✗ Submit service endpoint not configured.[/red] "
+                "Set submit.endpoint in your deploy config or FEDCTL_SUBMIT_ENDPOINT."
+            )
+            return 1
+        client = SubmitServiceClient(endpoint=endpoint, token=resolved_token, user=user)
+        try:
+            client.check_auth()
+        except SubmitServiceError as exc:
+            if _submit_auth_error(exc):
+                console.print("[red]✗ Invalid submit-service bearer token.[/red]")
+            else:
+                console.print(f"[red]✗ Submit service error:[/red] {exc}")
+            return 1
+
+    try:
+        path = _store_submit_token(
+            resolved_token,
+            deploy_cfg_path=deploy_resolution.path,
+        )
+    except OSError as exc:
+        console.print(f"[red]✗ Could not save submit token:[/red] {exc}")
+        return 1
+
+    _print_ok(f"Saved submit token: {path}")
+    if os.environ.get("FEDCTL_SUBMIT_TOKEN"):
+        console.print(
+            "[yellow]Note:[/yellow] FEDCTL_SUBMIT_TOKEN is set; "
+            "it overrides saved config."
+        )
+    return 0
+
+
 def _build_project_archive(
     project_root: Path,
     project_name: str,
@@ -1464,6 +1521,13 @@ def _submit_service_client(
             token_source = "deploy_config"
     if not user:
         user = submit_cfg.user
+    if not token or not user:
+        fallback_submit_cfg = _profile_submit_auth_config()
+        if not token and fallback_submit_cfg.token:
+            token = fallback_submit_cfg.token
+            token_source = "user_deploy_config"
+        if not user and fallback_submit_cfg.user:
+            user = fallback_submit_cfg.user
 
     if not endpoint:
         return None
@@ -1476,6 +1540,11 @@ def _submit_service_client(
         prompt_for_token=prompt_for_token,
         token_source=token_source,
     )
+
+
+def _profile_submit_auth_config() -> SubmitDeployConfig:
+    profile_resolution = resolve_deploy_config(include_profile=True)
+    return parse_submit_deploy_config(profile_resolution.data or {})
 
 
 def _ensure_submit_service_auth(

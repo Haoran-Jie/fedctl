@@ -379,6 +379,32 @@ def test_prompted_submit_token_is_not_written_to_repo_deploy_config(
     assert yaml.safe_load(user_deploy_cfg_path.read_text())["submit"]["token"] == "prompt-token"
 
 
+def test_submit_service_client_backfills_missing_token_from_user_deploy_config(
+    monkeypatch, tmp_path: Path
+) -> None:
+    repo_deploy_cfg_path = tmp_path / "project" / ".fedctl" / "fedctl.yaml"
+
+    def fake_resolve_deploy_config(**kwargs):
+        assert kwargs == {"include_profile": True}
+        return SimpleNamespace(
+            path=tmp_path / "xdg" / "fedctl" / "deploy-default.yaml",
+            data={"submit": {"token": "user-token", "user": "alice"}},
+        )
+
+    monkeypatch.setattr(submit_cmd, "resolve_deploy_config", fake_resolve_deploy_config)
+
+    client = submit_cmd._submit_service_client(
+        deploy_cfg={"submit": {"endpoint": "http://submit.example", "token": ""}},
+        deploy_cfg_path=repo_deploy_cfg_path,
+        validate_auth=False,
+    )
+
+    assert isinstance(client, submit_cmd.SubmitServiceClient)
+    assert client.endpoint == "http://submit.example"
+    assert client.token == "user-token"
+    assert client.user == "alice"
+
+
 def test_run_submit_register_token_prompts_and_saves_token(
     monkeypatch, tmp_path: Path, capsys
 ) -> None:
@@ -417,6 +443,47 @@ def test_run_submit_register_token_prompts_and_saves_token(
     }
     assert saved == {"token": "fedctl_secret", "deploy_cfg_path": None}
     assert "fedctl_secret" not in output
+
+
+def test_run_submit_token_set_validates_and_saves_token(
+    monkeypatch, tmp_path: Path
+) -> None:
+    deploy_cfg_path = tmp_path / "project" / ".fedctl" / "fedctl.yaml"
+    checked: dict[str, object] = {}
+    saved: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        submit_cmd,
+        "resolve_deploy_config",
+        lambda **_: SimpleNamespace(
+            data={"submit": {"endpoint": "http://submit.example", "user": "alice"}},
+            path=deploy_cfg_path,
+        ),
+    )
+
+    def fake_check_auth(self):
+        checked["endpoint"] = self.endpoint
+        checked["token"] = self.token
+        checked["user"] = self.user
+
+    monkeypatch.setattr(submit_cmd.SubmitServiceClient, "check_auth", fake_check_auth)
+
+    def fake_store_submit_token(token: str, *, deploy_cfg_path: Path | None) -> Path:
+        saved["token"] = token
+        saved["deploy_cfg_path"] = deploy_cfg_path
+        return tmp_path / "xdg" / "fedctl" / "deploy-default.yaml"
+
+    monkeypatch.setattr(submit_cmd, "_store_submit_token", fake_store_submit_token)
+
+    status = submit_cmd.run_submit_token_set(token="fedctl_web", validate=True)
+
+    assert status == 0
+    assert checked == {
+        "endpoint": "http://submit.example",
+        "token": "fedctl_web",
+        "user": "alice",
+    }
+    assert saved == {"token": "fedctl_web", "deploy_cfg_path": deploy_cfg_path}
 
 
 def test_run_submit_auto_generates_experiment_from_experiment_config(

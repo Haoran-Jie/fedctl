@@ -493,6 +493,40 @@ def submit_register_token(
     )
 
 
+@submit_app.command("set-token")
+def submit_set_token(
+    token: str | None = typer.Argument(
+        None,
+        help="Bearer token to save. Omit to paste it into a hidden prompt.",
+    ),
+    deploy_config: str | None = typer.Option(
+        None,
+        "--deploy-config",
+        help="Path to deploy config YAML used to find the submit endpoint.",
+    ),
+    legacy_repo_config: str | None = typer.Option(None, "--repo-config", hidden=True),
+    no_validate: bool = typer.Option(
+        False,
+        "--no-validate",
+        help="Save the token without checking it against the submit service.",
+    ),
+) -> None:
+    """Save a submit-service bearer token in the user deploy config."""
+    from fedctl.commands.submit import run_submit_token_set
+
+    resolved_deploy_config = _resolve_deploy_config_option(
+        deploy_config=deploy_config,
+        legacy_repo_config=legacy_repo_config,
+    )
+    raise SystemExit(
+        run_submit_token_set(
+            token=token,
+            deploy_config=resolved_deploy_config,
+            validate=not no_validate,
+        )
+    )
+
+
 def _format_deploy_config(value: str | None) -> str:
     if not value:
         return "-"
