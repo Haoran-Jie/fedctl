@@ -1,4 +1,5 @@
 deploy:
+  image_registry: "128.232.61.111:5000"
   supernodes:
     rpi5: 12
     rpi4: 3
@@ -36,7 +37,3 @@ submit:
   token: "flwruser1"
   user: "samuel"
 
-submit-service:
-  image_registry: "128.232.61.111:5000"
-
-image_registry: "100.82.158.122:5000"

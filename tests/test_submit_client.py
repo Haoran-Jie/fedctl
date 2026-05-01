@@ -83,6 +83,26 @@ def test_submit_client_list_submissions_active_only(monkeypatch) -> None:
     assert captured["params"]["active_only"] == "true"
 
 
+def test_submit_client_check_auth_uses_tiny_submission_query(monkeypatch) -> None:
+    captured = {}
+
+    def fake_request(method, url, json=None, params=None, headers=None, timeout=None):
+        captured["method"] = method
+        captured["url"] = url
+        captured["params"] = params
+        captured["headers"] = headers
+        return DummyResp(200, "[]", json_obj=[])
+
+    monkeypatch.setattr(httpx, "request", fake_request)
+    client = SubmitServiceClient(endpoint="http://submit.example", token="token-123")
+    client.check_auth()
+
+    assert captured["method"] == "GET"
+    assert captured["url"] == "http://submit.example/v1/submissions"
+    assert captured["params"] == {"limit": "1", "status": "all"}
+    assert captured["headers"]["Authorization"] == "Bearer token-123"
+
+
 def test_submit_client_list_submissions_status_filter(monkeypatch) -> None:
     captured = {}
 

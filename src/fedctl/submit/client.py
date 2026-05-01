@@ -28,6 +28,9 @@ class SubmitServiceClient:
     def create_submission(self, payload: dict[str, Any]) -> dict[str, Any]:
         return self._request("POST", "/v1/submissions", json_payload=payload)
 
+    def check_auth(self) -> None:
+        self._request("GET", "/v1/submissions", params={"limit": "1", "status": "all"})
+
     def list_submissions(
         self,
         limit: int = 20,

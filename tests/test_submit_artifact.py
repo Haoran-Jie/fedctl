@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
+import yaml
+
 import fedctl.commands.submit as submit_cmd
 import fedctl.submit.artifact as artifact
 from fedctl.config.io import DEFAULT_SUBMIT_ENDPOINT
@@ -228,12 +230,14 @@ def test_run_submit_requires_token_for_default_submit_service(
     )
     monkeypatch.setattr(
         submit_cmd,
-        "_submit_service_client",
-        lambda **_: submit_cmd.SubmitServiceClient(
-            endpoint=DEFAULT_SUBMIT_ENDPOINT,
-            token=None,
-        ),
+        "_interactive_stdin",
+        lambda: False,
     )
+
+    def fake_check_auth(self):
+        raise submit_cmd.SubmitServiceError("Submit service error 401: Missing bearer token")
+
+    monkeypatch.setattr(submit_cmd.SubmitServiceClient, "check_auth", fake_check_auth)
     monkeypatch.setattr(
         submit_cmd,
         "_build_project_archive",
@@ -265,6 +269,114 @@ def test_run_submit_requires_token_for_default_submit_service(
     )
 
     assert status == 1
+
+
+def test_submit_service_client_prompts_and_saves_missing_token(
+    monkeypatch, tmp_path: Path
+) -> None:
+    config_home = tmp_path / "xdg"
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(config_home))
+    deploy_cfg_path = config_home / "fedctl" / "deploy-default.yaml"
+    deploy_cfg_path.parent.mkdir(parents=True)
+    deploy_cfg_path.write_text(
+        "submit:\n  endpoint: http://submit.example\n  token: ''\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(submit_cmd, "_interactive_stdin", lambda: True)
+    monkeypatch.setattr(submit_cmd.getpass, "getpass", lambda _: "prompt-token")
+
+    checked_tokens: list[str | None] = []
+
+    def fake_check_auth(self):
+        checked_tokens.append(self.token)
+        if self.token != "prompt-token":
+            raise submit_cmd.SubmitServiceError("Submit service error 401: Missing bearer token")
+
+    monkeypatch.setattr(submit_cmd.SubmitServiceClient, "check_auth", fake_check_auth)
+
+    client = submit_cmd._submit_service_client(
+        deploy_cfg={"submit": {"endpoint": "http://submit.example", "token": ""}},
+        deploy_cfg_path=deploy_cfg_path,
+        prompt_for_token=True,
+        validate_auth=True,
+    )
+
+    assert isinstance(client, submit_cmd.SubmitServiceClient)
+    assert client.token == "prompt-token"
+    assert checked_tokens == [None, "prompt-token"]
+    assert yaml.safe_load(deploy_cfg_path.read_text())["submit"]["token"] == "prompt-token"
+
+
+def test_submit_service_client_prompts_and_replaces_invalid_token(
+    monkeypatch, tmp_path: Path
+) -> None:
+    config_home = tmp_path / "xdg"
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(config_home))
+    deploy_cfg_path = config_home / "fedctl" / "deploy-default.yaml"
+    deploy_cfg_path.parent.mkdir(parents=True)
+    deploy_cfg_path.write_text(
+        "submit:\n  endpoint: http://submit.example\n  token: bad-token\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(submit_cmd, "_interactive_stdin", lambda: True)
+    monkeypatch.setattr(submit_cmd.getpass, "getpass", lambda _: "good-token")
+
+    checked_tokens: list[str | None] = []
+
+    def fake_check_auth(self):
+        checked_tokens.append(self.token)
+        if self.token != "good-token":
+            raise submit_cmd.SubmitServiceError("Submit service error 403: Invalid token")
+
+    monkeypatch.setattr(submit_cmd.SubmitServiceClient, "check_auth", fake_check_auth)
+
+    client = submit_cmd._submit_service_client(
+        deploy_cfg={"submit": {"endpoint": "http://submit.example", "token": "bad-token"}},
+        deploy_cfg_path=deploy_cfg_path,
+        prompt_for_token=True,
+        validate_auth=True,
+    )
+
+    assert isinstance(client, submit_cmd.SubmitServiceClient)
+    assert client.token == "good-token"
+    assert checked_tokens == ["bad-token", "good-token"]
+    assert yaml.safe_load(deploy_cfg_path.read_text())["submit"]["token"] == "good-token"
+
+
+def test_prompted_submit_token_is_not_written_to_repo_deploy_config(
+    monkeypatch, tmp_path: Path
+) -> None:
+    config_home = tmp_path / "xdg"
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(config_home))
+    repo_deploy_cfg_path = tmp_path / "project" / ".fedctl" / "fedctl.yaml"
+    repo_deploy_cfg_path.parent.mkdir(parents=True)
+    repo_deploy_cfg_path.write_text(
+        "submit:\n  endpoint: http://submit.example\n  token: ''\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(submit_cmd, "_interactive_stdin", lambda: True)
+    monkeypatch.setattr(submit_cmd.getpass, "getpass", lambda _: "prompt-token")
+
+    def fake_check_auth(self):
+        if self.token != "prompt-token":
+            raise submit_cmd.SubmitServiceError("Submit service error 401: Missing bearer token")
+
+    monkeypatch.setattr(submit_cmd.SubmitServiceClient, "check_auth", fake_check_auth)
+
+    client = submit_cmd._submit_service_client(
+        deploy_cfg={"submit": {"endpoint": "http://submit.example", "token": ""}},
+        deploy_cfg_path=repo_deploy_cfg_path,
+        prompt_for_token=True,
+        validate_auth=True,
+    )
+
+    user_deploy_cfg_path = config_home / "fedctl" / "deploy-default.yaml"
+    assert isinstance(client, submit_cmd.SubmitServiceClient)
+    assert yaml.safe_load(repo_deploy_cfg_path.read_text())["submit"]["token"] == ""
+    assert yaml.safe_load(user_deploy_cfg_path.read_text())["submit"]["token"] == "prompt-token"
 
 
 def test_run_submit_auto_generates_experiment_from_experiment_config(

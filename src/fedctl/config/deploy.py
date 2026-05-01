@@ -101,9 +101,18 @@ def parse_submit_deploy_config(deploy_cfg: dict[str, Any]) -> SubmitDeployConfig
 
 
 def get_image_registry(deploy_cfg: dict[str, Any]) -> str | None:
+    deploy = deploy_cfg.get("deploy")
+    if isinstance(deploy, dict):
+        value = deploy.get("image_registry")
+        if isinstance(value, str) and value.strip():
+            return _normalize_registry(value)
+
+    # Legacy deploy configs stored the user-visible registry at the top level.
     value = deploy_cfg.get("image_registry")
     if isinstance(value, str) and value.strip():
         return _normalize_registry(value)
+
+    # Older build-specific configs may still provide this fallback.
     build_cfg = deploy_cfg.get("build", {})
     if isinstance(build_cfg, dict):
         value = build_cfg.get("image_registry")
@@ -113,6 +122,8 @@ def get_image_registry(deploy_cfg: dict[str, Any]) -> str | None:
 
 
 def get_cluster_image_registry(deploy_cfg: dict[str, Any]) -> str | None:
+    # Legacy split-registry configs used this as a cluster-visible registry
+    # override. New deploy configs should use deploy.image_registry only.
     submit_service_cfg = deploy_cfg.get("submit-service", {})
     if isinstance(submit_service_cfg, dict):
         value = submit_service_cfg.get("image_registry")

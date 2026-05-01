@@ -41,6 +41,55 @@ _LOG_JOBS = [
     ("superexec_serverapp", "SuperExec serverapp"),
     ("superexec_clientapps", "SuperExec clientapps"),
 ]
+_HELP_CONFIG_SECTIONS = [
+    {
+        "title": "Experiment config",
+        "subtitle": "Run settings passed to Flower",
+        "description": (
+            "An experiment config is a TOML file for workload, method, seed, and Flower run-config values. "
+            "fedctl validates and flattens it into the run config used by the remote Flower run."
+        ),
+        "command": "fedctl submit run apps/fedctl_research --experiment-config path/to/experiment.toml",
+        "snippet": (
+            "[experiment]\n"
+            "method = \"fedavg\"\n"
+            "task = \"fashion_mnist_mlp\"\n"
+            "seed = 1337\n\n"
+            "[server]\n"
+            "num-server-rounds = 3\n"
+            "min-available-nodes = 4"
+        ),
+        "notes": [
+            "Use this for algorithm, dataset, seed, and training parameters.",
+            "Sectioned TOML is normalized into Flower's flat --run-config input.",
+            "Seed sweeps expand into separate submissions before Flower starts.",
+            "Use --run-config-override for one-off value changes without copying the file.",
+        ],
+    },
+    {
+        "title": "Deploy config",
+        "subtitle": "Execution environment used by fedctl",
+        "description": (
+            "A deploy config is YAML consumed by fedctl and the submit runner. It is not passed to Flower; "
+            "it chooses the submit service, artifact store, images, registry, resources, placement, and network settings."
+        ),
+        "command": "fedctl submit run apps/fedctl_research --deploy-config .fedctl/fedctl.yaml",
+        "snippet": (
+            "submit:\n"
+            "  endpoint: \"http://fedctl.cl.cam.ac.uk\"\n"
+            "  token: \"\"\n"
+            "  image: \"128.232.61.111:5000/fedctl-submit:latest\"\n\n"
+            "deploy:\n"
+            "  image_registry: \"128.232.61.111:5000\""
+        ),
+        "notes": [
+            "Resolution order is --deploy-config, project .fedctl/fedctl.yaml, then the active user profile.",
+            "Fresh installs create a CamMLSys default deploy config; add submit.token or set FEDCTL_SUBMIT_TOKEN.",
+            "deploy.image_registry is the canonical registry field for CamMLSys runs.",
+            "deploy.supernodes is optional; when omitted, fedctl can fall back to the Flower project's local-simulation.num-supernodes.",
+        ],
+    },
+]
 _HELP_COMMANDS = [
     {
         "name": "submit run",
@@ -514,6 +563,7 @@ def help_page(request: Request) -> HTMLResponse | RedirectResponse:
         "help.html",
         {
             "commands": _HELP_COMMANDS,
+            "config_sections": _HELP_CONFIG_SECTIONS,
             "quickstart_steps": [
                 {
                     "title": "Submit a project",

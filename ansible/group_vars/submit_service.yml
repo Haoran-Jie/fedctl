@@ -26,6 +26,7 @@ submit_repo_config_path: "/etc/fedctl/cluster-fedctl.yaml"
 submit_legacy_repo_config_path: "/opt/fedctl/.fedctl/fedctl.yaml"
 submit_cluster_repo_config:
   deploy:
+    image_registry: "{{ cluster_registry_hostport }}"
     supernodes:
       rpi5: 2
       jetson: 2
@@ -84,7 +85,7 @@ submit_cluster_repo_config:
           rate_burst_kbit: 256
   submit:
     node_class: submit
-    image: jiahborcn/fedctl-submit:latest
+    image: "{{ cluster_registry_hostport }}/fedctl-submit:latest"
     artifact_store: s3+presign://fedctl-submits/fedctl-submits
     endpoint: "{{ submit_service_public_endpoint }}"
     token: flwruser1
@@ -101,7 +102,6 @@ submit_cluster_repo_config:
     datacenter: dc1
     default_priority: 50
     docker_socket: /var/run/docker.sock
-  image_registry: "{{ cluster_registry_hostport }}"
 
 # Replace with your real tokens or use ansible-vault.
 submit_tokens:

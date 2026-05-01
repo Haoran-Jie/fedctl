@@ -1,6 +1,6 @@
 # Dissertation Experiment Plan
 
-This document is the authoritative source for the dissertation experiment programme. The application-side experiment tree under `apps/fedctl_research/experiment_configs/` defines the scientific comparisons, while deployment-side repo-configs define placement, resources, and network shaping. The plan below is therefore organized around **paper claims and required evidence**, not just around config directories.
+This document is the authoritative source for the dissertation experiment programme. The application-side experiment tree under `apps/fedctl_research/experiment_configs/` defines the scientific comparisons, while deployment configs under `apps/fedctl_research/repo_configs/` define placement, resources, and network shaping. The plan below is therefore organized around **paper claims and required evidence**, not just around config directories.
 
 ## Implemented methods and dissertation structure
 
@@ -498,7 +498,7 @@ This section turns the evidence matrix into the concrete post-headline execution
 
 ## Deployment presets
 
-Use these repo-config templates with the application-side configs:
+Use these deployment config templates with the application-side configs:
 
 - `apps/fedctl_research/repo_configs/smoke/compute_heterogeneity.yaml`
 - `apps/fedctl_research/repo_configs/smoke/network_heterogeneity.yaml`

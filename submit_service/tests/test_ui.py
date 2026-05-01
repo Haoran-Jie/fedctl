@@ -102,6 +102,15 @@ def test_ui_help_page_shows_submit_commands(tmp_path, monkeypatch: pytest.Monkey
     assert "Most important" in page.text
     assert "On this page" in page.text
     assert 'href="#quickstart"' in page.text
+    assert 'href="#configs"' in page.text
+    assert "Config files" in page.text
+    assert "Experiment config" in page.text
+    assert "Deploy config" in page.text
+    assert "--experiment-config" in page.text
+    assert "--deploy-config" in page.text
+    assert "deploy.image_registry" in page.text
+    assert "FEDCTL_SUBMIT_TOKEN" in page.text
+    assert "local-simulation.num-supernodes" in page.text
     assert 'id="command-submit-run"' in page.text
     assert 'data-copy-label="Link"' in page.text
     assert 'data-back-to-top' in page.text

@@ -13,7 +13,7 @@ The submission path solves three operational problems:
 ## Pipeline
 
 1. Resolve the Flower project root and the selected experiment config.
-2. Resolve the deployment-side repo config.
+2. Resolve the deployment-side deploy config.
 3. Build or reuse the SuperExec image for the project.
 4. Archive the project and upload it to the artifact store.
 5. Submit a queued run through the submit-service API.
@@ -39,7 +39,7 @@ The UI exists because shell output is transient and awkward once several long-ru
 
 - app path, usually `apps/fedctl_research`
 - experiment TOML under `apps/fedctl_research/experiment_configs/`
-- repo config under `apps/fedctl_research/repo_configs/`
+- deploy config under `apps/fedctl_research/repo_configs/`
 - optional image override, experiment name, and scheduling flags
 
 ### Outputs
@@ -52,5 +52,14 @@ The UI exists because shell output is transient and awkward once several long-ru
 
 ## Operational rule
 
-Use `fedctl run` when debugging the core deploy path.
-Use `fedctl submit run` for actual dissertation runs.
+Use `fedctl submit run` for normal dissertation runs.
+The direct deploy/run commands are hidden and retained for internal/debug use.
+
+## Fresh Install Defaults
+
+On first CLI use, `fedctl` creates:
+
+- `~/.config/fedctl/config.toml`, with the default profile pointed at `http://128.232.61.111:4646` in the `default` namespace
+- `~/.config/fedctl/deploy-default.yaml`, with the CamMLSys submit service, artifact store, submit image, and cluster registry already set
+
+For CamMLSys users the only required setup value is the submit-service bearer token. Add it to `submit.token` in `deploy-default.yaml`, or export it as `FEDCTL_SUBMIT_TOKEN`.
