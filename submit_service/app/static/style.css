@@ -2965,16 +2965,26 @@ td.cell-blocked { font-size: 0.88rem; color: var(--muted); }
 }
 .quick-command {
   min-width: 18rem;
+  max-width: 100%;
   padding: 0.9rem 1rem;
   border: 1px solid rgba(29, 111, 95, 0.18);
   background: rgba(247, 251, 251, 0.9);
   border-radius: 16px;
+  overflow: hidden;
 }
 .quick-command-label {
   display: block;
   color: var(--muted);
   font-size: 0.82rem;
   margin-bottom: 0.45rem;
+}
+.quick-command code {
+  display: block;
+  max-width: 100%;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .hint-card {
   margin-top: 1rem;
