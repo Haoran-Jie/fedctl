@@ -102,18 +102,73 @@ def test_ui_help_page_shows_submit_commands(tmp_path, monkeypatch: pytest.Monkey
     assert "Most important" in page.text
     assert "On this page" in page.text
     assert 'href="#quickstart"' in page.text
+    assert "Install fedctl" in page.text
+    assert "python -m pip install fedctl" in page.text
+    assert "submit-service bearer token" in page.text
+    assert "~/.config/fedctl/config.toml" in page.text
+    assert "~/.config/fedctl/deploy-default.yaml" in page.text
+    assert "FEDCTL_SUBMIT_TOKEN" in page.text
+    assert "fedctl submit run &lt;project-dir&gt;" in page.text
+    assert "fedctl submit run &lt;project-dir&gt; --stream" not in page.text
+    assert "--experiment-config path/to/experiment.toml" in page.text
+    assert "--deploy-config path/to/deploy.yaml" in page.text
+    assert "fedctl submit results &lt;submission-id&gt; --download --out ./results" in page.text
     assert 'href="#configs"' in page.text
     assert "Config files" in page.text
     assert "Experiment config" in page.text
     assert "Deploy config" in page.text
     assert "--experiment-config" in page.text
     assert "--deploy-config" in page.text
-    assert "deploy.image_registry" in page.text
-    assert "FEDCTL_SUBMIT_TOKEN" in page.text
-    assert "local-simulation.num-supernodes" in page.text
+    assert 'href="http://testserver/ui/help/config/experiment-config"' in page.text
+    assert 'href="http://testserver/ui/help/config/deploy-config"' in page.text
+    assert 'id="config-experiment-config"' in page.text
+    assert 'id="config-deploy-config"' in page.text
     assert 'id="command-submit-run"' in page.text
     assert 'data-copy-label="Link"' in page.text
     assert 'data-back-to-top' in page.text
+
+
+def test_ui_help_config_detail_pages_show_rich_guidance(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    client = _make_ui_client(tmp_path, monkeypatch)
+    _login(client, "tok-alice")
+
+    experiment_page = client.get("/ui/help/config/experiment-config")
+    assert experiment_page.status_code == 200
+    assert "Experiment config" in experiment_page.text
+    assert "Run settings passed to Flower" in experiment_page.text
+    assert "Workflow" in experiment_page.text
+    assert "File shape" in experiment_page.text
+    assert "Sectioned TOML is normalized into Flower" in experiment_page.text
+    assert "--run-config-override" in experiment_page.text
+    assert "It does not contain the submit-service bearer token." in experiment_page.text
+    assert 'href="http://testserver/ui/help/submit-run"' in experiment_page.text
+
+    deploy_page = client.get("/ui/help/config/deploy-config")
+    assert deploy_page.status_code == 200
+    assert "Deploy config" in deploy_page.text
+    assert "Execution environment used by fedctl" in deploy_page.text
+    assert "Supported fields" in deploy_page.text
+    assert "These are the deploy-config fields currently consumed by fedctl." in deploy_page.text
+    assert "Fresh-install setup" in deploy_page.text
+    assert "Resolution order" in deploy_page.text
+    assert "submit.endpoint" in deploy_page.text
+    assert "submit.token" in deploy_page.text
+    assert "submit.image" in deploy_page.text
+    assert "submit.artifact_store" in deploy_page.text
+    assert "submit.user" in deploy_page.text
+    assert "deploy.superexec.env" in deploy_page.text
+    assert "deploy.placement.allow_oversubscribe" in deploy_page.text
+    assert "deploy.placement.prefer_spread_across_hosts" in deploy_page.text
+    assert "deploy.resources.supernode.default" in deploy_page.text
+    assert "deploy.resources.superexec_clientapp" in deploy_page.text
+    assert "deploy.network.default_assignment" in deploy_page.text
+    assert "deploy.network.apply.superexec_clientapp" in deploy_page.text
+    assert "deploy.network.ingress_profiles.&lt;name&gt;" in deploy_page.text
+    assert "FEDCTL_SUBMIT_TOKEN" in deploy_page.text
+    assert "128.232.61.111:5000" in deploy_page.text
+    assert "local-simulation.num-supernodes" in deploy_page.text
+    assert "Legacy top-level registry fallback" in deploy_page.text
+    assert "--repo-config" in deploy_page.text
 
 
 def test_ui_help_command_detail_shows_rich_guidance(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
