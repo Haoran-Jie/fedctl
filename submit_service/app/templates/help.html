@@ -28,7 +28,7 @@
       <div class="section-head">
         <div class="section-copy">
           <h2>Quick start</h2>
-          <p class="muted">The normal workflow for most users is submit, watch, inspect, and download results.</p>
+          <p class="muted">Install fedctl, add your submit-service bearer token, submit a project, then monitor logs and results.</p>
         </div>
       </div>
       <div class="help-steps">
@@ -54,27 +54,26 @@
       </div>
       <div class="help-config-grid">
         {% for config in config_sections %}
-        <article class="help-command-card help-config-card">
-          <div class="help-command-head">
-            <div class="help-command-title">
-              <h3>{{ config.title }}</h3>
-              <span class="help-config-subtitle">{{ config.subtitle }}</span>
+        {% set detail_url = request.url_for('help_config_detail', config_slug=config.slug) %}
+        <article class="help-command-card help-command-summary help-config-card" id="config-{{ config.slug }}" data-help-section>
+          <a href="{{ detail_url }}" class="help-command-link help-config-link" data-copy-label="Link">
+            <div class="help-command-head">
+              <div class="help-command-title">
+                <h3>{{ config.title }}</h3>
+                <span class="help-config-subtitle">{{ config.subtitle }}</span>
+              </div>
+              <div class="help-command-arrow">→</div>
             </div>
-          </div>
-          <p class="muted">{{ config.description }}</p>
-          <div class="help-config-command">
-            <span class="quick-command-label">CLI spelling</span>
-            <pre><code>{{ config.command }}</code></pre>
-          </div>
-          <div class="help-config-snippet">
-            <span class="quick-command-label">Minimal shape</span>
-            <pre><code>{{ config.snippet }}</code></pre>
-          </div>
-          <ul class="help-note-list">
-            {% for note in config.notes %}
-            <li>{{ note }}</li>
-            {% endfor %}
-          </ul>
+            <p class="muted">{{ config.description }}</p>
+            <div class="help-config-command">
+              <span class="quick-command-label">CLI spelling</span>
+              <pre><code>{{ config.command }}</code></pre>
+            </div>
+            <div class="help-config-snippet">
+              <span class="quick-command-label">Minimal shape</span>
+              <pre><code>{{ config.snippet }}</code></pre>
+            </div>
+          </a>
         </article>
         {% endfor %}
       </div>

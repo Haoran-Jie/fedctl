@@ -1,0 +1,237 @@
+{% extends 'base.html' %}
+{% block title %}{{ config.title }} | fedctl{% endblock %}
+{% block content %}
+<div class="doc-header">
+  <a href="{{ request.url_for('help_page') }}#configs" class="doc-breadcrumb-link">← Back to config files</a>
+  <h1>{{ config.title }}</h1>
+  <div class="eyebrow">{{ config.subtitle }}</div>
+  <p class="doc-summary">{{ config.summary }}</p>
+</div>
+
+<div class="doc-layout">
+  <aside class="doc-sidebar">
+    <nav class="doc-nav">
+      <a href="#overview" class="doc-nav-link">Overview</a>
+      <a href="#workflow" class="doc-nav-link">Workflow</a>
+      <a href="#shape" class="doc-nav-link">File shape</a>
+      <a href="#details" class="doc-nav-link">Details</a>
+      {% if config.field_groups %}<a href="#fields" class="doc-nav-link">Fields</a>{% endif %}
+      <a href="#examples" class="doc-nav-link">Examples</a>
+      <a href="#notes" class="doc-nav-link">Notes</a>
+      {% if config.related_commands %}<a href="#related" class="doc-nav-link">Related</a>{% endif %}
+    </nav>
+  </aside>
+
+  <main class="doc-main">
+    <section id="overview" class="doc-section">
+      <h2>Overview</h2>
+      <p>{{ config.description }}</p>
+      {% for paragraph in config.details or [] %}
+      <p>{{ paragraph }}</p>
+      {% endfor %}
+    </section>
+
+    <section id="workflow" class="doc-section">
+      <h2>Workflow</h2>
+      <div class="doc-bullet-grid">
+        {% for item in config.flow %}
+        <div class="doc-bullet-card">
+          <span class="doc-bullet-marker" aria-hidden="true"></span>
+          <p>{{ item }}</p>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section id="shape" class="doc-section">
+      <h2>File shape</h2>
+      <div class="doc-code-block">
+        <div class="doc-code-header">
+          <span>Minimal shape</span>
+          <button
+            type="button"
+            class="doc-copy-button"
+            data-copy="{{ config.snippet }}"
+            data-copy-label="Copy"
+            data-copy-done-label="Copied"
+            title="Copy minimal file shape"
+          >
+            📋
+          </button>
+        </div>
+        <pre><code>{{ config.snippet }}</code></pre>
+      </div>
+
+      <div class="doc-code-block doc-code-block-secondary">
+        <div class="doc-code-header">
+          <span>CLI spelling</span>
+          <button
+            type="button"
+            class="doc-copy-button"
+            data-copy="{{ config.command }}"
+            data-copy-label="Copy"
+            data-copy-done-label="Copied"
+            title="Copy command"
+          >
+            📋
+          </button>
+        </div>
+        <pre><code>{{ config.command }}</code></pre>
+      </div>
+    </section>
+
+    <section id="details" class="doc-section">
+      <h2>Details</h2>
+      <div class="doc-examples">
+        {% for section in config.sections %}
+        <article class="doc-example-card">
+          <div class="doc-example-copy">
+            <h3>{{ section.title }}</h3>
+            <ul class="doc-callout-list">
+              {% for item in section["items"] %}
+              <li>{{ item }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    {% if config.field_groups %}
+    <section id="fields" class="doc-section">
+      <h2>Supported fields</h2>
+      <p class="doc-section-intro">These are the deploy-config fields currently consumed by fedctl.</p>
+      {% for group in config.field_groups %}
+      <section class="doc-subsection">
+        <h3>{{ group.title }}</h3>
+        {% if group.description %}<p>{{ group.description }}</p>{% endif %}
+        <table class="doc-flags-table">
+          <tbody>
+            {% for field in group.fields %}
+            <tr>
+              <td class="doc-flag-name">{{ field.path }}</td>
+              <td class="doc-flag-type">{{ field.type }}</td>
+              <td class="doc-flag-description">{{ field.description }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+      {% endfor %}
+    </section>
+    {% endif %}
+
+    <section id="examples" class="doc-section">
+      <h2>Examples</h2>
+      <p class="doc-section-intro">Common usage patterns and scenarios:</p>
+
+      <div class="doc-examples">
+        {% for example in config.examples %}
+        <article class="doc-example-card">
+          <div class="doc-example-copy">
+            <h3>{{ example.title }}</h3>
+            {% if example.body %}<p>{{ example.body }}</p>{% endif %}
+          </div>
+          <div class="terminal-card">
+            <div class="terminal-bar">
+              <div class="terminal-controls" aria-hidden="true">
+                <span class="terminal-control terminal-control-close"></span>
+                <span class="terminal-control terminal-control-min"></span>
+                <span class="terminal-control terminal-control-max"></span>
+              </div>
+              <span class="terminal-title">Example</span>
+              <button
+                type="button"
+                class="button secondary copy-button"
+                data-copy="{{ example.command }}"
+                data-copy-label="Copy"
+                data-copy-done-label="Copied"
+              >
+                Copy
+              </button>
+            </div>
+            <div class="terminal-body">
+              <pre><code><span class="terminal-prompt">$</span> {{ example.command }}</code></pre>
+            </div>
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section id="notes" class="doc-section">
+      <h2>Important information</h2>
+      <div class="doc-callout doc-callout-important">
+        <ul class="doc-callout-list">
+          {% for note in config.notes %}
+          <li>{{ note }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </section>
+
+    {% if config.related_commands %}
+    <section id="related" class="doc-section">
+      <h2>Related commands</h2>
+      <div class="doc-related-grid">
+        {% for related in config.related_commands %}
+        {% set related_slug = related | lower | replace(' ', '-') %}
+        <a class="doc-related-card" href="{{ request.url_for('help_command_detail', command_slug=related_slug) }}">
+          <span>{{ related }}</span>
+          <small>Open details →</small>
+        </a>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+  </main>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const navLinks = document.querySelectorAll('.doc-nav-link');
+    const sections = document.querySelectorAll('.doc-section');
+
+    function updateActiveLink() {
+      let current = '';
+      sections.forEach(section => {
+        const sectionTop = section.offsetTop;
+        if (window.scrollY >= sectionTop - 200) {
+          current = section.getAttribute('id');
+        }
+      });
+
+      navLinks.forEach(link => {
+        link.classList.remove('is-active');
+        if (link.getAttribute('href') === '#' + current) {
+          link.classList.add('is-active');
+        }
+      });
+    }
+
+    window.addEventListener('scroll', updateActiveLink);
+    updateActiveLink();
+
+    document.querySelectorAll('[data-copy]').forEach(button => {
+      button.addEventListener('click', async function(e) {
+        e.preventDefault();
+        const text = this.dataset.copy;
+        const doneLabel = this.dataset.copyDone;
+
+        try {
+          await navigator.clipboard.writeText(text);
+          const originalText = this.textContent;
+          this.textContent = doneLabel || '✓';
+
+          setTimeout(() => {
+            this.textContent = originalText;
+          }, 1500);
+        } catch (err) {
+          console.error('Failed to copy:', err);
+        }
+      });
+    });
+  });
+</script>
+{% endblock %}

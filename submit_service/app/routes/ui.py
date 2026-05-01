@@ -43,7 +43,9 @@ _LOG_JOBS = [
 ]
 _HELP_CONFIG_SECTIONS = [
     {
+        "slug": "experiment-config",
         "title": "Experiment config",
+        "summary": "Sectioned TOML that describes the workload, method, seed, and Flower run settings.",
         "subtitle": "Run settings passed to Flower",
         "description": (
             "An experiment config is a TOML file for workload, method, seed, and Flower run-config values. "
@@ -59,15 +61,76 @@ _HELP_CONFIG_SECTIONS = [
             "num-server-rounds = 3\n"
             "min-available-nodes = 4"
         ),
+        "details": [
+            "Use an experiment config when a run needs to be reproducible. The file describes what should be trained and how Flower should run it; it does not choose the submit service, registry, Nomad node placement, or cluster resources.",
+            "fedctl reads the sectioned TOML, applies seed expansion and command-line overrides, then writes the normalized run config consumed by the submit runner. The remote runner ultimately invokes Flower with a concrete --run-config for one child run.",
+            "For a normal Flower project, this file is optional. If it is omitted, fedctl can submit the project using the defaults already present in the Flower app, such as pyproject.toml and local-simulation.num-supernodes.",
+        ],
+        "flow": [
+            "Read the TOML passed with --experiment-config.",
+            "Expand seed sweeps into one submission per seed when the config declares multiple seeds.",
+            "Apply --seed and --run-config-override values from the CLI.",
+            "Flatten sectioned TOML into Flower-compatible run-config keys.",
+            "Run the remote Flower app with one concrete normalized config.",
+        ],
+        "sections": [
+            {
+                "title": "Typical contents",
+                "items": [
+                    "Experiment identity: method, task, seed, dataset split, and naming metadata.",
+                    "Server settings: rounds, aggregation method parameters, buffer size, or async method knobs.",
+                    "Client settings: local epochs, batch size, learning rate, and model/data options.",
+                    "Device-specific settings when the project wants rpi4/rpi5 behavior to differ.",
+                ],
+            },
+            {
+                "title": "Precedence",
+                "items": [
+                    "--run-config-override is for one-off edits and wins over file values.",
+                    "--seed pins a single seed for the child run and wins over file seed defaults.",
+                    "A seed sweep in the file is expanded before the remote Flower process starts.",
+                ],
+            },
+            {
+                "title": "What it does not control",
+                "items": [
+                    "It does not contain the submit-service bearer token.",
+                    "It does not select the Docker registry or fedctl submit runner image.",
+                    "It does not allocate Nomad resources or choose rpi4/rpi5 node counts.",
+                ],
+            },
+        ],
+        "examples": [
+            {
+                "title": "Submit with an experiment config",
+                "body": "Use this when the project has a reusable TOML file for the run settings.",
+                "command": (
+                    "fedctl submit run apps/fedctl_research \\\n"
+                    "  --experiment-config apps/fedctl_research/experiment_configs/smoke/compute_heterogeneity/fashion_mnist_mlp/fedavg.toml"
+                ),
+            },
+            {
+                "title": "Override one Flower run-config value",
+                "body": "Use an override for a small temporary change without copying the experiment file.",
+                "command": (
+                    "fedctl submit run apps/fedctl_research \\\n"
+                    "  --experiment-config apps/fedctl_research/experiment_configs/smoke/compute_heterogeneity/fashion_mnist_mlp/fedavg.toml \\\n"
+                    "  --run-config-override num-server-rounds=5"
+                ),
+            },
+        ],
         "notes": [
             "Use this for algorithm, dataset, seed, and training parameters.",
             "Sectioned TOML is normalized into Flower's flat --run-config input.",
             "Seed sweeps expand into separate submissions before Flower starts.",
             "Use --run-config-override for one-off value changes without copying the file.",
         ],
+        "related_commands": ["submit run"],
     },
     {
+        "slug": "deploy-config",
         "title": "Deploy config",
+        "summary": "YAML that tells fedctl how to reach and use the CamMLSys submit/cluster environment.",
         "subtitle": "Execution environment used by fedctl",
         "description": (
             "A deploy config is YAML consumed by fedctl and the submit runner. It is not passed to Flower; "
@@ -82,12 +145,248 @@ _HELP_CONFIG_SECTIONS = [
             "deploy:\n"
             "  image_registry: \"128.232.61.111:5000\""
         ),
+        "details": [
+            "Use a deploy config when you need to tell fedctl where and how to run the project. It is deployment-side state: submit-service endpoint and token, artifact storage, submit runner image, image registry, Nomad resource defaults, placement rules, and network impairment profiles.",
+            "The deploy config is consumed by the local CLI and the submit runner. Flower does not receive this file as run config; Flower only receives the normalized experiment/run config plus the project archive.",
+            "Fresh installs create a CamMLSys-oriented default deploy config on first fedctl use. For most users, setup should be pip install fedctl, add a bearer token through submit.token or FEDCTL_SUBMIT_TOKEN, then run fedctl submit run <project>.",
+        ],
+        "flow": [
+            "Resolve the deploy config from --deploy-config, project .fedctl/fedctl.yaml, or the active user profile.",
+            "Read submit.endpoint, submit.token, submit.image, and artifact-store settings.",
+            "Use deploy.image_registry as the canonical registry for CamMLSys submit and SuperExec images.",
+            "Apply resource, placement, supernode, and network settings while rendering Nomad jobs.",
+            "Persist submit-service metadata so status, logs, results, and inventory commands can inspect the run.",
+        ],
+        "sections": [
+            {
+                "title": "Fresh-install setup",
+                "items": [
+                    "fedctl creates ~/.config/fedctl/config.toml and ~/.config/fedctl/deploy-default.yaml on first CLI use.",
+                    "The generated deploy-default.yaml points at the shared CamMLSys submit service and registry.",
+                    "The intentionally blank value is submit.token; set it in the file or export FEDCTL_SUBMIT_TOKEN.",
+                    "Interactive submit commands can prompt for a missing or invalid bearer token and persist it to the user deploy config.",
+                ],
+            },
+            {
+                "title": "Resolution order",
+                "items": [
+                    "--deploy-config is explicit and wins for that command.",
+                    "A project-local .fedctl/fedctl.yaml can select a deploy config for the project.",
+                    "The active user profile falls back to ~/.config/fedctl/deploy-default.yaml.",
+                    "The hidden legacy --repo-config spelling and legacy repo_config profile key remain accepted for old installs.",
+                ],
+            },
+            {
+                "title": "Important fields",
+                "items": [
+                    "submit.endpoint chooses the submit service API.",
+                    "submit.token or FEDCTL_SUBMIT_TOKEN provides the bearer token.",
+                    "submit.image chooses the fedctl submit runner image.",
+                    "deploy.image_registry is the visible canonical registry field; use 128.232.61.111:5000 for CamMLSys.",
+                    "deploy.supernodes is optional. If omitted, fedctl can fall back to the Flower project's local-simulation.num-supernodes unless overridden by CLI flags or a deploy preset.",
+                ],
+            },
+        ],
+        "field_groups": [
+            {
+                "title": "submit",
+                "description": "Submit-service and artifact-upload settings used before Nomad deployment starts.",
+                "fields": [
+                    {
+                        "path": "submit.endpoint",
+                        "type": "URL",
+                        "description": "Submit service API endpoint. The CamMLSys default is http://fedctl.cl.cam.ac.uk.",
+                    },
+                    {
+                        "path": "submit.token",
+                        "type": "string",
+                        "description": "Bearer token for the submit service. It may be left blank when FEDCTL_SUBMIT_TOKEN is set, and interactive CLI auth can persist a prompted token here for user config files.",
+                    },
+                    {
+                        "path": "submit.user",
+                        "type": "string",
+                        "description": "User label attached to submissions. Fresh configs default this from FEDCTL_SUBMIT_USER, USER, LOGNAME, USERNAME, or the local login name.",
+                    },
+                    {
+                        "path": "submit.image",
+                        "type": "image",
+                        "description": "Docker image used for the fedctl submit runner job. For CamMLSys this should usually be 128.232.61.111:5000/fedctl-submit:latest.",
+                    },
+                    {
+                        "path": "submit.artifact_store",
+                        "type": "URI",
+                        "description": "Artifact upload target for the packaged project archive, for example s3+presign://fedctl-submits/fedctl-submits.",
+                    },
+                ],
+            },
+            {
+                "title": "deploy",
+                "description": "Cluster execution defaults consumed by fedctl and the remote submit runner.",
+                "fields": [
+                    {
+                        "path": "deploy.image_registry",
+                        "type": "host:port",
+                        "description": "Canonical registry used for CamMLSys images. Use 128.232.61.111:5000; older top-level image_registry and submit-service.image_registry keys are legacy fallbacks only.",
+                    },
+                    {
+                        "path": "deploy.supernodes",
+                        "type": "map[string]int",
+                        "description": "Optional typed SuperNode counts such as {rpi4: 2, rpi5: 2}. If omitted, fedctl can fall back to the Flower project's local-simulation.num-supernodes unless a CLI flag or deploy preset overrides it.",
+                    },
+                    {
+                        "path": "deploy.superexec.env",
+                        "type": "map[string]string",
+                        "description": "Environment variables injected into SuperExec server/client containers, commonly W&B or experiment-service settings.",
+                    },
+                ],
+            },
+            {
+                "title": "deploy.placement",
+                "description": "Nomad placement behavior and queue-gating defaults.",
+                "fields": [
+                    {
+                        "path": "deploy.placement.allow_oversubscribe",
+                        "type": "bool",
+                        "description": "Allows multiple logical client workloads to share available compute capacity. false asks the submit service and renderer to use stricter placement.",
+                    },
+                    {
+                        "path": "deploy.placement.spread_across_hosts",
+                        "type": "bool",
+                        "description": "Hard spread behavior for typed placements when oversubscription is disabled.",
+                    },
+                    {
+                        "path": "deploy.placement.prefer_spread_across_hosts",
+                        "type": "bool",
+                        "description": "Soft spread behavior for oversubscribed typed runs; Nomad receives host affinities but placements remain flexible.",
+                    },
+                ],
+            },
+            {
+                "title": "deploy.resources",
+                "description": "CPU and memory reservations rendered into Nomad jobs and mirrored by submit-service capacity checks.",
+                "fields": [
+                    {
+                        "path": "deploy.resources.supernode.default",
+                        "type": "{cpu:int, mem:int}",
+                        "description": "Default SuperNode CPU MHz and memory MB reservation.",
+                    },
+                    {
+                        "path": "deploy.resources.supernode.<device>",
+                        "type": "{cpu:int, mem:int}",
+                        "description": "Optional per-device SuperNode reservation, for example rpi4 or rpi5.",
+                    },
+                    {
+                        "path": "deploy.resources.superexec_clientapp",
+                        "type": "{cpu:int, mem:int}",
+                        "description": "CPU/memory reservation for each SuperExec clientapp task.",
+                    },
+                    {
+                        "path": "deploy.resources.superexec_serverapp",
+                        "type": "{cpu:int, mem:int}",
+                        "description": "CPU/memory reservation for the SuperExec serverapp task.",
+                    },
+                    {
+                        "path": "deploy.resources.superlink",
+                        "type": "{cpu:int, mem:int}",
+                        "description": "CPU/memory reservation for the SuperLink task.",
+                    },
+                ],
+            },
+            {
+                "title": "deploy.network",
+                "description": "Optional netem profile definitions and assignment defaults used when CLI --net is absent.",
+                "fields": [
+                    {
+                        "path": "deploy.network.image",
+                        "type": "image",
+                        "description": "Container image used for the netem sidecar/wrapper, defaulting in generated configs to jiahborcn/netem:latest.",
+                    },
+                    {
+                        "path": "deploy.network.default_profile",
+                        "type": "string",
+                        "description": "Default network profile label. It is also used as the deploy-config label in generated experiment names when present.",
+                    },
+                    {
+                        "path": "deploy.network.default_assignment",
+                        "type": "string | list[string]",
+                        "description": "Fallback assignment used when --net is not passed, for example rpi5[*]=med or a list of assignment strings.",
+                    },
+                    {
+                        "path": "deploy.network.interface",
+                        "type": "string",
+                        "description": "Network interface to shape, normally eth0 on the cluster.",
+                    },
+                    {
+                        "path": "deploy.network.apply.superexec_serverapp",
+                        "type": "bool",
+                        "description": "Apply netem wrapping to the SuperExec serverapp path as well as the default SuperNode path.",
+                    },
+                    {
+                        "path": "deploy.network.apply.superexec_clientapp",
+                        "type": "bool",
+                        "description": "Apply netem wrapping to SuperExec clientapp tasks as well as the default SuperNode path.",
+                    },
+                    {
+                        "path": "deploy.network.profiles.<name>",
+                        "type": "profile",
+                        "description": "Bidirectional profile used by assignments. Supported profile keys include delay_ms, jitter_ms, loss_pct, rate_mbit, rate_latency_ms, and rate_burst_kbit.",
+                    },
+                    {
+                        "path": "deploy.network.ingress_profiles.<name>",
+                        "type": "profile",
+                        "description": "Optional direction-specific profile for ingress traffic.",
+                    },
+                    {
+                        "path": "deploy.network.egress_profiles.<name>",
+                        "type": "profile",
+                        "description": "Optional direction-specific profile for egress traffic.",
+                    },
+                ],
+            },
+            {
+                "title": "legacy compatibility",
+                "description": "Accepted for old files, but not the preferred spelling for new deploy configs.",
+                "fields": [
+                    {
+                        "path": "image_registry",
+                        "type": "host:port",
+                        "description": "Legacy top-level registry fallback. Prefer deploy.image_registry.",
+                    },
+                    {
+                        "path": "build.image_registry",
+                        "type": "host:port",
+                        "description": "Older build-specific registry fallback. Prefer deploy.image_registry.",
+                    },
+                    {
+                        "path": "submit-service.image_registry",
+                        "type": "host:port",
+                        "description": "Legacy cluster-visible registry override. New configs should use a single deploy.image_registry value.",
+                    },
+                ],
+            },
+        ],
+        "examples": [
+            {
+                "title": "Use the default CamMLSys deploy config",
+                "body": "Most users can rely on the generated user deploy config after adding their bearer token.",
+                "command": "FEDCTL_SUBMIT_TOKEN=<token> fedctl submit run ../quickstart-pytorch",
+            },
+            {
+                "title": "Use an explicit project deploy config",
+                "body": "Use this when the project has a checked-in or repo-local deployment preset.",
+                "command": (
+                    "fedctl submit run apps/fedctl_research \\\n"
+                    "  --deploy-config .fedctl/main_compute_heterogeneity.yaml"
+                ),
+            },
+        ],
         "notes": [
             "Resolution order is --deploy-config, project .fedctl/fedctl.yaml, then the active user profile.",
             "Fresh installs create a CamMLSys default deploy config; add submit.token or set FEDCTL_SUBMIT_TOKEN.",
             "deploy.image_registry is the canonical registry field for CamMLSys runs.",
             "deploy.supernodes is optional; when omitted, fedctl can fall back to the Flower project's local-simulation.num-supernodes.",
         ],
+        "related_commands": ["submit run", "submit status", "submit logs", "submit inventory"],
     },
 ]
 _HELP_COMMANDS = [
@@ -566,9 +865,41 @@ def help_page(request: Request) -> HTMLResponse | RedirectResponse:
             "config_sections": _HELP_CONFIG_SECTIONS,
             "quickstart_steps": [
                 {
-                    "title": "Submit a project",
-                    "body": "Run fedctl submit run on a local Flower project directory. This is the normal path for users.",
-                    "command": "fedctl submit run ../quickstart-pytorch",
+                    "title": "Install fedctl",
+                    "body": "Install the CLI in the Python environment you use for Flower projects.",
+                    "command": "python -m pip install fedctl",
+                },
+                {
+                    "title": "Authenticate once",
+                    "body": (
+                        "The first fedctl command creates ~/.config/fedctl/config.toml and "
+                        "~/.config/fedctl/deploy-default.yaml. Add your submit-service bearer token "
+                        "when prompted, or export FEDCTL_SUBMIT_TOKEN before running commands."
+                    ),
+                    "command": (
+                        "export FEDCTL_SUBMIT_TOKEN=<your-bearer-token>\n"
+                        "fedctl submit ls"
+                    ),
+                },
+                {
+                    "title": "Submit a Flower project",
+                    "body": (
+                        "For a normal Flower project, you can submit the project directory directly. "
+                        "fedctl uses the generated CamMLSys deploy defaults unless the project provides its own config."
+                    ),
+                    "command": "fedctl submit run <project-dir>",
+                },
+                {
+                    "title": "Add config files when needed",
+                    "body": (
+                        "Use an experiment config for Flower run settings and a deploy config for cluster execution settings. "
+                        "Open the config file cards below for the full field reference."
+                    ),
+                    "command": (
+                        "fedctl submit run <project-dir> \\\n"
+                        "  --experiment-config path/to/experiment.toml \\\n"
+                        "  --deploy-config path/to/deploy.yaml"
+                    ),
                 },
                 {
                     "title": "Check queue and status",
@@ -576,11 +907,39 @@ def help_page(request: Request) -> HTMLResponse | RedirectResponse:
                     "command": "fedctl submit ls --active\nfedctl submit status <submission-id>",
                 },
                 {
-                    "title": "Inspect logs or results",
-                    "body": "Use logs during execution and results after completion.",
-                    "command": "fedctl submit logs <submission-id> --job submit --stderr\nfedctl submit results <submission-id>",
+                    "title": "Inspect logs and download results",
+                    "body": "Follow logs while the run starts, then download result artifacts after completion.",
+                    "command": (
+                        "fedctl submit logs <submission-id> --job submit --follow\n"
+                        "fedctl submit results <submission-id> --download --out ./results"
+                    ),
                 },
             ],
+        },
+    )
+
+
+@router.get("/ui/help/config/{config_slug}", response_class=HTMLResponse, response_model=None)
+def help_config_detail(config_slug: str, request: Request) -> HTMLResponse | RedirectResponse:
+    principal = current_ui_principal(request)
+    if principal is None:
+        return RedirectResponse(url="/ui/login", status_code=303)
+
+    config = None
+    for item in _HELP_CONFIG_SECTIONS:
+        if item["slug"] == config_slug:
+            config = item
+            break
+
+    if config is None:
+        return RedirectResponse(url="/ui/help", status_code=303)
+
+    return _render(
+        request,
+        "help_config_detail.html",
+        {
+            "config": config,
+            "all_configs": _HELP_CONFIG_SECTIONS,
         },
     )
 

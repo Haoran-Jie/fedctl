@@ -905,6 +905,17 @@ button, .button {
   font-size: 0.95rem;
   margin-bottom: 1.2rem !important;
 }
+.doc-subsection + .doc-subsection {
+  margin-top: 1.8rem;
+}
+.doc-subsection h3 {
+  margin: 0 0 0.45rem;
+  font-size: 1.08rem;
+  color: var(--text);
+}
+.doc-subsection p {
+  margin-bottom: 0.85rem;
+}
 .doc-bullet-grid,
 .doc-related-grid {
   display: grid;
@@ -1109,6 +1120,7 @@ button, .button {
 /* Flags section */
 .doc-flags-table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   margin: 1rem 0;
   font-size: 0.95rem;
@@ -1124,7 +1136,7 @@ button, .button {
 
 .doc-flags-table td {
   padding: 0.8rem 1rem;
-  vertical-align: middle;
+  vertical-align: top;
 }
 
 .doc-flags-table .doc-flag-name {
@@ -1132,7 +1144,7 @@ button, .button {
   font-size: 0.9rem;
   font-weight: 700;
   color: var(--accent-dark);
-  width: 40%;
+  width: 34%;
   word-break: break-word;
   padding-right: 1.5rem;
 }
@@ -1141,22 +1153,21 @@ button, .button {
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.03em;
   color: var(--accent-dark);
-  background: rgba(var(--accent-rgb, 70, 130, 180), 0.1);
-  padding: 0.3rem 0.6rem;
-  border-radius: 3px;
-  width: 15%;
+  width: 18%;
   text-align: center;
-  white-space: nowrap;
-  vertical-align: middle;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.35;
 }
 
 .doc-flags-table .doc-flag-description {
   color: var(--text);
   line-height: 1.5;
-  width: 45%;
-  vertical-align: middle;
+  width: 48%;
+  vertical-align: top;
 }
 
 /* Responsive */
