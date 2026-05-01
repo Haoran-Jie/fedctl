@@ -78,6 +78,7 @@ def test_ui_requires_session_and_login_succeeds(tmp_path, monkeypatch: pytest.Mo
     page = client.get("/ui/submissions")
     assert page.status_code == 200
     assert "Submissions" in page.text
+    assert 'href="/ui/nodes"' in page.text
     assert "data-toast-root" in page.text
     assert "data-sticky-panel" in page.text
     assert "data-sticky-shell" in page.text
@@ -86,7 +87,7 @@ def test_ui_requires_session_and_login_succeeds(tmp_path, monkeypatch: pytest.Mo
     assert '>Completed<' in page.text
     assert '>Failed<' in page.text
     assert '>Cancelled<' in page.text
-    assert '>All<' in page.text
+    assert 'value="all"' in page.text
     assert '<select name="status"' not in page.text
     assert 'data-auto-submit="260"' in page.text
     assert ">Search</button>" not in page.text
@@ -389,9 +390,9 @@ def test_ui_admin_can_view_nodes_and_all_submissions(tmp_path, monkeypatch: pyte
     assert "Nodes" in nodes.text
     assert "data-sticky-panel" in nodes.text
     assert "data-sticky-shell" in nodes.text
-    assert ">2</td>" in nodes.text
-    assert ">1</td>" in nodes.text
-    assert "job-a, job-b" in nodes.text
+    assert "Allocations (2)" in nodes.text
+    assert "job-a" in nodes.text
+    assert "job-b" in nodes.text
 
 
 def test_ui_stats_are_based_on_all_visible_submissions_not_active_filter(
@@ -582,12 +583,56 @@ def test_ui_submissions_paginates_and_preserves_filters(
     assert "return_to=/ui/submissions%3Fstatus%3Dcompleted%26q%3Dvision%26page%3D2%26limit%3D2" in page_two.text
 
 
-def test_ui_non_admin_redirected_from_nodes(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_ui_non_admin_can_view_nodes_without_allocation_details(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     client = _make_ui_client(tmp_path, monkeypatch)
+    client.app.state.inventory = type(
+        "DummyInventory",
+        (),
+        {
+            "list_nodes": staticmethod(
+                lambda include_allocs=True: [
+                    {
+                        "name": "rpi2",
+                        "id": "node-1",
+                        "status": "ready",
+                        "node_class": "submit",
+                        "device_type": "rpi",
+                        "resources": {
+                            "total_cpu": 4000,
+                            "total_mem": 8192,
+                            "used_cpu": 1000,
+                            "used_mem": 2048,
+                        },
+                        "allocations": {
+                            "count": 2,
+                            "running_jobs": ["secret-job-a"],
+                            "items": [
+                                {
+                                    "id": "secret-alloc-1",
+                                    "job_id": "secret-job-a",
+                                    "status": "running",
+                                    "resources": {"cpu": 700, "mem": 1024},
+                                },
+                            ],
+                        },
+                    }
+                ]
+            )
+        },
+    )()
+
     _login(client, "tok-alice")
-    response = client.get("/ui/nodes", follow_redirects=False)
-    assert response.status_code == 303
-    assert response.headers["location"] == "/ui/submissions"
+    response = client.get("/ui/nodes")
+    assert response.status_code == 200
+    assert "Nodes" in response.text
+    assert "rpi2" in response.text
+    assert "1000/4000 (25%)" in response.text
+    assert "2GB/8GB (25%)" in response.text
+    assert "secret-job-a" not in response.text
+    assert "secret-alloc-1" not in response.text
+    assert 'class="resource-segment"' not in response.text
 
 
 def test_ui_detail_shows_archived_logs(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:

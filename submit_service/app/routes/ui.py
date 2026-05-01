@@ -25,7 +25,7 @@ from ..submissions_service import (
     resolve_submission_logs_detail,
     submission_stats_for_principal,
 )
-from ..ui_auth import current_ui_principal, login_via_token, logout, require_ui_admin
+from ..ui_auth import current_ui_principal, login_via_token, logout
 
 router = APIRouter(include_in_schema=False)
 
@@ -1244,11 +1244,8 @@ def nodes_page(
     principal = current_ui_principal(request)
     if principal is None:
         return RedirectResponse(url="/ui/login", status_code=303)
-    try:
-        require_ui_admin(request)
-    except HTTPException:
-        return RedirectResponse(url="/ui/submissions", status_code=303)
     inventory = request.app.state.inventory
+    is_admin = principal.role == "admin"
     search_query = (q or "").strip()
     try:
         nodes = inventory.list_nodes(include_allocs=True)
@@ -1258,14 +1255,18 @@ def nodes_page(
             "nodes.html",
             {
                 "nodes": [],
+                "class_groups": [],
+                "class_summaries": [],
                 "filters": {"q": search_query},
                 "error": str(exc),
+                "quick_command": _inventory_command(),
+                "show_private": is_admin,
             },
             status_code=502,
         )
     filtered = []
     for node in nodes:
-        view = _node_view(node)
+        view = _node_view(node, include_private=is_admin)
         if search_query and not _node_matches_query(view, search_query):
             continue
         filtered.append(view)
@@ -1282,6 +1283,7 @@ def nodes_page(
             "filters": {"q": search_query},
             "error": None,
             "quick_command": _inventory_command(),
+            "show_private": is_admin,
         },
     )
 
@@ -1787,7 +1789,7 @@ def _summarize_nodes_by_class(nodes: list[dict[str, Any]]) -> list[dict[str, Any
     return ordered
 
 
-def _node_view(node: dict[str, Any]) -> dict[str, Any]:
+def _node_view(node: dict[str, Any], *, include_private: bool = True) -> dict[str, Any]:
     resources = node.get("resources") if isinstance(node.get("resources"), dict) else {}
     allocations = node.get("allocations") if isinstance(node.get("allocations"), dict) else {}
     alloc_items = allocations.get("items") if isinstance(allocations.get("items"), list) else []
@@ -1797,6 +1799,17 @@ def _node_view(node: dict[str, Any]) -> dict[str, Any]:
         else []
     )
     alloc_count = int(allocations.get("count") or 0)
+    visible_allocations = allocations
+    visible_alloc_items = alloc_items
+    visible_running_jobs = running_jobs
+    if not include_private:
+        visible_allocations = {
+            "count": alloc_count,
+            "running_jobs": [],
+            "items": [],
+        }
+        visible_alloc_items = []
+        visible_running_jobs = []
     return {
         "name": node.get("name") or node.get("node_name") or node.get("id") or "-",
         "id": node.get("id") or "-",
@@ -1804,14 +1817,14 @@ def _node_view(node: dict[str, Any]) -> dict[str, Any]:
         "node_class": node.get("node_class") or "-",
         "device_type": node.get("device_type") or "-",
         "resources": resources,
-        "allocations": allocations,
+        "allocations": visible_allocations,
         "alloc_count": alloc_count,
-        "running_job_count": len(running_jobs),
-        "running_jobs": ", ".join(str(job_id) for job_id in running_jobs) or "-",
+        "running_job_count": len(visible_running_jobs),
+        "running_jobs": ", ".join(str(job_id) for job_id in visible_running_jobs) or "-",
         "alloc_summary": ", ".join(
             sorted(
                 str(alloc.get("job_id") or alloc.get("id") or "-")
-                for alloc in alloc_items
+                for alloc in visible_alloc_items
                 if isinstance(alloc, dict)
             )
         ) or "-",
