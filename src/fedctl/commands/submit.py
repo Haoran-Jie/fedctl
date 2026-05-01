@@ -15,16 +15,16 @@ from rich.text import Text
 import httpx
 import tomlkit
 
-from fedctl.config.io import load_config
+from fedctl.config.io import DEFAULT_SUBMIT_ENDPOINT, load_config
 from fedctl.config.merge import get_effective_config
-from fedctl.config.repo import (
+from fedctl.config.deploy import (
     get_cluster_image_registry,
-    get_repo_config_label,
-    get_repo_network_profile_label,
-    parse_submit_repo_config,
+    get_deploy_config_label,
+    get_deploy_network_profile_label,
+    parse_submit_deploy_config,
     get_image_registry,
     rewrite_image_registry,
-    resolve_repo_config,
+    resolve_deploy_config,
 )
 from fedctl.nomad.client import NomadClient
 from fedctl.nomad.errors import NomadConnectionError, NomadHTTPError, NomadTLSError
@@ -92,12 +92,11 @@ def run_submit(
     supernodes: list[str] | None,
     net: list[str] | None,
     allow_oversubscribe: bool | None,
-    repo_config: str | None,
+    deploy_config: str | None,
     experiment: str | None,
     timeout_seconds: int,
     federation: str,
     stream: bool,
-    verbose: bool,
     destroy: bool,
     submit_image: str | None,
     artifact_store: str | None,
@@ -116,16 +115,16 @@ def run_submit(
         num_supernodes = info.local_sim_num_supernodes
         _print_ok(f"Using num-supernodes={num_supernodes}")
 
-    repo_resolution = resolve_repo_config(
-        repo_config=repo_config,
+    deploy_resolution = resolve_deploy_config(
+        deploy_config=deploy_config,
         include_profile=True,
         include_project_local=True,
         project_root=project_path,
     )
-    repo_cfg = repo_resolution.data
-    repo_cfg_path = repo_resolution.path
-    repo_config_label = get_repo_config_label(repo_cfg, path=repo_cfg_path)
-    network_profile_label = get_repo_network_profile_label(repo_cfg)
+    deploy_cfg = deploy_resolution.data
+    deploy_cfg_path = deploy_resolution.path
+    deploy_config_label = get_deploy_config_label(deploy_cfg, path=deploy_cfg_path)
+    network_profile_label = get_deploy_network_profile_label(deploy_cfg)
 
     try:
         resolved_experiment_config = resolve_experiment_config(info.root, experiment_config)
@@ -166,33 +165,40 @@ def run_submit(
                 supernodes=supernodes,
                 net=net,
                 allow_oversubscribe=allow_oversubscribe,
-                repo_config=repo_config,
+                deploy_config=deploy_config,
                 timeout_seconds=timeout_seconds,
                 federation=federation,
                 stream=stream,
-                verbose=verbose,
                 destroy=destroy,
                 submit_image=submit_image,
                 artifact_store=artifact_store,
                 priority=priority,
             )
-    repo_supernodes = _repo_supernodes(repo_cfg)
-    if not supernodes and repo_supernodes:
-        supernodes = [f"{device_type}={count}" for device_type, count in repo_supernodes.items()]
+    deploy_supernodes = _deploy_supernodes(deploy_cfg)
+    if not supernodes and deploy_supernodes:
+        supernodes = [f"{device_type}={count}" for device_type, count in deploy_supernodes.items()]
     if allow_oversubscribe is None:
-        repo_allow_oversubscribe = _repo_allow_oversubscribe(repo_cfg)
-        if repo_allow_oversubscribe is not None:
-            allow_oversubscribe = repo_allow_oversubscribe
+        deploy_allow_oversubscribe = _deploy_allow_oversubscribe(deploy_cfg)
+        if deploy_allow_oversubscribe is not None:
+            allow_oversubscribe = deploy_allow_oversubscribe
 
-    submit_client = _submit_service_client(repo_cfg=repo_cfg)
+    submit_client = _submit_service_client(deploy_cfg=deploy_cfg)
+    if submit_client and _submit_token_missing_for_default_endpoint(submit_client):
+        console.print("[red]✗ Missing submit-service bearer token.[/red]")
+        location = str(deploy_cfg_path) if deploy_cfg_path else "the deploy config"
+        console.print(
+            "[yellow]Hint:[/yellow] Set submit.token in "
+            f"{location}, or export FEDCTL_SUBMIT_TOKEN."
+        )
+        return 1
     submission_id = None
     if not submit_client:
         submission_id = f"submit-{exp_name}-{_timestamp_compact()}"
         _print_ok(f"Submission ID: {submission_id}")
 
-    submit_cfg = parse_submit_repo_config(repo_cfg)
-    external_registry = get_image_registry(repo_cfg)
-    internal_registry = get_cluster_image_registry(repo_cfg)
+    submit_cfg = parse_submit_deploy_config(deploy_cfg)
+    external_registry = get_image_registry(deploy_cfg)
+    internal_registry = get_cluster_image_registry(deploy_cfg)
 
     resolved_image = submit_image or submit_cfg.image
     resolved_artifact_store = artifact_store or submit_cfg.artifact_store
@@ -201,11 +207,11 @@ def run_submit(
     )
     presign_token = submit_client.token if submit_client else submit_cfg.token
     if not resolved_image:
-        console.print("[red]✗ Missing submit image.[/red] Use --submit-image or repo config.")
+        console.print("[red]✗ Missing submit image.[/red] Use --submit-image or deploy config.")
         return 1
     if not resolved_artifact_store:
         console.print(
-            "[red]✗ Missing artifact store.[/red] Use --artifact-store or repo config."
+            "[red]✗ Missing artifact store.[/red] Use --artifact-store or deploy config."
         )
         return 1
     resolved_image = rewrite_image_registry(
@@ -228,7 +234,7 @@ def run_submit(
         archive_path = _build_project_archive(
             info.root,
             project_name,
-            repo_config_path=repo_cfg_path,
+            deploy_config_path=deploy_cfg_path,
             experiment_config_path=(
                 resolved_experiment_config.archive_source if resolved_experiment_config else None
             ),
@@ -290,11 +296,10 @@ def run_submit(
                         supernodes=supernodes,
                         net=net,
                         allow_oversubscribe=allow_oversubscribe,
-                        repo_config=repo_config,
+                        deploy_config=deploy_config,
                         federation=federation,
                         stream=stream,
                         timeout_seconds=timeout_seconds,
-                        verbose=verbose,
                         destroy=destroy,
                         submit_image=resolved_image,
                         artifact_store=resolved_artifact_store,
@@ -324,7 +329,6 @@ def run_submit(
                         federation=federation,
                         stream=stream,
                         timeout_seconds=timeout_seconds,
-                        verbose=verbose,
                         destroy=destroy,
                     ),
                     "env": _runner_env(
@@ -337,7 +341,7 @@ def run_submit(
                             if resolved_experiment_config
                             else None
                         ),
-                        repo_config_label=repo_config_label,
+                        deploy_config_label=deploy_config_label,
                     ),
                     "priority": priority or 50,
                     "namespace": eff.namespace,
@@ -382,7 +386,6 @@ def run_submit(
                 federation=federation,
                 stream=stream,
                 timeout_seconds=timeout_seconds,
-                verbose=verbose,
                 destroy=destroy,
             ),
             env=_runner_env(
@@ -396,7 +399,7 @@ def run_submit(
                     if resolved_experiment_config
                     else None
                 ),
-                repo_config_label=repo_config_label,
+                deploy_config_label=deploy_config_label,
             ),
             priority=priority or 50,
             artifact_dest="/local/project",
@@ -931,7 +934,7 @@ def _build_project_archive(
     project_root: Path,
     project_name: str,
     *,
-    repo_config_path: Path | None = None,
+    deploy_config_path: Path | None = None,
     experiment_config_path: Path | None = None,
     experiment_config_arcname: str | None = None,
 ) -> Path:
@@ -951,13 +954,13 @@ def _build_project_archive(
                     continue
                 arcname = Path(project_root.name) / rel_path
                 tar.add(full_path, arcname=arcname)
-        local_repo_cfg = project_root / ".fedctl" / "fedctl.yaml"
-        if repo_config_path is not None and repo_config_path.exists():
+        local_deploy_cfg = project_root / ".fedctl" / "fedctl.yaml"
+        if deploy_config_path is not None and deploy_config_path.exists():
             arcname = Path(project_root.name) / ".fedctl" / "fedctl.yaml"
-            tar.add(repo_config_path, arcname=arcname)
-        elif local_repo_cfg.exists():
+            tar.add(deploy_config_path, arcname=arcname)
+        elif local_deploy_cfg.exists():
             arcname = Path(project_root.name) / ".fedctl" / "fedctl.yaml"
-            tar.add(local_repo_cfg, arcname=arcname)
+            tar.add(local_deploy_cfg, arcname=arcname)
         if (
             experiment_config_path is not None
             and experiment_config_path.exists()
@@ -968,8 +971,8 @@ def _build_project_archive(
     return archive_path
 
 
-def _repo_supernodes(repo_cfg: dict[str, object]) -> dict[str, int]:
-    deploy = repo_cfg.get("deploy")
+def _deploy_supernodes(deploy_cfg: dict[str, object]) -> dict[str, int]:
+    deploy = deploy_cfg.get("deploy")
     if not isinstance(deploy, dict):
         return {}
     raw = deploy.get("supernodes")
@@ -987,8 +990,8 @@ def _repo_supernodes(repo_cfg: dict[str, object]) -> dict[str, int]:
     return counts
 
 
-def _repo_allow_oversubscribe(repo_cfg: dict[str, object]) -> bool | None:
-    deploy = repo_cfg.get("deploy")
+def _deploy_allow_oversubscribe(deploy_cfg: dict[str, object]) -> bool | None:
+    deploy = deploy_cfg.get("deploy")
     if not isinstance(deploy, dict):
         return None
     placement = deploy.get("placement")
@@ -1019,7 +1022,6 @@ def _runner_args(
     federation: str,
     stream: bool,
     timeout_seconds: int,
-    verbose: bool,
     destroy: bool,
 ) -> list[str]:
     project_dir = project_dir_name or "."
@@ -1072,8 +1074,6 @@ def _runner_args(
         args.append("--no-allow-oversubscribe")
     if not stream:
         args.append("--no-stream")
-    if verbose:
-        args.append("--verbose")
     if not destroy:
         args.append("--no-destroy")
     return args
@@ -1087,7 +1087,7 @@ def _runner_env(
     image_registry: str | None = None,
     attempt_started_at: str | None = None,
     experiment_config: str | None = None,
-    repo_config_label: str | None = None,
+    deploy_config_label: str | None = None,
 ) -> dict[str, str]:
     env: dict[str, str] = {}
     endpoint = getattr(eff, "endpoint", None)
@@ -1112,8 +1112,9 @@ def _runner_env(
         env["FEDCTL_ATTEMPT_STARTED_AT"] = str(attempt_started_at)
     if experiment_config:
         env["FEDCTL_EXPERIMENT_CONFIG"] = str(experiment_config)
-    if repo_config_label:
-        env["FEDCTL_REPO_CONFIG_LABEL"] = str(repo_config_label)
+    if deploy_config_label:
+        env["FEDCTL_DEPLOY_CONFIG_LABEL"] = str(deploy_config_label)
+        env["FEDCTL_REPO_CONFIG_LABEL"] = str(deploy_config_label)
     for key in (
         "AWS_ACCESS_KEY_ID",
         "AWS_SECRET_ACCESS_KEY",
@@ -1150,11 +1151,10 @@ def _original_submit_request(
     supernodes: list[str] | None,
     net: list[str] | None,
     allow_oversubscribe: bool | None,
-    repo_config: str | None,
+    deploy_config: str | None,
     federation: str,
     stream: bool,
     timeout_seconds: int,
-    verbose: bool,
     destroy: bool,
     submit_image: str | None,
     artifact_store: str | None,
@@ -1197,10 +1197,8 @@ def _original_submit_request(
         options["net"] = net
     if allow_oversubscribe is not None:
         options["allow_oversubscribe"] = allow_oversubscribe
-    if repo_config:
-        options["repo_config"] = repo_config
-    if verbose:
-        options["verbose"] = True
+    if deploy_config:
+        options["deploy_config"] = deploy_config
     if submit_image:
         options["submit_image"] = submit_image
     if artifact_store:
@@ -1246,16 +1244,15 @@ def _submit_command_preview(options: dict[str, object]) -> str:
         parts.append("--allow-oversubscribe")
     elif options.get("allow_oversubscribe") is False:
         parts.append("--no-allow-oversubscribe")
-    if options.get("repo_config"):
-        parts.extend(["--repo-config", str(options["repo_config"])])
+    deploy_config = options.get("deploy_config") or options.get("repo_config")
+    if deploy_config:
+        parts.extend(["--deploy-config", str(deploy_config)])
     if options.get("federation"):
         parts.extend(["--federation", str(options["federation"])])
     if options.get("stream") is False:
         parts.append("--no-stream")
     if options.get("timeout") is not None:
         parts.extend(["--timeout", str(options["timeout"])])
-    if options.get("verbose"):
-        parts.append("--verbose")
     if options.get("destroy") is False:
         parts.append("--no-destroy")
     if options.get("submit_image"):
@@ -1285,11 +1282,10 @@ def _submit_seed_sweep(
     supernodes: list[str] | None,
     net: list[str] | None,
     allow_oversubscribe: bool | None,
-    repo_config: str | None,
+    deploy_config: str | None,
     timeout_seconds: int,
     federation: str,
     stream: bool,
-    verbose: bool,
     destroy: bool,
     submit_image: str | None,
     artifact_store: str | None,
@@ -1319,12 +1315,11 @@ def _submit_seed_sweep(
             supernodes=supernodes,
             net=net,
             allow_oversubscribe=allow_oversubscribe,
-            repo_config=repo_config,
+            deploy_config=deploy_config,
             experiment=child_experiment,
             timeout_seconds=timeout_seconds,
             federation=federation,
             stream=stream,
-            verbose=verbose,
             destroy=destroy,
             submit_image=submit_image,
             artifact_store=artifact_store,
@@ -1350,22 +1345,41 @@ def _rewrite_local_endpoint(endpoint: str) -> str:
     return f"{scheme}://${{attr.unique.network.ip-address}}:{port}"
 
 
+def _submit_token_missing_for_default_endpoint(submit_client: SubmitServiceClient) -> bool:
+    token = getattr(submit_client, "token", None)
+    if isinstance(token, str) and token.strip():
+        return False
+    endpoint = getattr(submit_client, "endpoint", "")
+    if not isinstance(endpoint, str) or not endpoint.strip():
+        return False
+    return _endpoint_host(endpoint) == _endpoint_host(DEFAULT_SUBMIT_ENDPOINT)
+
+
+def _endpoint_host(endpoint: str) -> str | None:
+    try:
+        parsed = urlparse(endpoint)
+    except Exception:
+        return None
+    host = parsed.hostname
+    return host.lower() if isinstance(host, str) else None
+
+
 def _submit_service_client(
     *,
-    repo_cfg: dict[str, object] | None = None,
-    repo_config: str | None = None,
+    deploy_cfg: dict[str, object] | None = None,
+    deploy_config: str | None = None,
 ) -> SubmitServiceClient | None:
     endpoint = os.environ.get("FEDCTL_SUBMIT_ENDPOINT")
     token = os.environ.get("FEDCTL_SUBMIT_TOKEN")
     user = os.environ.get("FEDCTL_SUBMIT_USER")
 
-    if repo_cfg is None:
-        repo_cfg = resolve_repo_config(
-            repo_config=repo_config,
+    if deploy_cfg is None:
+        deploy_cfg = resolve_deploy_config(
+            deploy_config=deploy_config,
             include_profile=True,
         ).data
 
-    submit_cfg = parse_submit_repo_config(repo_cfg or {})
+    submit_cfg = parse_submit_deploy_config(deploy_cfg or {})
     if not endpoint:
         endpoint = submit_cfg.endpoint
     if not token:

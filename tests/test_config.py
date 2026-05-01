@@ -4,14 +4,23 @@ from pathlib import Path
 
 import tomlkit
 import pytest
+import yaml
+from typer.testing import CliRunner
 
+import fedctl.cli as cli
 from fedctl.config.io import (
+    DEFAULT_ARTIFACT_STORE,
+    DEFAULT_CLUSTER_IMAGE_REGISTRY,
+    DEFAULT_EXTERNAL_IMAGE_REGISTRY,
+    DEFAULT_NOMAD_ENDPOINT,
+    DEFAULT_SUBMIT_ENDPOINT,
+    DEFAULT_SUBMIT_IMAGE,
     ensure_config_exists,
     load_config,
     load_raw_toml,
     save_raw_toml,
 )
-from fedctl.config.paths import repo_default_config_path
+from fedctl.config.paths import deploy_default_config_path
 from fedctl.config.merge import get_effective_config
 
 
@@ -43,22 +52,24 @@ def test_load_config_creates_default_profile(tmp_path: Path, monkeypatch) -> Non
     assert "default" in cfg.profiles
 
     p = cfg.profiles["default"]
-    assert p.endpoint == "http://127.0.0.1:4646"
-    assert p.repo_config == str(repo_default_config_path())
-
-    # Optional fields should load as None if omitted in TOML
-    assert p.namespace is None
+    assert p.endpoint == DEFAULT_NOMAD_ENDPOINT
+    assert p.namespace == "default"
+    assert p.deploy_config == str(deploy_default_config_path())
 
 
-def test_default_config_does_not_write_none_values(tmp_path: Path, monkeypatch) -> None:
+def test_default_config_writes_cammlsys_profile_defaults(
+    tmp_path: Path, monkeypatch
+) -> None:
     _use_tmp_xdg(monkeypatch, tmp_path)
 
     cfg_path = ensure_config_exists()
     doc = tomlkit.parse(cfg_path.read_text())
 
-    # The keys should be omitted (rather than "namespace = None" which TOML can't represent)
     default_tbl = doc["profiles"]["default"]
-    assert "namespace" not in default_tbl
+    assert default_tbl["endpoint"] == DEFAULT_NOMAD_ENDPOINT
+    assert default_tbl["namespace"] == "default"
+    assert default_tbl["deploy_config"] == str(deploy_default_config_path())
+    assert "repo_config" not in default_tbl
 
 
 def test_profile_roundtrip_add_and_use(tmp_path: Path, monkeypatch) -> None:
@@ -87,6 +98,33 @@ def test_profile_roundtrip_add_and_use(tmp_path: Path, monkeypatch) -> None:
 
     cfg2 = load_config()
     assert cfg2.active_profile == "lab-ts"
+
+
+def test_profile_add_writes_visible_deploy_config_key(
+    tmp_path: Path, monkeypatch
+) -> None:
+    _use_tmp_xdg(monkeypatch, tmp_path)
+    deploy_cfg = tmp_path / "cluster.yaml"
+    deploy_cfg.write_text("submit:\n  image: cluster:latest\n", encoding="utf-8")
+
+    result = CliRunner().invoke(
+        cli.app,
+        [
+            "profile",
+            "add",
+            "cluster",
+            "--endpoint",
+            "http://nomad.example:4646",
+            "--deploy-config",
+            str(deploy_cfg),
+        ],
+    )
+
+    assert result.exit_code == 0
+    doc = load_raw_toml()
+    profile = doc["profiles"]["cluster"]
+    assert profile["deploy_config"] == str(deploy_cfg.resolve())
+    assert "repo_config" not in profile
 
 
 def test_effective_config_precedence_flags_over_env_over_profile(tmp_path: Path, monkeypatch) -> None:
@@ -184,19 +222,32 @@ def test_unknown_profile_raises(tmp_path: Path, monkeypatch) -> None:
         _ = get_effective_config(cfg, profile_name="does-not-exist")
 
 
-def test_ensure_config_creates_default_repo_config_file(tmp_path: Path, monkeypatch) -> None:
+def test_ensure_config_creates_default_deploy_config_file(tmp_path: Path, monkeypatch) -> None:
     _use_tmp_xdg(monkeypatch, tmp_path)
+    monkeypatch.setenv("FEDCTL_SUBMIT_USER", "alice")
 
     _ = ensure_config_exists()
-    repo_cfg = repo_default_config_path()
-    assert repo_cfg.exists()
-    text = repo_cfg.read_text(encoding="utf-8")
+    deploy_cfg = deploy_default_config_path()
+    assert deploy_cfg.exists()
+    text = deploy_cfg.read_text(encoding="utf-8")
     assert "deploy:" in text
     assert "submit:" in text
     assert "submit-service:" in text
 
+    data = yaml.safe_load(text)
+    assert data["submit"]["image"] == DEFAULT_SUBMIT_IMAGE
+    assert data["submit"]["artifact_store"] == DEFAULT_ARTIFACT_STORE
+    assert data["submit"]["endpoint"] == DEFAULT_SUBMIT_ENDPOINT
+    assert data["submit"]["token"] == ""
+    assert data["submit"]["user"] == "alice"
+    assert data["submit-service"]["image_registry"] == DEFAULT_CLUSTER_IMAGE_REGISTRY
+    assert "nomad_endpoint" not in data["submit-service"]
+    assert "dispatch_mode" not in data["submit-service"]
+    assert data["image_registry"] == DEFAULT_EXTERNAL_IMAGE_REGISTRY
+    assert "supernodes" not in data["deploy"]
 
-def test_ensure_config_backfills_default_repo_config_when_unset(
+
+def test_ensure_config_backfills_default_deploy_config_when_unset(
     tmp_path: Path, monkeypatch
 ) -> None:
     _use_tmp_xdg(monkeypatch, tmp_path)
@@ -204,9 +255,34 @@ def test_ensure_config_backfills_default_repo_config_when_unset(
 
     doc = tomlkit.parse(cfg_path.read_text())
     default_tbl = doc["profiles"]["default"]
+    default_tbl.pop("deploy_config", None)
     default_tbl.pop("repo_config", None)
     cfg_path.write_text(tomlkit.dumps(doc))
 
     _ = ensure_config_exists()
     cfg = load_config()
-    assert cfg.profiles["default"].repo_config == str(repo_default_config_path())
+    assert cfg.profiles["default"].deploy_config == str(deploy_default_config_path())
+
+
+def test_ensure_config_migrates_legacy_repo_config_key(
+    tmp_path: Path, monkeypatch
+) -> None:
+    _use_tmp_xdg(monkeypatch, tmp_path)
+    cfg_path = ensure_config_exists()
+
+    legacy_path = tmp_path / "legacy.yaml"
+    legacy_path.write_text("submit:\n  image: legacy:latest\n", encoding="utf-8")
+    doc = tomlkit.parse(cfg_path.read_text())
+    default_tbl = doc["profiles"]["default"]
+    default_tbl.pop("deploy_config", None)
+    default_tbl["repo_config"] = str(legacy_path)
+    cfg_path.write_text(tomlkit.dumps(doc))
+
+    _ = ensure_config_exists()
+    migrated_doc = tomlkit.parse(cfg_path.read_text())
+    migrated_default = migrated_doc["profiles"]["default"]
+    assert migrated_default["deploy_config"] == str(legacy_path)
+    assert "repo_config" not in migrated_default
+
+    cfg = load_config()
+    assert cfg.profiles["default"].deploy_config == str(legacy_path)

@@ -63,7 +63,7 @@ def test_plan_network_supports_tuple_assignment_for_untyped_supernodes() -> None
     assert plan.egress_assignments[untyped_key] == ["med", "high"]
 
 
-def test_resolve_network_plan_uses_repo_default_assignment_without_cli_net() -> None:
+def test_resolve_network_plan_uses_deploy_default_assignment_without_cli_net() -> None:
     placements = [
         SupernodePlacement(device_type="rpi4", instance_idx=1, node_id=None),
         SupernodePlacement(device_type="rpi5", instance_idx=1, node_id=None),
@@ -74,15 +74,15 @@ def test_resolve_network_plan_uses_repo_default_assignment_without_cli_net() -> 
         placements=placements,
         supernodes_by_type={"rpi4": 1, "rpi5": 1},
         num_supernodes=2,
-        repo_network_profiles={
+        deploy_network_profiles={
             "none": {},
             "med": {"delay_ms": 60},
         },
-        repo_network_ingress_profiles={},
-        repo_network_egress_profiles={},
-        repo_network_default="none",
-        repo_network_default_assignment=["rpi4[*]=med,rpi5[*]=med"],
-        repo_network_interface="eth0",
+        deploy_network_ingress_profiles={},
+        deploy_network_egress_profiles={},
+        deploy_network_default="none",
+        deploy_network_default_assignment=["rpi4[*]=med,rpi5[*]=med"],
+        deploy_network_interface="eth0",
     )
 
     assert resolved_placements == placements
@@ -91,7 +91,7 @@ def test_resolve_network_plan_uses_repo_default_assignment_without_cli_net() -> 
     assert plan.assignments[assignment_key("rpi5")] == ["med"]
 
 
-def test_resolve_network_plan_cli_net_overrides_repo_default_assignment() -> None:
+def test_resolve_network_plan_cli_net_overrides_deploy_default_assignment() -> None:
     placements = [
         SupernodePlacement(device_type="rpi4", instance_idx=1, node_id=None),
         SupernodePlacement(device_type="rpi5", instance_idx=1, node_id=None),
@@ -102,16 +102,16 @@ def test_resolve_network_plan_cli_net_overrides_repo_default_assignment() -> Non
         placements=placements,
         supernodes_by_type={"rpi4": 1, "rpi5": 1},
         num_supernodes=2,
-        repo_network_profiles={
+        deploy_network_profiles={
             "none": {},
             "mild": {"delay_ms": 20},
             "med": {"delay_ms": 60},
         },
-        repo_network_ingress_profiles={},
-        repo_network_egress_profiles={},
-        repo_network_default="none",
-        repo_network_default_assignment=["rpi4[*]=mild,rpi5[*]=mild"],
-        repo_network_interface="eth0",
+        deploy_network_ingress_profiles={},
+        deploy_network_egress_profiles={},
+        deploy_network_default="none",
+        deploy_network_default_assignment=["rpi4[*]=mild,rpi5[*]=mild"],
+        deploy_network_interface="eth0",
     )
 
     assert plan is not None
@@ -119,7 +119,7 @@ def test_resolve_network_plan_cli_net_overrides_repo_default_assignment() -> Non
     assert plan.assignments[assignment_key("rpi5")] == ["med"]
 
 
-def test_resolve_network_plan_repo_default_assignment_supports_asymmetry() -> None:
+def test_resolve_network_plan_deploy_default_assignment_supports_asymmetry() -> None:
     placements = [
         SupernodePlacement(device_type="rpi4", instance_idx=1, node_id=None),
         SupernodePlacement(device_type="rpi5", instance_idx=1, node_id=None),
@@ -130,16 +130,16 @@ def test_resolve_network_plan_repo_default_assignment_supports_asymmetry() -> No
         placements=placements,
         supernodes_by_type={"rpi4": 1, "rpi5": 1},
         num_supernodes=2,
-        repo_network_profiles={"none": {}},
-        repo_network_ingress_profiles={
+        deploy_network_profiles={"none": {}},
+        deploy_network_ingress_profiles={
             "asym_down": {"delay_ms": 90},
         },
-        repo_network_egress_profiles={
+        deploy_network_egress_profiles={
             "asym_up": {"delay_ms": 90},
         },
-        repo_network_default="none",
-        repo_network_default_assignment=["rpi4[*]=(none,asym_up),rpi5[*]=(asym_down,none)"],
-        repo_network_interface="eth0",
+        deploy_network_default="none",
+        deploy_network_default_assignment=["rpi4[*]=(none,asym_up),rpi5[*]=(asym_down,none)"],
+        deploy_network_interface="eth0",
     )
 
     assert plan is not None

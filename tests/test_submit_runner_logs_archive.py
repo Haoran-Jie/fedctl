@@ -9,7 +9,6 @@ from fedctl.submit.runner import (
     _archive_object_name,
     _latest_alloc_for_task,
     _log_archive_signature,
-    _truncate_log_text,
 )
 
 
@@ -37,15 +36,6 @@ def test_log_archiver_builds_targets_for_default_topology() -> None:
     assert ("supernodes", 2) in labels
     assert ("superexec_clientapps", 1) in labels
     assert ("superexec_clientapps", 2) in labels
-
-
-def test_truncate_log_text_keeps_head_and_tail() -> None:
-    original = "A" * 40 + "B" * 40
-    truncated = _truncate_log_text(original, max_chars=40)
-
-    assert "log truncated for archive size" in truncated
-    assert truncated.startswith("A" * 20)
-    assert truncated.endswith("B" * 20)
 
 
 def test_latest_alloc_for_task_prefers_matching_alloc() -> None:

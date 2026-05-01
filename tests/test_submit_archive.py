@@ -14,7 +14,7 @@ def _read_member_text(archive_path: Path, member_name: str) -> str:
         return extracted.read().decode("utf-8")
 
 
-def test_archive_includes_profile_repo_config_when_project_config_missing(
+def test_archive_includes_profile_deploy_config_when_project_config_missing(
     tmp_path: Path,
 ) -> None:
     project_root = tmp_path / "project"
@@ -29,7 +29,7 @@ def test_archive_includes_profile_repo_config_when_project_config_missing(
     archive_path = _build_project_archive(
         project_root,
         "demo",
-        repo_config_path=external_cfg,
+        deploy_config_path=external_cfg,
     )
 
     archived_cfg = _read_member_text(
@@ -39,7 +39,7 @@ def test_archive_includes_profile_repo_config_when_project_config_missing(
     assert "allow_oversubscribe: true" in archived_cfg
 
 
-def test_archive_uses_explicit_repo_config_over_project_local_repo_config(
+def test_archive_uses_explicit_deploy_config_over_project_local_deploy_config(
     tmp_path: Path,
 ) -> None:
     project_root = tmp_path / "project"
@@ -60,7 +60,7 @@ def test_archive_uses_explicit_repo_config_over_project_local_repo_config(
     archive_path = _build_project_archive(
         project_root,
         "demo",
-        repo_config_path=external_cfg,
+        deploy_config_path=external_cfg,
     )
 
     archived_cfg = _read_member_text(

@@ -8,7 +8,7 @@ from typing import Dict, Optional
 class ProfileConfig:
     endpoint: str
     namespace: Optional[str] = None
-    repo_config: Optional[str] = None
+    deploy_config: Optional[str] = None
 
 
 @dataclass

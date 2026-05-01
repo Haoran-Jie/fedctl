@@ -6,12 +6,12 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from fedctl.config.io import load_config
-from fedctl.config.repo import (
+from fedctl.config.deploy import (
     get_cluster_image_registry,
     get_image_registry,
-    get_repo_config_label,
+    get_deploy_config_label,
     rewrite_image_registry,
-    resolve_repo_config,
+    resolve_deploy_config,
 )
 from fedctl.config.merge import get_effective_config
 from fedctl.build.errors import BuildError
@@ -22,7 +22,6 @@ from fedctl.build.tagging import supernode_netem_image_tag
 import tempfile
 from fedctl.build.state import load_latest_build
 from fedctl.constants import DEFAULT_FLWR_VERSION
-from fedctl.deploy import naming
 from fedctl.deploy.errors import DeployError
 from fedctl.deploy.render import RenderedJobs, render_deploy
 from fedctl.deploy.network import NetworkPlan, parse_net_assignments, plan_network
@@ -47,7 +46,7 @@ from datetime import datetime, timezone
 
 
 @dataclass(frozen=True)
-class _RepoDeployConfig:
+class _DeployConfigDefaults:
     supernodes: dict[str, object]
     supernode_resources: dict[str, object]
     superexec_clientapp_resources: dict[str, object]
@@ -70,9 +69,9 @@ class _RepoDeployConfig:
 _RUNTIME_SUPEREXEC_ENV_KEYS = (
     "FEDCTL_ATTEMPT_STARTED_AT",
     "FEDCTL_EXPERIMENT_CONFIG",
-    "FEDCTL_REPO_CONFIG_LABEL",
     "FEDCTL_SUBMISSION_ID",
 )
+
 
 def run_deploy(
     *,
@@ -83,7 +82,7 @@ def run_deploy(
     supernodes: list[str] | None = None,
     net: list[str] | None = None,
     allow_oversubscribe: bool | None = None,
-    repo_config: str | None = None,
+    deploy_config: str | None = None,
     image: str | None = None,
     flwr_version: str = DEFAULT_FLWR_VERSION,
     experiment: str | None = None,
@@ -114,42 +113,42 @@ def run_deploy(
     if dry_run and not out:
         out = "rendered"
 
-    repo_resolution = resolve_repo_config(
-        repo_config=repo_config,
+    deploy_resolution = resolve_deploy_config(
+        deploy_config=deploy_config,
         profile_name=profile,
         include_profile=True,
     )
-    repo_cfg = repo_resolution.data
-    external_registry = get_image_registry(repo_cfg)
-    internal_registry = get_cluster_image_registry(repo_cfg)
+    deploy_cfg = deploy_resolution.data
+    external_registry = get_image_registry(deploy_cfg)
+    internal_registry = get_cluster_image_registry(deploy_cfg)
     cluster_image = rewrite_image_registry(
         image,
         source_registry=external_registry,
         target_registry=internal_registry,
     )
-    repo_defaults = _repo_deploy_config(repo_cfg)
-    repo_supernodes = repo_defaults.supernodes
-    repo_supernode_resources = repo_defaults.supernode_resources
-    repo_superexec_clientapp_resources = repo_defaults.superexec_clientapp_resources
-    repo_superexec_serverapp_resources = repo_defaults.superexec_serverapp_resources
-    repo_superlink_resources = repo_defaults.superlink_resources
-    repo_superexec_env = repo_defaults.superexec_env
+    deploy_defaults = _deploy_config_defaults(deploy_cfg)
+    deploy_supernodes = deploy_defaults.supernodes
+    deploy_supernode_resources = deploy_defaults.supernode_resources
+    deploy_superexec_clientapp_resources = deploy_defaults.superexec_clientapp_resources
+    deploy_superexec_serverapp_resources = deploy_defaults.superexec_serverapp_resources
+    deploy_superlink_resources = deploy_defaults.superlink_resources
+    deploy_superexec_env = deploy_defaults.superexec_env
     runtime_superexec_env = _runtime_superexec_env(
-        repo_config_label=get_repo_config_label(repo_cfg, path=repo_resolution.path)
+        deploy_config_label=get_deploy_config_label(deploy_cfg, path=deploy_resolution.path)
     )
     if runtime_superexec_env:
-        repo_superexec_env = {**repo_superexec_env, **runtime_superexec_env}
-    repo_network_profiles = repo_defaults.network_profiles
-    repo_network_ingress_profiles = repo_defaults.network_ingress_profiles
-    repo_network_egress_profiles = repo_defaults.network_egress_profiles
-    repo_network_default = repo_defaults.network_default
-    repo_network_default_assignment = repo_defaults.network_default_assignment
-    repo_network_interface = repo_defaults.network_interface
-    repo_network_image = repo_defaults.network_image
-    repo_network_apply = repo_defaults.network_apply
-    repo_allow_oversubscribe = repo_defaults.allow_oversubscribe
-    repo_spread_across_hosts = repo_defaults.spread_across_hosts
-    repo_prefer_spread_across_hosts = repo_defaults.prefer_spread_across_hosts
+        deploy_superexec_env = {**deploy_superexec_env, **runtime_superexec_env}
+    deploy_network_profiles = deploy_defaults.network_profiles
+    deploy_network_ingress_profiles = deploy_defaults.network_ingress_profiles
+    deploy_network_egress_profiles = deploy_defaults.network_egress_profiles
+    deploy_network_default = deploy_defaults.network_default
+    deploy_network_default_assignment = deploy_defaults.network_default_assignment
+    deploy_network_interface = deploy_defaults.network_interface
+    deploy_network_image = deploy_defaults.network_image
+    deploy_network_apply = deploy_defaults.network_apply
+    deploy_allow_oversubscribe = deploy_defaults.allow_oversubscribe
+    deploy_spread_across_hosts = deploy_defaults.spread_across_hosts
+    deploy_prefer_spread_across_hosts = deploy_defaults.prefer_spread_across_hosts
 
     supernodes = supernodes or []
     supernodes_by_type = None
@@ -165,26 +164,26 @@ def run_deploy(
             console.print(f"[red]✗ Invalid --supernodes:[/red] {exc}")
             return 1
 
-    if not supernodes_by_type and repo_supernodes and num_supernodes is None:
+    if not supernodes_by_type and deploy_supernodes and num_supernodes is None:
         if not _has_untyped_net(net) and not (
-            not net and _has_untyped_net(repo_network_default_assignment)
+            not net and _has_untyped_net(deploy_network_default_assignment)
         ):
             supernodes_by_type = {
-                str(k): int(v) for k, v in repo_supernodes.items() if int(v) >= 0
+                str(k): int(v) for k, v in deploy_supernodes.items() if int(v) >= 0
             }
 
     if allow_oversubscribe is None:
-        allow_oversubscribe = bool(repo_allow_oversubscribe)
-    spread_across_hosts = bool(repo_spread_across_hosts)
-    prefer_spread_across_hosts = bool(repo_prefer_spread_across_hosts)
+        allow_oversubscribe = bool(deploy_allow_oversubscribe)
+    spread_across_hosts = bool(deploy_spread_across_hosts)
+    prefer_spread_across_hosts = bool(deploy_prefer_spread_across_hosts)
 
     netem_serverapp = True
     netem_clientapp = True
-    if isinstance(repo_network_apply, dict):
-        if "superexec_serverapp" in repo_network_apply:
-            netem_serverapp = bool(repo_network_apply.get("superexec_serverapp"))
-        if "superexec_clientapp" in repo_network_apply:
-            netem_clientapp = bool(repo_network_apply.get("superexec_clientapp"))
+    if isinstance(deploy_network_apply, dict):
+        if "superexec_serverapp" in deploy_network_apply:
+            netem_serverapp = bool(deploy_network_apply.get("superexec_serverapp"))
+        if "superexec_clientapp" in deploy_network_apply:
+            netem_clientapp = bool(deploy_network_apply.get("superexec_clientapp"))
 
     if dry_run and supernodes_by_type and (
         not allow_oversubscribe or spread_across_hosts or prefer_spread_across_hosts
@@ -199,15 +198,15 @@ def run_deploy(
 
     default_resources = None
     resources_by_type = None
-    if repo_supernode_resources:
-        default_cfg = repo_supernode_resources.get("default")
+    if deploy_supernode_resources:
+        default_cfg = deploy_supernode_resources.get("default")
         if isinstance(default_cfg, dict):
             cpu = int(default_cfg.get("cpu", 0) or 0)
             mem = int(default_cfg.get("mem", 0) or 0)
             if cpu > 0 and mem > 0:
                 default_resources = {"cpu": cpu, "mem": mem}
         resources_by_type = {}
-        for key, val in repo_supernode_resources.items():
+        for key, val in deploy_supernode_resources.items():
             if key == "default" or not isinstance(val, dict):
                 continue
             cpu = int(val.get("cpu", 0) or 0)
@@ -217,17 +216,17 @@ def run_deploy(
         if not resources_by_type:
             resources_by_type = None
     superexec_clientapp_resources = _normalize_single_resource(
-        repo_superexec_clientapp_resources,
+        deploy_superexec_clientapp_resources,
         default_cpu=1000,
         default_mem=1024,
     )
     superexec_serverapp_resources = _normalize_single_resource(
-        repo_superexec_serverapp_resources,
+        deploy_superexec_serverapp_resources,
         default_cpu=1000,
         default_mem=1024,
     )
     superlink_resources = _normalize_single_resource(
-        repo_superlink_resources,
+        deploy_superlink_resources,
         default_cpu=500,
         default_mem=256,
     )
@@ -241,12 +240,12 @@ def run_deploy(
                 placements=placements,
                 supernodes_by_type=supernodes_by_type,
                 num_supernodes=num_supernodes,
-                repo_network_profiles=repo_network_profiles,
-                repo_network_ingress_profiles=repo_network_ingress_profiles,
-                repo_network_egress_profiles=repo_network_egress_profiles,
-                repo_network_default=repo_network_default,
-                repo_network_default_assignment=repo_network_default_assignment,
-                repo_network_interface=repo_network_interface,
+                deploy_network_profiles=deploy_network_profiles,
+                deploy_network_ingress_profiles=deploy_network_ingress_profiles,
+                deploy_network_egress_profiles=deploy_network_egress_profiles,
+                deploy_network_default=deploy_network_default,
+                deploy_network_default_assignment=deploy_network_default_assignment,
+                deploy_network_interface=deploy_network_interface,
             )
         except ValueError as exc:
             console.print(f"[red]✗ Invalid network configuration:[/red] {exc}")
@@ -262,7 +261,7 @@ def run_deploy(
             prefer_spread_across_hosts=prefer_spread_across_hosts,
             placements=placements,
             network_plan=network_plan,
-            netem_image=repo_network_image if isinstance(repo_network_image, str) else None,
+            netem_image=deploy_network_image if isinstance(deploy_network_image, str) else None,
             resources_by_type=resources_by_type,
             default_resources=default_resources,
             superlink_resources=superlink_resources,
@@ -270,7 +269,7 @@ def run_deploy(
             superexec_clientapp_resources=superexec_clientapp_resources,
             netem_serverapp=netem_serverapp,
             netem_clientapp=netem_clientapp,
-            superexec_env=repo_superexec_env,
+            superexec_env=deploy_superexec_env,
         )
         try:
             rendered = render_deploy(spec)
@@ -334,19 +333,19 @@ def run_deploy(
                 placements=placements,
                 supernodes_by_type=supernodes_by_type,
                 num_supernodes=num_supernodes,
-                repo_network_profiles=repo_network_profiles,
-                repo_network_ingress_profiles=repo_network_ingress_profiles,
-                repo_network_egress_profiles=repo_network_egress_profiles,
-                repo_network_default=repo_network_default,
-                repo_network_default_assignment=repo_network_default_assignment,
-                repo_network_interface=repo_network_interface,
+                deploy_network_profiles=deploy_network_profiles,
+                deploy_network_ingress_profiles=deploy_network_ingress_profiles,
+                deploy_network_egress_profiles=deploy_network_egress_profiles,
+                deploy_network_default=deploy_network_default,
+                deploy_network_default_assignment=deploy_network_default_assignment,
+                deploy_network_interface=deploy_network_interface,
             )
         except ValueError as exc:
             console.print(f"[red]✗ Invalid network configuration:[/red] {exc}")
             return 1
-        if network_plan is not None and not repo_network_image:
+        if network_plan is not None and not deploy_network_image:
             console.print("[red]✗ Netem image is required when network emulation is enabled.[/red]")
-            console.print("[yellow]Hint:[/yellow] Set deploy.network.image in repo config.")
+            console.print("[yellow]Hint:[/yellow] Set deploy.network.image in deploy config.")
             return 1
         if placements is None:
             placements = network_placements
@@ -379,7 +378,6 @@ def run_deploy(
                             context_dir=Path(tmp_dir),
                             no_cache=False,
                             platform=None,
-                            quiet=True,
                         )
                 else:
                     console.print(
@@ -416,7 +414,7 @@ def run_deploy(
             prefer_spread_across_hosts=prefer_spread_across_hosts,
             placements=placements,
             network_plan=network_plan,
-            netem_image=repo_network_image if isinstance(repo_network_image, str) else None,
+            netem_image=deploy_network_image if isinstance(deploy_network_image, str) else None,
             supernode_image=supernode_image,
             resources_by_type=resources_by_type,
             default_resources=default_resources,
@@ -425,7 +423,7 @@ def run_deploy(
             superexec_clientapp_resources=superexec_clientapp_resources,
             netem_serverapp=netem_serverapp,
             netem_clientapp=netem_clientapp,
-            superexec_env=repo_superexec_env,
+            superexec_env=deploy_superexec_env,
         )
         try:
             rendered = render_deploy(spec)
@@ -504,8 +502,8 @@ def run_deploy(
         client.close()
 
 
-def _repo_deploy_config(repo_cfg: dict[str, object]) -> _RepoDeployConfig:
-    deploy = _as_dict(repo_cfg.get("deploy"))
+def _deploy_config_defaults(deploy_cfg: dict[str, object]) -> _DeployConfigDefaults:
+    deploy = _as_dict(deploy_cfg.get("deploy"))
     supernodes = _as_dict(deploy.get("supernodes"))
     placement = _as_dict(deploy.get("placement"))
     resources = _as_dict(deploy.get("resources"))
@@ -520,7 +518,7 @@ def _repo_deploy_config(repo_cfg: dict[str, object]) -> _RepoDeployConfig:
     network_ingress_profiles = _as_dict(network.get("ingress_profiles"))
     network_egress_profiles = _as_dict(network.get("egress_profiles"))
     network_apply = _as_dict(network.get("apply"))
-    return _RepoDeployConfig(
+    return _DeployConfigDefaults(
         supernodes=supernodes,
         supernode_resources=supernode_resources,
         superexec_clientapp_resources=superexec_clientapp_resources,
@@ -589,18 +587,23 @@ def _normalize_single_resource(
     return {"cpu": int(cpu), "mem": int(mem)}
 
 
-def _runtime_superexec_env(*, repo_config_label: str | None = None) -> dict[str, str]:
+def _runtime_superexec_env(*, deploy_config_label: str | None = None) -> dict[str, str]:
     env: dict[str, str] = {}
     submission_id = os.environ.get("FEDCTL_SUBMISSION_ID") or os.environ.get(
         "SUBMIT_SUBMISSION_ID"
     )
     if submission_id:
         env["FEDCTL_SUBMISSION_ID"] = str(submission_id)
+    label = (
+        deploy_config_label
+        or os.environ.get("FEDCTL_DEPLOY_CONFIG_LABEL")
+        or os.environ.get("FEDCTL_REPO_CONFIG_LABEL")
+    )
+    if label:
+        env["FEDCTL_DEPLOY_CONFIG_LABEL"] = label
+        env["FEDCTL_REPO_CONFIG_LABEL"] = label
     for key in _RUNTIME_SUPEREXEC_ENV_KEYS:
         if key == "FEDCTL_SUBMISSION_ID":
-            continue
-        if key == "FEDCTL_REPO_CONFIG_LABEL" and repo_config_label:
-            env[key] = repo_config_label
             continue
         value = os.environ.get(key)
         if value:
@@ -614,14 +617,14 @@ def _resolve_network_plan(
     placements: list[SupernodePlacement] | None,
     supernodes_by_type: dict[str, int] | None,
     num_supernodes: int,
-    repo_network_profiles: dict[str, object],
-    repo_network_ingress_profiles: dict[str, object],
-    repo_network_egress_profiles: dict[str, object],
-    repo_network_default: str | None,
-    repo_network_default_assignment: list[str] | None,
-    repo_network_interface: str | None,
+    deploy_network_profiles: dict[str, object],
+    deploy_network_ingress_profiles: dict[str, object],
+    deploy_network_egress_profiles: dict[str, object],
+    deploy_network_default: str | None,
+    deploy_network_default_assignment: list[str] | None,
+    deploy_network_interface: str | None,
 ) -> tuple[NetworkPlan | None, list[SupernodePlacement] | None]:
-    net_values = net or repo_network_default_assignment or []
+    net_values = net or deploy_network_default_assignment or []
     if not net_values:
         return None, placements
     try:
@@ -643,18 +646,18 @@ def _resolve_network_plan(
                 for idx in range(1, num_supernodes + 1)
             ]
 
-    profiles = {k: v for k, v in repo_network_profiles.items() if isinstance(v, dict)}
+    profiles = {k: v for k, v in deploy_network_profiles.items() if isinstance(v, dict)}
     ingress_profiles = {
-        k: v for k, v in repo_network_ingress_profiles.items() if isinstance(v, dict)
+        k: v for k, v in deploy_network_ingress_profiles.items() if isinstance(v, dict)
     }
     egress_profiles = {
-        k: v for k, v in repo_network_egress_profiles.items() if isinstance(v, dict)
+        k: v for k, v in deploy_network_egress_profiles.items() if isinstance(v, dict)
     }
     plan = plan_network(
         assignments=assignments,
         placements=placements_for_network,
-        default_profile=repo_network_default,
-        interface=repo_network_interface,
+        default_profile=deploy_network_default,
+        interface=deploy_network_interface,
         profiles=profiles,
         ingress_profiles=ingress_profiles,
         egress_profiles=egress_profiles,

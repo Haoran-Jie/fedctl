@@ -44,7 +44,6 @@ def run_destroy(
             )
             submit_jobs = _destroy_submit_jobs(
                 client,
-                namespace=eff.namespace or "default",
                 purge=purge,
             )
             job_names.extend([name for name in submit_jobs if name not in job_names])
@@ -89,7 +88,6 @@ def run_destroy(
 def _destroy_submit_jobs(
     client: NomadClient,
     *,
-    namespace: str,
     purge: bool,
 ) -> list[str]:
     try:

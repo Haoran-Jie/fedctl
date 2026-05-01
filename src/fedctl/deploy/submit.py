@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from fedctl.deploy import naming
 from fedctl.deploy.render import RenderedJobs
 from fedctl.nomad.client import NomadClient
 

@@ -14,12 +14,6 @@ from fedctl.config.merge import get_effective_config
 class OrderedHelpTyperGroup(TyperGroup):
     HELP_COMMAND_ORDER = (
         "submit",
-        "destroy",
-        "local",
-        "profile",
-        "run",
-        "build",
-        "deploy",
     )
 
     def list_commands(self, ctx):
@@ -38,8 +32,20 @@ local_app = typer.Typer(help="Local Nomad harness")
 submit_app = typer.Typer(help="Submit jobs to Nomad")
 app.add_typer(submit_app, name="submit")
 app.add_typer(config_app, name="config", hidden=True)
-app.add_typer(profile_app, name="profile")
-app.add_typer(local_app, name="local")
+app.add_typer(profile_app, name="profile", hidden=True)
+app.add_typer(local_app, name="local", hidden=True)
+
+
+def _resolve_deploy_config_option(
+    *,
+    deploy_config: str | None,
+    legacy_repo_config: str | None,
+) -> str | None:
+    if deploy_config is not None and legacy_repo_config is not None:
+        raise typer.BadParameter(
+            "Use --deploy-config. The legacy --repo-config alias cannot be combined with it."
+        )
+    return deploy_config if deploy_config is not None else legacy_repo_config
 
 
 def _fedctl_version() -> str:
@@ -101,15 +107,15 @@ def profile_ls() -> None:
     table.add_column("Name")
     table.add_column("Endpoint")
     table.add_column("Namespace")
-    table.add_column("Repo config")
+    table.add_column("Deploy config")
     for name, p in cfg.profiles.items():
         marker = "*" if name == cfg.active_profile else ""
-        repo_cfg = _format_repo_config(p.repo_config)
+        deploy_cfg = _format_deploy_config(p.deploy_config)
         table.add_row(
             f"{name}{marker}",
             p.endpoint,
             str(p.namespace),
-            repo_cfg,
+            deploy_cfg,
         )
     print(table)
 
@@ -131,9 +137,16 @@ def profile_add(
     name: str,
     endpoint: str = typer.Option(..., "--endpoint"),
     namespace: str = typer.Option(None, "--namespace"),
-    repo_config: str = typer.Option(None, "--repo-config"),
+    deploy_config: str | None = typer.Option(
+        None, "--deploy-config", help="Path to deploy config YAML."
+    ),
+    legacy_repo_config: str | None = typer.Option(None, "--repo-config", hidden=True),
 ) -> None:
     """Create a new profile."""
+    resolved_deploy_config = _resolve_deploy_config_option(
+        deploy_config=deploy_config,
+        legacy_repo_config=legacy_repo_config,
+    )
     doc = load_raw_toml()
     if "profiles" not in doc:
         doc["profiles"] = {}
@@ -146,8 +159,8 @@ def profile_add(
 
     if namespace is not None:
         p["namespace"] = namespace
-    if repo_config is not None:
-        p["repo_config"] = str(Path(repo_config).expanduser().resolve())
+    if resolved_deploy_config is not None:
+        p["deploy_config"] = str(Path(resolved_deploy_config).expanduser().resolve())
 
     doc["profiles"][name] = p
     save_raw_toml(doc)
@@ -159,11 +172,19 @@ def profile_set(
     name: str,
     endpoint: str | None = typer.Option(None, "--endpoint"),
     namespace: str | None = typer.Option(None, "--namespace"),
-    repo_config: str | None = typer.Option(None, "--repo-config"),
+    deploy_config: str | None = typer.Option(
+        None, "--deploy-config", help="Path to deploy config YAML."
+    ),
+    legacy_repo_config: str | None = typer.Option(None, "--repo-config", hidden=True),
     clear_namespace: bool = typer.Option(False, "--clear-namespace"),
-    clear_repo_config: bool = typer.Option(False, "--clear-repo-config"),
+    clear_deploy_config: bool = typer.Option(False, "--clear-deploy-config"),
+    clear_repo_config: bool = typer.Option(False, "--clear-repo-config", hidden=True),
 ) -> None:
     """Update an existing profile."""
+    resolved_deploy_config = _resolve_deploy_config_option(
+        deploy_config=deploy_config,
+        legacy_repo_config=legacy_repo_config,
+    )
     doc = load_raw_toml()
     profiles = doc.get("profiles", {})
     if name not in profiles:
@@ -178,10 +199,12 @@ def profile_set(
     elif namespace is not None:
         p["namespace"] = namespace
 
-    if clear_repo_config:
+    if clear_deploy_config or clear_repo_config:
+        p.pop("deploy_config", None)
         p.pop("repo_config", None)
-    elif repo_config is not None:
-        p["repo_config"] = str(Path(repo_config).expanduser().resolve())
+    elif resolved_deploy_config is not None:
+        p["deploy_config"] = str(Path(resolved_deploy_config).expanduser().resolve())
+        p.pop("repo_config", None)
 
     save_raw_toml(doc)
     print(f"Updated profile: [bold]{name}[/bold]")
@@ -216,12 +239,14 @@ def submit_run(
     allow_oversubscribe: bool | None = typer.Option(
         None, "--allow-oversubscribe/--no-allow-oversubscribe"
     ),
-    repo_config: str | None = typer.Option(None, "--repo-config"),
+    deploy_config: str | None = typer.Option(
+        None, "--deploy-config", help="Path to deploy config YAML."
+    ),
+    legacy_repo_config: str | None = typer.Option(None, "--repo-config", hidden=True),
     exp: str | None = typer.Option(None, "--exp"),
     timeout: int = typer.Option(120, "--timeout"),
     federation: str = typer.Option("remote-deployment", "--federation"),
     stream: bool = typer.Option(True, "--stream/--no-stream"),
-    verbose: bool = typer.Option(False, "--verbose"),
     destroy: bool = typer.Option(True, "--destroy/--no-destroy"),
     submit_image: str | None = typer.Option(None, "--submit-image"),
     artifact_store: str | None = typer.Option(None, "--artifact-store"),
@@ -230,6 +255,10 @@ def submit_run(
     """Submit a project for queued execution."""
     from fedctl.commands.submit import run_submit
 
+    resolved_deploy_config = _resolve_deploy_config_option(
+        deploy_config=deploy_config,
+        legacy_repo_config=legacy_repo_config,
+    )
     raise SystemExit(
         run_submit(
             path=path,
@@ -247,12 +276,11 @@ def submit_run(
             supernodes=supernodes,
             net=net,
             allow_oversubscribe=allow_oversubscribe,
-            repo_config=repo_config,
+            deploy_config=resolved_deploy_config,
             experiment=exp,
             timeout_seconds=timeout,
             federation=federation,
             stream=stream,
-            verbose=verbose,
             destroy=destroy,
             submit_image=submit_image,
             artifact_store=artifact_store,
@@ -416,7 +444,7 @@ def submit_results(
         )
     )
 
-def _format_repo_config(value: str | None) -> str:
+def _format_deploy_config(value: str | None) -> str:
     if not value:
         return "-"
     path = Path(value)
@@ -462,7 +490,7 @@ def profile_rm(name: str) -> None:
     print(f"Removed profile: [bold]{name}[/bold]")
 
 
-@app.command()
+@app.command(hidden=True)
 def deploy(
     dry_run: bool = typer.Option(False, "--dry-run"),
     out: str | None = typer.Option(None, "--out"),
@@ -473,7 +501,10 @@ def deploy(
     allow_oversubscribe: bool | None = typer.Option(
         None, "--allow-oversubscribe/--no-allow-oversubscribe"
     ),
-    repo_config: str | None = typer.Option(None, "--repo-config"),
+    deploy_config: str | None = typer.Option(
+        None, "--deploy-config", help="Path to deploy config YAML."
+    ),
+    legacy_repo_config: str | None = typer.Option(None, "--repo-config", hidden=True),
     image: str | None = typer.Option(None, "--image"),
     flwr_version: str = typer.Option(DEFAULT_FLWR_VERSION, "--flwr-version"),
     exp: str | None = typer.Option(None, "--exp"),
@@ -483,6 +514,10 @@ def deploy(
     """Deploy Flower jobs to Nomad (or render with --dry-run)."""
     from fedctl.commands.deploy import run_deploy
 
+    resolved_deploy_config = _resolve_deploy_config_option(
+        deploy_config=deploy_config,
+        legacy_repo_config=legacy_repo_config,
+    )
     raise SystemExit(
         run_deploy(
             dry_run=dry_run,
@@ -492,7 +527,7 @@ def deploy(
             supernodes=supernodes,
             net=net,
             allow_oversubscribe=allow_oversubscribe,
-            repo_config=repo_config,
+            deploy_config=resolved_deploy_config,
             image=image,
             flwr_version=flwr_version,
             experiment=exp,
@@ -502,7 +537,7 @@ def deploy(
     )
 
 
-@app.command()
+@app.command(hidden=True)
 def build(
     path: str = typer.Argument(".", help="Path to a Flower project (dir or pyproject.toml)."),
     flwr_version: str = typer.Option(DEFAULT_FLWR_VERSION, "--flwr-version"),
@@ -511,7 +546,6 @@ def build(
     platform: str | None = typer.Option(None, "--platform"),
     context: str | None = typer.Option(None, "--context"),
     push: bool = typer.Option(False, "--push"),
-    verbose: bool = typer.Option(False, "--verbose"),
 ) -> None:
     """Build a SuperExec Docker image for a Flower project."""
     from fedctl.commands.build import run_build
@@ -525,23 +559,6 @@ def build(
             platform=platform,
             context=context,
             push=push,
-            verbose=verbose,
-        )
-    )
-
-
-@app.command(hidden=True)
-def address(
-    exp: str | None = typer.Option(None, "--exp"),
-    format: str = typer.Option("plain", "--format"),
-) -> None:
-    """Resolve the SuperLink control address."""
-    from fedctl.commands.address import run_address
-
-    raise SystemExit(
-        run_address(
-            experiment=exp,
-            fmt=format,
         )
     )
 
@@ -566,7 +583,7 @@ def configure(
     )
 
 
-@app.command()
+@app.command(hidden=True)
 def run(
     path: str = typer.Argument(".", help="Path to a Flower project (dir or pyproject.toml)."),
     experiment_config: str | None = typer.Option(None, "--experiment-config"),
@@ -585,18 +602,24 @@ def run(
     allow_oversubscribe: bool | None = typer.Option(
         None, "--allow-oversubscribe/--no-allow-oversubscribe"
     ),
-    repo_config: str | None = typer.Option(None, "--repo-config"),
+    deploy_config: str | None = typer.Option(
+        None, "--deploy-config", help="Path to deploy config YAML."
+    ),
+    legacy_repo_config: str | None = typer.Option(None, "--repo-config", hidden=True),
     exp: str | None = typer.Option(None, "--exp"),
     timeout: int = typer.Option(120, "--timeout"),
     no_wait: bool = typer.Option(False, "--no-wait"),
     federation: str = typer.Option("remote-deployment", "--federation"),
     stream: bool = typer.Option(True, "--stream/--no-stream"),
-    verbose: bool = typer.Option(False, "--verbose"),
     destroy: bool = typer.Option(True, "--destroy/--no-destroy"),
 ) -> None:
     """Build, deploy, configure, and run a Flower project."""
     from fedctl.commands.run import run_run
 
+    resolved_deploy_config = _resolve_deploy_config_option(
+        deploy_config=deploy_config,
+        legacy_repo_config=legacy_repo_config,
+    )
     raise SystemExit(
         run_run(
             path=path,
@@ -614,19 +637,18 @@ def run(
             supernodes=supernodes,
             net=net,
             allow_oversubscribe=allow_oversubscribe,
-            repo_config=repo_config,
+            deploy_config=resolved_deploy_config,
             experiment=exp,
             timeout_seconds=timeout,
             no_wait=no_wait,
             federation=federation,
             stream=stream,
-            verbose=verbose,
             destroy=destroy,
         )
     )
 
 
-@app.command()
+@app.command(hidden=True)
 def destroy(
     exp: str | None = typer.Argument(None, help="Experiment name."),
     purge: bool = typer.Option(False, "--purge"),
@@ -650,60 +672,6 @@ def destroy(
             token=token,
         )
     )
-
-
-@app.command(hidden=True)
-def logs(
-    exp: str | None = typer.Argument(None, help="Experiment name."),
-    component: str = typer.Option("all", "--component"),
-    stderr: bool = typer.Option(True, "--stderr/--stdout"),
-) -> None:
-    """Fetch active allocation logs for an experiment."""
-    from fedctl.commands.logs import run_logs
-
-    raise SystemExit(
-        run_logs(
-            experiment=exp,
-            component=component,
-            stderr=stderr,
-        )
-    )
-
-
-@app.command(hidden=True)
-def register(
-    username: str = typer.Argument(..., help="Username (also namespace by default)."),
-    endpoint: str = typer.Option(..., "--endpoint"),
-    bootstrap_token: str = typer.Option(..., "--bootstrap-token"),
-    namespace: str | None = typer.Option(None, "--namespace"),
-    profile: str | None = typer.Option(None, "--profile"),
-    ttl: str | None = typer.Option(None, "--ttl"),
-    force: bool = typer.Option(False, "--force"),
-) -> None:
-    """Register a user namespace and scoped ACL token using a bootstrap token."""
-    from fedctl.commands.register import run_register
-
-    raise SystemExit(
-        run_register(
-            username=username,
-            endpoint=endpoint,
-            bootstrap_token=bootstrap_token,
-            namespace=namespace,
-            profile=profile,
-            ttl=ttl,
-            force=force,
-        )
-    )
-
-
-@app.command(hidden=True)
-def inspect(
-    path: str = typer.Argument(".", help="Path to a Flower project (dir or pyproject.toml).")
-) -> None:
-    """Inspect a Flower project for fedctl metadata."""
-    from fedctl.commands.inspect import run_inspect
-
-    raise SystemExit(run_inspect(path))
 
 
 @local_app.command("up")

@@ -1,16 +1,9 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Iterable, Optional
+from typing import Optional
 
 _DEVICE_NAME_RE = re.compile(r"^(rpi\d+)(?:[-_].*)?$", re.IGNORECASE)
-
-
-def _first_value(node: dict, keys: Iterable[str]) -> Optional[str]:
-    for key in keys:
-        if key in node and node[key] is not None:
-            return str(node[key])
-    return None
 
 
 def extract_from_meta_or_attr(node: dict, key: str) -> Optional[str]:

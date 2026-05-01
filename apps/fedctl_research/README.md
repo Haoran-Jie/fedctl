@@ -6,7 +6,7 @@ This app owns three things:
 
 - the method implementations used in the dissertation, including `fedavg`, `fedavgm`, `heterofl`, `fedrolex`, `fiarse`, `fedbuff`, and `fedstaleweight`
 - the reusable task code for the current benchmark tasks
-- the experiment TOMLs and deployment-side repo-config templates used by `fedctl run` and `fedctl submit run`
+- the experiment TOMLs and deployment config templates used by `fedctl run` and `fedctl submit run`
 
 ## Layout
 
@@ -22,7 +22,7 @@ This app owns three things:
 cd /Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl
 .venv/bin/fedctl submit run apps/fedctl_research \
   --experiment-config apps/fedctl_research/experiment_configs/compute_heterogeneity/main/fashion_mnist_cnn/heterofl.toml \
-  --repo-config apps/fedctl_research/repo_configs/compute_heterogeneity/main/none.yaml \
+  --deploy-config apps/fedctl_research/repo_configs/compute_heterogeneity/main/none.yaml \
   --exp heterofl-fmnist-cnn-main \
   --stream --destroy
 ```
@@ -52,8 +52,8 @@ Deployment-side presets live under `repo_configs/`:
 ## W&B
 
 W&B is logged from the server side only, so one remote experiment corresponds to one W&B run.
-Configure the environment injection in the repo-config and enable logging in the experiment TOML.
-The checked-in repo-configs are templates, so replace their placeholder values before using them against a real cluster.
+Configure the environment injection in the deploy config and enable logging in the experiment TOML.
+The checked-in deploy configs are templates, so replace their placeholder values before using them against a real cluster.
 
 ## More detail
 

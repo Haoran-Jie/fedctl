@@ -20,7 +20,7 @@ from fedctl.build.state import (
 from fedctl.build.tagging import default_image_tag
 from fedctl.constants import DEFAULT_FLWR_VERSION
 from fedctl.project.errors import ProjectError
-from fedctl.config.repo import get_image_registry, resolve_repo_config
+from fedctl.config.deploy import get_image_registry, resolve_deploy_config
 
 console = Console()
 
@@ -39,19 +39,18 @@ def build_and_record(
     platform: str | None = None,
     context: str | None = None,
     push: bool = False,
-    verbose: bool = False,
 ) -> str:
     try:
         info = inspect_project(Path(path))
     except (ProjectError, ValueError) as exc:
         raise BuildError(str(exc)) from exc
 
-    repo_cfg = resolve_repo_config(
+    deploy_cfg = resolve_deploy_config(
         project_root=info.root,
         include_project_local=True,
         include_profile=True,
     ).data
-    registry = _env_image_registry() or get_image_registry(repo_cfg)
+    registry = _env_image_registry() or get_image_registry(deploy_cfg)
     dockerfile = render_dockerfile(flwr_version)
     context_dir = Path(context) if context else info.root
     image_tag = image or default_image_tag(
@@ -73,7 +72,6 @@ def build_and_record(
             context_dir=context_dir,
             no_cache=no_cache,
             platform=platform,
-            quiet=not verbose,
         )
 
     if push:
@@ -100,7 +98,6 @@ def run_build(
     platform: str | None = None,
     context: str | None = None,
     push: bool = False,
-    verbose: bool = False,
 ) -> int:
     try:
         image_tag = build_and_record(
@@ -111,7 +108,6 @@ def run_build(
             platform=platform,
             context=context,
             push=push,
-            verbose=verbose,
         )
         console.print(f"[green]✓ Built image:[/green] {image_tag}")
         return 0

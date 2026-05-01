@@ -167,41 +167,6 @@ class NomadClient:
         enabled = acl.get("Enabled")
         return bool(enabled)
 
-    def create_namespace(self, name: str) -> Any:
-        return self._post("/v1/namespace", {"Name": name})
-
-    def namespace(self, name: str) -> Any:
-        return self._get(f"/v1/namespace/{name}")
-
-    def delete_namespace(self, name: str) -> Any:
-        return self._request("DELETE", f"/v1/namespace/{name}")
-
-    def create_acl_policy(self, name: str, rules: str) -> Any:
-        payload = {"Name": name, "Rules": rules}
-        return self._post(f"/v1/acl/policy/{name}", payload)
-
-    def delete_acl_policy(self, name: str) -> Any:
-        return self._request("DELETE", f"/v1/acl/policy/{name}")
-
-    def create_acl_token(
-        self,
-        name: str,
-        policies: list[str],
-        *,
-        ttl: str | None = None,
-    ) -> Any:
-        payload: Dict[str, Any] = {"Name": name, "Policies": policies, "Type": "client"}
-        if ttl:
-            payload["ExpirationTTL"] = ttl
-        return self._post("/v1/acl/token", payload)
-
-    def acl_token_self(self) -> Any:
-        return self._get("/v1/acl/token/self")
-
-    def delete_acl_token(self, accessor_id: str) -> Any:
-        return self._request("DELETE", f"/v1/acl/token/{accessor_id}")
-
-
 def _decode_alloc_logs_response(data: Any) -> str:
     payload = data
     if isinstance(data, str):
