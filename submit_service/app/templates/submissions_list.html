@@ -63,11 +63,19 @@
       </div>
       <div class="queue-stage-track">
         {% for row in running_rows %}
+        {% if row.can_view_detail %}
         <a class="queue-card queue-card-running" href="/ui/submissions/{{ row.id }}?return_to={{ return_to | urlencode }}">
           <span class="queue-card-name" title="{{ row.experiment }}">{{ row.experiment }}</span>
           <span class="queue-card-id">{{ row.id | replace('sub-', '', 1) }}</span>
           <span class="queue-card-time">{% if row.created_at.iso %}<time datetime="{{ row.created_at.iso }}" data-relative>{{ row.created_at.label }}</time>{% else %}{{ row.created_at.label }}{% endif %}</span>
         </a>
+        {% else %}
+        <div class="queue-card queue-card-running queue-card-private" title="Another user's active submission">
+          <span class="queue-card-name" title="{{ row.experiment }}">{{ row.experiment }}</span>
+          <span class="queue-card-id">{{ row.id | replace('sub-', '', 1) }}</span>
+          <span class="queue-card-time">{% if row.owner %}{{ row.owner }}{% elif row.created_at.iso %}<time datetime="{{ row.created_at.iso }}" data-relative>{{ row.created_at.label }}</time>{% else %}{{ row.created_at.label }}{% endif %}</span>
+        </div>
+        {% endif %}
         {% endfor %}
       </div>
     </div>
@@ -89,6 +97,7 @@
       </div>
       <div class="queue-stage-track">
         {% for row in pending_rows %}
+        {% if row.can_view_detail %}
         <a class="queue-card {% if row.status == 'blocked' %}queue-card-waiting{% else %}queue-card-queued{% endif %}" href="/ui/submissions/{{ row.id }}?return_to={{ return_to | urlencode }}">
           <span class="queue-card-sequence" title="Priority-aware dispatch position">#{{ loop.index }}</span>
           <span class="queue-card-name" title="{{ row.experiment }}">{{ row.experiment }}</span>
@@ -99,6 +108,14 @@
           <span class="queue-card-time">{% if row.created_at.iso %}<time datetime="{{ row.created_at.iso }}" data-relative>{{ row.created_at.label }}</time>{% else %}{{ row.created_at.label }}{% endif %}</span>
           {% endif %}
         </a>
+        {% else %}
+        <div class="queue-card {% if row.status == 'blocked' %}queue-card-waiting{% else %}queue-card-queued{% endif %} queue-card-private" title="Another user's active submission">
+          <span class="queue-card-sequence" title="Priority-aware dispatch position">#{{ loop.index }}</span>
+          <span class="queue-card-name" title="{{ row.experiment }}">{{ row.experiment }}</span>
+          <span class="queue-card-id">{{ row.id | replace('sub-', '', 1) }}</span>
+          <span class="queue-card-time">{{ row.owner or 'private' }}</span>
+        </div>
+        {% endif %}
         {% endfor %}
       </div>
     </div>
@@ -220,10 +237,14 @@
     </thead>
     <tbody>
       {% for row in rows %}
-      <tr data-href="/ui/submissions/{{ row.id }}?return_to={{ return_to | urlencode }}">
+      <tr{% if row.can_view_detail %} data-href="/ui/submissions/{{ row.id }}?return_to={{ return_to | urlencode }}"{% else %} class="is-private-row"{% endif %}>
         <td class="cell-id" title="{{ row.id }}" data-label="ID">
+          {% if row.can_view_detail %}
           <a class="primary-link" href="/ui/submissions/{{ row.id }}?return_to={{ return_to | urlencode }}">{{ row.id | replace('sub-', '', 1) }}</a>
-          <div class="table-subtext">{{ row.namespace }}</div>
+          {% else %}
+          <span class="primary-link primary-link-muted">{{ row.id | replace('sub-', '', 1) }}</span>
+          {% endif %}
+          <div class="table-subtext">{% if row.owner %}{{ row.owner }}{% else %}{{ row.namespace }}{% endif %}</div>
         </td>
         <td data-label="Project">{{ row.project_name }}</td>
         <td class="cell-experiment" title="{{ row.experiment }}" data-label="Experiment">{{ row.experiment }}</td>

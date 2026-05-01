@@ -116,11 +116,12 @@ def list_visible_submissions_for_ui(
     search_query: str | None = None,
     default_priority: int = 50,
 ) -> list[dict[str, Any]]:
+    user = _ui_submission_list_user(principal, status_filter=status_filter)
     rows = storage.list_submissions(
         limit=limit,
         offset=offset,
         statuses=_submission_statuses_for_filter(status_filter),
-        user=None if principal.role == "admin" else principal.name,
+        user=user,
         query=search_query,
         order="ui",
         default_priority=default_priority,
@@ -135,22 +136,43 @@ def count_visible_submissions_for_ui(
     status_filter: str = "all",
     search_query: str | None = None,
 ) -> int:
+    user = _ui_submission_list_user(principal, status_filter=status_filter)
     return storage.count_submissions(
         statuses=_submission_statuses_for_filter(status_filter),
-        user=None if principal.role == "admin" else principal.name,
+        user=user,
         query=search_query,
     )
+
+
+def _ui_submission_list_user(principal: AuthPrincipal, *, status_filter: str) -> str | None:
+    if principal.role == "admin":
+        return None
+    if status_filter == "active":
+        return None
+    return principal.name
 
 
 def submission_stats_for_principal(
     storage: Storage,
     principal: AuthPrincipal,
 ) -> dict[str, int]:
-    user = None if principal.role == "admin" else principal.name
+    if principal.role == "admin":
+        return {
+            "total": storage.count_submissions(),
+            "active": storage.count_submissions(statuses=list(_ACTIVE_STATUSES)),
+            "blocked": storage.count_submissions(statuses=["blocked"]),
+            "failed": storage.count_submissions(statuses=["failed"]),
+            "completed": storage.count_submissions(statuses=["completed"]),
+        }
+
+    user = principal.name
+    own_total = storage.count_submissions(user=user)
+    own_active = storage.count_submissions(statuses=list(_ACTIVE_STATUSES), user=user)
+    all_active = storage.count_submissions(statuses=list(_ACTIVE_STATUSES))
     return {
-        "total": storage.count_submissions(user=user),
-        "active": storage.count_submissions(statuses=list(_ACTIVE_STATUSES), user=user),
-        "blocked": storage.count_submissions(statuses=["blocked"], user=user),
+        "total": own_total + max(0, all_active - own_active),
+        "active": all_active,
+        "blocked": storage.count_submissions(statuses=["blocked"]),
         "failed": storage.count_submissions(statuses=["failed"], user=user),
         "completed": storage.count_submissions(statuses=["completed"], user=user),
     }
