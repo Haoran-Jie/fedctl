@@ -26,10 +26,10 @@ from fedctl.project.flwr_inspect import inspect_flwr_project
 from fedctl.build.state import load_project_build
 from fedctl.build.build import image_exists, pull_image
 from fedctl.build.errors import BuildError
-from fedctl.project.experiment_config import (
+from fedctl.project.run_config import (
     extract_seed_sweep,
     materialize_run_config,
-    resolve_experiment_config,
+    resolve_run_config,
 )
 from fedctl.config.deploy import get_deploy_config_label, resolve_deploy_config
 from fedctl.project.flwr_config import resolve_flwr_home
@@ -49,7 +49,7 @@ def _print_ok(message: str) -> None:
 def run_run(
     *,
     path: str = ".",
-    experiment_config: str | None = None,
+    run_config: str | None = None,
     run_config_overrides: list[str] | None = None,
     seed: int | None = None,
     flwr_version: str = DEFAULT_FLWR_VERSION,
@@ -93,16 +93,16 @@ def run_run(
     _print_ok(f"Experiment: {exp_name}")
     if seed is None:
         try:
-            seed_sweep = extract_seed_sweep(info.root, experiment_config)
+            seed_sweep = extract_seed_sweep(info.root, run_config)
         except ProjectError as exc:
-            console.print(f"[red]✗ Experiment config error:[/red] {exc}")
+            console.print(f"[red]✗ Run config error:[/red] {exc}")
             return 1
         if seed_sweep:
             return _run_seed_sweep(
                 seed_sweep=seed_sweep,
                 base_experiment=exp_name,
                 path=path,
-                experiment_config=experiment_config,
+                run_config=run_config,
                 flwr_version=flwr_version,
                 image=image,
                 no_cache=no_cache,
@@ -127,9 +127,9 @@ def run_run(
                 destroy=destroy,
             )
     try:
-        resolved_experiment_config = resolve_experiment_config(info.root, experiment_config)
+        resolved_run_config = resolve_run_config(info.root, run_config)
     except ProjectError as exc:
-        console.print(f"[red]✗ Experiment config error:[/red] {exc}")
+        console.print(f"[red]✗ Run config error:[/red] {exc}")
         return 1
 
     image_tag = None
@@ -223,8 +223,8 @@ def run_run(
         resolved_deploy.data, path=resolved_deploy.path
     )
     with _temporary_run_tracking_env(
-        experiment_config=(
-            resolved_experiment_config.runner_path if resolved_experiment_config else None
+        run_config=(
+            resolved_run_config.runner_path if resolved_run_config else None
         ),
         deploy_config_label=deploy_config_label,
     ):
@@ -271,7 +271,7 @@ def run_run(
         seed=seed,
     )
     resolved_run_config = materialize_run_config(
-        base_path=resolved_experiment_config.resolved_path if resolved_experiment_config else None,
+        base_path=resolved_run_config.resolved_path if resolved_run_config else None,
         run_config_overrides=merged_overrides,
     )
     if resolved_run_config:
@@ -368,13 +368,13 @@ def _timestamp_iso() -> str:
 
 @contextmanager
 def _temporary_run_tracking_env(
-    *, experiment_config: str | None, deploy_config_label: str | None
+    *, run_config: str | None, deploy_config_label: str | None
 ):
     updates = {
         "FEDCTL_ATTEMPT_STARTED_AT": os.environ.get("FEDCTL_ATTEMPT_STARTED_AT", _timestamp_iso()),
     }
-    if experiment_config:
-        updates["FEDCTL_EXPERIMENT_CONFIG"] = experiment_config
+    if run_config:
+        updates["FEDCTL_RUN_CONFIG"] = run_config
     if deploy_config_label:
         updates["FEDCTL_DEPLOY_CONFIG_LABEL"] = deploy_config_label
         updates["FEDCTL_REPO_CONFIG_LABEL"] = deploy_config_label
@@ -554,7 +554,7 @@ def _run_seed_sweep(
     seed_sweep: tuple[int, ...],
     base_experiment: str,
     path: str,
-    experiment_config: str | None,
+    run_config: str | None,
     flwr_version: str,
     image: str | None,
     no_cache: bool,
@@ -588,7 +588,7 @@ def _run_seed_sweep(
         )
         status = run_run(
             path=path,
-            experiment_config=experiment_config,
+            run_config=run_config,
             run_config_overrides=None,
             seed=sweep_seed,
             flwr_version=flwr_version,

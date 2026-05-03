@@ -1,0 +1,58 @@
+[run]
+method = "fedrolex"
+task = "california_housing_mlp"
+seeds = [1337, 1338, 1339]
+
+[server]
+num-server-rounds = 40
+fraction-train = 0.5
+fraction-evaluate = 0.5
+min-available-nodes = 20
+min-train-nodes = 10
+min-evaluate-nodes = 10
+capability-discovery-timeout-s = 180.0
+
+[client]
+local-epochs = 1
+learning-rate = 0.001
+optimizer = "adam"
+batch-size = 64
+
+[data]
+partitioning = "continuous"
+partitioning-num-labels = 2
+partitioning-dirichlet-alpha = 0.1
+partitioning-continuous-column = "MedInc"
+partitioning-continuous-strictness = 0.9
+masked-cross-entropy = "off"
+
+[model]
+global-model-rate = 1.0
+default-model-rate = 0.125
+
+[capacity]
+model-split-mode = "fix"
+model-rate-levels = [1.0, 0.5, 0.25, 0.125]
+model-rate-proportions = [0.25, 0.25, 0.25, 0.25]
+heterofl-device-type-allocations = "rpi4:0.125@5,0.25@5;rpi5:0.5@5,1.0@5"
+
+[fedrolex]
+roll-mode = "paper"
+overlap = ""
+
+[wandb]
+enabled = true
+group = "compute_heterogeneity-main-california_housing_mlp-noniid"
+tags = ["compute_heterogeneity", "main", "california_housing_mlp", "noniid", "fedrolex"]
+
+[devices.rpi4]
+model-rate = 0.25
+batch-size = 32
+max-train-examples = 826
+max-test-examples = 207
+
+[devices.rpi5]
+model-rate = 1.0
+batch-size = 128
+max-train-examples = 826
+max-test-examples = 207

@@ -1,0 +1,6 @@
+{
+  "id": "tennis-ball",
+  "displayName": "Tennis Ball",
+  "description": "A fuzzy tennis ball Codex pet with a simple expressive face and tiny limbs.",
+  "spritesheetPath": "spritesheet.webp"
+}

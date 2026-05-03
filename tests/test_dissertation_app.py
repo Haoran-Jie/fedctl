@@ -296,8 +296,8 @@ def test_method_registry_includes_fedavg_fedavgm_fedbuff_fedstaleweight_fedrolex
     assert hasattr(resolve_method("fiarse"), "run_server")
 
 
-def test_network_heterogeneity_experiment_config_tree_contains_expected_families() -> None:
-    config_root = Path(__file__).resolve().parents[1] / "apps" / "fedctl_research" / "experiment_configs"
+def test_network_heterogeneity_run_config_tree_contains_expected_families() -> None:
+    config_root = Path(__file__).resolve().parents[1] / "apps" / "fedctl_research" / "run_configs"
     expected = [
         config_root / "smoke" / "network_heterogeneity" / "fashion_mnist_mlp" / "fedbuff_k10.toml",
         config_root / "network_heterogeneity" / "main" / "fashion_mnist_cnn" / "fedavg.toml",
@@ -334,7 +334,7 @@ def test_fedbuff_deploy_config_tree_contains_expected_profiles() -> None:
 
 
 def test_compute_heterogeneity_config_tree_contains_fiarse_families() -> None:
-    config_root = Path(__file__).resolve().parents[1] / "apps" / "fedctl_research" / "experiment_configs"
+    config_root = Path(__file__).resolve().parents[1] / "apps" / "fedctl_research" / "run_configs"
     expected = [
         config_root / "smoke" / "compute_heterogeneity" / "fashion_mnist_mlp" / "fiarse.toml",
         config_root / "compute_heterogeneity" / "main" / "fashion_mnist_cnn" / "fiarse.toml",
@@ -2703,7 +2703,7 @@ def test_large_server_config_exists() -> None:
         Path(__file__).resolve().parents[1]
         / "apps"
         / "fedctl_research"
-        / "experiment_configs"
+        / "run_configs"
         / "compute_heterogeneity"
         / "ablations"
         / "method_mechanisms"
@@ -2718,15 +2718,15 @@ def test_large_server_config_exists() -> None:
     assert data["devices"]["rpi4"]["model-rate"] == 0.25
 
 
-def test_all_active_experiment_configs_set_required_keys() -> None:
-    config_root = Path(__file__).resolve().parents[1] / "apps" / "fedctl_research" / "experiment_configs"
+def test_all_active_run_configs_set_required_keys() -> None:
+    config_root = Path(__file__).resolve().parents[1] / "apps" / "fedctl_research" / "run_configs"
     config_paths = sorted(config_root.rglob("*.toml"))
     assert config_paths
     for path in config_paths:
         if path.name == "README.md":
             continue
         data = tomllib.loads(path.read_text())
-        assert "experiment" in data, str(path)
+        assert "run" in data, str(path)
         assert "server" in data, str(path)
         assert "client" in data, str(path)
         assert "data" in data, str(path)
@@ -2737,7 +2737,7 @@ def test_all_active_experiment_configs_set_required_keys() -> None:
         assert "rpi4" in data["devices"], str(path)
         assert "rpi5" in data["devices"], str(path)
         if "smoke" not in path.parts:
-            assert data["experiment"]["seeds"] == [1337, 1338, 1339], str(path)
+            assert data["run"]["seeds"] == [1337, 1338, 1339], str(path)
         assert data["wandb"]["enabled"] is True, str(path)
         if "capacity" in data:
             assert "model-split-mode" in data["capacity"], str(path)
@@ -2783,8 +2783,8 @@ def test_all_active_experiment_configs_set_required_keys() -> None:
         assert data["server"]["min-train-nodes"] == 10, str(path)
 
 
-def test_experiment_config_tree_matches_study_matrix() -> None:
-    config_root = Path(__file__).resolve().parents[1] / "apps" / "fedctl_research" / "experiment_configs"
+def test_run_config_tree_matches_study_matrix() -> None:
+    config_root = Path(__file__).resolve().parents[1] / "apps" / "fedctl_research" / "run_configs"
     expected_subset = {
         "smoke/compute_heterogeneity/fashion_mnist_mlp/fedavg.toml",
         "smoke/compute_heterogeneity/fashion_mnist_mlp/heterofl.toml",
@@ -2873,7 +2873,7 @@ def test_experiment_config_tree_matches_study_matrix() -> None:
 
 
 def test_new_paper_inspired_configs_encode_expected_values() -> None:
-    config_root = Path(__file__).resolve().parents[1] / "apps" / "fedctl_research" / "experiment_configs"
+    config_root = Path(__file__).resolve().parents[1] / "apps" / "fedctl_research" / "run_configs"
 
     inclusiveness = tomllib.loads(
         (
@@ -3012,7 +3012,7 @@ def test_new_paper_inspired_configs_encode_expected_values() -> None:
             / "fedrolex.toml"
         ).read_text()
     )
-    assert fixed_singleton_fedrolex["experiment"]["method"] == "fedrolex"
+    assert fixed_singleton_fedrolex["run"]["method"] == "fedrolex"
     assert fixed_singleton_fedrolex["capacity"]["heterofl-partition-rates"].count(",") == 9
 
     fixed_singleton_fiarse = tomllib.loads(
@@ -3027,7 +3027,7 @@ def test_new_paper_inspired_configs_encode_expected_values() -> None:
             / "fiarse.toml"
         ).read_text()
     )
-    assert fixed_singleton_fiarse["experiment"]["method"] == "fiarse"
+    assert fixed_singleton_fiarse["run"]["method"] == "fiarse"
     assert fixed_singleton_fiarse["capacity"]["heterofl-partition-rates"].count(",") == 9
 
     fixed_pair = tomllib.loads(
@@ -3060,7 +3060,7 @@ def test_new_paper_inspired_configs_encode_expected_values() -> None:
             / "fedrolex.toml"
         ).read_text()
     )
-    assert fixed_pair_fedrolex["experiment"]["method"] == "fedrolex"
+    assert fixed_pair_fedrolex["run"]["method"] == "fedrolex"
     assert fixed_pair_fedrolex["capacity"]["heterofl-partition-rates"].startswith("0:1")
 
     fixed_pair_fiarse = tomllib.loads(
@@ -3076,15 +3076,15 @@ def test_new_paper_inspired_configs_encode_expected_values() -> None:
             / "fiarse.toml"
         ).read_text()
     )
-    assert fixed_pair_fiarse["experiment"]["method"] == "fiarse"
+    assert fixed_pair_fiarse["run"]["method"] == "fiarse"
     assert fixed_pair_fiarse["capacity"]["heterofl-partition-rates"].startswith("0:1")
 
 
 def test_main_study_configs_match_balanced_twelve_node_plan() -> None:
     app_root = Path(__file__).resolve().parents[1] / "apps" / "fedctl_research"
 
-    compute_paths = sorted((app_root / "experiment_configs" / "compute_heterogeneity" / "main").rglob("*.toml"))
-    network_paths = sorted((app_root / "experiment_configs" / "network_heterogeneity" / "main").rglob("*.toml"))
+    compute_paths = sorted((app_root / "run_configs" / "compute_heterogeneity" / "main").rglob("*.toml"))
+    network_paths = sorted((app_root / "run_configs" / "network_heterogeneity" / "main").rglob("*.toml"))
 
     assert compute_paths
     assert network_paths
@@ -3177,16 +3177,25 @@ def test_main_study_configs_match_balanced_twelve_node_plan() -> None:
         is_cifar10 = "cifar10_cnn" in str(path)
         is_iid = "/iid/" in str(path)
         is_all_rpi5 = "/all_rpi5/" in str(path)
+        is_fedasync_core = path.name == "fedasync.toml" and data["run"]["method"] == "fedbuff"
         expected_rounds = 15 if is_fashion else 50
         expected_train_examples = 5000 if is_fashion else 2500
         expected_test_examples = 834 if is_fashion else 500
         expected_nodes = 12 if is_fashion else 15
-        if data["experiment"]["method"] in {"fedbuff", "fedstaleweight"}:
-            expected_steps = 15 if is_fashion else 100
+        if data["run"]["method"] in {"fedbuff", "fedstaleweight"}:
+            if is_fedasync_core:
+                expected_steps = 1000 if is_all_rpi5 else 1500
+            elif is_cifar10 and not is_all_rpi5:
+                expected_steps = 150
+            else:
+                expected_steps = 15 if is_fashion else 100
             assert data["fedbuff"]["num-server-steps"] == expected_steps, str(path)
             if is_fashion:
                 expected_train_concurrency = 8
                 expected_buffer_size = 10
+            elif is_fedasync_core:
+                expected_train_concurrency = 15
+                expected_buffer_size = 1
             elif is_all_rpi5:
                 expected_train_concurrency = 15
                 expected_buffer_size = 10
@@ -3196,7 +3205,7 @@ def test_main_study_configs_match_balanced_twelve_node_plan() -> None:
             assert data["fedbuff"]["train-concurrency"] == expected_train_concurrency, str(path)
             assert data["fedbuff"]["buffer-size"] == expected_buffer_size, str(path)
             assert data["fedbuff"]["staleness-alpha"] == 0.5, str(path)
-            if data["experiment"]["method"] == "fedbuff":
+            if data["run"]["method"] == "fedbuff":
                 assert data["fedbuff"]["staleness-weighting"] == "polynomial", str(path)
         else:
             assert data["server"]["num-server-rounds"] == expected_rounds, str(path)
@@ -3253,10 +3262,11 @@ def test_main_study_configs_match_balanced_twelve_node_plan() -> None:
     assert network_mixed_repo["deploy"]["placement"] == {
         "allow_oversubscribe": False,
         "spread_across_hosts": True,
+        "prefer_spread_across_hosts": True,
     }
     assert network_all_rpi5_repo["deploy"]["supernodes"] == {"rpi4": 0, "rpi5": 15}
     assert network_all_rpi5_repo["deploy"]["placement"] == {
-        "allow_oversubscribe": True,
+        "allow_oversubscribe": False,
         "spread_across_hosts": True,
         "prefer_spread_across_hosts": True,
     }

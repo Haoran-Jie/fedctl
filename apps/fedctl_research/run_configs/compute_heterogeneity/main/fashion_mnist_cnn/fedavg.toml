@@ -1,0 +1,50 @@
+[run]
+method = "fedavg"
+task = "fashion_mnist_cnn"
+seeds = [1337, 1338, 1339]
+
+[server]
+num-server-rounds = 15
+fraction-train = 1.0
+fraction-evaluate = 1.0
+min-available-nodes = 12
+min-train-nodes = 12
+min-evaluate-nodes = 12
+capability-discovery-timeout-s = 120.0
+
+[client]
+local-epochs = 1
+learning-rate = 0.01
+batch-size = 32
+
+[data]
+partitioning = "iid"
+partitioning-num-labels = 2
+partitioning-dirichlet-alpha = 0.1
+masked-cross-entropy = "auto"
+
+[model]
+global-model-rate = 1.0
+default-model-rate = 1.0
+
+[capacity]
+model-split-mode = "fix"
+model-rate-levels = [1.0, 0.5, 0.25, 0.125, 0.0625]
+model-rate-proportions = [0.2, 0.2, 0.2, 0.2, 0.2]
+
+[wandb]
+enabled = true
+group = "compute_heterogeneity-main-fashion_mnist_cnn"
+tags = ["compute_heterogeneity", "main", "fashion_mnist_cnn", "fedavg"]
+
+[devices.rpi4]
+model-rate = 1.0
+batch-size = 8
+max-train-examples = 5000
+max-test-examples = 834
+
+[devices.rpi5]
+model-rate = 1.0
+batch-size = 32
+max-train-examples = 5000
+max-test-examples = 834

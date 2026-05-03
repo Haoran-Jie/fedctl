@@ -62,7 +62,7 @@ def test_default_image_tag_ignores_non_package_files(tmp_path: Path) -> None:
     project_root = tmp_path / "project"
     _write(project_root / "pyproject.toml", '[project]\nname = "demo"\nversion = "0.1.0"\n')
     _write(project_root / "src" / "demo.py", 'print("hello")\n')
-    _write(project_root / "experiment.toml", 'method = "heterofl"\n')
+    _write(project_root / "run.toml", 'method = "heterofl"\n')
 
     before = default_image_tag(
         "demo-project",
@@ -71,7 +71,7 @@ def test_default_image_tag_ignores_non_package_files(tmp_path: Path) -> None:
         flwr_version="1.27.0",
     )
 
-    _write(project_root / "experiment.toml", 'method = "fedrolex"\n')
+    _write(project_root / "run.toml", 'method = "fedrolex"\n')
 
     after = default_image_tag(
         "demo-project",

@@ -150,18 +150,18 @@ def test_ui_help_page_shows_submit_commands(tmp_path, monkeypatch: pytest.Monkey
     assert "FEDCTL_SUBMIT_TOKEN" in page.text
     assert "fedctl submit run &lt;project-dir&gt;" in page.text
     assert "fedctl submit run &lt;project-dir&gt; --stream" not in page.text
-    assert "--experiment-config path/to/experiment.toml" in page.text
+    assert "--run-config path/to/run.toml" in page.text
     assert "--deploy-config path/to/deploy.yaml" in page.text
     assert "fedctl submit results &lt;submission-id&gt; --download --out ./results" in page.text
     assert 'href="#configs"' in page.text
     assert "Config files" in page.text
-    assert "Experiment config" in page.text
+    assert "Run config" in page.text
     assert "Deploy config" in page.text
-    assert "--experiment-config" in page.text
+    assert "--run-config" in page.text
     assert "--deploy-config" in page.text
-    assert 'href="http://testserver/ui/help/config/experiment-config"' in page.text
+    assert 'href="http://testserver/ui/help/config/run-config"' in page.text
     assert 'href="http://testserver/ui/help/config/deploy-config"' in page.text
-    assert 'id="config-experiment-config"' in page.text
+    assert 'id="config-run-config"' in page.text
     assert 'id="config-deploy-config"' in page.text
     assert 'id="command-submit-run"' in page.text
     assert 'data-copy-label="Link"' in page.text
@@ -172,9 +172,9 @@ def test_ui_help_config_detail_pages_show_rich_guidance(tmp_path, monkeypatch: p
     client = _make_ui_client(tmp_path, monkeypatch)
     _login(client, "tok-alice")
 
-    experiment_page = client.get("/ui/help/config/experiment-config")
+    experiment_page = client.get("/ui/help/config/run-config")
     assert experiment_page.status_code == 200
-    assert "Experiment config" in experiment_page.text
+    assert "Run config" in experiment_page.text
     assert "Run settings passed to Flower" in experiment_page.text
     assert "Workflow" in experiment_page.text
     assert "File shape" in experiment_page.text

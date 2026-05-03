@@ -19,8 +19,9 @@ refs/FIARSE/
 refs/heterofl_fedctl/data/
 refs/FedRolex-main
 /tasks/
-apps/fedctl_research/experiment_configs
+apps/fedctl_research/run_configs
 .claude/
 apps/fedctl_research/data/
 refs/QuAFL/
 tmp/
+pastproject/

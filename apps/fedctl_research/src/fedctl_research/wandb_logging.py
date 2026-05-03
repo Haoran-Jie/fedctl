@@ -485,10 +485,10 @@ def _seed_label(run_config: Mapping[str, object]) -> str:
     return match.group(1) if match else "unknown"
 
 
-def _study_key(experiment_config: str | None) -> str:
-    if not experiment_config:
+def _study_key(run_config: str | None) -> str:
+    if not run_config:
         return "study"
-    parts = PurePosixPath(experiment_config).parts
+    parts = PurePosixPath(run_config).parts
     if "compute_heterogeneity" in parts:
         return f"compute-{_study_phase(parts, 'compute_heterogeneity')}"
     if "network_heterogeneity" in parts:
@@ -549,7 +549,7 @@ def _resolve_run_identity(run_config: Mapping[str, object]) -> _RunIdentity:
     node_count = _node_count_label(run_config)
     capacity_split = _capacity_split_label(run_config)
     canonical_key = (
-        f"{_study_key(os.environ.get('FEDCTL_EXPERIMENT_CONFIG'))}"
+        f"{_study_key(os.environ.get('FEDCTL_RUN_CONFIG'))}"
         f"/{task}/{method}/{node_count}/{capacity_split}/seed{seed}/profile-{_deploy_config_label()}"
     )
     return _RunIdentity(

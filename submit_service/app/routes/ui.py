@@ -44,17 +44,17 @@ _LOG_JOBS = [
 ]
 _HELP_CONFIG_SECTIONS = [
     {
-        "slug": "experiment-config",
-        "title": "Experiment config",
+        "slug": "run-config",
+        "title": "Run config",
         "summary": "Sectioned TOML that describes the workload, method, seed, and Flower run settings.",
         "subtitle": "Run settings passed to Flower",
         "description": (
-            "An experiment config is a TOML file for workload, method, seed, and Flower run-config values. "
+            "A run config is a TOML file for workload, method, seed, and Flower run-config values. "
             "fedctl validates and flattens it into the run config used by the remote Flower run."
         ),
-        "command": "fedctl submit run apps/fedctl_research --experiment-config path/to/experiment.toml",
+        "command": "fedctl submit run apps/fedctl_research --run-config path/to/run.toml",
         "snippet": (
-            "[experiment]\n"
+            "[run]\n"
             "method = \"fedavg\"\n"
             "task = \"fashion_mnist_mlp\"\n"
             "seed = 1337\n\n"
@@ -63,12 +63,12 @@ _HELP_CONFIG_SECTIONS = [
             "min-available-nodes = 4"
         ),
         "details": [
-            "Use an experiment config when a run needs to be reproducible. The file describes what should be trained and how Flower should run it; it does not choose the submit service, registry, Nomad node placement, or cluster resources.",
+            "Use a run config when a run needs to be reproducible. The file describes what should be trained and how Flower should run it; it does not choose the submit service, registry, Nomad node placement, or cluster resources.",
             "fedctl reads the sectioned TOML, applies seed expansion and command-line overrides, then writes the normalized run config consumed by the submit runner. The remote runner ultimately invokes Flower with a concrete --run-config for one child run.",
             "For a normal Flower project, this file is optional. If it is omitted, fedctl can submit the project using the defaults already present in the Flower app, such as pyproject.toml and local-simulation.num-supernodes.",
         ],
         "flow": [
-            "Read the TOML passed with --experiment-config.",
+            "Read the TOML passed with --run-config.",
             "Expand seed sweeps into one submission per seed when the config declares multiple seeds.",
             "Apply --seed and --run-config-override values from the CLI.",
             "Flatten sectioned TOML into Flower-compatible run-config keys.",
@@ -78,7 +78,7 @@ _HELP_CONFIG_SECTIONS = [
             {
                 "title": "Typical contents",
                 "items": [
-                    "Experiment identity: method, task, seed, dataset split, and naming metadata.",
+                    "Run identity: method, task, seed, dataset split, and naming metadata.",
                     "Server settings: rounds, aggregation method parameters, buffer size, or async method knobs.",
                     "Client settings: local epochs, batch size, learning rate, and model/data options.",
                     "Device-specific settings when the project wants rpi4/rpi5 behavior to differ.",
@@ -103,19 +103,19 @@ _HELP_CONFIG_SECTIONS = [
         ],
         "examples": [
             {
-                "title": "Submit with an experiment config",
+                "title": "Submit with a run config",
                 "body": "Use this when the project has a reusable TOML file for the run settings.",
                 "command": (
                     "fedctl submit run apps/fedctl_research \\\n"
-                    "  --experiment-config apps/fedctl_research/experiment_configs/smoke/compute_heterogeneity/fashion_mnist_mlp/fedavg.toml"
+                    "  --run-config apps/fedctl_research/run_configs/smoke/compute_heterogeneity/fashion_mnist_mlp/fedavg.toml"
                 ),
             },
             {
                 "title": "Override one Flower run-config value",
-                "body": "Use an override for a small temporary change without copying the experiment file.",
+                "body": "Use an override for a small temporary change without copying the run-config file.",
                 "command": (
                     "fedctl submit run apps/fedctl_research \\\n"
-                    "  --experiment-config apps/fedctl_research/experiment_configs/smoke/compute_heterogeneity/fashion_mnist_mlp/fedavg.toml \\\n"
+                    "  --run-config apps/fedctl_research/run_configs/smoke/compute_heterogeneity/fashion_mnist_mlp/fedavg.toml \\\n"
                     "  --run-config-override num-server-rounds=5"
                 ),
             },
@@ -148,7 +148,7 @@ _HELP_CONFIG_SECTIONS = [
         ),
         "details": [
             "Use a deploy config when you need to tell fedctl where and how to run the project. It is deployment-side state: submit-service endpoint and token, artifact storage, submit runner image, image registry, Nomad resource defaults, placement rules, and network impairment profiles.",
-            "The deploy config is consumed by the local CLI and the submit runner. Flower does not receive this file as run config; Flower only receives the normalized experiment/run config plus the project archive.",
+            "The deploy config is consumed by the local CLI and the submit runner. Flower does not receive this file as run config; Flower only receives the normalized run config plus the project archive.",
             "Fresh installs create a CamMLSys-oriented default deploy config on first fedctl use. For most users, setup should be pip install fedctl, register a bearer token with fedctl submit register-token, then run fedctl submit run <project>.",
         ],
         "flow": [
@@ -405,7 +405,7 @@ _HELP_COMMANDS = [
         "syntax": "fedctl submit run <project-dir> [OPTIONS]",
         "details": [
             "Use this command to turn a local Flower app or research project into a submit-service job. The runner inspects the project, builds or reuses the required images, uploads the project archive, creates the submission record, and dispatches work through Nomad.",
-            "For dissertation experiments, the most repeatable form is to pass the project directory, an explicit experiment config, a deployment config via --deploy-config, a seeded submit image, and a seed.",
+            "For dissertation experiments, the most repeatable form is to pass the project directory, an explicit run config, a deployment config via --deploy-config, a seeded submit image, and a seed.",
         ],
         "use_cases": [
             "Launch a quick local Flower project with the default deployment settings.",
@@ -425,10 +425,10 @@ _HELP_COMMANDS = [
             },
             {
                 "title": "Dissertation experiment with explicit config",
-                "body": "Use the research app, an experiment config, a deployment config, a fixed seed, and the cluster submit image.",
+                "body": "Use the research app, a run config, a deployment config, a fixed seed, and the cluster submit image.",
                 "command": (
                     "./.venv/bin/fedctl submit run apps/fedctl_research \\\n"
-                    "  --experiment-config apps/fedctl_research/experiment_configs/network_heterogeneity/main/cifar10_cnn/iid/all_rpi5/fedbuff.toml \\\n"
+                    "  --run-config apps/fedctl_research/run_configs/network_heterogeneity/main/cifar10_cnn/iid/all_rpi5/fedbuff.toml \\\n"
                     "  --deploy-config apps/fedctl_research/repo_configs/network_heterogeneity/main/all_rpi5/none.yaml \\\n"
                     "  --submit-image 128.232.61.111:5000/fedctl-submit:latest \\\n"
                     "  --seed 1337"
@@ -441,13 +441,13 @@ _HELP_COMMANDS = [
             },
             {
                 "title": "Override one run-config value",
-                "body": "Patch a Flower run-config key without creating a new experiment TOML.",
+                "body": "Patch a Flower run-config key without creating a new run-config TOML.",
                 "command": "fedctl submit run apps/fedctl_research --run-config-override num-server-rounds=5 --seed 1337",
             },
         ],
         "flags": [
-            {"name": "--experiment-config", "type": "PATH", "description": "Path to experiment config file"},
-            {"name": "--run-config-override", "type": "TEXT", "description": "Override experiment run config (repeatable)"},
+            {"name": "--run-config", "type": "PATH", "description": "Path to run config file"},
+            {"name": "--run-config-override", "type": "TEXT", "description": "Override run config (repeatable)"},
             {"name": "--seed", "type": "INTEGER", "description": "Random seed for experiment"},
             {"name": "--flwr-version", "type": "TEXT", "description": "Flower version to use"},
             {"name": "--image", "type": "TEXT", "description": "Docker image for the submit job"},
@@ -1032,12 +1032,12 @@ def help_page(request: Request) -> HTMLResponse | RedirectResponse:
                 {
                     "title": "Add config files when needed",
                     "body": (
-                        "Use an experiment config for Flower run settings and a deploy config for cluster execution settings. "
+                        "Use a run config for Flower run settings and a deploy config for cluster execution settings. "
                         "Open the config file cards below for the full field reference."
                     ),
                     "command": (
                         "fedctl submit run <project-dir> \\\n"
-                        "  --experiment-config path/to/experiment.toml \\\n"
+                        "  --run-config path/to/run.toml \\\n"
                         "  --deploy-config path/to/deploy.yaml"
                     ),
                 },

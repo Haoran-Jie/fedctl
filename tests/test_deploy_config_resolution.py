@@ -214,13 +214,13 @@ def test_deploy_config_defaults_extracts_superexec_env_map() -> None:
 
 def test_runtime_superexec_env_prefers_resolved_deploy_config_label(monkeypatch) -> None:
     monkeypatch.setenv("FEDCTL_REPO_CONFIG_LABEL", "asym-down")
-    monkeypatch.setenv("FEDCTL_EXPERIMENT_CONFIG", "configs/demo.toml")
+    monkeypatch.setenv("FEDCTL_RUN_CONFIG", "configs/demo.toml")
 
     env = _runtime_superexec_env(deploy_config_label="mild")
 
     assert env["FEDCTL_DEPLOY_CONFIG_LABEL"] == "mild"
     assert env["FEDCTL_REPO_CONFIG_LABEL"] == "mild"
-    assert env["FEDCTL_EXPERIMENT_CONFIG"] == "configs/demo.toml"
+    assert env["FEDCTL_RUN_CONFIG"] == "configs/demo.toml"
 
 
 def test_deploy_config_defaults_extracts_spread_across_hosts() -> None:

@@ -8,7 +8,7 @@ import yaml
 import fedctl.commands.submit as submit_cmd
 import fedctl.submit.artifact as artifact
 from fedctl.config.io import DEFAULT_SUBMIT_ENDPOINT
-from fedctl.project.experiment_config import resolve_experiment_config
+from fedctl.project.run_config import resolve_run_config
 
 
 def test_upload_artifact_uses_explicit_presign_service(
@@ -486,15 +486,15 @@ def test_run_submit_token_set_validates_and_saves_token(
     assert saved == {"token": "fedctl_web", "deploy_cfg_path": deploy_cfg_path}
 
 
-def test_run_submit_auto_generates_experiment_from_experiment_config(
+def test_run_submit_auto_generates_experiment_from_run_config(
     monkeypatch, tmp_path: Path
 ) -> None:
     project_root = tmp_path / "project"
     project_root.mkdir()
-    experiment_config = project_root / "experiment.toml"
-    experiment_config.write_text(
+    run_config = project_root / "run.toml"
+    run_config.write_text(
         """
-[experiment]
+[run]
 method = "heterofl"
 task = "cifar10_cnn"
 seed = 1337
@@ -570,7 +570,7 @@ model-rate-proportions = [0.25, 0.25, 0.25, 0.25]
 
     status = submit_cmd.run_submit(
         path=str(project_root),
-        experiment_config="experiment.toml",
+        run_config="run.toml",
         flwr_version="1.25.0",
         image="superexec-image:latest",
         no_cache=False,
@@ -595,11 +595,11 @@ model-rate-proportions = [0.25, 0.25, 0.25, 0.25]
 
     assert status == 0
     payload = captured["submission_payload"]
-    resolved = resolve_experiment_config(project_root, "experiment.toml")
+    resolved = resolve_run_config(project_root, "run.toml")
     assert resolved is not None
     expected = submit_cmd._default_submit_experiment_name(
         project_name="demo-project",
-        resolved_experiment_config=resolved,
+        resolved_run_config=resolved,
         run_config_overrides=None,
         seed=None,
     )
@@ -612,10 +612,10 @@ def test_run_submit_auto_generated_experiment_includes_network_profile_label(
 ) -> None:
     project_root = tmp_path / "project"
     project_root.mkdir()
-    experiment_config = project_root / "experiment.toml"
-    experiment_config.write_text(
+    run_config = project_root / "run.toml"
+    run_config.write_text(
         """
-[experiment]
+[run]
 method = "fedbuff"
 task = "cifar10_cnn"
 seed = 1337
@@ -689,7 +689,7 @@ model-rate-proportions = [1.0]
 
     status = submit_cmd.run_submit(
         path=str(project_root),
-        experiment_config="experiment.toml",
+        run_config="run.toml",
         flwr_version="1.25.0",
         image="superexec-image:latest",
         no_cache=False,
@@ -726,7 +726,7 @@ def test_submit_generated_experiment_name_distinguishes_config_variants(
     iid_config = project_root / "iid.toml"
     iid_config.write_text(
         """
-[experiment]
+[run]
 method = "fedavg"
 task = "california_housing_mlp"
 seed = 1337
@@ -743,7 +743,7 @@ partitioning = "iid"
     noniid_config = project_root / "noniid.toml"
     noniid_config.write_text(
         """
-[experiment]
+[run]
 method = "fedavg"
 task = "california_housing_mlp"
 seed = 1337
@@ -760,20 +760,20 @@ partitioning-continuous-strictness = 0.5
         encoding="utf-8",
     )
 
-    iid_resolution = resolve_experiment_config(project_root, "iid.toml")
-    noniid_resolution = resolve_experiment_config(project_root, "noniid.toml")
+    iid_resolution = resolve_run_config(project_root, "iid.toml")
+    noniid_resolution = resolve_run_config(project_root, "noniid.toml")
     assert iid_resolution is not None
     assert noniid_resolution is not None
 
     iid_name = submit_cmd._default_submit_experiment_name(
         project_name="demo-project",
-        resolved_experiment_config=iid_resolution,
+        resolved_run_config=iid_resolution,
         run_config_overrides=None,
         seed=None,
     )
     noniid_name = submit_cmd._default_submit_experiment_name(
         project_name="demo-project",
-        resolved_experiment_config=noniid_resolution,
+        resolved_run_config=noniid_resolution,
         run_config_overrides=None,
         seed=None,
     )
@@ -788,10 +788,10 @@ def test_run_submit_explicit_experiment_overrides_generated_config_name(
 ) -> None:
     project_root = tmp_path / "project"
     project_root.mkdir()
-    experiment_config = project_root / "experiment.toml"
-    experiment_config.write_text(
+    run_config = project_root / "run.toml"
+    run_config.write_text(
         """
-[experiment]
+[run]
 method = "heterofl"
 task = "cifar10_cnn"
 seed = 1337
@@ -867,7 +867,7 @@ model-rate-proportions = [0.25, 0.25, 0.25, 0.25]
 
     status = submit_cmd.run_submit(
         path=str(project_root),
-        experiment_config="experiment.toml",
+        run_config="run.toml",
         flwr_version="1.25.0",
         image="superexec-image:latest",
         no_cache=False,
