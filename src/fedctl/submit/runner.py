@@ -40,7 +40,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--exp", dest="experiment")
     parser.add_argument(
-        "--experiment-config",
+        "--run-config",
         default=None,
         help="Path to a Flower run-config TOML, relative to the extracted project if needed",
     )
@@ -143,7 +143,7 @@ def main(argv: list[str] | None = None) -> int:
         with _shutdown_on_signal():
             return run_run(
                 path=str(project_path),
-                experiment_config=args.experiment_config,
+                run_config=args.run_config,
                 run_config_overrides=args.run_config_override,
                 seed=args.seed,
                 flwr_version=args.flwr_version,

@@ -3,11 +3,11 @@
 This repository has two layers.
 
 - `src/fedctl/`: the generic control plane for building, deploying, submitting, and inspecting Flower runs on the Nomad cluster
-- `apps/fedctl_research/`: the dissertation Flower app, including methods, tasks, experiment TOMLs, and deployment config templates under `repo_configs/`
+- `apps/fedctl_research/`: the dissertation Flower app, including methods, tasks, run-config TOMLs, and deployment config templates under `repo_configs/`
 
 The important design boundary is:
 
-- experiment config = scientific definition of the run
+- run config = scientific definition of the run
 - deploy config = deployment definition of the run
 
 That split is what keeps model/method comparisons separate from placement and network conditions.
@@ -18,7 +18,7 @@ That split is what keeps model/method comparisons separate from placement and ne
 
 ```bash
 fedctl submit run apps/fedctl_research \
-  --experiment-config apps/fedctl_research/experiment_configs/smoke/compute_heterogeneity/fashion_mnist_mlp/heterofl.toml \
+  --run-config apps/fedctl_research/run_configs/smoke/compute_heterogeneity/fashion_mnist_mlp/heterofl.toml \
   --deploy-config apps/fedctl_research/repo_configs/smoke/compute_heterogeneity.yaml
 ```
 
@@ -28,7 +28,7 @@ Use `fedctl submit run` as the normal entrypoint; direct deploy/run commands are
 
 ```bash
 fedctl submit run apps/fedctl_research \
-  --experiment-config apps/fedctl_research/experiment_configs/compute_heterogeneity/main/cifar10_cnn/fedrolex.toml \
+  --run-config apps/fedctl_research/run_configs/compute_heterogeneity/main/cifar10_cnn/fedrolex.toml \
   --deploy-config apps/fedctl_research/repo_configs/compute_heterogeneity/main/none.yaml \
   --exp fedrolex-main-cifar10-cnn
 ```

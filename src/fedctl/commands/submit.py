@@ -34,10 +34,10 @@ from fedctl.config.deploy import (
 from fedctl.nomad.client import NomadClient
 from fedctl.nomad.errors import NomadConnectionError, NomadHTTPError, NomadTLSError
 from fedctl.project.errors import ProjectError
-from fedctl.project.experiment_config import (
+from fedctl.project.run_config import (
     extract_seed_sweep,
     materialize_run_config,
-    resolve_experiment_config,
+    resolve_run_config,
 )
 from fedctl.project.flwr_inspect import inspect_flwr_project
 from fedctl.submit.artifact import ArtifactUploadError, upload_artifact
@@ -90,7 +90,7 @@ def _print_ok(message: str) -> None:
 def run_submit(
     *,
     path: str,
-    experiment_config: str | None = None,
+    run_config: str | None = None,
     run_config_overrides: list[str] | None = None,
     seed: int | None = None,
     flwr_version: str,
@@ -139,32 +139,32 @@ def run_submit(
     network_profile_label = get_deploy_network_profile_label(deploy_cfg)
 
     try:
-        resolved_experiment_config = resolve_experiment_config(info.root, experiment_config)
+        resolved_run_config = resolve_run_config(info.root, run_config)
         exp_name = normalize_experiment_name(
             experiment
             or _default_submit_experiment_name(
                 project_name=project_name,
-                resolved_experiment_config=resolved_experiment_config,
+                resolved_run_config=resolved_run_config,
                 run_config_overrides=run_config_overrides,
                 seed=seed,
                 network_profile_label=network_profile_label,
             )
         )
     except ProjectError as exc:
-        console.print(f"[red]✗ Experiment config error:[/red] {exc}")
+        console.print(f"[red]✗ Run config error:[/red] {exc}")
         return 1
     if seed is None:
         try:
-            seed_sweep = extract_seed_sweep(info.root, experiment_config)
+            seed_sweep = extract_seed_sweep(info.root, run_config)
         except ProjectError as exc:
-            console.print(f"[red]✗ Experiment config error:[/red] {exc}")
+            console.print(f"[red]✗ Run config error:[/red] {exc}")
             return 1
         if seed_sweep:
             return _submit_seed_sweep(
                 seed_sweep=seed_sweep,
                 base_experiment=exp_name,
                 path=path,
-                experiment_config=experiment_config,
+                run_config=run_config,
                 run_config_overrides=run_config_overrides,
                 flwr_version=flwr_version,
                 image=image,
@@ -246,11 +246,11 @@ def run_submit(
             info.root,
             project_name,
             deploy_config_path=deploy_cfg_path,
-            experiment_config_path=(
-                resolved_experiment_config.archive_source if resolved_experiment_config else None
+            run_config_path=(
+                resolved_run_config.archive_source if resolved_run_config else None
             ),
-            experiment_config_arcname=(
-                resolved_experiment_config.runner_path if resolved_experiment_config else None
+            run_config_arcname=(
+                resolved_run_config.runner_path if resolved_run_config else None
             ),
         )
     except OSError as exc:
@@ -293,7 +293,7 @@ def run_submit(
                         path=path,
                         project_root=info.root,
                         experiment=exp_name,
-                        experiment_config=experiment_config,
+                        run_config=run_config,
                         run_config_overrides=run_config_overrides,
                         seed=seed,
                         flwr_version=flwr_version,
@@ -319,9 +319,9 @@ def run_submit(
                     "args": _runner_args(
                         project_dir_name=project_path.name,
                         exp_name=exp_name,
-                        experiment_config=(
-                            resolved_experiment_config.runner_path
-                            if resolved_experiment_config
+                        run_config=(
+                            resolved_run_config.runner_path
+                            if resolved_run_config
                             else None
                         ),
                         run_config_overrides=run_config_overrides,
@@ -347,9 +347,9 @@ def run_submit(
                         result_store=resolved_artifact_store,
                         image_registry=internal_registry,
                         attempt_started_at=attempt_started_at,
-                        experiment_config=(
-                            resolved_experiment_config.runner_path
-                            if resolved_experiment_config
+                        run_config=(
+                            resolved_run_config.runner_path
+                            if resolved_run_config
                             else None
                         ),
                         deploy_config_label=deploy_config_label,
@@ -376,9 +376,9 @@ def run_submit(
             args=_runner_args(
                 project_dir_name=project_path.name,
                 exp_name=exp_name,
-                experiment_config=(
-                    resolved_experiment_config.runner_path
-                    if resolved_experiment_config
+                run_config=(
+                    resolved_run_config.runner_path
+                    if resolved_run_config
                     else None
                 ),
                 run_config_overrides=run_config_overrides,
@@ -405,9 +405,9 @@ def run_submit(
                 image_registry=internal_registry,
                 submission_id=submission_id,
                 attempt_started_at=attempt_started_at,
-                experiment_config=(
-                    resolved_experiment_config.runner_path
-                    if resolved_experiment_config
+                run_config=(
+                    resolved_run_config.runner_path
+                    if resolved_run_config
                     else None
                 ),
                 deploy_config_label=deploy_config_label,
@@ -1081,12 +1081,12 @@ def _build_project_archive(
     project_name: str,
     *,
     deploy_config_path: Path | None = None,
-    experiment_config_path: Path | None = None,
-    experiment_config_arcname: str | None = None,
+    run_config_path: Path | None = None,
+    run_config_arcname: str | None = None,
 ) -> Path:
     temp_dir = Path(tempfile.mkdtemp(prefix="fedctl-submit-"))
     archive_path = temp_dir / f"{project_name}.tar.gz"
-    replace_rel_path = Path(experiment_config_arcname) if experiment_config_arcname else None
+    replace_rel_path = Path(run_config_arcname) if run_config_arcname else None
     with tarfile.open(archive_path, "w:gz") as tar:
         for root, dirs, files in os.walk(project_root):
             dirs[:] = [d for d in dirs if d not in _ARCHIVE_SKIP_DIRS]
@@ -1108,12 +1108,12 @@ def _build_project_archive(
             arcname = Path(project_root.name) / ".fedctl" / "fedctl.yaml"
             tar.add(local_deploy_cfg, arcname=arcname)
         if (
-            experiment_config_path is not None
-            and experiment_config_path.exists()
-            and experiment_config_arcname
+            run_config_path is not None
+            and run_config_path.exists()
+            and run_config_arcname
         ):
-            arcname = Path(project_root.name) / experiment_config_arcname
-            tar.add(experiment_config_path, arcname=arcname)
+            arcname = Path(project_root.name) / run_config_arcname
+            tar.add(run_config_path, arcname=arcname)
     return archive_path
 
 
@@ -1151,7 +1151,7 @@ def _runner_args(
     *,
     project_dir_name: str,
     exp_name: str,
-    experiment_config: str | None,
+    run_config: str | None,
     run_config_overrides: list[str] | None,
     seed: int | None,
     flwr_version: str,
@@ -1188,8 +1188,8 @@ def _runner_args(
         "--federation",
         federation,
     ]
-    if experiment_config:
-        args.extend(["--experiment-config", experiment_config])
+    if run_config:
+        args.extend(["--run-config", run_config])
     for override in run_config_overrides or []:
         args.extend(["--run-config-override", override])
     if seed is not None:
@@ -1232,7 +1232,7 @@ def _runner_env(
     result_store: str | None = None,
     image_registry: str | None = None,
     attempt_started_at: str | None = None,
-    experiment_config: str | None = None,
+    run_config: str | None = None,
     deploy_config_label: str | None = None,
 ) -> dict[str, str]:
     env: dict[str, str] = {}
@@ -1256,8 +1256,8 @@ def _runner_env(
         env["FEDCTL_IMAGE_REGISTRY"] = str(image_registry)
     if attempt_started_at:
         env["FEDCTL_ATTEMPT_STARTED_AT"] = str(attempt_started_at)
-    if experiment_config:
-        env["FEDCTL_EXPERIMENT_CONFIG"] = str(experiment_config)
+    if run_config:
+        env["FEDCTL_RUN_CONFIG"] = str(run_config)
     if deploy_config_label:
         env["FEDCTL_DEPLOY_CONFIG_LABEL"] = str(deploy_config_label)
         env["FEDCTL_REPO_CONFIG_LABEL"] = str(deploy_config_label)
@@ -1283,7 +1283,7 @@ def _original_submit_request(
     path: str,
     project_root: Path,
     experiment: str,
-    experiment_config: str | None,
+    run_config: str | None,
     run_config_overrides: list[str] | None,
     seed: int | None,
     flwr_version: str,
@@ -1319,8 +1319,8 @@ def _original_submit_request(
         "stream": stream,
         "auto_supernodes": auto_supernodes,
     }
-    if experiment_config:
-        options["experiment_config"] = experiment_config
+    if run_config:
+        options["run_config"] = run_config
     if run_config_overrides:
         options["run_config_overrides"] = list(run_config_overrides)
     if seed is not None:
@@ -1362,8 +1362,8 @@ def _submit_command_preview(options: dict[str, object]) -> str:
     parts = ["fedctl", "submit", "run", str(options["path"])]
     if options.get("experiment"):
         parts.extend(["--exp", str(options["experiment"])])
-    if options.get("experiment_config"):
-        parts.extend(["--experiment-config", str(options["experiment_config"])])
+    if options.get("run_config"):
+        parts.extend(["--run-config", str(options["run_config"])])
     for value in options.get("run_config_overrides") or []:
         parts.extend(["--run-config-override", str(value)])
     if options.get("seed") is not None:
@@ -1415,7 +1415,7 @@ def _submit_seed_sweep(
     seed_sweep: tuple[int, ...],
     base_experiment: str,
     path: str,
-    experiment_config: str | None,
+    run_config: str | None,
     run_config_overrides: list[str] | None,
     flwr_version: str,
     image: str | None,
@@ -1447,7 +1447,7 @@ def _submit_seed_sweep(
         )
         status = run_submit(
             path=path,
-            experiment_config=experiment_config,
+            run_config=run_config,
             run_config_overrides=run_config_overrides,
             seed=sweep_seed,
             flwr_version=flwr_version,
@@ -1699,12 +1699,12 @@ def _timestamp_compact() -> str:
 def _default_submit_experiment_name(
     *,
     project_name: str,
-    resolved_experiment_config: object,
+    resolved_run_config: object,
     run_config_overrides: list[str] | None,
     seed: int | None,
     network_profile_label: str | None = None,
 ) -> str:
-    config_path = getattr(resolved_experiment_config, "resolved_path", None)
+    config_path = getattr(resolved_run_config, "resolved_path", None)
     if not isinstance(config_path, Path):
         return f"{project_name}-{_timestamp_compact()}"
     try:
@@ -1718,9 +1718,9 @@ def _default_submit_experiment_name(
     try:
         data = tomlkit.parse(effective_path.read_text(encoding="utf-8"))
     except OSError as exc:
-        raise ProjectError(f"Experiment config not readable: {effective_path}") from exc
+        raise ProjectError(f"Run config not readable: {effective_path}") from exc
     except Exception as exc:
-        raise ProjectError(f"Experiment config not parseable: {effective_path}") from exc
+        raise ProjectError(f"Run config not parseable: {effective_path}") from exc
 
     method = _experiment_name_token(data.get("method"))
     task = _experiment_name_token(data.get("task"))

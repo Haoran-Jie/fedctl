@@ -88,8 +88,8 @@ def test_create_experiment_logger_uses_run_config_and_env(monkeypatch) -> None:
     monkeypatch.setitem(sys.modules, "wandb", fake_wandb)
     monkeypatch.setenv("FEDCTL_EXPERIMENT", "demo-exp")
     monkeypatch.setenv(
-        "FEDCTL_EXPERIMENT_CONFIG",
-        "apps/fedctl_research/experiment_configs/compute_heterogeneity/main/cifar10_cnn/iid/fedrolex.toml",
+        "FEDCTL_RUN_CONFIG",
+        "apps/fedctl_research/run_configs/compute_heterogeneity/main/cifar10_cnn/iid/fedrolex.toml",
     )
     monkeypatch.setenv("FEDCTL_DEPLOY_CONFIG_LABEL", "none")
     monkeypatch.setenv("FEDCTL_SUBMISSION_ID", "sub-20260409-3017")
@@ -147,8 +147,8 @@ def test_wandb_experiment_logger_logs_and_finishes(monkeypatch) -> None:
     monkeypatch.setitem(sys.modules, "wandb", fake_wandb)
     monkeypatch.setenv("FEDCTL_EXPERIMENT", "demo-exp")
     monkeypatch.setenv(
-        "FEDCTL_EXPERIMENT_CONFIG",
-        "apps/fedctl_research/experiment_configs/compute_heterogeneity/main/fashion_mnist_cnn/heterofl.toml",
+        "FEDCTL_RUN_CONFIG",
+        "apps/fedctl_research/run_configs/compute_heterogeneity/main/fashion_mnist_cnn/heterofl.toml",
     )
     monkeypatch.setenv("FEDCTL_REPO_CONFIG_LABEL", "none")
     monkeypatch.setenv("FEDCTL_SUBMISSION_ID", "sub-20260409-1462")
@@ -298,8 +298,8 @@ def test_wandb_retry_attempts_keep_same_canonical_key_and_name(monkeypatch) -> N
     monkeypatch.setitem(sys.modules, "wandb", fake_wandb)
     monkeypatch.setenv("FEDCTL_EXPERIMENT", "demo-exp")
     monkeypatch.setenv(
-        "FEDCTL_EXPERIMENT_CONFIG",
-        "apps/fedctl_research/experiment_configs/network_heterogeneity/main/cifar10_cnn/noniid/mixed/fedbuff.toml",
+        "FEDCTL_RUN_CONFIG",
+        "apps/fedctl_research/run_configs/network_heterogeneity/main/cifar10_cnn/noniid/mixed/fedbuff.toml",
     )
     monkeypatch.setenv("FEDCTL_REPO_CONFIG_LABEL", "none")
     monkeypatch.setenv("FEDCTL_ATTEMPT_STARTED_AT", "2026-04-09T12:00:00Z")
@@ -514,8 +514,8 @@ def test_create_experiment_logger_tolerates_flower_mapping_missing_optional_keys
     monkeypatch.setitem(sys.modules, "wandb", fake_wandb)
     monkeypatch.setenv("FEDCTL_EXPERIMENT", "demo-exp")
     monkeypatch.setenv(
-        "FEDCTL_EXPERIMENT_CONFIG",
-        "apps/fedctl_research/experiment_configs/network_heterogeneity/main/cifar10_cnn/iid/mixed/fedavg.toml",
+        "FEDCTL_RUN_CONFIG",
+        "apps/fedctl_research/run_configs/network_heterogeneity/main/cifar10_cnn/iid/mixed/fedavg.toml",
     )
     monkeypatch.setenv("FEDCTL_REPO_CONFIG_LABEL", "none")
 
@@ -553,8 +553,8 @@ def test_create_experiment_logger_tolerates_flower_mapping_get_without_default(m
     monkeypatch.setitem(sys.modules, "wandb", fake_wandb)
     monkeypatch.setenv("FEDCTL_EXPERIMENT", "demo-exp")
     monkeypatch.setenv(
-        "FEDCTL_EXPERIMENT_CONFIG",
-        "apps/fedctl_research/experiment_configs/network_heterogeneity/main/cifar10_cnn/iid/mixed/fedavg.toml",
+        "FEDCTL_RUN_CONFIG",
+        "apps/fedctl_research/run_configs/network_heterogeneity/main/cifar10_cnn/iid/mixed/fedavg.toml",
     )
     monkeypatch.setenv("FEDCTL_REPO_CONFIG_LABEL", "none")
 

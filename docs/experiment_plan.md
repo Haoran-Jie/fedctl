@@ -1,6 +1,6 @@
 # Dissertation Experiment Plan
 
-This document is the authoritative source for the dissertation experiment programme. The application-side experiment tree under `apps/fedctl_research/experiment_configs/` defines the scientific comparisons, while deployment configs under `apps/fedctl_research/repo_configs/` define placement, resources, and network shaping. The plan below is therefore organized around **paper claims and required evidence**, not just around config directories.
+This document is the authoritative source for the dissertation experiment programme. The application-side run-config tree under `apps/fedctl_research/run_configs/` defines the scientific comparisons, while deployment configs under `apps/fedctl_research/repo_configs/` define placement, resources, and network shaping. The plan below is therefore organized around **paper claims and required evidence**, not just around config directories.
 
 ## Implemented methods and dissertation structure
 

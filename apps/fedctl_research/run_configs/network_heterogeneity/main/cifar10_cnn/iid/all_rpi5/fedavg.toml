@@ -1,0 +1,50 @@
+[run]
+method = "fedavg"
+task = "cifar10_cnn"
+seeds = [1337, 1338, 1339]
+
+[server]
+num-server-rounds = 50
+fraction-train = 1.0
+fraction-evaluate = 1.0
+min-train-nodes = 15
+min-evaluate-nodes = 15
+min-available-nodes = 15
+capability-discovery-timeout-s = 180
+
+[client]
+local-epochs = 1
+learning-rate = 0.01
+batch-size = 32
+
+[data]
+partitioning = "iid"
+partitioning-num-labels = 2
+partitioning-dirichlet-alpha = 0.3
+masked-cross-entropy = "auto"
+[model]
+global-model-rate = 1.0
+default-model-rate = 1.0
+
+[evaluation]
+client-eval-enabled = false
+final-client-eval-enabled = false
+target-score = 0.60
+stop-on-target-score = true
+
+[wandb]
+enabled = true
+group = "network_heterogeneity-main-cifar10_cnn-all_rpi5"
+tags = ["network_heterogeneity", "main", "cifar10_cnn", "fedavg", "iid", "target_trip", "all_rpi5"]
+
+[devices.rpi4]
+model-rate = 1.0
+batch-size = 32
+max-train-examples = 2500
+max-test-examples = 500
+
+[devices.rpi5]
+model-rate = 1.0
+batch-size = 32
+max-train-examples = 2500
+max-test-examples = 500

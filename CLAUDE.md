@@ -7,9 +7,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 fedctl is a Python CLI for building, deploying, and running Flower federated learning experiments on a Nomad cluster. It has two layers:
 
 - `src/fedctl/` — generic control plane (build Docker images, render/submit Nomad jobs, manage submissions)
-- `apps/fedctl_research/` — dissertation Flower app (methods, tasks, experiment configs, repo-config templates)
+- `apps/fedctl_research/` — dissertation Flower app (methods, tasks, run configs, deploy-config templates)
 
-The key design boundary: **experiment config** = scientific definition of the run; **repo config** = deployment definition of the run. This keeps model/method comparisons separate from placement and network conditions.
+The key design boundary: **run config** = scientific definition of the run; **deploy config** = deployment definition of the run. This keeps model/method comparisons separate from placement and network conditions.
 
 ## Build and test commands
 
@@ -37,7 +37,7 @@ Primary user-facing commands: `submit run`, `submit status/logs/results/ls`, `ru
 - **deploy/** — Nomad job rendering via Jinja2 templates (`templates/nomad/*.json.j2`), submission to Nomad HTTP API, placement planning, network emulation (netem). Core types: `DeploySpec`, `SuperLinkSpec`, `SuperNodesSpec`.
 - **nomad/** — `NomadClient` wraps httpx with auth headers for the Nomad HTTP API.
 - **submit/** — `SubmitServiceClient` talks to the submit service. Handles artifact upload to S3.
-- **project/** — `ExperimentConfig` and `FlwrConfig` for parsing experiment TOML and Flower project metadata.
+- **project/** — `RunConfig` and `FlwrConfig` for parsing run-config TOML and Flower project metadata.
 - **state/** — Local state in `.fedctl/state/`. Tracks submission records and build metadata as JSON.
 
 ### Submit service (`submit_service/`)

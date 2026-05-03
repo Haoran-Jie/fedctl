@@ -12,7 +12,7 @@ The submission path solves three operational problems:
 
 ## Pipeline
 
-1. Resolve the Flower project root and the selected experiment config.
+1. Resolve the Flower project root and the selected run config.
 2. Resolve the deployment-side deploy config.
 3. Build or reuse the SuperExec image for the project.
 4. Archive the project and upload it to the artifact store.
@@ -38,7 +38,7 @@ The UI exists because shell output is transient and awkward once several long-ru
 ### Inputs
 
 - app path, usually `apps/fedctl_research`
-- experiment TOML under `apps/fedctl_research/experiment_configs/`
+- run-config TOML under `apps/fedctl_research/run_configs/`
 - deploy config under `apps/fedctl_research/repo_configs/`
 - optional image override, experiment name, and scheduling flags
 

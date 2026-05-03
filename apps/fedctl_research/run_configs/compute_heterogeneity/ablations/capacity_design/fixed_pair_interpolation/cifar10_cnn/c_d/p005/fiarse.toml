@@ -1,0 +1,51 @@
+[run]
+method = "fiarse"
+task = "cifar10_cnn"
+seeds = [1337, 1338, 1339]
+
+[server]
+num-server-rounds = 20
+fraction-train = 1.0
+fraction-evaluate = 1.0
+min-available-nodes = 10
+min-train-nodes = 10
+min-evaluate-nodes = 10
+capability-discovery-timeout-s = 120.0
+
+[client]
+local-epochs = 1
+learning-rate = 0.01
+batch-size = 32
+
+[data]
+partitioning = "iid"
+partitioning-num-labels = 2
+partitioning-dirichlet-alpha = 0.1
+masked-cross-entropy = "auto"
+
+[model]
+global-model-rate = 0.25
+default-model-rate = 0.125
+
+[capacity]
+model-split-mode = "fix"
+model-rate-levels = [0.25, 0.125]
+model-rate-proportions = [0.5, 0.5]
+heterofl-partition-rates = "0:0.25,1:0.25,2:0.25,3:0.25,4:0.25,5:0.125,6:0.125,7:0.125,8:0.125,9:0.125"
+
+[wandb]
+enabled = true
+group = "ablation-fixed_pair_interpolation-cifar10_cnn"
+tags = ["ablation", "fixed_pair_interpolation", "cifar10_cnn", "fiarse", "pair_c_d", "mix_05_05"]
+
+[devices.rpi4]
+model-rate = 0.125
+batch-size = 8
+max-train-examples = 4167
+max-test-examples = 834
+
+[devices.rpi5]
+model-rate = 0.125
+batch-size = 32
+max-train-examples = 4167
+max-test-examples = 834

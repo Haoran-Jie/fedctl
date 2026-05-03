@@ -1,0 +1,57 @@
+[run]
+method = "fedbuff"
+task = "fashion_mnist_cnn"
+seeds = [1337, 1338, 1339]
+
+[server]
+min-available-nodes = 12
+min-train-nodes = 12
+min-evaluate-nodes = 12
+fraction-train = 1.0
+fraction-evaluate = 1.0
+capability-discovery-timeout-s = 120.0
+
+[client]
+local-epochs = 1
+learning-rate = 0.01
+batch-size = 32
+
+[data]
+partitioning = "iid"
+partitioning-num-labels = 2
+partitioning-dirichlet-alpha = 0.1
+masked-cross-entropy = "auto"
+
+[model]
+global-model-rate = 1.0
+default-model-rate = 1.0
+
+[fedbuff]
+buffer-size = 10
+train-concurrency = 8
+poll-interval-s = 1.0
+num-server-steps = 15
+evaluate-every-steps = 1
+staleness-weighting = "polynomial"
+staleness-alpha = 0.5
+
+[evaluation]
+client-eval-enabled = false
+final-client-eval-enabled = true
+
+[wandb]
+enabled = true
+group = "network_heterogeneity-main-fashion_mnist_cnn"
+tags = ["network_heterogeneity", "main", "fashion_mnist_cnn", "fedbuff"]
+
+[devices.rpi4]
+model-rate = 1.0
+batch-size = 8
+max-train-examples = 5000
+max-test-examples = 834
+
+[devices.rpi5]
+model-rate = 1.0
+batch-size = 32
+max-train-examples = 5000
+max-test-examples = 834
