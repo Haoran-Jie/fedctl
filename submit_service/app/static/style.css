@@ -3551,7 +3551,7 @@ td.cell-blocked { font-size: 0.88rem; color: var(--muted); }
   }
   .nav {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
     align-items: stretch;
   }
   .nav-link {

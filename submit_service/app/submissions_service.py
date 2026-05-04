@@ -85,14 +85,9 @@ def register_bearer_token(
     *,
     name: str,
     token: str | None = None,
-    registration_code: str | None = None,
 ) -> dict[str, str]:
     if not cfg.registration_enabled:
         raise HTTPException(status_code=403, detail="Token registration is disabled.")
-    if cfg.registration_code and not secrets.compare_digest(
-        cfg.registration_code, (registration_code or "").strip()
-    ):
-        raise HTTPException(status_code=403, detail="Invalid registration code.")
     clean_name = _clean_registered_name(name)
     issued_token = _clean_registered_token(token) if token else _generate_bearer_token()
     try:

@@ -405,7 +405,7 @@ def test_submit_service_client_backfills_missing_token_from_user_deploy_config(
     assert client.user == "alice"
 
 
-def test_run_submit_register_token_prompts_and_saves_token(
+def test_run_submit_register_token_defaults_user_and_saves_token(
     monkeypatch, tmp_path: Path, capsys
 ) -> None:
     saved: dict[str, object] = {}
@@ -417,9 +417,7 @@ def test_run_submit_register_token_prompts_and_saves_token(
             return {"name": kwargs["name"], "role": "user", "token": "fedctl_secret"}
 
     monkeypatch.setattr(submit_cmd, "_submit_service_client", lambda **_: FakeSubmitClient())
-    monkeypatch.setattr(submit_cmd, "_interactive_stdin", lambda: True)
     monkeypatch.setattr(submit_cmd.getpass, "getuser", lambda: "alice")
-    monkeypatch.setattr(submit_cmd.getpass, "getpass", lambda _: "cammlsys")
 
     def fake_store_submit_token(token: str, *, deploy_cfg_path: Path | None) -> Path:
         saved["token"] = token
@@ -430,7 +428,6 @@ def test_run_submit_register_token_prompts_and_saves_token(
 
     status = submit_cmd.run_submit_register_token(
         name=None,
-        registration_code=None,
         token=None,
     )
 
@@ -438,7 +435,6 @@ def test_run_submit_register_token_prompts_and_saves_token(
     assert status == 0
     assert registered == {
         "name": "alice",
-        "registration_code": "cammlsys",
         "token": None,
     }
     assert saved == {"token": "fedctl_secret", "deploy_cfg_path": None}

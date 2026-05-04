@@ -69,7 +69,7 @@
       <h2>Inventory</h2>
       <p class="muted">Use search to narrow the current cluster view.</p>
     </div>
-    <form method="get" action="/ui/nodes" class="filter-bar filter-bar-wide filter-bar-nodes">
+    <form method="get" action="/nodes" class="filter-bar filter-bar-wide filter-bar-nodes">
       <div class="filter-group filter-group-search">
         <label for="node-search">Search</label>
         <input type="search" id="node-search" name="q" value="{{ filters.q }}" placeholder="node name, ID, status, class" data-auto-submit="260">
@@ -256,7 +256,7 @@
   <div class="empty-state">
     <p>No nodes match your search</p>
     <p class="muted">Try a different query or clear the search to see all nodes.</p>
-    <a class="button secondary" href="/ui/nodes">Reset search</a>
+    <a class="button secondary" href="/nodes">Reset search</a>
   </div>
   {% endif %}
 </section>

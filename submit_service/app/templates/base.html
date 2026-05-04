@@ -11,21 +11,23 @@
     <a class="skip-link" href="#main-content">Skip to main content</a>
     <header class="topbar">
       <div class="brand-wrap">
-        <a class="brand" href="/ui/submissions" aria-label="fedctl submit service home">
+        <a class="brand" href="{% if principal %}/submissions{% else %}/help{% endif %}" aria-label="fedctl submit service home">
           <span class="brand-wordmark">fedctl</span>
         </a>
         <p class="subtitle">submit service</p>
       </div>
-      {% if principal %}
       <nav class="nav">
-        <a class="nav-link{% if '/ui/submissions' in request.url.path %} is-active{% endif %}" href="/ui/submissions">Submissions</a>
-        <a class="nav-link{% if '/ui/help' in request.url.path %} is-active{% endif %}" href="/ui/help">Help</a>
-        <a class="nav-link{% if '/ui/nodes' in request.url.path %} is-active{% endif %}" href="/ui/nodes">Nodes</a>
-        <form method="post" action="/ui/logout">
+        {% if principal %}
+        <a class="nav-link{% if '/submissions' in request.url.path %} is-active{% endif %}" href="/submissions">Submissions</a>
+        {% endif %}
+        <a class="nav-link{% if '/help' in request.url.path %} is-active{% endif %}" href="/help">Help</a>
+        {% if principal %}
+        <a class="nav-link{% if '/nodes' in request.url.path %} is-active{% endif %}" href="/nodes">Nodes</a>
+        <form method="post" action="/logout">
           <button type="submit" class="topbar-button">Log out <span class="topbar-username">{{ principal.name }}</span></button>
         </form>
+        {% endif %}
       </nav>
-      {% endif %}
     </header>
     <main class="page" id="main-content" tabindex="-1">
       {% block content %}{% endblock %}

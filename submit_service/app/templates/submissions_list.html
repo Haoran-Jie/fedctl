@@ -64,7 +64,7 @@
       <div class="queue-stage-track">
         {% for row in running_rows %}
         {% if row.can_view_detail %}
-        <a class="queue-card queue-card-running" href="/ui/submissions/{{ row.id }}?return_to={{ return_to | urlencode }}">
+        <a class="queue-card queue-card-running" href="/submissions/{{ row.id }}?return_to={{ return_to | urlencode }}">
           <span class="queue-card-name" title="{{ row.experiment }}">{{ row.experiment }}</span>
           <span class="queue-card-id">{{ row.id | replace('sub-', '', 1) }}</span>
           <span class="queue-card-time">{% if row.created_at.iso %}<time datetime="{{ row.created_at.iso }}" data-relative>{{ row.created_at.label }}</time>{% else %}{{ row.created_at.label }}{% endif %}</span>
@@ -98,7 +98,7 @@
       <div class="queue-stage-track">
         {% for row in pending_rows %}
         {% if row.can_view_detail %}
-        <a class="queue-card {% if row.status == 'blocked' %}queue-card-waiting{% else %}queue-card-queued{% endif %}" href="/ui/submissions/{{ row.id }}?return_to={{ return_to | urlencode }}">
+        <a class="queue-card {% if row.status == 'blocked' %}queue-card-waiting{% else %}queue-card-queued{% endif %}" href="/submissions/{{ row.id }}?return_to={{ return_to | urlencode }}">
           <span class="queue-card-sequence" title="Priority-aware dispatch position">#{{ loop.index }}</span>
           <span class="queue-card-name" title="{{ row.experiment }}">{{ row.experiment }}</span>
           <span class="queue-card-id">{{ row.id | replace('sub-', '', 1) }}</span>
@@ -138,7 +138,7 @@
       <h2>Recent submissions</h2>
       <p class="refresh-indicator" data-refresh-time>Last updated: just now</p>
     </div>
-    <form method="get" action="/ui/submissions" class="filter-bar filter-bar-submissions">
+    <form method="get" action="/submissions" class="filter-bar filter-bar-submissions">
       <div class="filter-group filter-group-segments">
         <span class="filter-label">View</span>
         <input type="hidden" name="status" value="{{ status_filter }}">
@@ -237,10 +237,10 @@
     </thead>
     <tbody>
       {% for row in rows %}
-      <tr{% if row.can_view_detail %} data-href="/ui/submissions/{{ row.id }}?return_to={{ return_to | urlencode }}"{% else %} class="is-private-row"{% endif %}>
+      <tr{% if row.can_view_detail %} data-href="/submissions/{{ row.id }}?return_to={{ return_to | urlencode }}"{% else %} class="is-private-row"{% endif %}>
         <td class="cell-id" title="{{ row.id }}" data-label="ID">
           {% if row.can_view_detail %}
-          <a class="primary-link" href="/ui/submissions/{{ row.id }}?return_to={{ return_to | urlencode }}">{{ row.id | replace('sub-', '', 1) }}</a>
+          <a class="primary-link" href="/submissions/{{ row.id }}?return_to={{ return_to | urlencode }}">{{ row.id | replace('sub-', '', 1) }}</a>
           {% else %}
           <span class="primary-link primary-link-muted">{{ row.id | replace('sub-', '', 1) }}</span>
           {% endif %}
@@ -286,7 +286,7 @@
   <div class="empty-state">
     <p>No submissions match your filters</p>
     <p class="muted">Try changing the status filter{% if search_query %} or clearing the search term{% endif %}.</p>
-    <a class="button secondary" href="/ui/submissions">Reset filters</a>
+    <a class="button secondary" href="/submissions">Reset filters</a>
   </div>
   {% endif %}
   {% endif %}

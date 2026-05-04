@@ -31,7 +31,6 @@ class SubmissionLogsUpdate(BaseModel):
 class TokenRegistrationRequest(BaseModel):
     name: str
     token: str | None = None
-    registration_code: str | None = None
 
 
 class TokenRegistrationResponse(BaseModel):

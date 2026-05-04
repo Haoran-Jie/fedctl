@@ -452,11 +452,6 @@ def submit_register_token(
         "--name",
         help="Username for the registered token.",
     ),
-    registration_code: str | None = typer.Option(
-        None,
-        "--registration-code",
-        help="Registration code, if the submit service requires one.",
-    ),
     token: str | None = typer.Option(
         None,
         "--token",
@@ -485,7 +480,6 @@ def submit_register_token(
     raise SystemExit(
         run_submit_register_token(
             name=name,
-            registration_code=registration_code,
             token=token,
             deploy_config=resolved_deploy_config,
             print_token=print_token,

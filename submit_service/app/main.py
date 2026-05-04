@@ -51,7 +51,8 @@ def create_app() -> FastAPI:
             https_only=cfg.ui_cookie_secure,
             same_site="lax",
         )
-        app.mount("/ui/static", StaticFiles(directory=str(static_dir)), name="ui-static")
+        app.mount("/static", StaticFiles(directory=str(static_dir)), name="ui-static")
+        app.mount("/ui/static", StaticFiles(directory=str(static_dir)), name="ui-static-legacy")
 
     app.include_router(submissions_router)
     app.include_router(nodes_router)

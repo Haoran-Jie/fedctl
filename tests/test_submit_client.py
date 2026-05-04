@@ -119,12 +119,12 @@ def test_submit_client_register_token_posts_registration_payload(monkeypatch) ->
 
     monkeypatch.setattr(httpx, "request", fake_request)
     client = SubmitServiceClient(endpoint="http://submit.example")
-    response = client.register_token(name="alice", registration_code="cammlsys")
+    response = client.register_token(name="alice")
 
     assert response["token"] == "fedctl_generated"
     assert captured["method"] == "POST"
     assert captured["url"] == "http://submit.example/v1/tokens/register"
-    assert captured["json"] == {"name": "alice", "registration_code": "cammlsys"}
+    assert captured["json"] == {"name": "alice"}
 
 
 def test_submit_client_list_submissions_status_filter(monkeypatch) -> None:

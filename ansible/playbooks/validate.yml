@@ -64,7 +64,7 @@
   tasks:
     - name: Check submit service login page
       ansible.builtin.uri:
-        url: http://127.0.0.1:8080/ui/login
+        url: http://127.0.0.1:8080/login
         method: GET
         status_code: 200
 
@@ -88,7 +88,7 @@
 
     - name: Check reverse-proxied submit service login page
       ansible.builtin.uri:
-        url: http://127.0.0.1/ui/login
+        url: http://127.0.0.1/login
         method: GET
         headers:
           Host: "{{ submit_reverse_proxy_server_name }}"

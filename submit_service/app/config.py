@@ -38,7 +38,6 @@ class SubmitConfig:
     ui_cookie_name: str = "fedctl_submit_session"
     ui_cookie_secure: bool = False
     registration_enabled: bool = False
-    registration_code: str | None = None
 
 
 def load_config() -> SubmitConfig:
@@ -127,13 +126,6 @@ def load_config() -> SubmitConfig:
         os.environ.get("SUBMIT_REGISTRATION_ENABLED", ""),
         default=_parse_bool(str(repo_submit.get("registration_enabled") or ""), default=False),
     )
-    registration_code_raw = os.environ.get("SUBMIT_REGISTRATION_CODE")
-    if registration_code_raw is None:
-        repo_registration_code = repo_submit.get("registration_code")
-        registration_code_raw = (
-            repo_registration_code if isinstance(repo_registration_code, str) else None
-        )
-    registration_code = registration_code_raw.strip() if registration_code_raw else None
 
     docker_socket = os.environ.get(
         "SUBMIT_DOCKER_SOCKET", str(repo_submit.get("docker_socket") or "/var/run/docker.sock")
@@ -164,7 +156,6 @@ def load_config() -> SubmitConfig:
         ui_cookie_name=ui_cookie_name,
         ui_cookie_secure=ui_cookie_secure,
         registration_enabled=registration_enabled,
-        registration_code=registration_code,
     )
 
 
