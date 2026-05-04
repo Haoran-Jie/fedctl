@@ -57,7 +57,7 @@ fedctl submit results <submission-id>
 
 The deployment configs now live under `apps/fedctl_research/repo_configs/`.
 Fresh installs also get a user-level deploy config at `~/.config/fedctl/deploy-default.yaml`.
-That generated config already points at the CamMLSys submit service, Nomad endpoint, artifact store, and cluster registry. Add only the submit-service bearer token (`submit.token`, or `FEDCTL_SUBMIT_TOKEN`) before running a project without a project-local deploy config.
+That generated config keeps only user-editable submit credentials and optional SuperExec environment variables. Add only the submit-service bearer token (`submit.token`, or `FEDCTL_SUBMIT_TOKEN`) before running a project without a project-local deploy config; CamMLSys service, artifact store, image, registry, resource, placement, and netem defaults are supplied by `fedctl`.
 
 Checked-in deployment configs are still used for named dissertation runs and specialized placement/network experiments. Treat those as templates for experiment-specific topology and W&B settings, not as the basic first-install setup.
 

@@ -7,6 +7,14 @@ from typing import Any
 
 import yaml
 
+from .io import (
+    DEFAULT_ARTIFACT_STORE,
+    DEFAULT_IMAGE_REGISTRY,
+    DEFAULT_NETEM_IMAGE,
+    DEFAULT_SUBMIT_ENDPOINT,
+    DEFAULT_SUBMIT_IMAGE,
+)
+
 
 def load_deploy_config(
     base: Path | None = None, config_path: Path | None = None
@@ -90,11 +98,13 @@ def parse_submit_deploy_config(deploy_cfg: dict[str, Any]) -> SubmitDeployConfig
     token = submit.get("token")
     user = submit.get("user")
     return SubmitDeployConfig(
-        image=str(image) if isinstance(image, str) and image else None,
+        image=str(image) if isinstance(image, str) and image else DEFAULT_SUBMIT_IMAGE,
         artifact_store=(
-            str(artifact_store) if isinstance(artifact_store, str) and artifact_store else None
+            str(artifact_store)
+            if isinstance(artifact_store, str) and artifact_store
+            else DEFAULT_ARTIFACT_STORE
         ),
-        endpoint=str(endpoint) if isinstance(endpoint, str) and endpoint else None,
+        endpoint=str(endpoint) if isinstance(endpoint, str) and endpoint else DEFAULT_SUBMIT_ENDPOINT,
         token=str(token) if isinstance(token, str) and token else None,
         user=str(user) if isinstance(user, str) and user else None,
     )
@@ -118,7 +128,7 @@ def get_image_registry(deploy_cfg: dict[str, Any]) -> str | None:
         value = build_cfg.get("image_registry")
         if isinstance(value, str) and value.strip():
             return _normalize_registry(value)
-    return None
+    return DEFAULT_IMAGE_REGISTRY
 
 
 def get_cluster_image_registry(deploy_cfg: dict[str, Any]) -> str | None:

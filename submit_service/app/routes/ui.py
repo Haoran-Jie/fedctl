@@ -135,27 +135,80 @@ _HELP_CONFIG_SECTIONS = [
         "subtitle": "Execution environment used by fedctl",
         "description": (
             "A deploy config is YAML consumed by fedctl and the submit runner. It is not passed to Flower; "
-            "it chooses the submit service, artifact store, images, registry, resources, placement, and network settings."
+            "it stores user credentials and optional overrides for the built-in CamMLSys service, image, registry, resource, placement, and network defaults."
         ),
         "command": "fedctl submit run apps/fedctl_research --deploy-config .fedctl/fedctl.yaml",
         "snippet": (
+            "deploy:\n"
+            "  superexec:\n"
+            "    env: {}\n\n"
+            "submit:\n"
+            "  token: \"\"\n"
+            "  user: \"alice\""
+        ),
+        "full_snippet": (
+            "deploy:\n"
+            "  image_registry: \"128.232.61.111:5000\"\n"
+            "  supernodes:\n"
+            "    rpi4: 2\n"
+            "    rpi5: 2\n"
+            "  superexec:\n"
+            "    env:\n"
+            "      WANDB_PROJECT: \"fedctl\"\n"
+            "      WANDB_ENTITY: \"your-wandb-entity\"\n"
+            "      WANDB_API_KEY: \"set-a-real-key-here\"\n"
+            "  placement:\n"
+            "    allow_oversubscribe: true\n"
+            "    spread_across_hosts: true\n"
+            "    prefer_spread_across_hosts: false\n"
+            "  resources:\n"
+            "    supernode:\n"
+            "      default: { cpu: 1000, mem: 1024 }\n"
+            "      rpi4: { cpu: 1000, mem: 1024 }\n"
+            "      rpi5: { cpu: 1000, mem: 1024 }\n"
+            "    superexec_clientapp: { cpu: 2000, mem: 2048 }\n"
+            "    superexec_serverapp: { cpu: 2000, mem: 2048 }\n"
+            "    superlink: { cpu: 1000, mem: 1024 }\n"
+            "  network:\n"
+            "    image: \"jiahborcn/netem:latest\"\n"
+            "    default_profile: none\n"
+            "    default_assignment: \"rpi5[*]=med,rpi4[*]=high\"\n"
+            "    interface: eth0\n"
+            "    apply:\n"
+            "      superexec_serverapp: false\n"
+            "      superexec_clientapp: false\n"
+            "    profiles:\n"
+            "      none: {}\n"
+            "      low: { delay_ms: 0, jitter_ms: 0, loss_pct: 0, rate_mbit: 1000, rate_latency_ms: 0, rate_burst_kbit: 256 }\n"
+            "      med: { delay_ms: 60, jitter_ms: 10, loss_pct: 1.0, rate_mbit: 50, rate_latency_ms: 50, rate_burst_kbit: 256 }\n"
+            "      high: { delay_ms: 120, jitter_ms: 25, loss_pct: 2.5, rate_mbit: 20, rate_latency_ms: 50, rate_burst_kbit: 256 }\n"
+            "    ingress_profiles:\n"
+            "      slow_downlink: { delay_ms: 120, jitter_ms: 25, loss_pct: 2.5, rate_mbit: 20, rate_latency_ms: 50, rate_burst_kbit: 256 }\n"
+            "    egress_profiles:\n"
+            "      slow_uplink: { delay_ms: 120, jitter_ms: 25, loss_pct: 2.5, rate_mbit: 20, rate_latency_ms: 50, rate_burst_kbit: 256 }\n\n"
             "submit:\n"
             "  endpoint: \"http://fedctl.cl.cam.ac.uk\"\n"
             "  token: \"\"\n"
-            "  image: \"128.232.61.111:5000/fedctl-submit:latest\"\n\n"
-            "deploy:\n"
-            "  image_registry: \"128.232.61.111:5000\""
+            "  user: \"alice\"\n"
+            "  image: \"128.232.61.111:5000/fedctl-submit:latest\"\n"
+            "  artifact_store: \"s3+presign://fedctl-submits/fedctl-submits\"\n\n"
+            "# Legacy compatibility accepted for old files, but not preferred:\n"
+            "# image_registry: \"128.232.61.111:5000\"\n"
+            "# build:\n"
+            "#   image_registry: \"128.232.61.111:5000\"\n"
+            "# submit-service:\n"
+            "#   image_registry: \"128.232.61.111:5000\""
         ),
         "details": [
-            "Use a deploy config when you need to tell fedctl where and how to run the project. It is deployment-side state: submit-service endpoint and token, artifact storage, submit runner image, image registry, Nomad resource defaults, placement rules, and network impairment profiles.",
+            "Use a deploy config when you need to provide submit-service credentials or override how fedctl runs the project. Normal CamMLSys installs inherit the shared submit-service endpoint, artifact store, submit runner image, image registry, Nomad resource defaults, placement rules, and network impairment profiles from code defaults.",
             "The deploy config is consumed by the local CLI and the submit runner. Flower does not receive this file as run config; Flower only receives the normalized run config plus the project archive.",
             "Fresh installs create a CamMLSys-oriented default deploy config on first fedctl use. For most users, setup should be pip install fedctl, register a bearer token with fedctl submit register-token, then run fedctl submit run <project>.",
         ],
         "flow": [
             "Resolve the deploy config from --deploy-config, project .fedctl/fedctl.yaml, or the active user profile.",
-            "Read submit.endpoint, submit.token, submit.image, and artifact-store settings.",
-            "Use deploy.image_registry as the canonical registry for CamMLSys submit and SuperExec images.",
-            "Apply resource, placement, supernode, and network settings while rendering Nomad jobs.",
+            "Read submit.token, submit.user, and any advanced overrides supplied by the config.",
+            "Use built-in CamMLSys defaults for the submit endpoint, artifact store, submit image, registry, resources, placement, and netem settings when omitted.",
+            "Apply optional resource, placement, supernode, and network overrides while rendering Nomad jobs.",
             "Persist submit-service metadata so status, logs, results, and inventory commands can inspect the run.",
         ],
         "sections": [
@@ -163,7 +216,7 @@ _HELP_CONFIG_SECTIONS = [
                 "title": "Fresh-install setup",
                 "items": [
                     "fedctl creates ~/.config/fedctl/config.toml and ~/.config/fedctl/deploy-default.yaml on first CLI use.",
-                    "The generated deploy-default.yaml points at the shared CamMLSys submit service and registry.",
+                    "The generated deploy-default.yaml only contains user-editable credentials and optional SuperExec environment variables; CamMLSys endpoint/image/registry defaults come from fedctl itself.",
                     "The intentionally blank value is submit.token; populate it with fedctl submit register-token, set it in the file, or export FEDCTL_SUBMIT_TOKEN.",
                     "Interactive submit commands can prompt for a missing or invalid bearer token and persist it to the user deploy config.",
                 ],
@@ -181,10 +234,10 @@ _HELP_CONFIG_SECTIONS = [
             {
                 "title": "Important fields",
                 "items": [
-                    "submit.endpoint chooses the submit service API.",
+                    "submit.endpoint optionally overrides the built-in CamMLSys submit service API.",
                     "submit.token or FEDCTL_SUBMIT_TOKEN provides the bearer token; fedctl submit register-token can create and save this value for a user.",
-                    "submit.image chooses the fedctl submit runner image.",
-                    "deploy.image_registry is the visible canonical registry field; use 128.232.61.111:5000 for CamMLSys.",
+                    "submit.image optionally overrides the built-in fedctl submit runner image.",
+                    "deploy.image_registry optionally overrides the built-in CamMLSys registry.",
                     "deploy.supernodes is optional. If omitted, fedctl can fall back to the Flower project's local-simulation.num-supernodes unless overridden by CLI flags or a deploy preset.",
                 ],
             },
@@ -197,7 +250,7 @@ _HELP_CONFIG_SECTIONS = [
                     {
                         "path": "submit.endpoint",
                         "type": "URL",
-                        "description": "Submit service API endpoint. The CamMLSys default is http://fedctl.cl.cam.ac.uk.",
+                        "description": "Optional submit service API endpoint override. Omit for the built-in CamMLSys default, http://fedctl.cl.cam.ac.uk.",
                     },
                     {
                         "path": "submit.token",
@@ -212,12 +265,12 @@ _HELP_CONFIG_SECTIONS = [
                     {
                         "path": "submit.image",
                         "type": "image",
-                        "description": "Docker image used for the fedctl submit runner job. For CamMLSys this should usually be 128.232.61.111:5000/fedctl-submit:latest.",
+                        "description": "Optional Docker image override for the fedctl submit runner job. Omit for the built-in CamMLSys default, 128.232.61.111:5000/fedctl-submit:latest.",
                     },
                     {
                         "path": "submit.artifact_store",
                         "type": "URI",
-                        "description": "Artifact upload target for the packaged project archive, for example s3+presign://fedctl-submits/fedctl-submits.",
+                        "description": "Optional artifact upload target override for the packaged project archive. Omit for the built-in CamMLSys presigned S3 artifact store.",
                     },
                 ],
             },
@@ -228,7 +281,7 @@ _HELP_CONFIG_SECTIONS = [
                     {
                         "path": "deploy.image_registry",
                         "type": "host:port",
-                        "description": "Canonical registry used for CamMLSys images. Use 128.232.61.111:5000; older top-level image_registry and submit-service.image_registry keys are legacy fallbacks only.",
+                        "description": "Optional registry override for CamMLSys images. Omit for the built-in default, 128.232.61.111:5000; older top-level image_registry and submit-service.image_registry keys are legacy fallbacks only.",
                     },
                     {
                         "path": "deploy.supernodes",
@@ -301,7 +354,7 @@ _HELP_CONFIG_SECTIONS = [
                     {
                         "path": "deploy.network.image",
                         "type": "image",
-                        "description": "Container image used for the netem sidecar/wrapper, defaulting in generated configs to jiahborcn/netem:latest.",
+                        "description": "Optional container image override for the netem sidecar/wrapper. Omit for the built-in default, jiahborcn/netem:latest.",
                     },
                     {
                         "path": "deploy.network.default_profile",

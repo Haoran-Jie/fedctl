@@ -7,7 +7,11 @@ import yaml
 
 import fedctl.commands.submit as submit_cmd
 import fedctl.submit.artifact as artifact
-from fedctl.config.io import DEFAULT_SUBMIT_ENDPOINT
+from fedctl.config.io import (
+    DEFAULT_ARTIFACT_STORE,
+    DEFAULT_SUBMIT_ENDPOINT,
+    DEFAULT_SUBMIT_IMAGE,
+)
 from fedctl.project.run_config import resolve_run_config
 
 
@@ -116,9 +120,6 @@ def test_run_submit_passes_submit_service_context_to_artifact_upload(
         lambda **_: SimpleNamespace(
             data={
                 "submit": {
-                    "image": "submit-image:latest",
-                    "artifact_store": "s3+presign://fedctl-submits/fedctl-submits",
-                    "endpoint": "http://submit.example:8080",
                     "token": "token-from-config",
                 }
             },
@@ -185,7 +186,8 @@ def test_run_submit_passes_submit_service_context_to_artifact_upload(
 
     assert status == 0
     assert captured["archive_path"] == archive
-    assert captured["artifact_store"] == "s3+presign://fedctl-submits/fedctl-submits"
+    assert captured["artifact_store"] == DEFAULT_ARTIFACT_STORE
+    assert captured["submission_payload"]["submit_image"] == DEFAULT_SUBMIT_IMAGE
     assert captured["upload_kwargs"] == {
         "presign_endpoint": "http://submit.example:8080/v1/presign",
         "presign_token": "token-from-client",

@@ -15,6 +15,7 @@ DEFAULT_SUBMIT_ENDPOINT = "http://fedctl.cl.cam.ac.uk"
 DEFAULT_IMAGE_REGISTRY = "128.232.61.111:5000"
 DEFAULT_SUBMIT_IMAGE = f"{DEFAULT_IMAGE_REGISTRY}/fedctl-submit:latest"
 DEFAULT_ARTIFACT_STORE = "s3+presign://fedctl-submits/fedctl-submits"
+DEFAULT_NETEM_IMAGE = "jiahborcn/netem:latest"
 
 
 def _default_deploy_config_text() -> str:
@@ -26,7 +27,6 @@ def _default_deploy_config_text() -> str:
 # You can also leave this file untouched and export FEDCTL_SUBMIT_TOKEN.
 
 deploy:
-  image_registry: "{DEFAULT_IMAGE_REGISTRY}"
   superexec:
     # Optional env vars injected into SuperExec server/client containers.
     # Use this for remote experiment auth/config such as W&B.
@@ -36,38 +36,52 @@ deploy:
     #   WANDB_PROJECT: "fedctl"
     #   WANDB_ENTITY: "your-wandb-entity"
     #   WANDB_API_KEY: "set-a-real-key-here"
-  placement:
-    allow_oversubscribe: true
-    spread_across_hosts: true
-  resources:
-    supernode:
-      default: {{ cpu: 1000, mem: 1024 }}
-      rpi4: {{ cpu: 1000, mem: 1024 }}
-      rpi5: {{ cpu: 1000, mem: 1024 }}
-    superexec_clientapp: {{ cpu: 2000, mem: 2048 }}
-    superexec_serverapp: {{ cpu: 2000, mem: 2048 }}
-    superlink: {{ cpu: 1000, mem: 1024 }}
-  network:
-    image: "jiahborcn/netem:latest"
-    default_profile: none
-    # Optional fallback used when CLI --net is absent.
-    # Example: default_assignment: "rpi5[*]=med,jetson[*]=high"
-    interface: eth0
-    apply:
-      superexec_serverapp: false
-      superexec_clientapp: false
-    profiles:
-      none: {{}}
-      low: {{ delay_ms: 0, jitter_ms: 0, loss_pct: 0, rate_mbit: 1000, rate_latency_ms: 0, rate_burst_kbit: 256 }}
-      med: {{ delay_ms: 60, jitter_ms: 10, loss_pct: 1.0, rate_mbit: 50, rate_latency_ms: 50, rate_burst_kbit: 256 }}
-      high: {{ delay_ms: 120, jitter_ms: 25, loss_pct: 2.5, rate_mbit: 20, rate_latency_ms: 50, rate_burst_kbit: 256 }}
+  # Advanced overrides. Leave these commented for normal CamMLSys use;
+  # fedctl supplies the shared defaults in code.
+  # image_registry: "{DEFAULT_IMAGE_REGISTRY}"
+  # supernodes:
+  #   rpi4: 2
+  #   rpi5: 2
+  # placement:
+  #   allow_oversubscribe: true
+  #   spread_across_hosts: true
+  #   prefer_spread_across_hosts: false
+  # resources:
+  #   supernode:
+  #     default: {{ cpu: 1000, mem: 1024 }}
+  #     rpi4: {{ cpu: 1000, mem: 1024 }}
+  #     rpi5: {{ cpu: 1000, mem: 1024 }}
+  #   superexec_clientapp: {{ cpu: 2000, mem: 2048 }}
+  #   superexec_serverapp: {{ cpu: 2000, mem: 2048 }}
+  #   superlink: {{ cpu: 1000, mem: 1024 }}
+  # network:
+  #   image: "{DEFAULT_NETEM_IMAGE}"
+  #   default_profile: none
+  #   # Optional fallback used when CLI --net is absent.
+  #   # default_assignment can be a string or a list of strings.
+  #   # default_assignment: "rpi5[*]=med,rpi4[*]=high"
+  #   interface: eth0
+  #   apply:
+  #     superexec_serverapp: false
+  #     superexec_clientapp: false
+  #   profiles:
+  #     none: {{}}
+  #     low: {{ delay_ms: 0, jitter_ms: 0, loss_pct: 0, rate_mbit: 1000, rate_latency_ms: 0, rate_burst_kbit: 256 }}
+  #     med: {{ delay_ms: 60, jitter_ms: 10, loss_pct: 1.0, rate_mbit: 50, rate_latency_ms: 50, rate_burst_kbit: 256 }}
+  #     high: {{ delay_ms: 120, jitter_ms: 25, loss_pct: 2.5, rate_mbit: 20, rate_latency_ms: 50, rate_burst_kbit: 256 }}
+  #   # Optional direction-specific overrides.
+  #   ingress_profiles:
+  #     slow_downlink: {{ delay_ms: 120, jitter_ms: 25, loss_pct: 2.5, rate_mbit: 20, rate_latency_ms: 50, rate_burst_kbit: 256 }}
+  #   egress_profiles:
+  #     slow_uplink: {{ delay_ms: 120, jitter_ms: 25, loss_pct: 2.5, rate_mbit: 20, rate_latency_ms: 50, rate_burst_kbit: 256 }}
 
 submit:
-  image: "{DEFAULT_SUBMIT_IMAGE}"
-  artifact_store: "{DEFAULT_ARTIFACT_STORE}"
-  endpoint: "{DEFAULT_SUBMIT_ENDPOINT}"
   token: ""
   user: "{submit_user}"
+  # Advanced overrides. Leave these commented for normal CamMLSys use.
+  # endpoint: "{DEFAULT_SUBMIT_ENDPOINT}"
+  # image: "{DEFAULT_SUBMIT_IMAGE}"
+  # artifact_store: "{DEFAULT_ARTIFACT_STORE}"
 """
 
 

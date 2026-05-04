@@ -60,6 +60,6 @@ The direct deploy/run commands are hidden and retained for internal/debug use.
 On first CLI use, `fedctl` creates:
 
 - `~/.config/fedctl/config.toml`, with the default profile pointed at `http://128.232.61.111:4646` in the `default` namespace
-- `~/.config/fedctl/deploy-default.yaml`, with the CamMLSys submit service, artifact store, submit image, and cluster registry already set
+- `~/.config/fedctl/deploy-default.yaml`, with only user-editable submit credentials and optional SuperExec environment variables
 
-For CamMLSys users the only required setup value is the submit-service bearer token. Add it to `submit.token` in `deploy-default.yaml`, or export it as `FEDCTL_SUBMIT_TOKEN`.
+For CamMLSys users the only required setup value is the submit-service bearer token. Add it to `submit.token` in `deploy-default.yaml`, or export it as `FEDCTL_SUBMIT_TOKEN`. The shared submit service, artifact store, submit image, cluster registry, netem image, resource reservations, and placement defaults are built into `fedctl` and can still be overridden by advanced/project deploy configs when needed.

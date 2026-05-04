@@ -9,11 +9,7 @@ from typer.testing import CliRunner
 
 import fedctl.cli as cli
 from fedctl.config.io import (
-    DEFAULT_ARTIFACT_STORE,
-    DEFAULT_IMAGE_REGISTRY,
     DEFAULT_NOMAD_ENDPOINT,
-    DEFAULT_SUBMIT_ENDPOINT,
-    DEFAULT_SUBMIT_IMAGE,
     ensure_config_exists,
     load_config,
     load_raw_toml,
@@ -232,14 +228,25 @@ def test_ensure_config_creates_default_deploy_config_file(tmp_path: Path, monkey
     assert "deploy:" in text
     assert "submit:" in text
     assert "submit-service:" not in text
+    assert '# endpoint: "http://fedctl.cl.cam.ac.uk"' in text
+    assert '# image_registry: "128.232.61.111:5000"' in text
+    assert "# supernodes:" in text
+    assert "#   prefer_spread_across_hosts: false" in text
+    assert '#   # default_assignment: "rpi5[*]=med,rpi4[*]=high"' in text
+    assert '#   image: "jiahborcn/netem:latest"' in text
+    assert "#   ingress_profiles:" in text
+    assert "#   egress_profiles:" in text
 
     data = yaml.safe_load(text)
-    assert data["submit"]["image"] == DEFAULT_SUBMIT_IMAGE
-    assert data["submit"]["artifact_store"] == DEFAULT_ARTIFACT_STORE
-    assert data["submit"]["endpoint"] == DEFAULT_SUBMIT_ENDPOINT
     assert data["submit"]["token"] == ""
     assert data["submit"]["user"] == "alice"
-    assert data["deploy"]["image_registry"] == DEFAULT_IMAGE_REGISTRY
+    assert "image" not in data["submit"]
+    assert "artifact_store" not in data["submit"]
+    assert "endpoint" not in data["submit"]
+    assert "image_registry" not in data["deploy"]
+    assert "network" not in data["deploy"]
+    assert "placement" not in data["deploy"]
+    assert "resources" not in data["deploy"]
     assert "image_registry" not in data
     assert "supernodes" not in data["deploy"]
 
