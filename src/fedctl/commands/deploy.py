@@ -5,7 +5,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from fedctl.config.io import load_config
+from fedctl.config.io import DEFAULT_NETEM_IMAGE, load_config
 from fedctl.config.deploy import (
     get_cluster_image_registry,
     get_image_registry,
@@ -509,15 +509,58 @@ def _deploy_config_defaults(deploy_cfg: dict[str, object]) -> _DeployConfigDefau
     resources = _as_dict(deploy.get("resources"))
     superexec = _as_dict(deploy.get("superexec"))
     superexec_env = _as_string_dict(_as_dict(superexec.get("env")))
-    supernode_resources = _as_dict(resources.get("supernode"))
-    superexec_clientapp_resources = _as_dict(resources.get("superexec_clientapp"))
-    superexec_serverapp_resources = _as_dict(resources.get("superexec_serverapp"))
-    superlink_resources = _as_dict(resources.get("superlink"))
+    supernode_resources = _as_dict(resources.get("supernode")) or {
+        "default": {"cpu": 1000, "mem": 1024},
+        "rpi4": {"cpu": 1000, "mem": 1024},
+        "rpi5": {"cpu": 1000, "mem": 1024},
+    }
+    superexec_clientapp_resources = _as_dict(resources.get("superexec_clientapp")) or {
+        "cpu": 2000,
+        "mem": 2048,
+    }
+    superexec_serverapp_resources = _as_dict(resources.get("superexec_serverapp")) or {
+        "cpu": 2000,
+        "mem": 2048,
+    }
+    superlink_resources = _as_dict(resources.get("superlink")) or {
+        "cpu": 1000,
+        "mem": 1024,
+    }
     network = _as_dict(deploy.get("network"))
-    network_profiles = _as_dict(network.get("profiles"))
+    network_profiles = _as_dict(network.get("profiles")) or {
+        "none": {},
+        "low": {
+            "delay_ms": 0,
+            "jitter_ms": 0,
+            "loss_pct": 0,
+            "rate_mbit": 1000,
+            "rate_latency_ms": 0,
+            "rate_burst_kbit": 256,
+        },
+        "med": {
+            "delay_ms": 60,
+            "jitter_ms": 10,
+            "loss_pct": 1.0,
+            "rate_mbit": 50,
+            "rate_latency_ms": 50,
+            "rate_burst_kbit": 256,
+        },
+        "high": {
+            "delay_ms": 120,
+            "jitter_ms": 25,
+            "loss_pct": 2.5,
+            "rate_mbit": 20,
+            "rate_latency_ms": 50,
+            "rate_burst_kbit": 256,
+        },
+    }
     network_ingress_profiles = _as_dict(network.get("ingress_profiles"))
     network_egress_profiles = _as_dict(network.get("egress_profiles"))
-    network_apply = _as_dict(network.get("apply"))
+    network_apply = {
+        "superexec_serverapp": False,
+        "superexec_clientapp": False,
+        **_as_dict(network.get("apply")),
+    }
     return _DeployConfigDefaults(
         supernodes=supernodes,
         supernode_resources=supernode_resources,
@@ -528,13 +571,13 @@ def _deploy_config_defaults(deploy_cfg: dict[str, object]) -> _DeployConfigDefau
         network_profiles=network_profiles,
         network_ingress_profiles=network_ingress_profiles,
         network_egress_profiles=network_egress_profiles,
-        network_default=_as_optional_str(network.get("default_profile")),
+        network_default=_as_optional_str(network.get("default_profile")) or "none",
         network_default_assignment=_as_optional_str_list(network.get("default_assignment")),
-        network_interface=_as_optional_str(network.get("interface")),
-        network_image=_as_optional_str(network.get("image")),
+        network_interface=_as_optional_str(network.get("interface")) or "eth0",
+        network_image=_as_optional_str(network.get("image")) or DEFAULT_NETEM_IMAGE,
         network_apply=network_apply,
-        allow_oversubscribe=placement.get("allow_oversubscribe"),
-        spread_across_hosts=placement.get("spread_across_hosts"),
+        allow_oversubscribe=placement.get("allow_oversubscribe", True),
+        spread_across_hosts=placement.get("spread_across_hosts", True),
         prefer_spread_across_hosts=placement.get("prefer_spread_across_hosts"),
     )
 

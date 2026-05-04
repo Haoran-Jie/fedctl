@@ -62,6 +62,25 @@
         <pre><code>{{ config.snippet }}</code></pre>
       </div>
 
+      {% if config.full_snippet %}
+      <div class="doc-code-block">
+        <div class="doc-code-header">
+          <span>Full shape</span>
+          <button
+            type="button"
+            class="doc-copy-button"
+            data-copy="{{ config.full_snippet }}"
+            data-copy-label="Copy"
+            data-copy-done-label="Copied"
+            title="Copy full file shape"
+          >
+            📋
+          </button>
+        </div>
+        <pre><code>{{ config.full_snippet }}</code></pre>
+      </div>
+      {% endif %}
+
       <div class="doc-code-block doc-code-block-secondary">
         <div class="doc-code-header">
           <span>CLI spelling</span>

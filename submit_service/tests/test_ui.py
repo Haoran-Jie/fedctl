@@ -202,6 +202,12 @@ def test_ui_help_config_detail_pages_show_rich_guidance(tmp_path, monkeypatch: p
     assert deploy_page.status_code == 200
     assert "Deploy config" in deploy_page.text
     assert "Execution environment used by fedctl" in deploy_page.text
+    assert "Minimal shape" in deploy_page.text
+    assert "Full shape" in deploy_page.text
+    assert "deploy:\n  superexec:\n    env: {}" in deploy_page.text
+    assert "WANDB_PROJECT" in deploy_page.text
+    assert "slow_downlink" in deploy_page.text
+    assert "submit-service:" in deploy_page.text
     assert "Supported fields" in deploy_page.text
     assert "These are the deploy-config fields currently consumed by fedctl." in deploy_page.text
     assert "Fresh-install setup" in deploy_page.text

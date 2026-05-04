@@ -3,13 +3,23 @@ from __future__ import annotations
 from pathlib import Path
 
 from fedctl.commands.deploy import _deploy_config_defaults, _runtime_superexec_env
-from fedctl.config.io import ensure_config_exists, load_raw_toml, save_raw_toml
+from fedctl.config.io import (
+    DEFAULT_ARTIFACT_STORE,
+    DEFAULT_IMAGE_REGISTRY,
+    DEFAULT_NETEM_IMAGE,
+    DEFAULT_SUBMIT_ENDPOINT,
+    DEFAULT_SUBMIT_IMAGE,
+    ensure_config_exists,
+    load_raw_toml,
+    save_raw_toml,
+)
 from fedctl.config.deploy import (
     get_cluster_image_registry,
     get_image_registry,
     get_deploy_config_label,
     get_deploy_network_profile_label,
     load_deploy_config,
+    parse_submit_deploy_config,
     resolve_deploy_config,
     resolve_deploy_config_path,
     rewrite_image_registry,
@@ -114,6 +124,11 @@ def test_cluster_image_registry_defaults_to_image_registry() -> None:
     assert get_cluster_image_registry(deploy_cfg) == "100.108.13.23:5000"
 
 
+def test_missing_image_registry_uses_cammlsys_default() -> None:
+    assert get_image_registry({}) == DEFAULT_IMAGE_REGISTRY
+    assert get_cluster_image_registry({}) == DEFAULT_IMAGE_REGISTRY
+
+
 def test_image_registry_accepts_legacy_top_level_key() -> None:
     deploy_cfg = {"image_registry": "100.108.13.23:5000"}
 
@@ -128,6 +143,16 @@ def test_cluster_image_registry_accepts_legacy_submit_service_override() -> None
 
     assert get_image_registry(deploy_cfg) == "100.108.13.23:5000"
     assert get_cluster_image_registry(deploy_cfg) == "192.168.8.101:5000"
+
+
+def test_submit_deploy_config_uses_cammlsys_defaults_when_omitted() -> None:
+    submit = parse_submit_deploy_config({"submit": {"token": "tok", "user": "alice"}})
+
+    assert submit.image == DEFAULT_SUBMIT_IMAGE
+    assert submit.artifact_store == DEFAULT_ARTIFACT_STORE
+    assert submit.endpoint == DEFAULT_SUBMIT_ENDPOINT
+    assert submit.token == "tok"
+    assert submit.user == "alice"
 
 
 def test_deploy_config_label_prefers_network_default_profile(tmp_path: Path) -> None:
@@ -210,6 +235,29 @@ def test_deploy_config_defaults_extracts_superexec_env_map() -> None:
         "WANDB_PROJECT": "fedctl",
         "WANDB_ENTITY": "samueljie",
     }
+
+
+def test_deploy_config_defaults_use_cammlsys_behavior_when_omitted() -> None:
+    deploy_defaults = _deploy_config_defaults({})
+
+    assert deploy_defaults.supernode_resources == {
+        "default": {"cpu": 1000, "mem": 1024},
+        "rpi4": {"cpu": 1000, "mem": 1024},
+        "rpi5": {"cpu": 1000, "mem": 1024},
+    }
+    assert deploy_defaults.superexec_clientapp_resources == {"cpu": 2000, "mem": 2048}
+    assert deploy_defaults.superexec_serverapp_resources == {"cpu": 2000, "mem": 2048}
+    assert deploy_defaults.superlink_resources == {"cpu": 1000, "mem": 1024}
+    assert deploy_defaults.network_image == DEFAULT_NETEM_IMAGE
+    assert deploy_defaults.network_default == "none"
+    assert deploy_defaults.network_interface == "eth0"
+    assert deploy_defaults.network_apply == {
+        "superexec_serverapp": False,
+        "superexec_clientapp": False,
+    }
+    assert {"none", "low", "med", "high"} <= set(deploy_defaults.network_profiles)
+    assert deploy_defaults.allow_oversubscribe is True
+    assert deploy_defaults.spread_across_hosts is True
 
 
 def test_runtime_superexec_env_prefers_resolved_deploy_config_label(monkeypatch) -> None:
