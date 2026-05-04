@@ -1,12 +1,20 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
+import hashlib
 import os
 import tempfile
 from pathlib import Path
+from typing import Iterator
+
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - fcntl is available on supported hosts.
+    fcntl = None
 
 from rich.console import Console
 
-from fedctl.build.build import build_image
+from fedctl.build.build import build_image, image_exists
 from fedctl.build.dockerfile import render_dockerfile
 from fedctl.build.errors import BuildError
 from fedctl.build.inspect import inspect_project
@@ -61,18 +69,21 @@ def build_and_record(
         flwr_version=flwr_version,
         registry=registry,
     )
+    reuse_existing_tag = image is None and not no_cache
 
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        dockerfile_path = Path(tmp_dir) / "Dockerfile"
-        dockerfile_path.write_text(dockerfile, encoding="utf-8")
+    with _image_build_lock(image_tag) if reuse_existing_tag else _unlocked():
+        if not reuse_existing_tag or not image_exists(image_tag):
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                dockerfile_path = Path(tmp_dir) / "Dockerfile"
+                dockerfile_path.write_text(dockerfile, encoding="utf-8")
 
-        build_image(
-            image=image_tag,
-            dockerfile_path=dockerfile_path,
-            context_dir=context_dir,
-            no_cache=no_cache,
-            platform=platform,
-        )
+                build_image(
+                    image=image_tag,
+                    dockerfile_path=dockerfile_path,
+                    context_dir=context_dir,
+                    no_cache=no_cache,
+                    platform=platform,
+                )
 
     if push:
         push_image(image_tag)
@@ -114,3 +125,26 @@ def run_build(
     except BuildError as exc:
         console.print(f"[red]✗ Build error:[/red] {exc}")
         return 1
+
+
+@contextmanager
+def _unlocked() -> Iterator[None]:
+    yield
+
+
+@contextmanager
+def _image_build_lock(image_tag: str) -> Iterator[None]:
+    if fcntl is None:
+        yield
+        return
+
+    lock_dir = Path(tempfile.gettempdir()) / "fedctl-build-locks"
+    lock_dir.mkdir(parents=True, exist_ok=True)
+    lock_name = hashlib.sha256(image_tag.encode("utf-8")).hexdigest()
+    lock_path = lock_dir / f"{lock_name}.lock"
+    with lock_path.open("w", encoding="utf-8") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
