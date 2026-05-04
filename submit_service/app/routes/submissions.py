@@ -58,7 +58,6 @@ def register_token(
         cfg,
         name=payload.name,
         token=payload.token,
-        registration_code=payload.registration_code,
     )
     return TokenRegistrationResponse(**registered)
 

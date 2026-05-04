@@ -84,8 +84,6 @@ def test_submit_register_token_routes_to_runner(monkeypatch) -> None:
             "register-token",
             "--name",
             "alice",
-            "--registration-code",
-            "cammlsys",
             "--deploy-config",
             "cluster.yaml",
         ],
@@ -93,7 +91,6 @@ def test_submit_register_token_routes_to_runner(monkeypatch) -> None:
 
     assert result.exit_code == 0
     assert captured["name"] == "alice"
-    assert captured["registration_code"] == "cammlsys"
     assert captured["deploy_config"] == "cluster.yaml"
 
 

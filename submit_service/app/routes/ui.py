@@ -483,10 +483,10 @@ _HELP_COMMANDS = [
         "name": "submit register-token",
         "summary": "Register a user-scoped bearer token and save it in the user deploy config.",
         "importance": "standard",
-        "syntax": "fedctl submit register-token --name <username> [--registration-code CODE]",
+        "syntax": "fedctl submit register-token --name <username>",
         "details": [
             "Use this command for first-time setup when the submit service has self-registration enabled. It calls the registration API without requiring an existing bearer token, receives a user-scoped token, and stores it locally.",
-            "If the service requires a registration code and stdin is interactive, the CLI prompts for it without echoing the input. The token itself is not printed unless --print-token is passed.",
+            "The token itself is not printed unless --print-token is passed.",
         ],
         "use_cases": [
             "Set up a fresh fedctl install without manually editing YAML.",
@@ -495,14 +495,9 @@ _HELP_COMMANDS = [
         ],
         "examples": [
             {
-                "title": "Register with an interactive code prompt",
+                "title": "Register a user token",
                 "body": "The returned token is saved to the user deploy config.",
                 "command": "fedctl submit register-token --name alice",
-            },
-            {
-                "title": "Register non-interactively",
-                "body": "Useful for setup scripts when the registration code is already available.",
-                "command": "fedctl submit register-token --name alice --registration-code <code>",
             },
             {
                 "title": "Use an explicit deploy config for the endpoint",
@@ -512,7 +507,6 @@ _HELP_COMMANDS = [
         ],
         "flags": [
             {"name": "--name", "type": "TEXT", "description": "Username attached to the registered token"},
-            {"name": "--registration-code", "type": "TEXT", "description": "Registration code if the submit service requires one"},
             {"name": "--token", "type": "TEXT", "description": "Optional caller-provided bearer token; omit to let the service generate one"},
             {"name": "--deploy-config", "type": "PATH", "description": "Deploy config used to find submit.endpoint"},
             {"name": "--print-token", "type": "FLAG", "description": "Print the token after saving it locally"},
@@ -849,14 +843,14 @@ _ANSI_CONVERTER = Ansi2HTMLConverter(inline=True, dark_bg=False)
 @router.get("/", response_class=HTMLResponse, response_model=None)
 def home(request: Request) -> RedirectResponse:
     if current_ui_principal(request) is None:
-        return RedirectResponse(url="/ui/login", status_code=303)
-    return RedirectResponse(url="/ui/submissions", status_code=303)
+        return RedirectResponse(url="/login", status_code=303)
+    return RedirectResponse(url="/submissions", status_code=303)
 
 
-@router.get("/ui/login", response_class=HTMLResponse, response_model=None)
+@router.get("/login", response_class=HTMLResponse, response_model=None)
 def login_page(request: Request) -> HTMLResponse | RedirectResponse:
     if current_ui_principal(request) is not None:
-        return RedirectResponse(url="/ui/submissions", status_code=303)
+        return RedirectResponse(url="/submissions", status_code=303)
     return _render(
         request,
         "login.html",
@@ -864,7 +858,7 @@ def login_page(request: Request) -> HTMLResponse | RedirectResponse:
     )
 
 
-@router.post("/ui/login", response_class=HTMLResponse, response_model=None)
+@router.post("/login", response_class=HTMLResponse, response_model=None)
 def login_submit(request: Request, token: str = Form(...)) -> HTMLResponse | RedirectResponse:
     cfg: SubmitConfig = request.app.state.cfg
     try:
@@ -879,23 +873,22 @@ def login_submit(request: Request, token: str = Form(...)) -> HTMLResponse | Red
             },
             status_code=exc.status_code,
         )
-    return RedirectResponse(url="/ui/submissions", status_code=303)
+    return RedirectResponse(url="/submissions", status_code=303)
 
 
-@router.get("/ui/register", response_class=HTMLResponse, response_model=None)
+@router.get("/register", response_class=HTMLResponse, response_model=None)
 def register_page(request: Request) -> HTMLResponse | RedirectResponse:
     cfg: SubmitConfig = request.app.state.cfg
     if not cfg.registration_enabled:
-        return RedirectResponse(url="/ui/login", status_code=303)
+        return RedirectResponse(url="/login", status_code=303)
     return _render(request, "register.html", {"error": None, "registered": None})
 
 
-@router.post("/ui/register", response_class=HTMLResponse, response_model=None)
+@router.post("/register", response_class=HTMLResponse, response_model=None)
 def register_submit(
     request: Request,
     name: str = Form(...),
     token: str | None = Form(None),
-    registration_code: str | None = Form(None),
 ) -> HTMLResponse:
     cfg: SubmitConfig = request.app.state.cfg
     try:
@@ -904,7 +897,6 @@ def register_submit(
             cfg,
             name=name,
             token=token,
-            registration_code=registration_code,
         )
     except HTTPException as exc:
         return _render(
@@ -919,13 +911,13 @@ def register_submit(
     return _render(request, "register.html", {"error": None, "registered": registered})
 
 
-@router.post("/ui/logout", response_model=None)
+@router.post("/logout", response_model=None)
 def logout_submit(request: Request) -> RedirectResponse:
     logout(request)
-    return RedirectResponse(url="/ui/login", status_code=303)
+    return RedirectResponse(url="/login", status_code=303)
 
 
-@router.get("/ui/submissions", response_class=HTMLResponse, response_model=None)
+@router.get("/submissions", response_class=HTMLResponse, response_model=None)
 def submissions_page(
     request: Request,
     status: str = Query("active"),
@@ -935,7 +927,7 @@ def submissions_page(
 ) -> HTMLResponse | RedirectResponse:
     principal = current_ui_principal(request)
     if principal is None:
-        return RedirectResponse(url="/ui/login", status_code=303)
+        return RedirectResponse(url="/login", status_code=303)
     status_filter = status if status in _STATUS_FILTERS else "active"
     search_query = (q or "").strip()
     auth_principal = principal.as_auth_principal()
@@ -991,11 +983,8 @@ def submissions_page(
     )
 
 
-@router.get("/ui/help", response_class=HTMLResponse, response_model=None)
-def help_page(request: Request) -> HTMLResponse | RedirectResponse:
-    principal = current_ui_principal(request)
-    if principal is None:
-        return RedirectResponse(url="/ui/login", status_code=303)
+@router.get("/help", response_class=HTMLResponse, response_model=None)
+def help_page(request: Request) -> HTMLResponse:
     return _render(
         request,
         "help.html",
@@ -1013,7 +1002,7 @@ def help_page(request: Request) -> HTMLResponse | RedirectResponse:
                     "body": (
                         "The first fedctl command creates ~/.config/fedctl/config.toml and "
                         "~/.config/fedctl/deploy-default.yaml. Register a user-scoped bearer token from the CLI; "
-                        "the command prompts for the registration code if the service requires one, then saves the token locally. "
+                        "the command saves the returned token locally. "
                         "FEDCTL_SUBMIT_TOKEN remains available for temporary overrides."
                     ),
                     "command": (
@@ -1059,12 +1048,8 @@ def help_page(request: Request) -> HTMLResponse | RedirectResponse:
     )
 
 
-@router.get("/ui/help/config/{config_slug}", response_class=HTMLResponse, response_model=None)
+@router.get("/help/config/{config_slug}", response_class=HTMLResponse, response_model=None)
 def help_config_detail(config_slug: str, request: Request) -> HTMLResponse | RedirectResponse:
-    principal = current_ui_principal(request)
-    if principal is None:
-        return RedirectResponse(url="/ui/login", status_code=303)
-
     config = None
     for item in _HELP_CONFIG_SECTIONS:
         if item["slug"] == config_slug:
@@ -1072,7 +1057,7 @@ def help_config_detail(config_slug: str, request: Request) -> HTMLResponse | Red
             break
 
     if config is None:
-        return RedirectResponse(url="/ui/help", status_code=303)
+        return RedirectResponse(url="/help", status_code=303)
 
     return _render(
         request,
@@ -1084,12 +1069,8 @@ def help_config_detail(config_slug: str, request: Request) -> HTMLResponse | Red
     )
 
 
-@router.get("/ui/help/{command_slug}", response_class=HTMLResponse, response_model=None)
+@router.get("/help/{command_slug}", response_class=HTMLResponse, response_model=None)
 def help_command_detail(command_slug: str, request: Request) -> HTMLResponse | RedirectResponse:
-    principal = current_ui_principal(request)
-    if principal is None:
-        return RedirectResponse(url="/ui/login", status_code=303)
-
     # Find command by slug (convert name to slug format)
     command = None
     for cmd in _HELP_COMMANDS:
@@ -1099,7 +1080,7 @@ def help_command_detail(command_slug: str, request: Request) -> HTMLResponse | R
             break
 
     if command is None:
-        return RedirectResponse(url="/ui/help", status_code=303)
+        return RedirectResponse(url="/help", status_code=303)
 
     return _render(
         request,
@@ -1111,7 +1092,7 @@ def help_command_detail(command_slug: str, request: Request) -> HTMLResponse | R
     )
 
 
-@router.get("/ui/submissions/{submission_id}", response_class=HTMLResponse, response_model=None)
+@router.get("/submissions/{submission_id}", response_class=HTMLResponse, response_model=None)
 def submission_detail_page(
     submission_id: str,
     request: Request,
@@ -1123,7 +1104,7 @@ def submission_detail_page(
 ) -> HTMLResponse | RedirectResponse:
     principal = current_ui_principal(request)
     if principal is None:
-        return RedirectResponse(url="/ui/login", status_code=303)
+        return RedirectResponse(url="/login", status_code=303)
     record = get_submission_or_404(
         request.app.state.storage,
         submission_id,
@@ -1152,14 +1133,14 @@ def submission_detail_page(
     )
 
 
-@router.post("/ui/submissions/{submission_id}/cancel", response_model=None)
+@router.post("/submissions/{submission_id}/cancel", response_model=None)
 def submission_cancel(
     submission_id: str,
     request: Request,
 ) -> RedirectResponse:
     principal = current_ui_principal(request)
     if principal is None:
-        return RedirectResponse(url="/ui/login", status_code=303)
+        return RedirectResponse(url="/login", status_code=303)
     cancel_submission_record(
         request.app.state.storage,
         request.app.state.cfg,
@@ -1167,12 +1148,12 @@ def submission_cancel(
         principal=principal.as_auth_principal(),
     )
     return RedirectResponse(
-        url=_append_notice(f"/ui/submissions/{submission_id}", "Submission cancelled."),
+        url=_append_notice(f"/submissions/{submission_id}", "Submission cancelled."),
         status_code=303,
     )
 
 
-@router.post("/ui/submissions/{submission_id}/purge", response_model=None)
+@router.post("/submissions/{submission_id}/purge", response_model=None)
 def submission_purge(
     submission_id: str,
     request: Request,
@@ -1180,7 +1161,7 @@ def submission_purge(
 ) -> RedirectResponse:
     principal = current_ui_principal(request)
     if principal is None:
-        return RedirectResponse(url="/ui/login", status_code=303)
+        return RedirectResponse(url="/login", status_code=303)
     purge_submission_record(
         request.app.state.storage,
         submission_id=submission_id,
@@ -1192,7 +1173,7 @@ def submission_purge(
     )
 
 
-@router.get("/ui/submissions/{submission_id}/logs", response_class=HTMLResponse, response_model=None)
+@router.get("/submissions/{submission_id}/logs", response_class=HTMLResponse, response_model=None)
 def submission_logs_panel(
     submission_id: str,
     request: Request,
@@ -1203,7 +1184,7 @@ def submission_logs_panel(
 ) -> HTMLResponse | RedirectResponse:
     principal = current_ui_principal(request)
     if principal is None:
-        return RedirectResponse(url="/ui/login", status_code=303)
+        return RedirectResponse(url="/login", status_code=303)
     record = get_submission_or_404(
         request.app.state.storage,
         submission_id,
@@ -1236,14 +1217,14 @@ def submission_logs_panel(
     )
 
 
-@router.get("/ui/nodes", response_class=HTMLResponse, response_model=None)
+@router.get("/nodes", response_class=HTMLResponse, response_model=None)
 def nodes_page(
     request: Request,
     q: str | None = Query(None),
 ) -> HTMLResponse | RedirectResponse:
     principal = current_ui_principal(request)
     if principal is None:
-        return RedirectResponse(url="/ui/login", status_code=303)
+        return RedirectResponse(url="/login", status_code=303)
     inventory = request.app.state.inventory
     is_admin = principal.role == "admin"
     search_query = (q or "").strip()
@@ -1286,6 +1267,16 @@ def nodes_page(
             "show_private": is_admin,
         },
     )
+
+
+@router.api_route("/ui", methods=["GET", "POST"], response_model=None)
+@router.api_route("/ui/{legacy_path:path}", methods=["GET", "POST"], response_model=None)
+def legacy_ui_redirect(request: Request, legacy_path: str = "") -> RedirectResponse:
+    target = _legacy_ui_path_to_clean(str(request.url.path))
+    if request.url.query:
+        target = f"{target}?{request.url.query}"
+    status_code = 303 if request.method == "GET" else 307
+    return RedirectResponse(url=target, status_code=status_code)
 
 
 
@@ -1372,9 +1363,24 @@ def _render(
 
 
 def _safe_return_to(value: str | None) -> str:
-    if isinstance(value, str) and value.startswith("/ui/submissions"):
-        return value
-    return "/ui/submissions"
+    if isinstance(value, str):
+        if value.startswith("/submissions"):
+            return value
+        if value.startswith("/ui/submissions"):
+            return _legacy_ui_path_to_clean(value)
+    return "/submissions"
+
+
+def _legacy_ui_path_to_clean(value: str) -> str:
+    parts = urlsplit(value)
+    path = parts.path
+    if path == "/ui":
+        clean_path = "/"
+    elif path.startswith("/ui/"):
+        clean_path = path[3:] or "/"
+    else:
+        clean_path = path
+    return urlunsplit((parts.scheme, parts.netloc, clean_path, parts.query, parts.fragment))
 
 
 def _append_notice(url: str, message: str, kind: str = "success") -> str:
@@ -1407,7 +1413,7 @@ def _submission_list_return_to(
         params["page"] = str(page)
     if limit != _SUBMISSIONS_UI_DEFAULT_LIMIT:
         params["limit"] = str(limit)
-    return urlunsplit(("", "", "/ui/submissions", urlencode(params), ""))
+    return urlunsplit(("", "", "/submissions", urlencode(params), ""))
 
 
 def _pagination_context(

@@ -16,7 +16,6 @@ submit_ui_session_secret: "ad9acb3eaccf734ffe54f409756aa64c746053221be7bbf609dc9
 submit_ui_cookie_name: "fedctl_submit_session"
 submit_ui_cookie_secure: false
 submit_registration_enabled: true
-submit_registration_code: "mlsys"
 submit_aws_shared_credentials_file: "/home/rpi/.aws/credentials"
 submit_aws_config_file: "/home/rpi/.aws/config"
 submit_aws_credentials_src: "{{ lookup('env', 'HOME') }}/.aws/credentials"

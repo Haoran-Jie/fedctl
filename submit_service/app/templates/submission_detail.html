@@ -34,12 +34,12 @@
     <div class="actions">
       <a class="button secondary" href="{{ return_to }}">Back to submissions</a>
       {% if submission.can_cancel %}
-      <form method="post" action="/ui/submissions/{{ submission.id }}/cancel" data-confirm="Cancel this submission? This will stop the running job." data-loading-label="Cancelling...">
+      <form method="post" action="/submissions/{{ submission.id }}/cancel" data-confirm="Cancel this submission? This will stop the running job." data-loading-label="Cancelling...">
         <button type="submit">Cancel submission</button>
       </form>
       {% endif %}
       {% if submission.can_purge %}
-      <form method="post" action="/ui/submissions/{{ submission.id }}/purge" data-confirm="Purge this submission? This permanently deletes its history and cannot be undone." data-loading-label="Purging...">
+      <form method="post" action="/submissions/{{ submission.id }}/purge" data-confirm="Purge this submission? This permanently deletes its history and cannot be undone." data-loading-label="Purging...">
         <input type="hidden" name="return_to" value="{{ return_to }}">
         <button type="submit" class="danger-button">Purge submission</button>
       </form>
@@ -348,7 +348,7 @@
                 {% set default_stderr = 'false' if entry.kind == 'submit' else 'true' %}
                 <a
                   class="button secondary mapping-action"
-                  href="/ui/submissions/{{ submission.id }}?return_to={{ return_to | urlencode }}&job={{ entry.log_job | urlencode }}{% if entry.log_task %}&task={{ entry.log_task | urlencode }}{% endif %}&stderr={{ default_stderr }}#tab-logs"
+                  href="/submissions/{{ submission.id }}?return_to={{ return_to | urlencode }}&job={{ entry.log_job | urlencode }}{% if entry.log_task %}&task={{ entry.log_task | urlencode }}{% endif %}&stderr={{ default_stderr }}#tab-logs"
                 >
                   Open logs
                 </a>

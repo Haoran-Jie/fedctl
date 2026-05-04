@@ -958,7 +958,6 @@ def run_submit_inventory(
 def run_submit_register_token(
     *,
     name: str | None,
-    registration_code: str | None,
     token: str | None,
     deploy_config: str | None = None,
     print_token: bool = False,
@@ -978,19 +977,9 @@ def run_submit_register_token(
         console.print("[red]✗ Username is required.[/red]")
         return 1
 
-    resolved_registration_code = registration_code
-    if resolved_registration_code is None and _interactive_stdin():
-        try:
-            entered = getpass.getpass("Registration code (leave blank if not required): ")
-        except (EOFError, KeyboardInterrupt):
-            console.print("[red]✗ Registration cancelled.[/red]")
-            return 1
-        resolved_registration_code = entered.strip() or None
-
     try:
         registered = client.register_token(
             name=resolved_name,
-            registration_code=resolved_registration_code,
             token=token,
         )
     except SubmitServiceError as exc:

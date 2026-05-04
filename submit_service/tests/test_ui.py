@@ -52,14 +52,14 @@ def _make_ui_client(tmp_path, monkeypatch: pytest.MonkeyPatch, *, enabled: bool 
 
 
 def _login(client: TestClient, token: str) -> None:
-    response = client.post("/ui/login", data={"token": token}, follow_redirects=False)
+    response = client.post("/login", data={"token": token}, follow_redirects=False)
     assert response.status_code == 303
-    assert response.headers["location"] == "/ui/submissions"
+    assert response.headers["location"] == "/submissions"
 
 
 def test_ui_disabled_returns_404(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
     client = _make_ui_client(tmp_path, monkeypatch, enabled=False)
-    response = client.get("/ui/login")
+    response = client.get("/login")
     assert response.status_code == 404
 
 
@@ -69,16 +69,20 @@ def test_ui_requires_session_and_login_succeeds(tmp_path, monkeypatch: pytest.Mo
     response = client.get("/")
     assert response.status_code == 200
     assert "Bearer token" in response.text
+    assert 'href="/help"' in response.text
+    assert 'href="/submissions"' not in response.text
+    assert 'href="/nodes"' not in response.text
 
-    bad = client.post("/ui/login", data={"token": "wrong"})
+    bad = client.post("/login", data={"token": "wrong"})
     assert bad.status_code == 403
     assert "Invalid token" in bad.text
 
     _login(client, "tok-alice")
-    page = client.get("/ui/submissions")
+    page = client.get("/submissions")
     assert page.status_code == 200
     assert "Submissions" in page.text
-    assert 'href="/ui/nodes"' in page.text
+    assert 'href="/help"' in page.text
+    assert 'href="/nodes"' in page.text
     assert "data-toast-root" in page.text
     assert "data-sticky-panel" in page.text
     assert "data-sticky-shell" in page.text
@@ -93,6 +97,22 @@ def test_ui_requires_session_and_login_succeeds(tmp_path, monkeypatch: pytest.Mo
     assert ">Search</button>" not in page.text
 
 
+def test_legacy_ui_paths_redirect_to_clean_urls(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+    client = _make_ui_client(tmp_path, monkeypatch)
+
+    help_redirect = client.get("/ui/help?x=1", follow_redirects=False)
+    assert help_redirect.status_code == 303
+    assert help_redirect.headers["location"] == "/help?x=1"
+
+    login_redirect = client.post(
+        "/ui/login",
+        data={"token": "tok-alice"},
+        follow_redirects=False,
+    )
+    assert login_redirect.status_code == 307
+    assert login_redirect.headers["location"] == "/login"
+
+
 def test_ui_registers_generated_bearer_token(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SUBMIT_REPO_CONFIG", str(tmp_path / "missing-fedctl.yaml"))
     monkeypatch.setenv("SUBMIT_DB_URL", f"sqlite:///{tmp_path / 'submit.db'}")
@@ -103,17 +123,13 @@ def test_ui_registers_generated_bearer_token(tmp_path, monkeypatch: pytest.Monke
     monkeypatch.setenv("SUBMIT_UI_ENABLED", "true")
     monkeypatch.setenv("SUBMIT_UI_SESSION_SECRET", "test-ui-secret")
     monkeypatch.setenv("SUBMIT_REGISTRATION_ENABLED", "true")
-    monkeypatch.setenv("SUBMIT_REGISTRATION_CODE", "cammlsys")
     client = TestClient(create_app())
 
-    login = client.get("/ui/login")
+    login = client.get("/login")
     assert login.status_code == 200
     assert "Register a bearer token" in login.text
 
-    form = client.post(
-        "/ui/register",
-        data={"name": "alice", "registration_code": "cammlsys"},
-    )
+    form = client.post("/register", data={"name": "alice"})
     assert form.status_code == 200
     assert "Token registered for alice" in form.text
     assert "fedctl_" in form.text
@@ -121,17 +137,17 @@ def test_ui_registers_generated_bearer_token(tmp_path, monkeypatch: pytest.Monke
     assert "export FEDCTL_SUBMIT_TOKEN=fedctl_" in form.text
     match = re.search(r"fedctl_[A-Za-z0-9_-]+", form.text)
     assert match is not None
-    login = client.post("/ui/login", data={"token": match.group(0)}, follow_redirects=False)
+    login = client.post("/login", data={"token": match.group(0)}, follow_redirects=False)
     assert login.status_code == 303
-    assert login.headers["location"] == "/ui/submissions"
+    assert login.headers["location"] == "/submissions"
 
 
 def test_ui_help_page_shows_submit_commands(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
     client = _make_ui_client(tmp_path, monkeypatch)
-    _login(client, "tok-alice")
 
-    page = client.get("/ui/help")
+    page = client.get("/help")
     assert page.status_code == 200
+    assert 'href="http://testserver/static/style.css?v=21"' in page.text
     assert "fedctl submit run" in page.text
     assert "fedctl submit register-token" in page.text
     assert "fedctl submit set-token" in page.text
@@ -159,8 +175,8 @@ def test_ui_help_page_shows_submit_commands(tmp_path, monkeypatch: pytest.Monkey
     assert "Deploy config" in page.text
     assert "--run-config" in page.text
     assert "--deploy-config" in page.text
-    assert 'href="http://testserver/ui/help/config/run-config"' in page.text
-    assert 'href="http://testserver/ui/help/config/deploy-config"' in page.text
+    assert 'href="http://testserver/help/config/run-config"' in page.text
+    assert 'href="http://testserver/help/config/deploy-config"' in page.text
     assert 'id="config-run-config"' in page.text
     assert 'id="config-deploy-config"' in page.text
     assert 'id="command-submit-run"' in page.text
@@ -170,9 +186,8 @@ def test_ui_help_page_shows_submit_commands(tmp_path, monkeypatch: pytest.Monkey
 
 def test_ui_help_config_detail_pages_show_rich_guidance(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
     client = _make_ui_client(tmp_path, monkeypatch)
-    _login(client, "tok-alice")
 
-    experiment_page = client.get("/ui/help/config/run-config")
+    experiment_page = client.get("/help/config/run-config")
     assert experiment_page.status_code == 200
     assert "Run config" in experiment_page.text
     assert "Run settings passed to Flower" in experiment_page.text
@@ -181,9 +196,9 @@ def test_ui_help_config_detail_pages_show_rich_guidance(tmp_path, monkeypatch: p
     assert "Sectioned TOML is normalized into Flower" in experiment_page.text
     assert "--run-config-override" in experiment_page.text
     assert "It does not contain the submit-service bearer token." in experiment_page.text
-    assert 'href="http://testserver/ui/help/submit-run"' in experiment_page.text
+    assert 'href="http://testserver/help/submit-run"' in experiment_page.text
 
-    deploy_page = client.get("/ui/help/config/deploy-config")
+    deploy_page = client.get("/help/config/deploy-config")
     assert deploy_page.status_code == 200
     assert "Deploy config" in deploy_page.text
     assert "Execution environment used by fedctl" in deploy_page.text
@@ -214,22 +229,21 @@ def test_ui_help_config_detail_pages_show_rich_guidance(tmp_path, monkeypatch: p
 
 def test_ui_help_command_detail_shows_rich_guidance(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
     client = _make_ui_client(tmp_path, monkeypatch)
-    _login(client, "tok-alice")
 
-    page = client.get("/ui/help/submit-run")
+    page = client.get("/help/submit-run")
     assert page.status_code == 200
     assert "When to use it" in page.text
     assert "Dissertation experiment with explicit config" in page.text
     assert "Related commands" in page.text
     assert "submit logs" in page.text
 
-    register_page = client.get("/ui/help/submit-register-token")
+    register_page = client.get("/help/submit-register-token")
     assert register_page.status_code == 200
     assert "Register a user-scoped bearer token" in register_page.text
-    assert "--registration-code" in register_page.text
+    assert "--registration-code" not in register_page.text
     assert "--print-token" in register_page.text
 
-    set_token_page = client.get("/ui/help/submit-set-token")
+    set_token_page = client.get("/help/submit-set-token")
     assert set_token_page.status_code == 200
     assert "Save an existing submit-service bearer token" in set_token_page.text
     assert "--no-validate" in set_token_page.text
@@ -245,45 +259,45 @@ def test_ui_user_scope_cancel_and_purge(tmp_path, monkeypatch: pytest.MonkeyPatc
     bob_id = client.post("/v1/submissions", json=_payload(), headers=bob_headers).json()["submission_id"]
 
     _login(client, "tok-alice")
-    listing = client.get("/ui/submissions?status=all")
+    listing = client.get("/submissions?status=all")
     assert alice_id in listing.text
     assert bob_id not in listing.text
 
-    other = client.get(f"/ui/submissions/{bob_id}")
+    other = client.get(f"/submissions/{bob_id}")
     assert other.status_code == 404
 
-    cancel = client.post(f"/ui/submissions/{alice_id}/cancel", follow_redirects=False)
+    cancel = client.post(f"/submissions/{alice_id}/cancel", follow_redirects=False)
     assert cancel.status_code == 303
     cancel_location = urlsplit(cancel.headers["location"])
-    assert cancel_location.path == f"/ui/submissions/{alice_id}"
+    assert cancel_location.path == f"/submissions/{alice_id}"
     cancel_query = parse_qs(cancel_location.query)
     assert cancel_query["notice"] == ["Submission cancelled."]
     assert cancel_query["notice_kind"] == ["success"]
-    detail = client.get(f"/ui/submissions/{alice_id}")
+    detail = client.get(f"/submissions/{alice_id}")
     assert "cancelled" in detail.text
     assert "Purge submission" in detail.text
 
-    filtered_detail = client.get(f"/ui/submissions/{alice_id}?return_to=/ui/submissions?status=completed")
-    assert 'href="/ui/submissions?status=completed"' in filtered_detail.text
+    filtered_detail = client.get(f"/submissions/{alice_id}?return_to=/submissions?status=completed")
+    assert 'href="/submissions?status=completed"' in filtered_detail.text
 
     purge = client.post(
-        f"/ui/submissions/{alice_id}/purge",
-        data={"return_to": "/ui/submissions?status=completed"},
+        f"/submissions/{alice_id}/purge",
+        data={"return_to": "/submissions?status=completed"},
         follow_redirects=False,
     )
     assert purge.status_code == 303
     purge_location = urlsplit(purge.headers["location"])
-    assert purge_location.path == "/ui/submissions"
+    assert purge_location.path == "/submissions"
     purge_query = parse_qs(purge_location.query)
     assert purge_query["status"] == ["completed"]
     assert purge_query["notice"] == ["Submission purged."]
     assert purge_query["notice_kind"] == ["success"]
 
-    missing = client.get(f"/ui/submissions/{alice_id}")
+    missing = client.get(f"/submissions/{alice_id}")
     assert missing.status_code == 404
 
     storage.update_submission(bob_id, {"status": "completed"})
-    foreign = client.post(f"/ui/submissions/{bob_id}/purge", follow_redirects=False)
+    foreign = client.post(f"/submissions/{bob_id}/purge", follow_redirects=False)
     assert foreign.status_code == 404
 
 
@@ -301,22 +315,22 @@ def test_ui_active_queue_shows_foreign_runs_without_detail_access(
     bob_id = client.post("/v1/submissions", json=bob_payload, headers=bob_headers).json()["submission_id"]
 
     _login(client, "tok-alice")
-    active = client.get("/ui/submissions?status=active")
+    active = client.get("/submissions?status=active")
     assert active.status_code == 200
     assert alice_id in active.text
     assert bob_id in active.text
-    assert f'href="/ui/submissions/{alice_id}' in active.text
-    assert f'href="/ui/submissions/{bob_id}' not in active.text
-    assert f'data-href="/ui/submissions/{bob_id}' not in active.text
+    assert f'href="/submissions/{alice_id}' in active.text
+    assert f'href="/submissions/{bob_id}' not in active.text
+    assert f'data-href="/submissions/{bob_id}' not in active.text
     assert "tok-bob" not in active.text
     assert "bob" in active.text
     assert "Private submission" in active.text
     assert "secret-project" not in active.text
     assert "secret-experiment" not in active.text
 
-    detail = client.get(f"/ui/submissions/{bob_id}")
+    detail = client.get(f"/submissions/{bob_id}")
     assert detail.status_code == 404
-    logs = client.get(f"/ui/submissions/{bob_id}/logs")
+    logs = client.get(f"/submissions/{bob_id}/logs")
     assert logs.status_code == 404
 
 
@@ -336,14 +350,14 @@ def test_ui_shows_wait_and_runtime_columns(tmp_path, monkeypatch: pytest.MonkeyP
     )
 
     _login(client, "tok-alice")
-    listing = client.get("/ui/submissions?status=all")
+    listing = client.get("/submissions?status=all")
     assert listing.status_code == 200
     assert ">Wait<" in listing.text
     assert ">Runtime<" in listing.text
     assert "5m 0s" in listing.text
     assert "7m 30s" in listing.text
 
-    detail = client.get(f"/ui/submissions/{submission_id}")
+    detail = client.get(f"/submissions/{submission_id}")
     assert detail.status_code == 200
     assert "<dt>Queue wait</dt><dd>5m 0s</dd>" in detail.text
     assert "<dt>Runtime</dt><dd>7m 30s</dd>" in detail.text
@@ -381,11 +395,11 @@ def test_ui_admin_can_view_nodes_and_all_submissions(tmp_path, monkeypatch: pyte
     alice_id = client.post("/v1/submissions", json=_payload(), headers=alice_headers).json()["submission_id"]
 
     _login(client, "tok-admin")
-    listing = client.get("/ui/submissions?status=all")
+    listing = client.get("/submissions?status=all")
     assert alice_id in listing.text
     assert "alice" in listing.text
 
-    nodes = client.get("/ui/nodes")
+    nodes = client.get("/nodes")
     assert nodes.status_code == 200
     assert "Nodes" in nodes.text
     assert "data-sticky-panel" in nodes.text
@@ -413,7 +427,7 @@ def test_ui_stats_are_based_on_all_visible_submissions_not_active_filter(
     storage.update_submission(blocked_id, {"status": "blocked"})
 
     _login(client, "tok-alice")
-    page = client.get("/ui/submissions?status=active")
+    page = client.get("/submissions?status=active")
     assert page.status_code == 200
     assert "<strong>4</strong>" in page.text
     assert "<strong>2</strong>" in page.text
@@ -445,7 +459,7 @@ def test_ui_active_list_orders_running_before_blocked(tmp_path, monkeypatch: pyt
     )
 
     _login(client, "tok-alice")
-    page = client.get("/ui/submissions?status=active")
+    page = client.get("/submissions?status=active")
     assert page.status_code == 200
     assert page.text.index(running_id.replace("sub-", "", 1)) < page.text.index(blocked_id.replace("sub-", "", 1))
 
@@ -478,7 +492,7 @@ def test_ui_queue_panel_keeps_priority_order_across_queued_and_blocked(
     )
 
     _login(client, "tok-alice")
-    page = client.get("/ui/submissions?status=active")
+    page = client.get("/submissions?status=active")
 
     assert page.status_code == 200
     assert "Pending dispatch" in page.text
@@ -531,13 +545,13 @@ def test_ui_submissions_search_filters_rows_and_preserves_return_to(
     storage.update_submission(other_id, {"experiment": "nlp-run"})
 
     _login(client, "tok-alice")
-    page = client.get("/ui/submissions?status=all&q=vision")
+    page = client.get("/submissions?status=all&q=vision")
     assert page.status_code == 200
     assert match_id in page.text
     assert other_id not in page.text
     assert 'name="q"' in page.text
     assert 'value="vision"' in page.text
-    assert "return_to=/ui/submissions%3Fstatus%3Dall%26q%3Dvision" in page.text
+    assert "return_to=/submissions%3Fstatus%3Dall%26q%3Dvision" in page.text
 
 
 def test_ui_submissions_paginates_and_preserves_filters(
@@ -565,22 +579,22 @@ def test_ui_submissions_paginates_and_preserves_filters(
     )
 
     _login(client, "tok-alice")
-    page_one = client.get("/ui/submissions?status=completed&q=vision&limit=2")
+    page_one = client.get("/submissions?status=completed&q=vision&limit=2")
     assert page_one.status_code == 200
     assert "Showing 1-2 of 3" in page_one.text
     assert "Page 1 of 2" in page_one.text
     assert "vision-third" in page_one.text
     assert "vision-second" in page_one.text
     assert "vision-first" not in page_one.text
-    assert "/ui/submissions?status=completed&amp;q=vision&amp;page=2&amp;limit=2" in page_one.text
+    assert "/submissions?status=completed&amp;q=vision&amp;page=2&amp;limit=2" in page_one.text
 
-    page_two = client.get("/ui/submissions?status=completed&q=vision&page=2&limit=2")
+    page_two = client.get("/submissions?status=completed&q=vision&page=2&limit=2")
     assert page_two.status_code == 200
     assert "Showing 3-3 of 3" in page_two.text
     assert "Page 2 of 2" in page_two.text
     assert "vision-first" in page_two.text
     assert "vision-third" not in page_two.text
-    assert "return_to=/ui/submissions%3Fstatus%3Dcompleted%26q%3Dvision%26page%3D2%26limit%3D2" in page_two.text
+    assert "return_to=/submissions%3Fstatus%3Dcompleted%26q%3Dvision%26page%3D2%26limit%3D2" in page_two.text
 
 
 def test_ui_non_admin_can_view_nodes_without_allocation_details(
@@ -624,7 +638,7 @@ def test_ui_non_admin_can_view_nodes_without_allocation_details(
     )()
 
     _login(client, "tok-alice")
-    response = client.get("/ui/nodes")
+    response = client.get("/nodes")
     assert response.status_code == 200
     assert "Nodes" in response.text
     assert "rpi2" in response.text
@@ -667,7 +681,7 @@ def test_ui_detail_shows_archived_logs(tmp_path, monkeypatch: pytest.MonkeyPatch
     )
 
     _login(client, "tok-alice")
-    detail = client.get(f"/ui/submissions/{submission_id}")
+    detail = client.get(f"/submissions/{submission_id}")
     assert detail.status_code == 200
     assert "archived submit stdout" in detail.text
     assert "archived submit stderr" not in detail.text
@@ -675,12 +689,12 @@ def test_ui_detail_shows_archived_logs(tmp_path, monkeypatch: pytest.MonkeyPatch
     assert 'data-log-filter' in detail.text
     assert "Copy logs" in detail.text
     assert "Copy link" not in detail.text
-    assert 'data-logs-endpoint="/ui/submissions/' in detail.text
+    assert 'data-logs-endpoint="/submissions/' in detail.text
     assert "Follow" in detail.text
     assert "Latest" not in detail.text
     assert 'name="task"' not in detail.text
 
-    stderr_detail = client.get(f"/ui/submissions/{submission_id}?stderr=true")
+    stderr_detail = client.get(f"/submissions/{submission_id}?stderr=true")
     assert stderr_detail.status_code == 200
     assert "archived submit stderr" in stderr_detail.text
     assert '<option value="true" selected>stderr</option>' in stderr_detail.text
@@ -716,7 +730,7 @@ def test_ui_nodes_search_filters_inventory(tmp_path, monkeypatch: pytest.MonkeyP
     )()
 
     _login(client, "tok-admin")
-    page = client.get("/ui/nodes?q=jet")
+    page = client.get("/nodes?q=jet")
     assert page.status_code == 200
     assert "jetson4" in page.text
     assert "rpi2" not in page.text
@@ -764,7 +778,7 @@ def test_ui_nodes_page_renders_node_resource_totals_and_usage(
     )()
 
     _login(client, "tok-admin")
-    page = client.get("/ui/nodes")
+    page = client.get("/nodes")
     assert page.status_code == 200
     assert "1000/4000 (25%)" in page.text
     assert "2GB/8GB (25%)" in page.text
@@ -810,7 +824,7 @@ def test_ui_detail_renders_structured_args_env_and_jobs(
     )
 
     _login(client, "tok-alice")
-    detail = client.get(f"/ui/submissions/{submission_id}")
+    detail = client.get(f"/submissions/{submission_id}")
     assert detail.status_code == 200
     assert "Original submit request" in detail.text
     assert "fedctl submit run ../quickstart-pytorch --exp mnist-20250125" in detail.text
@@ -836,7 +850,7 @@ def test_ui_detail_hides_results_tab(
     submission_id = client.post("/v1/submissions", json=_payload(), headers=alice_headers).json()["submission_id"]
 
     _login(client, "tok-alice")
-    detail = client.get(f"/ui/submissions/{submission_id}")
+    detail = client.get(f"/submissions/{submission_id}")
     assert detail.status_code == 200
     assert 'id="tab-button-results"' not in detail.text
     assert 'id="tab-results"' not in detail.text

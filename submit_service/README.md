@@ -115,28 +115,27 @@ Notes:
 - Legacy `FEDCTL_SUBMIT_TOKENS` still works as admin-only tokens for backward compatibility.
 
 Optional self-registration keeps bearer-token auth but lets users create their own
-user-scoped token. Enable it only deliberately, preferably with a registration
-code:
+user-scoped token. Enable it only deliberately, on networks where access to the
+submit service is already restricted:
 
 ```bash
 export SUBMIT_REGISTRATION_ENABLED=true
-export SUBMIT_REGISTRATION_CODE=change-me
 ```
 
 Users can then register through the fedctl CLI:
 
 ```bash
-fedctl submit register-token --name alice --registration-code change-me
+fedctl submit register-token --name alice
 ```
 
 The command stores the returned bearer token in the user deploy config and does
-not print it by default. Users can also open `/ui/register` or call the API
+not print it by default. Users can also open `/register` or call the API
 directly:
 
 ```bash
 curl -X POST http://127.0.0.1:8080/v1/tokens/register \
   -H 'Content-Type: application/json' \
-  -d '{"name":"alice","registration_code":"change-me"}'
+  -d '{"name":"alice"}'
 ```
 
 The service returns the bearer token once and stores only its SHA-256 hash.
@@ -178,14 +177,22 @@ The CLI still performs the upload and passes the URL to the service.
 - GET `/v1/nodes` (inventory; includes allocations by default; set `include_allocs=false` to skip)
 
 UI routes when enabled:
-- GET `/ui/login`
-- POST `/ui/login`
-- POST `/ui/logout`
-- GET `/ui/submissions`
-- GET `/ui/submissions/{id}`
-- POST `/ui/submissions/{id}/cancel`
-- GET `/ui/submissions/{id}/logs`
-- GET `/ui/nodes`
+- GET `/login`
+- POST `/login`
+- GET `/register`
+- POST `/register`
+- POST `/logout`
+- GET `/help`
+- GET `/help/{command}`
+- GET `/help/config/{config}`
+- GET `/submissions`
+- GET `/submissions/{id}`
+- POST `/submissions/{id}/cancel`
+- POST `/submissions/{id}/purge`
+- GET `/submissions/{id}/logs`
+- GET `/nodes`
+
+Legacy `/ui/...` page URLs redirect to the corresponding clean route.
 
 Inventory cache TTL can be set with `SUBMIT_NOMAD_INV_TTL` (seconds).
 Auto-purge completed Nomad jobs can be set with `SUBMIT_AUTOPURGE_COMPLETED_AFTER` (seconds, `0` disables).
