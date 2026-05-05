@@ -1,10 +1,10 @@
 {
   "task": "california_housing_mlp",
   "coverage_fraction_overall": {
-    "with_table_runs": 6,
-    "total_completed_heterogeneous_runs": 18
+    "with_table_runs": 18,
+    "total_expected_heterogeneous_runs": 18
   },
-  "coverage_note": "Usable local-client tables exist for exactly one seed (1337) in each method x regime branch.",
+  "coverage_note": "Usable local-client tables exist for seeds 1337, 1338, and 1339 in every method x regime branch.",
   "runs": [
     {
       "run_id": "jdjkltsl",
@@ -64,6 +64,120 @@
       ]
     },
     {
+      "run_id": "xvv42lhp",
+      "method": "HeteroFL",
+      "regime": "iid",
+      "seed": 1338,
+      "rows": 80,
+      "model_rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ],
+      "client_model_rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": "aqp1lqf0",
+      "method": "FedRolex",
+      "regime": "iid",
+      "seed": 1338,
+      "rows": 80,
+      "model_rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ],
+      "client_model_rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": "kcfdru6l",
+      "method": "FIARSE",
+      "regime": "iid",
+      "seed": 1338,
+      "rows": 80,
+      "model_rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ],
+      "client_model_rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": "s6xu068x",
+      "method": "HeteroFL",
+      "regime": "iid",
+      "seed": 1339,
+      "rows": 80,
+      "model_rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ],
+      "client_model_rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": "0yz8b23m",
+      "method": "FedRolex",
+      "regime": "iid",
+      "seed": 1339,
+      "rows": 80,
+      "model_rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ],
+      "client_model_rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": "66zq0d4z",
+      "method": "FIARSE",
+      "regime": "iid",
+      "seed": 1339,
+      "rows": 80,
+      "model_rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ],
+      "client_model_rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
       "run_id": "5trnnxj2",
       "method": "HeteroFL",
       "regime": "noniid",
@@ -106,6 +220,120 @@
       "method": "FIARSE",
       "regime": "noniid",
       "seed": 1337,
+      "rows": 80,
+      "model_rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ],
+      "client_model_rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": "49hi9noh",
+      "method": "HeteroFL",
+      "regime": "noniid",
+      "seed": 1338,
+      "rows": 80,
+      "model_rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ],
+      "client_model_rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": "hqmj4lfs",
+      "method": "FedRolex",
+      "regime": "noniid",
+      "seed": 1338,
+      "rows": 80,
+      "model_rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ],
+      "client_model_rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": "z1v7ltt3",
+      "method": "FIARSE",
+      "regime": "noniid",
+      "seed": 1338,
+      "rows": 80,
+      "model_rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ],
+      "client_model_rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": "6k7yzcy4",
+      "method": "HeteroFL",
+      "regime": "noniid",
+      "seed": 1339,
+      "rows": 80,
+      "model_rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ],
+      "client_model_rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": "w03zmccr",
+      "method": "FedRolex",
+      "regime": "noniid",
+      "seed": 1339,
+      "rows": 80,
+      "model_rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ],
+      "client_model_rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": "ofh24bbr",
+      "method": "FIARSE",
+      "regime": "noniid",
+      "seed": 1339,
       "rows": 80,
       "model_rates": [
         0.125,
