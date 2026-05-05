@@ -15,7 +15,6 @@ from flwr.common.logger import log
 from flwr.serverapp import Grid
 
 from fedctl_research.config import (
-    get_client_eval_enabled,
     get_final_client_eval_enabled,
     get_fedbuff_buffer_size,
     get_fedbuff_evaluate_every_steps,
@@ -31,6 +30,12 @@ from fedctl_research.config import (
     get_str,
 )
 from fedctl_research.costs import build_model_catalog, summarize_round_costs
+from fedctl_research.methods.assignment import ModelRateAssigner
+from fedctl_research.methods.heterofl.slicing import (
+    ParamIndex,
+    build_param_indices_for_rate,
+    slice_state_dict,
+)
 from fedctl_research.methods.runtime import (
     TargetStopController,
     _async_client_trip_budget,
@@ -53,6 +58,8 @@ class _InflightRequest:
     device_type: str
     server_model_version_sent: int
     wall_clock_dispatch_s: float
+    model_rate: float
+    param_idx: ParamIndex | None
 
 
 @dataclass
@@ -60,6 +67,7 @@ class _BufferedUpdate:
     trip_index: int
     node_id: int
     device_type: str
+    model_rate: float
     staleness: int
     weight: float
     train_duration_s: float
@@ -68,7 +76,15 @@ class _BufferedUpdate:
     train_loss: float
     queue_latency_s: float
     netem_metrics: dict[str, int | float]
+    param_idx: ParamIndex | None
     delta: OrderedDict[str, torch.Tensor]
+
+
+@dataclass(frozen=True)
+class CoverageConfig:
+    coverage_power: float
+    max_block_weight: float
+    min_observed_mass: float
 
 
 @dataclass
@@ -96,6 +112,90 @@ def _apply_aggregated_delta(
         )
         for key in current_state
     )
+
+
+def _build_local_delta(
+    sent_state: OrderedDict[str, torch.Tensor],
+    local_state: OrderedDict[str, torch.Tensor],
+    param_idx: ParamIndex | None,
+) -> OrderedDict[str, torch.Tensor]:
+    sent_local = (
+        sent_state
+        if param_idx is None
+        else slice_state_dict(sent_state, param_idx)
+    )
+    return OrderedDict(
+        (
+            key,
+            sent_local[key].detach().clone() - value.detach().clone(),
+        )
+        for key, value in local_state.items()
+    )
+
+
+def _scatter_weighted_delta(
+    aggregate: OrderedDict[str, torch.Tensor],
+    coverage: OrderedDict[str, torch.Tensor] | None,
+    delta: OrderedDict[str, torch.Tensor],
+    param_idx: ParamIndex | None,
+    *,
+    weight: float,
+) -> None:
+    for key, tensor in delta.items():
+        value = tensor.detach().to(dtype=aggregate[key].dtype)
+        if param_idx is None or key not in param_idx:
+            aggregate[key].add_(value, alpha=weight)
+            if coverage is not None:
+                coverage[key].add_(torch.ones_like(coverage[key]), alpha=weight)
+            continue
+
+        idx = param_idx[key]
+        if isinstance(idx, tuple):
+            out_idx, in_idx = idx
+            mesh = torch.meshgrid(out_idx, in_idx, indexing="ij")
+            aggregate[key][mesh] += value * weight
+            if coverage is not None:
+                coverage[key][mesh] += weight
+        else:
+            aggregate[key][idx] += value * weight
+            if coverage is not None:
+                coverage[key][idx] += weight
+
+
+def _apply_coverage_correction(
+    aggregate: OrderedDict[str, torch.Tensor],
+    coverage: OrderedDict[str, torch.Tensor],
+    config: CoverageConfig,
+) -> dict[str, float]:
+    if config.coverage_power <= 0.0 or config.max_block_weight <= 1.0:
+        return {}
+
+    coverage_values: list[torch.Tensor] = []
+    gain_values: list[torch.Tensor] = []
+    for key, coverage_tensor in coverage.items():
+        mask = coverage_tensor > 0
+        if not mask.any():
+            continue
+        safe_mass = coverage_tensor[mask].clamp_min(float(config.min_observed_mass))
+        gain = safe_mass.pow(-float(config.coverage_power)).clamp(
+            min=1.0,
+            max=float(config.max_block_weight),
+        )
+        aggregate[key][mask] *= gain.to(dtype=aggregate[key].dtype)
+        coverage_values.append(coverage_tensor[mask].detach().flatten().cpu())
+        gain_values.append(gain.detach().flatten().cpu())
+
+    if not coverage_values or not gain_values:
+        return {}
+    all_coverage = torch.cat(coverage_values)
+    all_gains = torch.cat(gain_values)
+    return {
+        "mass_mean": float(all_coverage.mean().item()),
+        "mass_min": float(all_coverage.min().item()),
+        "mass_max": float(all_coverage.max().item()),
+        "gain_mean": float(all_gains.mean().item()),
+        "gain_max": float(all_gains.max().item()),
+    }
 
 
 def _staleness_weight(mode: str, alpha: float, staleness: int, *, buffer_size: int = 1) -> float:
@@ -151,19 +251,23 @@ def _dispatch_train_message(
     lr: float,
     global_model_rate: float,
     server_step: int,
+    model_rate: float | None = None,
+    arrays_state: OrderedDict[str, torch.Tensor] | None = None,
     partition_plan_entry: dict[str, int | str] | None = None,
 ) -> str:
+    local_model_rate = float(global_model_rate if model_rate is None else model_rate)
     config = {
         "lr": float(lr),
-        "model-rate": float(global_model_rate),
+        "model-rate": local_model_rate,
         "global-model-rate": float(global_model_rate),
     }
     if partition_plan_entry is not None:
         config.update(partition_plan_entry)
+    state_to_send = current_state if arrays_state is None else arrays_state
     message = Message(
         content=RecordDict(
             {
-                "arrays": ArrayRecord(_clone_state(current_state)),
+                "arrays": ArrayRecord(_clone_state(state_to_send)),
                 "config": ConfigRecord(config),
             }
         ),
@@ -211,11 +315,50 @@ def _dispatch_eval_messages(
 
 
 def _async_method_title(method_label: str) -> str:
+    if method_label == "fedcover":
+        return "FedCover"
     if method_label == "fedstaleweight":
         return "FedStaleWeight"
     if method_label == "fedbuff":
         return "FedBuff"
     return method_label
+
+
+class _FedCoverSubmodelEvaluator:
+    def __init__(
+        self,
+        *,
+        rate_assigner: ModelRateAssigner,
+        partition_plan_by_node_id: dict[int, dict[str, int | str]],
+        global_model_rate: float,
+    ) -> None:
+        self.rate_assigner = rate_assigner
+        self.partition_plan_by_node_id = partition_plan_by_node_id
+        self.global_model_rate = global_model_rate
+
+    def build_param_indices(
+        self,
+        global_state: OrderedDict[str, torch.Tensor],
+        *,
+        model_rate: float,
+        server_round: int,
+    ) -> ParamIndex:
+        del server_round
+        return build_param_indices_for_rate(
+            global_state,
+            model_rate,
+            global_model_rate=self.global_model_rate,
+        )
+
+    def submodel_eval_rates(self) -> tuple[float, ...]:
+        return self.rate_assigner.eval_rates(global_model_rate=self.global_model_rate)
+
+
+def _rate_metric_token(rate: float) -> str:
+    text = f"{float(rate):.4f}".rstrip("0")
+    if text.endswith("."):
+        text += "0"
+    return text.replace(".", "p")
 
 
 def _log_async_loop_header(
@@ -250,6 +393,16 @@ def run_fedbuff_server(
     *,
     method_label: str = "fedbuff",
     staleness_mode_override: str | None = None,
+    staleness_alpha_override: float | None = None,
+    buffer_size_override: int | None = None,
+    train_concurrency_override: int | None = None,
+    poll_interval_s_override: float | None = None,
+    num_server_steps_override: int | None = None,
+    evaluate_every_steps_override: int | None = None,
+    server_learning_rate_override: float | None = None,
+    client_trip_budget_override: int | None = None,
+    rate_assigner: ModelRateAssigner | None = None,
+    coverage_config: CoverageConfig | None = None,
 ) -> None:
     total_start = time.perf_counter()
     task = resolve_task(get_str(context.run_config, "task"))
@@ -260,14 +413,6 @@ def run_fedbuff_server(
         set_global_seed(derive_seed(base_seed, method_label, "server-init", task.name))
 
     global_model_rate = get_float(context.run_config, "global-model-rate")
-    configured_rates = [global_model_rate]
-    experiment_logger.log_model_catalog(
-        build_model_catalog(
-            task.name,
-            global_model_rate=global_model_rate,
-            model_rates=configured_rates,
-        )
-    )
     initial_model = task.build_model_for_rate(global_model_rate, global_model_rate=global_model_rate)
     current_state = _clone_state(initial_model.state_dict())
     current_arrays = ArrayRecord(current_state)
@@ -281,16 +426,62 @@ def run_fedbuff_server(
         device_type_by_node_id=node_device_map,
     )
 
-    concurrency = get_fedbuff_train_concurrency(context.run_config) or get_int(context.run_config, "min-available-nodes")
+    if rate_assigner is not None:
+        rate_assigner.set_node_capabilities(node_device_map)
+        rate_assigner.set_typed_partition_plan(partition_plan_by_node_id)
+        configured_rates = rate_assigner.eval_rates(global_model_rate=global_model_rate)
+    else:
+        configured_rates = (global_model_rate,)
+    experiment_logger.log_model_catalog(
+        build_model_catalog(
+            task.name,
+            global_model_rate=global_model_rate,
+            model_rates=configured_rates,
+        )
+    )
+
+    configured_concurrency = (
+        train_concurrency_override
+        if train_concurrency_override is not None
+        else get_fedbuff_train_concurrency(context.run_config)
+    )
+    concurrency = configured_concurrency or get_int(
+        context.run_config,
+        "min-available-nodes",
+    )
     concurrency = max(1, min(concurrency, len(node_ids)))
-    buffer_size = get_fedbuff_buffer_size(context.run_config)
-    num_server_steps = get_fedbuff_num_server_steps(context.run_config)
-    evaluate_every_steps = max(1, get_fedbuff_evaluate_every_steps(context.run_config))
-    poll_interval_s = get_fedbuff_poll_interval_s(context.run_config)
+    buffer_size = (
+        buffer_size_override
+        if buffer_size_override is not None
+        else get_fedbuff_buffer_size(context.run_config)
+    )
+    num_server_steps = (
+        num_server_steps_override
+        if num_server_steps_override is not None
+        else get_fedbuff_num_server_steps(context.run_config)
+    )
+    evaluate_every_steps = max(
+        1,
+        evaluate_every_steps_override
+        if evaluate_every_steps_override is not None
+        else get_fedbuff_evaluate_every_steps(context.run_config),
+    )
+    poll_interval_s = (
+        poll_interval_s_override
+        if poll_interval_s_override is not None
+        else get_fedbuff_poll_interval_s(context.run_config)
+    )
     staleness_mode = staleness_mode_override or get_fedbuff_staleness_weighting(context.run_config)
-    staleness_alpha = get_fedbuff_staleness_alpha(context.run_config)
-    server_learning_rate = get_fedbuff_server_learning_rate(context.run_config)
-    client_eval_enabled = get_client_eval_enabled(context.run_config)
+    staleness_alpha = (
+        staleness_alpha_override
+        if staleness_alpha_override is not None
+        else get_fedbuff_staleness_alpha(context.run_config)
+    )
+    server_learning_rate = (
+        server_learning_rate_override
+        if server_learning_rate_override is not None
+        else get_fedbuff_server_learning_rate(context.run_config)
+    )
     final_client_eval_enabled = get_final_client_eval_enabled(context.run_config)
     lr = get_float(context.run_config, "learning-rate")
     tracked_devices = ("rpi4", "rpi5")
@@ -311,7 +502,11 @@ def run_fedbuff_server(
     target_controller = TargetStopController.from_task(
         task,
         context.run_config,
-        client_trip_budget=_async_client_trip_budget(context.run_config),
+        client_trip_budget=(
+            client_trip_budget_override
+            if client_trip_budget_override is not None
+            else _async_client_trip_budget(context.run_config)
+        ),
     )
     _log_async_loop_header(
         method_label=method_label,
@@ -324,12 +519,24 @@ def run_fedbuff_server(
         staleness_alpha=staleness_alpha,
         client_trip_budget=target_controller.client_trip_budget,
     )
+    submodel_evaluator = (
+        _FedCoverSubmodelEvaluator(
+            rate_assigner=rate_assigner,
+            partition_plan_by_node_id=partition_plan_by_node_id,
+            global_model_rate=global_model_rate,
+        )
+        if rate_assigner is not None
+        else None
+    )
     evaluate = central_evaluate_fn(
         context,
+        grid=grid if submodel_evaluator is not None else None,
+        strategy=submodel_evaluator,
         method_label=method_label,
         experiment_logger=experiment_logger,
         artifact_logger=artifact_logger,
         progress_provider=lambda: dict(progress_state),
+        num_server_rounds=num_server_steps if submodel_evaluator is not None else None,
     )
     initial_eval = evaluate(0, current_arrays)
     if initial_eval is not None:
@@ -360,6 +567,19 @@ def run_fedbuff_server(
                     break
             if selected is None:
                 break
+            selected_model_rate = global_model_rate
+            selected_param_idx: ParamIndex | None = None
+            selected_state: OrderedDict[str, torch.Tensor] | None = None
+            if rate_assigner is not None:
+                selected_model_rate = float(
+                    rate_assigner.assign_for_round([selected], server_step)[selected]
+                )
+                selected_param_idx = build_param_indices_for_rate(
+                    current_state,
+                    selected_model_rate,
+                    global_model_rate=global_model_rate,
+                )
+                selected_state = slice_state_dict(current_state, selected_param_idx)
             message_id = _dispatch_train_message(
                 grid=grid,
                 node_id=selected,
@@ -367,6 +587,8 @@ def run_fedbuff_server(
                 lr=lr,
                 global_model_rate=global_model_rate,
                 server_step=server_step,
+                model_rate=selected_model_rate,
+                arrays_state=selected_state,
                 partition_plan_entry=partition_plan_by_node_id.get(selected),
             )
             inflight[message_id] = _InflightRequest(
@@ -375,6 +597,8 @@ def run_fedbuff_server(
                 device_type=node_device_map.get(selected, "unknown"),
                 server_model_version_sent=server_step,
                 wall_clock_dispatch_s=time.perf_counter(),
+                model_rate=selected_model_rate,
+                param_idx=selected_param_idx,
             )
             busy_nodes.add(selected)
 
@@ -403,20 +627,20 @@ def run_fedbuff_server(
             local_state = reply.content["arrays"].to_torch_state_dict()
             sent_state = model_history[request.server_model_version_sent]
             staleness = max(0, server_step - request.server_model_version_sent)
-            weight = _staleness_weight(staleness_mode, staleness_alpha, staleness, buffer_size=buffer_size)
-            queue_latency_s = time.perf_counter() - request.wall_clock_dispatch_s
-            delta = OrderedDict(
-                (
-                    key,
-                    sent_state[key].detach().clone() - local_state[key].detach().clone(),
-                )
-                for key in sent_state
+            weight = _staleness_weight(
+                staleness_mode,
+                staleness_alpha,
+                staleness,
+                buffer_size=buffer_size,
             )
+            queue_latency_s = time.perf_counter() - request.wall_clock_dispatch_s
+            delta = _build_local_delta(sent_state, local_state, request.param_idx)
             trip_index = client_trips_total + 1
             update = _BufferedUpdate(
                 trip_index=trip_index,
                 node_id=request.node_id,
                 device_type=request.device_type,
+                model_rate=request.model_rate,
                 staleness=staleness,
                 weight=weight,
                 train_duration_s=float(metrics.get("train-duration-s", 0.0)),
@@ -425,6 +649,7 @@ def run_fedbuff_server(
                 train_loss=float(metrics.get("train-loss", 0.0)),
                 queue_latency_s=float(queue_latency_s),
                 netem_metrics=netem_payload_from_metrics(metrics),
+                param_idx=request.param_idx,
                 delta=delta,
             )
             if not buffered_updates:
@@ -452,9 +677,18 @@ def run_fedbuff_server(
                     (key, torch.zeros_like(value))
                     for key, value in current_state.items()
                 )
+                coverage = (
+                    OrderedDict(
+                        (key, torch.zeros_like(value, dtype=torch.float32))
+                        for key, value in current_state.items()
+                    )
+                    if coverage_config is not None
+                    else None
+                )
                 train_loss = 0.0
                 staleness_values = [entry.staleness for entry in buffered_updates]
                 train_durations = [entry.train_duration_s for entry in buffered_updates]
+                round_model_rates = [entry.model_rate for entry in buffered_updates]
                 normalized_weights: list[float]
                 if staleness_mode == "fair":
                     total_weight = sum(entry.weight for entry in buffered_updates)
@@ -468,9 +702,16 @@ def run_fedbuff_server(
                 device_weight_totals = {device: 0.0 for device in tracked_devices}
                 device_update_counts = {device: 0 for device in tracked_devices}
                 device_staleness_sums = {device: 0.0 for device in tracked_devices}
+                rate_weight_totals: dict[str, float] = {}
+                rate_update_counts: dict[str, int] = {}
                 for entry, normalized_weight in zip(buffered_updates, normalized_weights, strict=True):
                     by_device.setdefault(entry.device_type, []).append(entry)
                     train_loss += entry.train_loss
+                    rate_token = _rate_metric_token(entry.model_rate)
+                    rate_weight_totals[rate_token] = (
+                        rate_weight_totals.get(rate_token, 0.0) + normalized_weight
+                    )
+                    rate_update_counts[rate_token] = rate_update_counts.get(rate_token, 0) + 1
                     if entry.device_type in tracked_devices:
                         device_weight_totals[entry.device_type] += normalized_weight
                         device_update_counts[entry.device_type] += 1
@@ -478,8 +719,18 @@ def run_fedbuff_server(
                         cumulative_update_counts[entry.device_type] += 1
                         cumulative_weight_totals[entry.device_type] += normalized_weight
                         cumulative_staleness_sums[entry.device_type] += float(entry.staleness)
-                    for key, tensor in entry.delta.items():
-                        aggregate[key].add_(tensor, alpha=normalized_weight)
+                    _scatter_weighted_delta(
+                        aggregate,
+                        coverage,
+                        entry.delta,
+                        entry.param_idx,
+                        weight=normalized_weight,
+                    )
+                coverage_metrics = (
+                    _apply_coverage_correction(aggregate, coverage, coverage_config)
+                    if coverage is not None and coverage_config is not None
+                    else {}
+                )
                 # FedBuff applies a separate server-side step size eta_g to the
                 # buffered aggregate. Keep that explicit instead of baking it
                 # into the aggregate scaling itself.
@@ -508,9 +759,10 @@ def run_fedbuff_server(
                 train_metrics = MetricRecord(
                     {
                         "train-loss": train_loss / len(buffered_updates),
-                        "round-model-rate-avg": global_model_rate,
-                        "round-model-rate-min": global_model_rate,
-                        "round-model-rate-max": global_model_rate,
+                        "round-model-rate-avg": sum(round_model_rates)
+                        / len(round_model_rates),
+                        "round-model-rate-min": min(round_model_rates),
+                        "round-model-rate-max": max(round_model_rates),
                         "round-successful-train-replies": len(buffered_updates),
                     }
                 )
@@ -524,6 +776,7 @@ def run_fedbuff_server(
                         "server_step_applied": server_step,
                         "node_id": entry.node_id,
                         "device_type": entry.device_type,
+                        "model_rate": float(entry.model_rate),
                         "update_staleness_server_steps": entry.staleness,
                         "update_train_duration_s": entry.train_duration_s,
                         "update_num_examples": entry.num_examples,
@@ -549,6 +802,9 @@ def run_fedbuff_server(
                         "inflight_clients": len(inflight),
                     }
                 )
+                if coverage_metrics:
+                    for key, value in coverage_metrics.items():
+                        fedbuff_metrics[f"coverage_{key}"] = float(value)
                 experiment_logger.log_async_metrics(method_label, server_step, fedbuff_metrics)
                 fairness_metrics = MetricRecord(
                     {
@@ -582,6 +838,9 @@ def run_fedbuff_server(
                     "round-train-client-duration-max-s": max(train_durations),
                     "round-train-client-duration-std-s": math.sqrt(variance),
                     "round-train-straggler-gap-s": max(train_durations) - min(train_durations),
+                    "round-model-rate-avg": sum(round_model_rates) / len(round_model_rates),
+                    "round-model-rate-min": min(round_model_rates),
+                    "round-model-rate-max": max(round_model_rates),
                     "fairness_weight_jain": float(fairness_metrics["weight_jain"]),
                     "fairness_update_count_jain": float(fairness_metrics["update_count_jain"]),
                     "fairness_device_weight_share_rpi4": float(fairness_metrics["device_weight_share_rpi4"]),
@@ -593,13 +852,27 @@ def run_fedbuff_server(
                     "updates_per_second": len(buffered_updates) / max(float(buffer_fill_duration_s), 1e-6),
                 }
                 for device_type, entries in by_device.items():
-                    system_metrics[f"{device_type}_train_duration_mean_s"] = sum(e.train_duration_s for e in entries) / len(entries)
-                    system_metrics[f"{device_type}_examples_per_second_mean"] = sum(e.examples_per_second for e in entries) / len(entries)
+                    system_metrics[f"{device_type}_train_duration_mean_s"] = sum(
+                        e.train_duration_s for e in entries
+                    ) / len(entries)
+                    system_metrics[f"{device_type}_examples_per_second_mean"] = sum(
+                        e.examples_per_second for e in entries
+                    ) / len(entries)
                     system_metrics[f"{device_type}_updates_accepted"] = len(entries)
+                for rate_token, value in rate_weight_totals.items():
+                    system_metrics[f"rate_{rate_token}_weight_share"] = float(value)
+                for rate_token, value in rate_update_counts.items():
+                    system_metrics[f"rate_{rate_token}_updates_accepted"] = int(value)
+                    system_metrics[f"rate_{rate_token}_update_share"] = value / max(
+                        len(buffered_updates),
+                        1,
+                    )
+                for key, value in coverage_metrics.items():
+                    system_metrics[f"fedcover_{key}"] = float(value)
                 system_metrics.update(
                     summarize_round_costs(
                         task.name,
-                        [global_model_rate for _ in buffered_updates],
+                        round_model_rates,
                         global_model_rate=global_model_rate,
                     )
                 )
@@ -641,6 +914,16 @@ def run_fedbuff_server(
                             f" weight_share_rpi5={device_weight_totals['rpi5']:.2f}"
                             f" update_share_rpi4={device_update_counts['rpi4'] / max(len(buffered_updates), 1):.2f}"
                             f" update_share_rpi5={device_update_counts['rpi5'] / max(len(buffered_updates), 1):.2f}"
+                        ),
+                    )
+                if coverage_metrics:
+                    server_log(
+                        method_label=method_label,
+                        message=(
+                            "coverage"
+                            f" mass_mean={coverage_metrics['mass_mean']:.3f}"
+                            f" gain_mean={coverage_metrics['gain_mean']:.3f}"
+                            f" gain_max={coverage_metrics['gain_max']:.3f}"
                         ),
                     )
                 if server_step % evaluate_every_steps == 0:

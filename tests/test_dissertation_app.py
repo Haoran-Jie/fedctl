@@ -37,7 +37,10 @@ from fedctl_research.methods.assignment import ModelRateAssigner  # noqa: E402
 from fedctl_research.methods.fedavg.strategy import FedAvgBaseline  # noqa: E402
 from fedctl_research.methods.fedavgm.strategy import FedAvgMStrategy  # noqa: E402
 from fedctl_research.methods.fedbuff.async_loop import (  # noqa: E402
+    CoverageConfig,
     _apply_aggregated_delta,
+    _apply_coverage_correction,
+    _scatter_weighted_delta,
     _staleness_weight,
     run_fedbuff_server,
 )
@@ -287,10 +290,11 @@ def test_preresnet18_slicing_matches_smaller_model_state() -> None:
     local_model.load_state_dict(local_state, strict=True)
 
 
-def test_method_registry_includes_fedavg_fedavgm_fedbuff_fedstaleweight_fedrolex_and_fiarse() -> None:
+def test_method_registry_includes_dissertation_methods() -> None:
     assert hasattr(resolve_method("fedavg"), "run_server")
     assert hasattr(resolve_method("fedavgm"), "run_server")
     assert hasattr(resolve_method("fedbuff"), "run_server")
+    assert hasattr(resolve_method("fedcover"), "run_server")
     assert hasattr(resolve_method("fedstaleweight"), "run_server")
     assert hasattr(resolve_method("fedrolex"), "run_server")
     assert hasattr(resolve_method("fiarse"), "run_server")
@@ -1018,6 +1022,235 @@ def test_fedbuff_applies_aggregated_parameter_delta_with_explicit_server_lr() ->
 
     assert new_state["weight"].item() == pytest.approx(0.8)
     assert slower_state["weight"].item() == pytest.approx(0.9)
+
+
+def test_fedcover_scatter_delta_tracks_coverage_and_upweights_observed_blocks() -> None:
+    aggregate = OrderedDict(
+        {
+            "weight": torch.zeros(2, 2),
+            "bias": torch.zeros(2),
+        }
+    )
+    coverage = OrderedDict(
+        {
+            "weight": torch.zeros(2, 2),
+            "bias": torch.zeros(2),
+        }
+    )
+    param_idx = {
+        "weight": (torch.tensor([0]), torch.tensor([0, 1])),
+        "bias": torch.tensor([0]),
+    }
+    delta = OrderedDict(
+        {
+            "weight": torch.tensor([[0.2, 0.4]]),
+            "bias": torch.tensor([0.6]),
+        }
+    )
+
+    _scatter_weighted_delta(aggregate, coverage, delta, param_idx, weight=0.5)
+
+    assert aggregate["weight"][0, 0].item() == pytest.approx(0.1)
+    assert aggregate["weight"][0, 1].item() == pytest.approx(0.2)
+    assert aggregate["weight"][1, 0].item() == pytest.approx(0.0)
+    assert aggregate["bias"][0].item() == pytest.approx(0.3)
+    assert coverage["weight"][0, 0].item() == pytest.approx(0.5)
+    assert coverage["weight"][1, 0].item() == pytest.approx(0.0)
+
+    metrics = _apply_coverage_correction(
+        aggregate,
+        coverage,
+        CoverageConfig(
+            coverage_power=0.5,
+            max_block_weight=2.0,
+            min_observed_mass=0.15,
+        ),
+    )
+
+    expected_gain = 0.5 ** -0.5
+    assert aggregate["weight"][0, 0].item() == pytest.approx(0.1 * expected_gain)
+    assert aggregate["weight"][1, 0].item() == pytest.approx(0.0)
+    assert metrics["gain_max"] == pytest.approx(expected_gain)
+
+
+def test_fedcover_async_loop_dispatches_submodels_and_logs_coverage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _FakeModel(dict):
+        def state_dict(self):
+            return OrderedDict(
+                {
+                    "features.weight": torch.zeros(2, 2),
+                    "features.bias": torch.zeros(2),
+                    "classifier.weight": torch.zeros(1, 2),
+                    "classifier.bias": torch.zeros(1),
+                }
+            )
+
+    class _FakeTask:
+        name = "fake_task"
+        primary_score_name = "acc"
+        primary_score_direction = "max"
+
+        def build_model_for_rate(self, model_rate: float, *, global_model_rate: float = 1.0):
+            del model_rate, global_model_rate
+            return _FakeModel()
+
+        def load_model_state(self, model, state_dict) -> None:
+            model.clear()
+            model.update(state_dict)
+
+        def load_centralized_test_dataset(self, batch_size: int = 256, *, seed: int | None = None):
+            del batch_size, seed
+            return ["fake_loader"]
+
+        def test(self, model, testloader, device: str):
+            del testloader, device
+            total = sum(float(tensor.float().sum().item()) for tensor in model.values())
+            return 0.25, total
+
+    class _FakeAsyncGrid:
+        def __init__(self) -> None:
+            self._counter = 0
+            self._pending: dict[str, Message] = {}
+            self.sent_rates: list[float] = []
+            self.sent_shapes: list[dict[str, tuple[int, ...]]] = []
+
+        def get_node_ids(self):
+            return [1, 2]
+
+        def push_messages(self, messages):
+            message_ids = []
+            for message in messages:
+                self._counter += 1
+                message_id = f"msg-{self._counter}"
+                self._pending[message_id] = message
+                config = message.content["config"]
+                state = message.content["arrays"].to_torch_state_dict()
+                self.sent_rates.append(float(config["model-rate"]))
+                self.sent_shapes.append({key: tuple(value.shape) for key, value in state.items()})
+                message_ids.append(message_id)
+            return message_ids
+
+        def pull_messages(self, message_ids):
+            replies = []
+            for message_id in message_ids:
+                message = self._pending.pop(message_id, None)
+                if message is None:
+                    continue
+                sent_state = message.content["arrays"].to_torch_state_dict()
+                local_state = OrderedDict(
+                    (key, value.detach().clone() - 0.1)
+                    for key, value in sent_state.items()
+                )
+                replies.append(
+                    _make_message(
+                        node_id=message.metadata.dst_node_id,
+                        group_id=message.metadata.group_id,
+                        array_state=local_state,
+                        metrics={
+                            "train-duration-s": 0.5,
+                            "train-num-examples": 50,
+                            "num-examples": 50,
+                            "examples-per-second": 100.0,
+                            "train-loss": 0.2,
+                        },
+                        reply_to_message_id=message_id,
+                    )
+                )
+            return replies
+
+    logger = _Logger()
+    artifacts = _ArtifactLogger()
+    monkeypatch.setattr("fedctl_research.methods.fedbuff.async_loop.resolve_task", lambda _name: _FakeTask())
+    monkeypatch.setattr(
+        "fedctl_research.methods.fedbuff.async_loop.create_experiment_logger",
+        lambda _context: logger,
+    )
+    monkeypatch.setattr(
+        "fedctl_research.methods.fedbuff.async_loop.create_result_artifact_logger",
+        lambda _context: artifacts,
+    )
+    monkeypatch.setattr(
+        "fedctl_research.methods.fedbuff.async_loop.build_model_catalog",
+        lambda *args, **kwargs: {},
+    )
+    monkeypatch.setattr(
+        "fedctl_research.methods.fedbuff.async_loop.summarize_round_costs",
+        lambda *args, **kwargs: {},
+    )
+    monkeypatch.setattr(
+        "fedctl_research.methods.fedbuff.async_loop.discover_node_device_types",
+        lambda grid, context: {1: "rpi4", 2: "rpi5"},
+    )
+    monkeypatch.setattr("fedctl_research.methods.runtime.resolve_task", lambda _name: _FakeTask())
+
+    context = SimpleNamespace(
+        run_config={
+            "task": "fake_task",
+            "method": "fedcover",
+            "learning-rate": 0.01,
+            "global-model-rate": 1.0,
+            "default-model-rate": 0.5,
+            "min-available-nodes": 2,
+            "client-eval-enabled": False,
+            "final-client-eval-enabled": False,
+            "submodel-local-eval-enabled": False,
+            "fedcover-train-concurrency": 2,
+            "fedcover-buffer-size": 2,
+            "fedcover-poll-interval-s": 0.0,
+            "fedcover-num-server-steps": 1,
+            "fedcover-evaluate-every-steps": 1,
+            "fedcover-base-staleness-weighting": "polynomial",
+            "fedcover-staleness-alpha": 0.5,
+            "fedcover-server-learning-rate": 0.5,
+            "heterofl-device-type-allocations": "rpi4:0.5@1;rpi5:1.0@1",
+            "model-split-mode": "fix",
+        },
+        node_config={},
+    )
+    rate_assigner = ModelRateAssigner(
+        mode="fix",
+        default_model_rate=0.5,
+        explicit_rate_by_node_id={},
+        explicit_rate_by_partition_id={},
+        rate_by_device_type={},
+        device_type_by_node_id={},
+        partition_id_by_node_id={},
+        dynamic_levels=(1.0, 0.5),
+        dynamic_proportions=(0.5, 0.5),
+        device_type_allocations={"rpi4": ((0.5, 1),), "rpi5": ((1.0, 1),)},
+    )
+    grid = _FakeAsyncGrid()
+
+    run_fedbuff_server(
+        grid,
+        context,
+        method_label="fedcover",
+        staleness_mode_override="polynomial",
+        staleness_alpha_override=0.5,
+        buffer_size_override=2,
+        train_concurrency_override=2,
+        poll_interval_s_override=0.0,
+        num_server_steps_override=1,
+        evaluate_every_steps_override=1,
+        server_learning_rate_override=0.5,
+        client_trip_budget_override=2,
+        rate_assigner=rate_assigner,
+        coverage_config=CoverageConfig(
+            coverage_power=0.5,
+            max_block_weight=2.0,
+            min_observed_mass=0.15,
+        ),
+    )
+
+    assert grid.sent_rates[:2] == [0.5, 1.0]
+    assert grid.sent_shapes[0]["features.weight"] == (1, 2)
+    assert grid.sent_shapes[1]["features.weight"] == (2, 2)
+    assert logger.async_calls[-1][0] == "fedcover"
+    assert logger.async_calls[-1][2]["coverage_gain_max"] > 1.0
+    assert artifacts.client_updates[-2]["model_rate"] == pytest.approx(0.5)
+    assert artifacts.client_updates[-1]["model_rate"] == pytest.approx(1.0)
 
 
 def test_fedrolex_rolling_indices_change_across_rounds() -> None:
@@ -2391,6 +2624,7 @@ def test_app_base_config_includes_target_stop_keys() -> None:
     assert "stop-on-target-score" in base_config
     assert "submodel-local-eval-enabled" in base_config
     assert "fedbuff-server-learning-rate" in base_config
+    assert "fedcover-coverage-power" in base_config
     assert "partitioning-total-partitions" in base_config
 
 
@@ -2684,6 +2918,7 @@ def test_submodel_local_eval_defaults_on_for_submodel_methods() -> None:
     assert get_submodel_local_eval_enabled({"method": "heterofl"}) is True
     assert get_submodel_local_eval_enabled({"method": "fedrolex"}) is True
     assert get_submodel_local_eval_enabled({"method": "fiarse"}) is True
+    assert get_submodel_local_eval_enabled({"method": "fedcover"}) is True
     assert get_submodel_local_eval_enabled({"method": "fedavg"}) is False
 
 
@@ -2789,6 +3024,7 @@ def test_run_config_tree_matches_study_matrix() -> None:
         "smoke/compute_heterogeneity/fashion_mnist_mlp/fedavg.toml",
         "smoke/compute_heterogeneity/fashion_mnist_mlp/heterofl.toml",
         "smoke/compute_heterogeneity/fashion_mnist_mlp/fedrolex.toml",
+        "smoke/compute_heterogeneity/fashion_mnist_mlp/fedcover.toml",
         "compute_heterogeneity/main/fashion_mnist_cnn/fedavg.toml",
         "compute_heterogeneity/main/fashion_mnist_cnn/heterofl.toml",
         "compute_heterogeneity/main/fashion_mnist_cnn/fedrolex.toml",

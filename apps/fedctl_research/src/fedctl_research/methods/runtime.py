@@ -782,7 +782,7 @@ def central_evaluate_fn(
             and strategy is not None
             and num_server_rounds is not None
             and server_round == num_server_rounds
-            and method_label in {"heterofl", "fedrolex", "fiarse"}
+            and method_label in {"heterofl", "fedrolex", "fiarse", "fedcover"}
         ):
             try:
                 run_submodel_evaluations(
