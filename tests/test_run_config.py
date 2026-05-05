@@ -83,9 +83,17 @@ def test_resolve_run_config_normalizes_nested_project_relative_file(tmp_path: Pa
                 "train-concurrency = 4",
                 "server-learning-rate = 0.5",
                 "",
-                    "[fiarse]",
-                    'threshold-mode = "layerwise"',
-                    "global-learning-rate = 0.75",
+                "[fedcover]",
+                "buffer-size = 5",
+                "train-concurrency = 4",
+                "server-learning-rate = 0.5",
+                "coverage-power = 0.5",
+                "max-block-weight = 2.0",
+                "min-observed-mass = 0.15",
+                "",
+                "[fiarse]",
+                'threshold-mode = "layerwise"',
+                "global-learning-rate = 0.75",
                 "",
                 "[evaluation]",
                 "client-eval-enabled = false",
@@ -129,6 +137,12 @@ def test_resolve_run_config_normalizes_nested_project_relative_file(tmp_path: Pa
     assert normalized["fedbuff-buffer-size"] == 10
     assert normalized["fedbuff-train-concurrency"] == 4
     assert normalized["fedbuff-server-learning-rate"] == 0.5
+    assert normalized["fedcover-buffer-size"] == 5
+    assert normalized["fedcover-train-concurrency"] == 4
+    assert normalized["fedcover-server-learning-rate"] == 0.5
+    assert normalized["fedcover-coverage-power"] == 0.5
+    assert normalized["fedcover-max-block-weight"] == 2.0
+    assert normalized["fedcover-min-observed-mass"] == 0.15
     assert normalized["fiarse-threshold-mode"] == "layerwise"
     assert normalized["fiarse-global-learning-rate"] == 0.75
     assert normalized["client-eval-enabled"] is False

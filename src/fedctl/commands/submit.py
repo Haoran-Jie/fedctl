@@ -30,6 +30,7 @@ from fedctl.config.deploy import (
     get_image_registry,
     rewrite_image_registry,
     resolve_deploy_config,
+    resolve_effective_deploy_config,
 )
 from fedctl.nomad.client import NomadClient
 from fedctl.nomad.errors import NomadConnectionError, NomadHTTPError, NomadTLSError
@@ -186,13 +187,12 @@ def run_submit(
                 artifact_store=artifact_store,
                 priority=priority,
             )
-    deploy_supernodes = _deploy_supernodes(deploy_cfg)
+    effective_deploy_cfg = resolve_effective_deploy_config(deploy_cfg)
+    deploy_supernodes = effective_deploy_cfg.supernodes
     if not supernodes and deploy_supernodes:
         supernodes = [f"{device_type}={count}" for device_type, count in deploy_supernodes.items()]
     if allow_oversubscribe is None:
-        deploy_allow_oversubscribe = _deploy_allow_oversubscribe(deploy_cfg)
-        if deploy_allow_oversubscribe is not None:
-            allow_oversubscribe = deploy_allow_oversubscribe
+        allow_oversubscribe = bool(effective_deploy_cfg.allow_oversubscribe)
 
     submit_client = _submit_service_client(
         deploy_cfg=deploy_cfg,
@@ -1109,36 +1109,6 @@ def _build_project_archive(
             arcname = Path(project_root.name) / run_config_arcname
             tar.add(run_config_path, arcname=arcname)
     return archive_path
-
-
-def _deploy_supernodes(deploy_cfg: dict[str, object]) -> dict[str, int]:
-    deploy = deploy_cfg.get("deploy")
-    if not isinstance(deploy, dict):
-        return {}
-    raw = deploy.get("supernodes")
-    if not isinstance(raw, dict):
-        return {}
-
-    counts: dict[str, int] = {}
-    for key, value in raw.items():
-        try:
-            count = int(value)
-        except (TypeError, ValueError):
-            continue
-        if count > 0:
-            counts[str(key)] = count
-    return counts
-
-
-def _deploy_allow_oversubscribe(deploy_cfg: dict[str, object]) -> bool | None:
-    deploy = deploy_cfg.get("deploy")
-    if not isinstance(deploy, dict):
-        return None
-    placement = deploy.get("placement")
-    if not isinstance(placement, dict):
-        return None
-    value = placement.get("allow_oversubscribe")
-    return bool(value) if isinstance(value, bool) else None
 
 
 def _runner_args(

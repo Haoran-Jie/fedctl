@@ -18,8 +18,8 @@ class SuperLinkSpec:
 class SuperNodesSpec:
     count: int
     by_type: dict[str, int] | None = None
-    allow_oversubscribe: bool = False
-    prefer_spread_across_hosts: bool = False
+    allow_oversubscribe: bool = True
+    prefer_spread_across_hosts: bool = True
     placements: list["SupernodePlacement"] | None = None
     network: NetworkPlan | None = None
     netem_image: str | None = None
@@ -67,8 +67,8 @@ def default_deploy_spec(
     namespace: str = "default",
     experiment: str,
     supernodes_by_type: dict[str, int] | None = None,
-    allow_oversubscribe: bool = False,
-    prefer_spread_across_hosts: bool = False,
+    allow_oversubscribe: bool = True,
+    prefer_spread_across_hosts: bool = True,
     placements: list["SupernodePlacement"] | None = None,
     network_plan: NetworkPlan | None = None,
     netem_image: str | None = None,

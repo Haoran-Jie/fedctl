@@ -197,6 +197,8 @@ def test_run_submit_passes_submit_service_context_to_artifact_upload(
     assert submit_request["project_root"] == str(project_root.resolve())
     assert "fedctl submit run" in submit_request["command_preview"]
     assert submit_request["options"]["experiment"] == "demo-exp"
+    assert submit_request["options"]["allow_oversubscribe"] is True
+    assert "--allow-oversubscribe" in captured["submission_payload"]["args"]
 
 
 def test_run_submit_requires_token_for_default_submit_service(
