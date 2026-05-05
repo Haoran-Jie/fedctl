@@ -33,9 +33,21 @@ RUNS = (
     ("jdjkltsl", "HeteroFL", "iid", 1337),
     ("qxlnfxpu", "FedRolex", "iid", 1337),
     ("dj71fc89", "FIARSE", "iid", 1337),
+    ("xvv42lhp", "HeteroFL", "iid", 1338),
+    ("aqp1lqf0", "FedRolex", "iid", 1338),
+    ("kcfdru6l", "FIARSE", "iid", 1338),
+    ("s6xu068x", "HeteroFL", "iid", 1339),
+    ("0yz8b23m", "FedRolex", "iid", 1339),
+    ("66zq0d4z", "FIARSE", "iid", 1339),
     ("5trnnxj2", "HeteroFL", "noniid", 1337),
     ("tsh2vjv1", "FedRolex", "noniid", 1337),
     ("2iu154j5", "FIARSE", "noniid", 1337),
+    ("49hi9noh", "HeteroFL", "noniid", 1338),
+    ("hqmj4lfs", "FedRolex", "noniid", 1338),
+    ("z1v7ltt3", "FIARSE", "noniid", 1338),
+    ("6k7yzcy4", "HeteroFL", "noniid", 1339),
+    ("w03zmccr", "FedRolex", "noniid", 1339),
+    ("ofh24bbr", "FIARSE", "noniid", 1339),
 )
 
 RATE_ORDER = (0.125, 0.25, 0.5, 1.0)
@@ -138,6 +150,8 @@ def main() -> None:
                 rows = _download_rows(api, run_id, method, regime, seed)
                 all_rows.extend(rows)
         except Exception:
+            if force_refresh_requested():
+                raise
             cache_path = plot_output_path("compute_main_california_local_submodel_distributions_raw.csv")
             if not cache_path.exists():
                 raise
@@ -208,10 +222,10 @@ def main() -> None:
         {
             "task": TASK,
             "coverage_fraction_overall": {
-                "with_table_runs": len(per_run_coverage),
-                "total_completed_heterogeneous_runs": 18,
+                "with_table_runs": sum(item["rows"] > 0 for item in per_run_coverage),
+                "total_expected_heterogeneous_runs": len(RUNS),
             },
-            "coverage_note": "Usable local-client tables exist for exactly one seed (1337) in each method x regime branch.",
+            "coverage_note": "Usable local-client tables exist for seeds 1337, 1338, and 1339 in every method x regime branch.",
             "runs": per_run_coverage,
         },
     )
