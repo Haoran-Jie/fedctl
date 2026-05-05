@@ -1,6 +1,6 @@
-# Research App Repo Configs
+# Research App Deploy Configs
 
-These YAML files are the deployment-side presets used with:
+These YAML files are the deploy config presets used with:
 
 - `fedctl run apps/fedctl_research ...`
 - `fedctl submit run apps/fedctl_research ...`

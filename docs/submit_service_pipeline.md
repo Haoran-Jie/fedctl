@@ -39,7 +39,7 @@ The UI exists because shell output is transient and awkward once several long-ru
 
 - app path, usually `apps/fedctl_research`
 - run-config TOML under `apps/fedctl_research/run_configs/`
-- deploy config under `apps/fedctl_research/repo_configs/`
+- deploy config under `apps/fedctl_research/deploy_configs/`
 - optional image override, experiment name, and scheduling flags
 
 ### Outputs

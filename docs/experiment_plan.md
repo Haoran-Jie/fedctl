@@ -1,6 +1,6 @@
 # Dissertation Experiment Plan
 
-This document is the authoritative source for the dissertation experiment programme. The application-side run-config tree under `apps/fedctl_research/run_configs/` defines the scientific comparisons, while deployment configs under `apps/fedctl_research/repo_configs/` define placement, resources, and network shaping. The plan below is therefore organized around **paper claims and required evidence**, not just around config directories.
+This document is the authoritative source for the dissertation experiment programme. The application-side run-config tree under `apps/fedctl_research/run_configs/` defines the scientific comparisons, while deployment configs under `apps/fedctl_research/deploy_configs/` define placement, resources, and network shaping. The plan below is therefore organized around **paper claims and required evidence**, not just around config directories.
 
 ## Implemented methods and dissertation structure
 
@@ -500,12 +500,12 @@ This section turns the evidence matrix into the concrete post-headline execution
 
 Use these deployment config templates with the application-side configs:
 
-- `apps/fedctl_research/repo_configs/smoke/compute_heterogeneity.yaml`
-- `apps/fedctl_research/repo_configs/smoke/network_heterogeneity.yaml`
-- `apps/fedctl_research/repo_configs/compute_heterogeneity/main/none.yaml`
-- `apps/fedctl_research/repo_configs/network_heterogeneity/main/mixed/none.yaml`
-- `apps/fedctl_research/repo_configs/network_heterogeneity/ablations/deployment_stressors/*.yaml`
-- `apps/fedctl_research/repo_configs/network_heterogeneity/ablations/scale_concurrency/scale_async/*.yaml`
+- `apps/fedctl_research/deploy_configs/smoke/compute_heterogeneity.yaml`
+- `apps/fedctl_research/deploy_configs/smoke/network_heterogeneity.yaml`
+- `apps/fedctl_research/deploy_configs/compute_heterogeneity/main/none.yaml`
+- `apps/fedctl_research/deploy_configs/network_heterogeneity/main/mixed/none.yaml`
+- `apps/fedctl_research/deploy_configs/network_heterogeneity/ablations/deployment_stressors/*.yaml`
+- `apps/fedctl_research/deploy_configs/network_heterogeneity/ablations/scale_concurrency/scale_async/*.yaml`
 
 ## Practical rule
 

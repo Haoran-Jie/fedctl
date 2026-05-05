@@ -318,7 +318,7 @@ def test_network_heterogeneity_run_config_tree_contains_expected_families() -> N
 
 
 def test_fedbuff_deploy_config_tree_contains_expected_profiles() -> None:
-    deploy_root = Path(__file__).resolve().parents[1] / "apps" / "fedctl_research" / "repo_configs"
+    deploy_root = Path(__file__).resolve().parents[1] / "apps" / "fedctl_research" / "deploy_configs"
     expected = [
         deploy_root / "smoke" / "compute_heterogeneity.yaml",
         deploy_root / "smoke" / "network_heterogeneity.yaml",
@@ -3235,12 +3235,12 @@ def test_main_study_configs_match_balanced_twelve_node_plan() -> None:
         assert data["devices"]["rpi5"]["max-test-examples"] == expected_test_examples, str(path)
 
     compute_repo = yaml.safe_load(
-        (app_root / "repo_configs" / "compute_heterogeneity" / "main" / "none.yaml").read_text()
+        (app_root / "deploy_configs" / "compute_heterogeneity" / "main" / "none.yaml").read_text()
     )
     network_mixed_repo = yaml.safe_load(
         (
             app_root
-            / "repo_configs"
+            / "deploy_configs"
             / "network_heterogeneity"
             / "main"
             / "mixed"
@@ -3250,7 +3250,7 @@ def test_main_study_configs_match_balanced_twelve_node_plan() -> None:
     network_all_rpi5_repo = yaml.safe_load(
         (
             app_root
-            / "repo_configs"
+            / "deploy_configs"
             / "network_heterogeneity"
             / "main"
             / "all_rpi5"
