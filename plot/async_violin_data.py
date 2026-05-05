@@ -63,7 +63,7 @@ RUNS = (
     RunSpec('fedbuff', 10, 1338, 'kouohvbb', 'network_main'),
     RunSpec('fedbuff', 10, 1339, 'o7i4mdii', 'network_main'),
     RunSpec('fedstaleweight', 5, 1337, 'qjnt77fk', 'network_stressor_sweep'),
-    # Seed 1338 is intentionally absent until the rerun completes.
+    RunSpec('fedstaleweight', 5, 1338, 'hmg55ujk', 'network_stressor_sweep'),
     RunSpec('fedstaleweight', 5, 1339, 'yk3uqpnh', 'network_stressor_sweep'),
     RunSpec('fedstaleweight', 10, 1337, 'wyc9rjxq', 'network_main'),
     RunSpec('fedstaleweight', 10, 1338, 'b0xxbbi7', 'network_main'),
