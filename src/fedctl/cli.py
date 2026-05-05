@@ -338,7 +338,7 @@ def submit_logs(
             "Example: --job supernodes --index 2"
         ),
     ),
-    stderr: bool = typer.Option(False, "--stderr/--stdout", help="Show stderr or stdout."),
+    stderr: bool | None = typer.Option(None, "--stderr/--stdout", help="Show stderr or stdout."),
     follow: bool = typer.Option(False, "--follow", help="Stream logs."),
 ) -> None:
     """Fetch logs for a submitted job.

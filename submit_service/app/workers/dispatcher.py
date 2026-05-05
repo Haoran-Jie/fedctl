@@ -468,6 +468,8 @@ def _nomad_error_status(exc: NomadError) -> int | None:
 
 
 def _select_report_token(cfg: SubmitConfig) -> str | None:
+    if cfg.report_token:
+        return cfg.report_token
     admin_tokens = [
         token
         for token, identity in cfg.token_identities.items()
@@ -475,8 +477,6 @@ def _select_report_token(cfg: SubmitConfig) -> str | None:
     ]
     if admin_tokens:
         return sorted(admin_tokens)[0]
-    if cfg.tokens:
-        return sorted(cfg.tokens)[0]
     return None
 
 

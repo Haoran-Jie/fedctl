@@ -168,6 +168,89 @@ def test_token_map_enforces_owner_scope_and_admin_override(
     assert admin_cancel_bob.json()["status"] == "cancelled"
 
 
+def test_report_token_can_attach_archived_logs_for_registered_user(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("SUBMIT_REPO_CONFIG", str(tmp_path / "missing-fedctl.yaml"))
+    monkeypatch.setenv("SUBMIT_DB_URL", f"sqlite:///{tmp_path / 'submit.db'}")
+    monkeypatch.setenv(
+        "FEDCTL_SUBMIT_TOKEN_MAP",
+        json.dumps(
+            {
+                "tok-alice": {"name": "alice", "role": "user"},
+                "flwruser1": {"name": "flwruser1", "role": "user"},
+            }
+        ),
+    )
+    monkeypatch.setenv("SUBMIT_REPORT_TOKEN", "tok-report")
+    monkeypatch.delenv("FEDCTL_SUBMIT_TOKENS", raising=False)
+    monkeypatch.setenv("FEDCTL_SUBMIT_ALLOW_UNAUTH", "false")
+    monkeypatch.setenv("SUBMIT_DISPATCH_MODE", "queue")
+    app = create_app()
+    client = TestClient(app)
+
+    alice_headers = {"Authorization": "Bearer tok-alice"}
+    legacy_headers = {"Authorization": "Bearer flwruser1"}
+    report_headers = {"Authorization": "Bearer tok-report"}
+    submission_id = client.post("/v1/submissions", json=_payload(), headers=alice_headers).json()[
+        "submission_id"
+    ]
+
+    rejected = client.post(
+        f"/v1/submissions/{submission_id}/logs",
+        json={
+            "logs_archive": {
+                "schema": "v1",
+                "entries": [
+                    {
+                        "job": "submit",
+                        "index": 1,
+                        "task": "submit",
+                        "stderr": False,
+                        "content": "legacy report should not write",
+                    }
+                ],
+            }
+        },
+        headers=legacy_headers,
+    )
+    assert rejected.status_code == 404
+
+    reported = client.post(
+        f"/v1/submissions/{submission_id}/logs",
+        json={
+            "logs_archive": {
+                "schema": "v1",
+                "entries": [
+                    {
+                        "job": "submit",
+                        "index": 1,
+                        "task": "submit",
+                        "stderr": False,
+                        "content": "archived submit stdout",
+                    }
+                ],
+            }
+        },
+        headers=report_headers,
+    )
+    assert reported.status_code == 200
+
+    report_token_cannot_read = client.get(
+        f"/v1/submissions/{submission_id}",
+        headers=report_headers,
+    )
+    assert report_token_cannot_read.status_code == 403
+
+    logs = client.get(
+        f"/v1/submissions/{submission_id}/logs?stderr=false",
+        headers=alice_headers,
+    )
+    assert logs.status_code == 200
+    assert logs.text == "archived submit stdout"
+
+
 def test_register_bearer_token_creates_user_scoped_token(
     tmp_path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

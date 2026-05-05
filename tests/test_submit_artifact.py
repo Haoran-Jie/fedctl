@@ -422,6 +422,25 @@ def test_prompted_submit_token_is_not_written_to_repo_deploy_config(
     assert yaml.safe_load(user_deploy_cfg_path.read_text())["submit"]["token"] == "prompt-token"
 
 
+def test_store_submit_token_creates_commented_default_deploy_config(
+    monkeypatch, tmp_path: Path
+) -> None:
+    config_home = tmp_path / "xdg"
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(config_home))
+    monkeypatch.setenv("FEDCTL_SUBMIT_USER", "alice")
+
+    path = submit_cmd._store_submit_token("fedctl_secret", deploy_cfg_path=None)
+
+    text = path.read_text(encoding="utf-8")
+    data = yaml.safe_load(text)
+    assert path == config_home / "fedctl" / "deploy-default.yaml"
+    assert "# Default fedctl deploy config" in text
+    assert "# Optional env vars injected into SuperExec" in text
+    assert data["submit"]["token"] == "fedctl_secret"
+    assert data["submit"]["user"] == "alice"
+    assert data["deploy"]["superexec"]["env"] == {}
+
+
 def test_submit_service_client_backfills_missing_token_from_user_deploy_config(
     monkeypatch, tmp_path: Path
 ) -> None:

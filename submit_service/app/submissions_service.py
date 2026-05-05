@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hmac
 import secrets
 import re
 from typing import Any
@@ -52,6 +53,17 @@ def authenticate_request(request: Request, cfg: SubmitConfig) -> AuthPrincipal:
     if not cfg.allow_unauth:
         raise HTTPException(status_code=401, detail="Unauthorized")
     return AuthPrincipal(name="anonymous", role="admin", token=None)
+
+
+def is_report_token_request(request: Request, cfg: SubmitConfig) -> bool:
+    report_token = (cfg.report_token or "").strip()
+    if not report_token:
+        return False
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return False
+    token = auth_header.replace("Bearer ", "", 1).strip()
+    return hmac.compare_digest(token, report_token)
 
 
 

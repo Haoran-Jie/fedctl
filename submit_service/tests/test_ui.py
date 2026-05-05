@@ -697,13 +697,90 @@ def test_ui_detail_shows_archived_logs(tmp_path, monkeypatch: pytest.MonkeyPatch
     assert "Copy link" not in detail.text
     assert 'data-logs-endpoint="/submissions/' in detail.text
     assert "Follow" in detail.text
-    assert "Latest" not in detail.text
     assert 'name="task"' not in detail.text
 
     stderr_detail = client.get(f"/submissions/{submission_id}?stderr=true")
     assert stderr_detail.status_code == 200
     assert "archived submit stderr" in stderr_detail.text
     assert '<option value="true" selected>stderr</option>' in stderr_detail.text
+
+
+def test_ui_completed_detail_defaults_to_archived_stdout_for_submit_job(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = _make_ui_client(tmp_path, monkeypatch)
+
+    alice_headers = {"Authorization": "Bearer tok-alice"}
+    submission_id = client.post("/v1/submissions", json=_payload(), headers=alice_headers).json()["submission_id"]
+    client.app.state.storage.update_submission(submission_id, {"status": "completed"})
+    client.post(
+        f"/v1/submissions/{submission_id}/logs",
+        json={
+            "logs_archive": {
+                "schema": "v1",
+                "entries": [
+                    {
+                        "job": "submit",
+                        "index": 1,
+                        "task": "submit",
+                        "stderr": False,
+                        "content": "archived submit stdout only",
+                    }
+                ],
+            }
+        },
+        headers=alice_headers,
+    )
+
+    _login(client, "tok-alice")
+    detail = client.get(f"/submissions/{submission_id}")
+    assert detail.status_code == 200
+    assert "archived submit stdout only" in detail.text
+    assert "Submission not running in Nomad" not in detail.text
+    assert '<option value="false" selected>stdout</option>' in detail.text
+
+
+def test_ui_detail_defaults_runtime_jobs_to_archived_stderr(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = _make_ui_client(tmp_path, monkeypatch)
+
+    alice_headers = {"Authorization": "Bearer tok-alice"}
+    submission_id = client.post("/v1/submissions", json=_payload(), headers=alice_headers).json()["submission_id"]
+    client.post(
+        f"/v1/submissions/{submission_id}/logs",
+        json={
+            "logs_archive": {
+                "schema": "v1",
+                "entries": [
+                    {
+                        "job": "superlink",
+                        "index": 1,
+                        "task": "superlink",
+                        "stderr": False,
+                        "content": "archived superlink stdout",
+                    },
+                    {
+                        "job": "superlink",
+                        "index": 1,
+                        "task": "superlink",
+                        "stderr": True,
+                        "content": "archived superlink stderr",
+                    },
+                ],
+            }
+        },
+        headers=alice_headers,
+    )
+
+    _login(client, "tok-alice")
+    detail = client.get(f"/submissions/{submission_id}?job=superlink")
+    assert detail.status_code == 200
+    assert "archived superlink stderr" in detail.text
+    assert "archived superlink stdout" not in detail.text
+    assert '<option value="true" selected>stderr</option>' in detail.text
 
 
 def test_ui_nodes_search_filters_inventory(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -38,6 +38,7 @@ class SubmitConfig:
     ui_cookie_name: str = "fedctl_submit_session"
     ui_cookie_secure: bool = False
     registration_enabled: bool = False
+    report_token: str | None = None
 
 
 def load_config() -> SubmitConfig:
@@ -50,6 +51,11 @@ def load_config() -> SubmitConfig:
     if not token_raw:
         token_raw = str(repo_submit.get("tokens") or "").strip()
     tokens = {t.strip() for t in token_raw.split(",") if t.strip()}
+    report_token_raw = os.environ.get("SUBMIT_REPORT_TOKEN")
+    if report_token_raw is None:
+        repo_report_token = repo_submit.get("report_token")
+        report_token_raw = repo_report_token if isinstance(repo_report_token, str) else None
+    report_token = report_token_raw.strip() if report_token_raw else None
     allow_unauth_env = os.environ.get("FEDCTL_SUBMIT_ALLOW_UNAUTH", "")
     if not allow_unauth_env:
         allow_unauth_env = str(repo_submit.get("allow_unauth") or "")
@@ -137,6 +143,7 @@ def load_config() -> SubmitConfig:
         db_url=db_url,
         tokens=tokens,
         token_identities=token_identities,
+        report_token=report_token,
         allow_unauth=allow_unauth,
         service_endpoint=service_endpoint,
         nomad_endpoint=nomad_endpoint,

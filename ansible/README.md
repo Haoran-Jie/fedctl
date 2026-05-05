@@ -144,6 +144,7 @@ ANSIBLE_LOCAL_TEMP=/tmp/ansible-local ANSIBLE_SSH_CONTROL_PATH_DIR=/tmp/ansible-
 - `group_vars/submit_service.yml`
   - `submit_repo_url`, `submit_repo_version`
   - `submit_tokens` (prefer Ansible Vault)
+  - `submit_report_token` lives in `group_vars/submit_service.vault.yml`
   - `submit_allow_unauth`
   - `submit_aws_shared_credentials_file`, `submit_aws_config_file`
   - `submit_aws_credentials_src`, `submit_aws_config_src`

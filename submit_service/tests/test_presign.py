@@ -84,3 +84,35 @@ def test_presign_allows_s3_sigv4_max_ttl(tmp_path, monkeypatch: pytest.MonkeyPat
 
     assert response.status_code == 200
     assert captured["expires"] == 604800
+
+
+def test_presign_accepts_dedicated_report_token(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("FEDCTL_SUBMIT_TOKENS", raising=False)
+    monkeypatch.delenv("FEDCTL_SUBMIT_TOKEN_MAP", raising=False)
+    monkeypatch.setenv("SUBMIT_REPO_CONFIG", str(tmp_path / "missing-fedctl.yaml"))
+    monkeypatch.setenv("SUBMIT_DB_URL", f"sqlite:///{tmp_path / 'submit.db'}")
+    monkeypatch.setenv("FEDCTL_SUBMIT_ALLOW_UNAUTH", "false")
+    monkeypatch.setenv("SUBMIT_REPORT_TOKEN", "tok-report")
+    app = create_app()
+    client = TestClient(app)
+
+    class FakeS3Client:
+        def generate_presigned_url(self, operation, *, Params, ExpiresIn):
+            return "https://signed.example/object"
+
+    monkeypatch.setattr("submit_service.app.routes.presign._s3_client", lambda: FakeS3Client())
+
+    response = client.post(
+        "/v1/presign",
+        json={
+            "bucket": "fedctl-submits",
+            "key": "fedctl-submits/logs/sub-1/manifest.json",
+            "method": "PUT",
+        },
+        headers={"Authorization": "Bearer tok-report"},
+    )
+
+    assert response.status_code == 200

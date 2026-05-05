@@ -1153,7 +1153,7 @@ def submission_detail_page(
     job: str = Query("submit"),
     task: str | None = Query(None),
     index: int = Query(1, ge=1),
-    stderr: bool = Query(False),
+    stderr: bool | None = Query(None),
 ) -> HTMLResponse | RedirectResponse:
     principal = current_ui_principal(request)
     if principal is None:
@@ -1163,13 +1163,14 @@ def submission_detail_page(
         submission_id,
         principal.as_auth_principal(),
     )
+    resolved_stderr = _default_log_stderr(job) if stderr is None else stderr
     logs_content, logs_error, logs_source = _resolve_logs_for_view(
         request,
         record,
         job=job,
         task=task,
         index=index,
-        stderr=stderr,
+        stderr=resolved_stderr,
     )
     return _render_submission_detail(
         request,
@@ -1178,7 +1179,7 @@ def submission_detail_page(
         job=job,
         task=task,
         index=index,
-        stderr=stderr,
+        stderr=resolved_stderr,
         logs_content=logs_content,
         logs_error=logs_error,
         logs_source=logs_source,
@@ -1233,7 +1234,7 @@ def submission_logs_panel(
     job: str = Query("submit"),
     task: str | None = Query(None),
     index: int = Query(1, ge=1),
-    stderr: bool = Query(False),
+    stderr: bool | None = Query(None),
 ) -> HTMLResponse | RedirectResponse:
     principal = current_ui_principal(request)
     if principal is None:
@@ -1243,13 +1244,14 @@ def submission_logs_panel(
         submission_id,
         principal.as_auth_principal(),
     )
+    resolved_stderr = _default_log_stderr(job) if stderr is None else stderr
     logs_content, logs_error, logs_source = _resolve_logs_for_view(
         request,
         record,
         job=job,
         task=task,
         index=index,
-        stderr=stderr,
+        stderr=resolved_stderr,
     )
     return templates.TemplateResponse(
         request=request,
@@ -1264,7 +1266,7 @@ def submission_logs_panel(
             "job": job,
             "task": task or "",
             "index": index,
-            "stderr": stderr,
+            "stderr": resolved_stderr,
             "log_jobs": _LOG_JOBS,
         },
     )
@@ -1391,6 +1393,10 @@ def _resolve_logs_for_view(
         detail = exc.detail if isinstance(exc.detail, str) else "Failed to load logs."
         return None, detail, None
     return resolved.content, None, resolved.source
+
+
+def _default_log_stderr(job: str) -> bool:
+    return job != "submit"
 
 
 

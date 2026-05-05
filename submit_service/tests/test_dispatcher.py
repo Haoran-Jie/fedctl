@@ -35,6 +35,55 @@ def _cfg(db_path: Path) -> SubmitConfig:
     )
 
 
+def test_select_report_token_prefers_dedicated_report_token() -> None:
+    cfg = SubmitConfig(
+        db_url="sqlite:///unused.db",
+        tokens={"flwruser1"},
+        token_identities={"flwruser1": SimpleNamespace(name="flwruser1", role="user")},
+        allow_unauth=False,
+        service_endpoint="http://submit.example",
+        nomad_endpoint=None,
+        nomad_token=None,
+        nomad_namespace=None,
+        nomad_tls_ca=None,
+        nomad_tls_skip_verify=False,
+        dispatch_mode="queue",
+        dispatch_interval=10,
+        datacenter="dc1",
+        default_priority=50,
+        docker_socket=None,
+        nomad_inventory_ttl=5,
+        autopurge_completed_after_s=0,
+        report_token="tok-report",
+    )
+
+    assert dispatcher_mod._select_report_token(cfg) == "tok-report"  # noqa: SLF001
+
+
+def test_select_report_token_does_not_reuse_user_tokens_for_reporting() -> None:
+    cfg = SubmitConfig(
+        db_url="sqlite:///unused.db",
+        tokens={"flwruser1"},
+        token_identities={"flwruser1": SimpleNamespace(name="flwruser1", role="user")},
+        allow_unauth=False,
+        service_endpoint="http://submit.example",
+        nomad_endpoint=None,
+        nomad_token=None,
+        nomad_namespace=None,
+        nomad_tls_ca=None,
+        nomad_tls_skip_verify=False,
+        dispatch_mode="queue",
+        dispatch_interval=10,
+        datacenter="dc1",
+        default_priority=50,
+        docker_socket=None,
+        nomad_inventory_ttl=5,
+        autopurge_completed_after_s=0,
+    )
+
+    assert dispatcher_mod._select_report_token(cfg) is None  # noqa: SLF001
+
+
 def _create_submission(
     storage: Storage,
     *,

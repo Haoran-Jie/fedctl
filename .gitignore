@@ -13,6 +13,7 @@ rendered/
 results/
 submit_service/state/*.db
 ansible/group_vars/tailscale_nodes.local.yml
+ansible/.vault_pass
 writeup/
 refs/heterofl/
 refs/FIARSE/
