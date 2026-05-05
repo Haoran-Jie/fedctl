@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 from ..config import SubmitConfig
 from .submissions import authenticate
+from ..submissions_service import is_report_token_request
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -55,7 +56,8 @@ def presign(
     request: Request,
     cfg: SubmitConfig = Depends(get_config),
 ) -> PresignResponse:
-    authenticate(request, cfg)
+    if not is_report_token_request(request, cfg):
+        authenticate(request, cfg)
     client = _s3_client()
     op = "put_object" if payload.method == "PUT" else "get_object"
     try:

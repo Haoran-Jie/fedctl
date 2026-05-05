@@ -18,7 +18,7 @@ import httpx
 import tomlkit
 import yaml
 
-from fedctl.config.io import load_config
+from fedctl.config.io import ensure_config_exists, load_config
 from fedctl.config.merge import get_effective_config
 from fedctl.config.paths import deploy_default_config_path, user_config_dir
 from fedctl.config.deploy import (
@@ -548,10 +548,11 @@ def run_submit_logs(
     submission_id: str,
     job: str,
     task: str | None,
-    stderr: bool,
+    stderr: bool | None,
     follow: bool,
     index: int,
 ) -> int:
+    resolved_stderr = _default_log_stderr(job) if stderr is None else stderr
     submit_client = _submit_service_client(prompt_for_token=True, validate_auth=True)
     if submit_client is _SUBMIT_AUTH_FAILED:
         return 1
@@ -563,7 +564,7 @@ def run_submit_logs(
                         submission_id,
                         job=job,
                         task=task,
-                        stderr=stderr,
+                        stderr=resolved_stderr,
                         index=index,
                     )
                 )
@@ -572,7 +573,7 @@ def run_submit_logs(
                 submission_id,
                 job=job,
                 task=task,
-                stderr=stderr,
+                stderr=resolved_stderr,
                 follow=follow,
                 index=index,
             )
@@ -603,7 +604,7 @@ def run_submit_logs(
             console.print("[red]✗ Allocation ID missing.[/red]")
             return 1
         resolved_task = task or "submit"
-        logs = client.alloc_logs(alloc_id, resolved_task, stderr=stderr, follow=follow)
+        logs = client.alloc_logs(alloc_id, resolved_task, stderr=resolved_stderr, follow=follow)
         _print_structured_logs(logs)
         return 0
 
@@ -628,6 +629,10 @@ def run_submit_logs(
 
     finally:
         client.close()
+
+
+def _default_log_stderr(job: str) -> bool:
+    return job != "submit"
 
 
 _STEP_LINE_RE = re.compile(r"^step\s+\d+/\d+:", re.IGNORECASE)
@@ -1657,6 +1662,10 @@ def _print_submit_token_setup_hint() -> None:
 
 def _store_submit_token(token: str, *, deploy_cfg_path: Path | None) -> Path:
     path = _submit_token_persist_path(deploy_cfg_path)
+    if path == deploy_default_config_path():
+        ensure_config_exists()
+        if _store_submit_token_preserving_yaml_text(path, token):
+            return path
     path.parent.mkdir(parents=True, exist_ok=True)
     data: dict[str, object] = {}
     if path.exists():
@@ -1674,6 +1683,50 @@ def _store_submit_token(token: str, *, deploy_cfg_path: Path | None) -> Path:
     except OSError:
         pass
     return path
+
+
+def _store_submit_token_preserving_yaml_text(path: Path, token: str) -> bool:
+    if not path.exists():
+        return False
+    text = path.read_text(encoding="utf-8")
+    lines = text.splitlines(keepends=True)
+    if not lines:
+        return False
+
+    submit_idx = next(
+        (idx for idx, line in enumerate(lines) if line.rstrip("\r\n") == "submit:"),
+        None,
+    )
+    if submit_idx is None:
+        return False
+
+    insert_idx = len(lines)
+    token_idx: int | None = None
+    for idx in range(submit_idx + 1, len(lines)):
+        stripped = lines[idx].lstrip()
+        if stripped and not lines[idx].startswith((" ", "\t", "#")):
+            insert_idx = idx
+            break
+        if lines[idx].startswith("  token:"):
+            token_idx = idx
+            break
+
+    newline = "\n"
+    for line in lines:
+        if line.endswith("\r\n"):
+            newline = "\r\n"
+            break
+    token_line = f"  token: {token}{newline}"
+    if token_idx is not None:
+        lines[token_idx] = token_line
+    else:
+        lines.insert(insert_idx, token_line)
+    path.write_text("".join(lines), encoding="utf-8")
+    try:
+        path.chmod(0o600)
+    except OSError:
+        pass
+    return True
 
 
 def _submit_token_persist_path(deploy_cfg_path: Path | None) -> Path:

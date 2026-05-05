@@ -5,5 +5,6 @@
   vars_files:
     - ../group_vars/all.yml
     - ../group_vars/submit_service.yml
+    - ../group_vars/submit_service.vault.yml
   roles:
     - role: submit_service

@@ -22,6 +22,7 @@ from ..submissions_service import (
     authenticate_request,
     cancel_submission_record,
     get_submission_or_404,
+    is_report_token_request,
     list_visible_submissions,
     purge_submission_record,
     register_bearer_token,
@@ -44,6 +45,21 @@ def get_storage(request: Request) -> Storage:
 
 def authenticate(request: Request, cfg: SubmitConfig) -> AuthPrincipal:
     return authenticate_request(request, cfg)
+
+
+def _reportable_submission(
+    storage: Storage,
+    submission_id: str,
+    request: Request,
+    cfg: SubmitConfig,
+) -> dict[str, Any]:
+    if is_report_token_request(request, cfg):
+        try:
+            return storage.get_submission(submission_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="Submission not found") from exc
+    principal = authenticate(request, cfg)
+    return get_submission_or_404(storage, submission_id, principal)
 
 
 @router.post("/v1/tokens/register", response_model=TokenRegistrationResponse)
@@ -195,8 +211,7 @@ def update_submission_jobs(
     cfg: SubmitConfig = Depends(get_config),
     storage: Storage = Depends(get_storage),
 ) -> SubmissionRecord:
-    principal = authenticate(request, cfg)
-    record = get_submission_or_404(storage, submission_id, principal)
+    record = _reportable_submission(storage, submission_id, request, cfg)
     updated = storage.update_submission(submission_id, {"jobs": payload.jobs})
     logger.info(
         "submission jobs updated: id=%s keys=%s",
@@ -214,8 +229,7 @@ def update_submission_logs(
     cfg: SubmitConfig = Depends(get_config),
     storage: Storage = Depends(get_storage),
 ) -> SubmissionRecord:
-    principal = authenticate(request, cfg)
-    record = get_submission_or_404(storage, submission_id, principal)
+    record = _reportable_submission(storage, submission_id, request, cfg)
 
     updates: dict[str, Any] = {}
     if payload.logs_location is not None:
@@ -237,8 +251,7 @@ def update_submission_results(
     cfg: SubmitConfig = Depends(get_config),
     storage: Storage = Depends(get_storage),
 ) -> SubmissionRecord:
-    principal = authenticate(request, cfg)
-    record = get_submission_or_404(storage, submission_id, principal)
+    record = _reportable_submission(storage, submission_id, request, cfg)
 
     artifacts = payload.get("artifacts")
     if not isinstance(artifacts, list):
