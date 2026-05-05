@@ -1614,10 +1614,12 @@ def _prompt_for_submit_token() -> str | None:
         token = getpass.getpass("Submit-service bearer token: ")
     except (EOFError, KeyboardInterrupt):
         console.print("[red]✗ Submit-service bearer token required.[/red]")
+        _print_submit_token_setup_hint()
         return None
     token = token.strip()
     if not token:
         console.print("[red]✗ Submit-service bearer token required.[/red]")
+        _print_submit_token_setup_hint()
         return None
     return token
 
@@ -1640,6 +1642,16 @@ def _print_submit_token_hint(
     console.print(
         "[yellow]Hint:[/yellow] Set submit.token in "
         f"{location}, or export FEDCTL_SUBMIT_TOKEN."
+    )
+    _print_submit_token_setup_hint()
+
+
+def _print_submit_token_setup_hint() -> None:
+    console.print(
+        "[yellow]First-time setup:[/yellow] If you do not have a token, run "
+        "`fedctl submit register-token --name <username>`. "
+        "If you already have one, run `fedctl submit set-token` or export "
+        "FEDCTL_SUBMIT_TOKEN."
     )
 
 
