@@ -28,10 +28,12 @@
     "fedstaleweight_k5": {
       "seeds": [
         1337,
+        1338,
         1339
       ],
       "run_ids": [
         "qjnt77fk",
+        "hmg55ujk",
         "yk3uqpnh"
       ]
     },
@@ -89,21 +91,23 @@
         "max": 6.0
       },
       "fedstaleweight_k5": {
-        "n": 124,
+        "n": 180,
         "seeds": [
           1337,
+          1338,
           1339
         ],
         "run_ids": [
+          "hmg55ujk",
           "qjnt77fk",
           "yk3uqpnh"
         ],
-        "mean": 4.354838709677419,
+        "mean": 4.55,
         "median": 4.0,
         "q1": 4.0,
-        "q3": 5.0,
+        "q3": 5.25,
         "min": 1.0,
-        "max": 8.0
+        "max": 9.0
       },
       "fedstaleweight_k10": {
         "n": 260,
@@ -165,16 +169,18 @@
         "max": 2.0
       },
       "fedstaleweight_k5": {
-        "n": 476,
+        "n": 720,
         "seeds": [
           1337,
+          1338,
           1339
         ],
         "run_ids": [
+          "hmg55ujk",
           "qjnt77fk",
           "yk3uqpnh"
         ],
-        "mean": 2.2710084033613445,
+        "mean": 2.2402777777777776,
         "median": 2.0,
         "q1": 2.0,
         "q3": 3.0,
