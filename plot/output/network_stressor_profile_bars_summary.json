@@ -1,0 +1,43 @@
+{
+  "profiles": [
+    "none",
+    "mild",
+    "med",
+    "asym_up",
+    "asym_down"
+  ],
+  "variants": [
+    {
+      "method": "fedavg",
+      "buffer_size": null,
+      "label": "\\texttt{FedAvg}"
+    },
+    {
+      "method": "fedbuff",
+      "buffer_size": 10,
+      "label": "\\texttt{FedBuff}\\(_{10}\\)"
+    },
+    {
+      "method": "fedstaleweight",
+      "buffer_size": 10,
+      "label": "\\texttt{FedSW}\\(_{10}\\)"
+    },
+    {
+      "method": "fedasync",
+      "buffer_size": 1,
+      "label": "\\texttt{FedAsync}"
+    },
+    {
+      "method": "fedbuff",
+      "buffer_size": 5,
+      "label": "\\texttt{FedBuff}\\(_{5}\\)"
+    },
+    {
+      "method": "fedstaleweight",
+      "buffer_size": 5,
+      "label": "\\texttt{FedSW}\\(_{5}\\)"
+    }
+  ],
+  "censored_definition": "Bars are hatched when at least one seed did not reach the 60% target; that seed contributes its final observed wall-clock time.",
+  "delta_label_definition": "Bar labels on stressed profiles show percentage change in mean wall-clock time relative to the same method under the none profile."
+}
