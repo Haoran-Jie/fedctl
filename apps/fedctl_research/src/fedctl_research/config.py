@@ -162,7 +162,7 @@ def get_submodel_local_eval_enabled(run_config: Mapping[str, object]) -> bool:
     if value is not None:
         return value
     method = get_method_name(run_config)
-    return method in {"heterofl", "fedrolex", "fiarse"}
+    return method in {"heterofl", "fedrolex", "fiarse", "fedcover"}
 
 
 def get_fedavgm_momentum(run_config: Mapping[str, object]) -> float:
@@ -202,6 +202,57 @@ def get_fedbuff_staleness_alpha(run_config: Mapping[str, object]) -> float:
 
 def get_fedbuff_server_learning_rate(run_config: Mapping[str, object]) -> float:
     return float(lookup_or_default(run_config, "fedbuff-server-learning-rate", 1.0))
+
+
+def get_fedcover_slicer(run_config: Mapping[str, object]) -> str:
+    return str(lookup_or_default(run_config, "fedcover-slicer", "heterofl")).strip().lower() or "heterofl"
+
+
+def get_fedcover_base_staleness_weighting(run_config: Mapping[str, object]) -> str:
+    return (
+        str(lookup_or_default(run_config, "fedcover-base-staleness-weighting", "polynomial")).strip().lower()
+        or "polynomial"
+    )
+
+
+def get_fedcover_staleness_alpha(run_config: Mapping[str, object]) -> float:
+    return float(lookup_or_default(run_config, "fedcover-staleness-alpha", 0.5))
+
+
+def get_fedcover_buffer_size(run_config: Mapping[str, object]) -> int:
+    return int(lookup_or_default(run_config, "fedcover-buffer-size", 5))
+
+
+def get_fedcover_train_concurrency(run_config: Mapping[str, object]) -> int | None:
+    return get_optional_int(run_config, "fedcover-train-concurrency")
+
+
+def get_fedcover_poll_interval_s(run_config: Mapping[str, object]) -> float:
+    return float(lookup_or_default(run_config, "fedcover-poll-interval-s", 1.0))
+
+
+def get_fedcover_num_server_steps(run_config: Mapping[str, object]) -> int:
+    return int(lookup_or_default(run_config, "fedcover-num-server-steps", 3))
+
+
+def get_fedcover_evaluate_every_steps(run_config: Mapping[str, object]) -> int:
+    return int(lookup_or_default(run_config, "fedcover-evaluate-every-steps", 1))
+
+
+def get_fedcover_server_learning_rate(run_config: Mapping[str, object]) -> float:
+    return float(lookup_or_default(run_config, "fedcover-server-learning-rate", 0.5))
+
+
+def get_fedcover_coverage_power(run_config: Mapping[str, object]) -> float:
+    return float(lookup_or_default(run_config, "fedcover-coverage-power", 0.5))
+
+
+def get_fedcover_max_block_weight(run_config: Mapping[str, object]) -> float:
+    return float(lookup_or_default(run_config, "fedcover-max-block-weight", 2.0))
+
+
+def get_fedcover_min_observed_mass(run_config: Mapping[str, object]) -> float:
+    return float(lookup_or_default(run_config, "fedcover-min-observed-mass", 0.15))
 
 
 def get_fiarse_threshold_mode(run_config: Mapping[str, object]) -> str:

@@ -632,6 +632,7 @@ def create_experiment_logger(context: Context) -> ExperimentLogger:
         ("eval_server_group_trip/rpi4-held/*", "client_trip"),
         ("eval_server_group_trip/rpi5-held/*", "client_trip"),
         ("fedbuff/*", "server_step"),
+        ("fedcover/*", "server_step"),
         ("fedstaleweight/*", "server_step"),
         ("client_update/round_table", "server_round"),
         ("client_eval/round_table", "server_round"),
