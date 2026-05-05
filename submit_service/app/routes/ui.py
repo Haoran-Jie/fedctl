@@ -488,6 +488,17 @@ _HELP_COMMANDS = [
                 ),
             },
             {
+                "title": "Apply a network profile",
+                "body": "Use --net to assign a deploy-config network profile to selected devices for one submission.",
+                "command": (
+                    "fedctl submit run apps/fedctl_research \\\n"
+                    "  --run-config path/to/run.toml \\\n"
+                    "  --deploy-config path/to/deploy.yaml \\\n"
+                    "  --net 'rpi4[*]=med' \\\n"
+                    "  --net 'rpi5[*]=none'"
+                ),
+            },
+            {
                 "title": "Debug failed deployment state",
                 "body": "Keep Nomad jobs after completion or failure so their live allocation state can be inspected.",
                 "command": "fedctl submit run ../quickstart-pytorch --exp debug-r1 --no-destroy --verbose",
