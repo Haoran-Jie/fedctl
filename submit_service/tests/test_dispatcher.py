@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import timedelta
 import logging
 import sys
@@ -207,6 +208,94 @@ def _typed_supernode_args_soft() -> list[str]:
     ]
 
 
+def _typed_supernode_args_unspecified() -> list[str]:
+    return [
+        "-m",
+        "fedctl.submit.runner",
+        "--supernodes",
+        "rpi4=10",
+        "--supernodes",
+        "rpi5=10",
+    ]
+
+
+def test_build_nomad_job_backfills_runner_archive_env(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(dispatcher_mod, "load_repo_config_data", lambda: {})
+    cfg = replace(
+        _cfg(tmp_path / "submit.db"),
+        service_endpoint="http://submit.example",
+        nomad_endpoint="http://nomad.service:4646",
+        nomad_token="nomad-secret",
+        nomad_namespace="default",
+        report_token="report-secret",
+    )
+    job = dispatcher_mod._build_nomad_job(  # noqa: SLF001
+        {
+            "id": "sub-1",
+            "node_class": "submit",
+            "submit_image": "example/submit:latest",
+            "artifact_url": "https://storage.example/project.tar.gz",
+            "namespace": None,
+            "args": ["-m", "fedctl.submit.runner"],
+            "env": {},
+            "submit_request": {
+                "artifact_store": "s3+presign://fedctl-submits/fedctl-submits",
+            },
+            "priority": 50,
+        },
+        cfg,
+    )
+
+    env = job["Job"]["TaskGroups"][0]["Tasks"][0]["Env"]
+    assert env["SUBMIT_SUBMISSION_ID"] == "sub-1"
+    assert env["SUBMIT_SERVICE_ENDPOINT"] == "http://submit.example"
+    assert env["SUBMIT_SERVICE_TOKEN"] == "report-secret"
+    assert env["FEDCTL_ENDPOINT"] == "http://nomad.service:4646"
+    assert env["FEDCTL_NAMESPACE"] == "default"
+    assert env["NOMAD_TOKEN"] == "nomad-secret"
+    assert env["FEDCTL_RESULT_STORE"] == "s3+presign://fedctl-submits/fedctl-submits"
+
+
+def test_build_nomad_job_preserves_client_runner_env(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(
+        dispatcher_mod,
+        "load_repo_config_data",
+        lambda: {"submit": {"artifact_store": "s3+presign://repo/default"}},
+    )
+    cfg = replace(
+        _cfg(tmp_path / "submit.db"),
+        service_endpoint="http://submit.example",
+        nomad_endpoint="http://nomad.service:4646",
+        nomad_token="nomad-secret",
+        nomad_namespace="default",
+    )
+    job = dispatcher_mod._build_nomad_job(  # noqa: SLF001
+        {
+            "id": "sub-1",
+            "node_class": "submit",
+            "submit_image": "example/submit:latest",
+            "artifact_url": "https://storage.example/project.tar.gz",
+            "namespace": "custom",
+            "args": ["-m", "fedctl.submit.runner"],
+            "env": {
+                "FEDCTL_ENDPOINT": "http://client-nomad:4646",
+                "FEDCTL_NAMESPACE": "client-ns",
+                "NOMAD_TOKEN": "client-token",
+                "FEDCTL_RESULT_STORE": "s3+presign://client/store",
+            },
+            "submit_request": {},
+            "priority": 50,
+        },
+        cfg,
+    )
+
+    env = job["Job"]["TaskGroups"][0]["Tasks"][0]["Env"]
+    assert env["FEDCTL_ENDPOINT"] == "http://client-nomad:4646"
+    assert env["FEDCTL_NAMESPACE"] == "client-ns"
+    assert env["NOMAD_TOKEN"] == "client-token"
+    assert env["FEDCTL_RESULT_STORE"] == "s3+presign://client/store"
+
+
 def _submission_jobs_report(experiment: str = "exp") -> dict[str, object]:
     return {
         "superlink": {
@@ -261,6 +350,29 @@ def _patch_live_queue_resources(monkeypatch) -> None:
             else {"cpu": cpu, "mem": mem}
         ),
     )
+
+
+def test_repo_allow_oversubscribe_default_is_true_when_omitted(monkeypatch) -> None:
+    monkeypatch.setattr(dispatcher_mod, "load_repo_config_data", lambda: {})
+
+    assert dispatcher_mod._repo_allow_oversubscribe_default() is True  # noqa: SLF001
+
+
+def test_repo_allow_oversubscribe_default_respects_explicit_false(monkeypatch) -> None:
+    monkeypatch.setattr(
+        dispatcher_mod,
+        "load_repo_config_data",
+        lambda: {"deploy": {"placement": {"allow_oversubscribe": False}}},
+    )
+
+    assert dispatcher_mod._repo_allow_oversubscribe_default() is False  # noqa: SLF001
+
+
+def test_unspecified_allow_oversubscribe_is_not_strict_by_default(monkeypatch) -> None:
+    monkeypatch.setattr(dispatcher_mod, "load_repo_config_data", lambda: {})
+    submission = {"args": _typed_supernode_args_unspecified()}
+
+    assert dispatcher_mod._submission_uses_strict_queue_reservation(submission) is False
 
 
 def test_dispatcher_respects_priority_and_age_order(tmp_path, monkeypatch) -> None:
@@ -345,7 +457,7 @@ def test_dispatcher_blocks_when_running_submission_already_reserves_all_nodes(
     monkeypatch.setattr(
         dispatcher_mod,
         "_inventory_snapshot",
-        lambda inventory: (_inventory_nodes(), None),
+        lambda inventory: (_inventory_nodes(node_cpu=3000, node_mem=3072), None),
     )
 
     dispatched_ids: list[str] = []
@@ -651,7 +763,7 @@ def test_dispatcher_releases_queue_once_previous_submission_completed(
     monkeypatch.setattr(
         dispatcher_mod,
         "_inventory_snapshot",
-        lambda inventory: (_inventory_nodes(), None),
+        lambda inventory: (_inventory_nodes(node_cpu=3000, node_mem=3072), None),
     )
 
     dispatched_ids: list[str] = []
@@ -843,7 +955,7 @@ def test_submission_requirements_allow_flat_clientapp_resource_config(monkeypatc
     assert compute_req["mem"] == 1152
 
 
-def test_submission_requirements_fallback_to_legacy_clientapp_defaults(monkeypatch) -> None:
+def test_submission_requirements_fallback_to_shared_clientapp_defaults(monkeypatch) -> None:
     monkeypatch.setattr(
         dispatcher_mod,
         "load_repo_config_data",
@@ -860,10 +972,10 @@ def test_submission_requirements_fallback_to_legacy_clientapp_defaults(monkeypat
 
     reqs = dispatcher_mod._submission_requirements({"args": _typed_supernode_args()})
 
-    assert reqs[0]["cpu"] == 1500
-    assert reqs[0]["mem"] == 1536
-    assert reqs[1]["cpu"] == 1500
-    assert reqs[1]["mem"] == 1536
+    assert reqs[0]["cpu"] == 2500
+    assert reqs[0]["mem"] == 2560
+    assert reqs[1]["cpu"] == 2500
+    assert reqs[1]["mem"] == 2560
 
 
 def test_submission_requirements_use_configured_superlink_and_serverapp_resources(
@@ -894,7 +1006,7 @@ def test_submission_requirements_use_configured_superlink_and_serverapp_resource
     assert serverapp_req["mem"] == 1536
 
 
-def test_submission_requirements_fallback_to_legacy_superlink_and_serverapp_defaults(
+def test_submission_requirements_fallback_to_shared_superlink_and_serverapp_defaults(
     monkeypatch,
 ) -> None:
     monkeypatch.setattr(
@@ -914,10 +1026,10 @@ def test_submission_requirements_fallback_to_legacy_superlink_and_serverapp_defa
 
     superlink_req = next(req for req in reqs if req["name"] == "superlink")
     serverapp_req = next(req for req in reqs if req["name"] == "superexec-serverapp")
-    assert superlink_req["cpu"] == 500
-    assert superlink_req["mem"] == 256
-    assert serverapp_req["cpu"] == 1000
-    assert serverapp_req["mem"] == 1024
+    assert superlink_req["cpu"] == 1000
+    assert superlink_req["mem"] == 1024
+    assert serverapp_req["cpu"] == 2000
+    assert serverapp_req["mem"] == 2048
 
 
 def test_dispatcher_marks_running_submission_failed_when_allocs_empty_and_job_missing(

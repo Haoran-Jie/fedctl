@@ -93,7 +93,6 @@ submit_cluster_repo_config:
     user: samuel
   submit-service:
     endpoint: "{{ submit_service_public_endpoint }}"
-    report_token: "{{ submit_report_token }}"
     tokens: token1,token2
     allow_unauth: true
     nomad_endpoint: http://127.0.0.1:4646
