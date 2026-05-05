@@ -482,7 +482,7 @@ _HELP_COMMANDS = [
                 "command": (
                     "./.venv/bin/fedctl submit run apps/fedctl_research \\\n"
                     "  --run-config apps/fedctl_research/run_configs/network_heterogeneity/main/cifar10_cnn/iid/all_rpi5/fedbuff.toml \\\n"
-                    "  --deploy-config apps/fedctl_research/repo_configs/network_heterogeneity/main/all_rpi5/none.yaml \\\n"
+                    "  --deploy-config apps/fedctl_research/deploy_configs/network_heterogeneity/main/all_rpi5/none.yaml \\\n"
                     "  --submit-image 128.232.61.111:5000/fedctl-submit:latest \\\n"
                     "  --seed 1337"
                 ),

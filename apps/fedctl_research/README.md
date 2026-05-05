@@ -14,7 +14,7 @@ This app owns three things:
 - `src/fedctl_research/methods/`: method-specific logic
 - `src/fedctl_research/tasks/`: benchmark task implementations
 - `run_configs/`: application-side run-config families
-- `repo_configs/`: deployment-side presets for placement, resources, and network shaping
+- `deploy_configs/`: deploy config presets for placement, resources, and network shaping
 
 ## Example
 
@@ -22,7 +22,7 @@ This app owns three things:
 cd /Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl
 .venv/bin/fedctl submit run apps/fedctl_research \
   --run-config apps/fedctl_research/run_configs/compute_heterogeneity/main/fashion_mnist_cnn/heterofl.toml \
-  --deploy-config apps/fedctl_research/repo_configs/compute_heterogeneity/main/none.yaml \
+  --deploy-config apps/fedctl_research/deploy_configs/compute_heterogeneity/main/none.yaml \
   --exp heterofl-fmnist-cnn-main \
   --stream --destroy
 ```
@@ -39,15 +39,15 @@ For the scientific queue, method-level justification, and dissertation-facing ru
 
 - `/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/docs/experiment_plan.md`
 
-Deployment-side presets live under `repo_configs/`:
+Deploy config presets live under `deploy_configs/`:
 
-- `repo_configs/smoke/compute_heterogeneity.yaml`: 4-node compute-heterogeneity smoke validation
-- `repo_configs/smoke/network_heterogeneity.yaml`: 4-node network-heterogeneity smoke validation
-- `repo_configs/compute_heterogeneity/main/none.yaml`: 12-node balanced mixed-hardware main-study profile with no impairment
-- `repo_configs/network_heterogeneity/main/mixed/none.yaml`: 15-node mixed-device async main-study profile with no impairment
-- `repo_configs/network_heterogeneity/main/all_rpi5/none.yaml`: 15-node all-RPi5 async main-study profile with no impairment
-- `repo_configs/network_heterogeneity/ablations/deployment_stressors/*.yaml`: network-heterogeneity stressor presets, including named impairment profiles
-- `repo_configs/network_heterogeneity/ablations/scale_concurrency/scale_async/*.yaml`: larger-cluster scaling profiles
+- `deploy_configs/smoke/compute_heterogeneity.yaml`: 4-node compute-heterogeneity smoke validation
+- `deploy_configs/smoke/network_heterogeneity.yaml`: 4-node network-heterogeneity smoke validation
+- `deploy_configs/compute_heterogeneity/main/none.yaml`: 12-node balanced mixed-hardware main-study profile with no impairment
+- `deploy_configs/network_heterogeneity/main/mixed/none.yaml`: 15-node mixed-device async main-study profile with no impairment
+- `deploy_configs/network_heterogeneity/main/all_rpi5/none.yaml`: 15-node all-RPi5 async main-study profile with no impairment
+- `deploy_configs/network_heterogeneity/ablations/deployment_stressors/*.yaml`: network-heterogeneity stressor presets, including named impairment profiles
+- `deploy_configs/network_heterogeneity/ablations/scale_concurrency/scale_async/*.yaml`: larger-cluster scaling profiles
 
 ## W&B
 

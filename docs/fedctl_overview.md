@@ -3,7 +3,7 @@
 This repository has two layers.
 
 - `src/fedctl/`: the generic control plane for building, deploying, submitting, and inspecting Flower runs on the Nomad cluster
-- `apps/fedctl_research/`: the dissertation Flower app, including methods, tasks, run-config TOMLs, and deployment config templates under `repo_configs/`
+- `apps/fedctl_research/`: the dissertation Flower app, including methods, tasks, run-config TOMLs, and deployment config templates under `deploy_configs/`
 
 The important design boundary is:
 
@@ -19,7 +19,7 @@ That split is what keeps model/method comparisons separate from placement and ne
 ```bash
 fedctl submit run apps/fedctl_research \
   --run-config apps/fedctl_research/run_configs/smoke/compute_heterogeneity/fashion_mnist_mlp/heterofl.toml \
-  --deploy-config apps/fedctl_research/repo_configs/smoke/compute_heterogeneity.yaml
+  --deploy-config apps/fedctl_research/deploy_configs/smoke/compute_heterogeneity.yaml
 ```
 
 Use `fedctl submit run` as the normal entrypoint; direct deploy/run commands are retained as hidden internal/debug commands.
@@ -29,7 +29,7 @@ Use `fedctl submit run` as the normal entrypoint; direct deploy/run commands are
 ```bash
 fedctl submit run apps/fedctl_research \
   --run-config apps/fedctl_research/run_configs/compute_heterogeneity/main/cifar10_cnn/fedrolex.toml \
-  --deploy-config apps/fedctl_research/repo_configs/compute_heterogeneity/main/none.yaml \
+  --deploy-config apps/fedctl_research/deploy_configs/compute_heterogeneity/main/none.yaml \
   --exp fedrolex-main-cifar10-cnn
 ```
 
@@ -55,7 +55,7 @@ fedctl submit results <submission-id>
 
 ## Deployment-side config usage
 
-The deployment configs now live under `apps/fedctl_research/repo_configs/`.
+The deployment configs now live under `apps/fedctl_research/deploy_configs/`.
 Fresh installs also get a user-level deploy config at `~/.config/fedctl/deploy-default.yaml`.
 That generated config keeps only user-editable submit credentials and optional SuperExec environment variables. Add only the submit-service bearer token (`submit.token`, or `FEDCTL_SUBMIT_TOKEN`) before running a project without a project-local deploy config; CamMLSys service, artifact store, image, registry, resource, placement, and netem defaults are supplied by `fedctl`.
 
