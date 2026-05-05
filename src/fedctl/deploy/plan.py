@@ -40,7 +40,7 @@ def plan_supernodes(
     counts: dict[str, int],
     allow_oversubscribe: bool,
     spread_across_hosts: bool = False,
-    prefer_spread_across_hosts: bool = False,
+    prefer_spread_across_hosts: bool = True,
     nodes: list[dict[str, Any]] | None,
 ) -> list[SupernodePlacement]:
     placements: list[SupernodePlacement] = []

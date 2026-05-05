@@ -231,7 +231,7 @@ def test_ensure_config_creates_default_deploy_config_file(tmp_path: Path, monkey
     assert '# endpoint: "http://fedctl.cl.cam.ac.uk"' in text
     assert '# image_registry: "128.232.61.111:5000"' in text
     assert "# supernodes:" in text
-    assert "#   prefer_spread_across_hosts: false" in text
+    assert "#   prefer_spread_across_hosts: true" in text
     assert '#   # default_assignment: "rpi5[*]=med,rpi4[*]=high"' in text
     assert '#   image: "jiahborcn/netem:latest"' in text
     assert "#   ingress_profiles:" in text

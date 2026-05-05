@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fedctl.commands.deploy import _deploy_config_defaults, _runtime_superexec_env
+from fedctl.commands.deploy import _runtime_superexec_env
 from fedctl.config.io import (
     DEFAULT_ARTIFACT_STORE,
     DEFAULT_IMAGE_REGISTRY,
@@ -22,8 +22,12 @@ from fedctl.config.deploy import (
     parse_submit_deploy_config,
     resolve_deploy_config,
     resolve_deploy_config_path,
+    resolve_effective_deploy_config,
     rewrite_image_registry,
 )
+
+
+_deploy_config_defaults = resolve_effective_deploy_config
 
 
 def _use_tmp_xdg(monkeypatch, tmp_path: Path) -> None:
@@ -287,6 +291,12 @@ def test_deploy_config_defaults_extracts_spread_across_hosts() -> None:
     assert deploy_defaults.spread_across_hosts is True
 
 
+def test_deploy_config_defaults_allow_oversubscribe_by_default() -> None:
+    deploy_defaults = _deploy_config_defaults({"deploy": {"placement": {}}})
+
+    assert deploy_defaults.allow_oversubscribe is True
+
+
 def test_deploy_config_defaults_extracts_prefer_spread_across_hosts() -> None:
     deploy_defaults = _deploy_config_defaults(
         {
@@ -302,6 +312,30 @@ def test_deploy_config_defaults_extracts_prefer_spread_across_hosts() -> None:
 
     assert deploy_defaults.allow_oversubscribe is True
     assert deploy_defaults.spread_across_hosts is False
+    assert deploy_defaults.prefer_spread_across_hosts is True
+
+
+def test_deploy_config_defaults_parse_string_booleans() -> None:
+    deploy_defaults = _deploy_config_defaults(
+        {
+            "deploy": {
+                "placement": {
+                    "allow_oversubscribe": "false",
+                    "spread_across_hosts": "off",
+                    "prefer_spread_across_hosts": "yes",
+                }
+            }
+        }
+    )
+
+    assert deploy_defaults.allow_oversubscribe is False
+    assert deploy_defaults.spread_across_hosts is False
+    assert deploy_defaults.prefer_spread_across_hosts is True
+
+
+def test_deploy_config_defaults_prefer_spread_across_hosts_by_default() -> None:
+    deploy_defaults = _deploy_config_defaults({"deploy": {"placement": {}}})
+
     assert deploy_defaults.prefer_spread_across_hosts is True
 
 

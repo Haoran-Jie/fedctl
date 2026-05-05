@@ -45,7 +45,7 @@ deploy:
   # placement:
   #   allow_oversubscribe: true
   #   spread_across_hosts: true
-  #   prefer_spread_across_hosts: false
+  #   prefer_spread_across_hosts: true
   # resources:
   #   supernode:
   #     default: {{ cpu: 1000, mem: 1024 }}

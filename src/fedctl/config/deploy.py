@@ -90,6 +90,27 @@ class SubmitDeployConfig:
     user: str | None = None
 
 
+@dataclass(frozen=True)
+class EffectiveDeployConfig:
+    supernodes: dict[str, object]
+    supernode_resources: dict[str, object]
+    superexec_clientapp_resources: dict[str, object]
+    superexec_serverapp_resources: dict[str, object]
+    superlink_resources: dict[str, object]
+    superexec_env: dict[str, str]
+    network_profiles: dict[str, object]
+    network_ingress_profiles: dict[str, object]
+    network_egress_profiles: dict[str, object]
+    network_default: str | None
+    network_default_assignment: list[str] | None
+    network_interface: str | None
+    network_image: str | None
+    network_apply: dict[str, object]
+    allow_oversubscribe: bool
+    spread_across_hosts: bool
+    prefer_spread_across_hosts: bool
+
+
 def parse_submit_deploy_config(deploy_cfg: dict[str, Any]) -> SubmitDeployConfig:
     submit = deploy_cfg.get("submit", {}) if isinstance(deploy_cfg.get("submit"), dict) else {}
     image = submit.get("image")
@@ -107,6 +128,88 @@ def parse_submit_deploy_config(deploy_cfg: dict[str, Any]) -> SubmitDeployConfig
         endpoint=str(endpoint) if isinstance(endpoint, str) and endpoint else DEFAULT_SUBMIT_ENDPOINT,
         token=str(token) if isinstance(token, str) and token else None,
         user=str(user) if isinstance(user, str) and user else None,
+    )
+
+
+def resolve_effective_deploy_config(deploy_cfg: dict[str, Any]) -> EffectiveDeployConfig:
+    deploy = _as_dict(deploy_cfg.get("deploy"))
+    supernodes = _as_positive_int_dict(_as_dict(deploy.get("supernodes")))
+    placement = _as_dict(deploy.get("placement"))
+    resources = _as_dict(deploy.get("resources"))
+    superexec = _as_dict(deploy.get("superexec"))
+    superexec_env = _as_string_dict(_as_dict(superexec.get("env")))
+    supernode_resources = _as_dict(resources.get("supernode")) or {
+        "default": {"cpu": 1000, "mem": 1024},
+        "rpi4": {"cpu": 1000, "mem": 1024},
+        "rpi5": {"cpu": 1000, "mem": 1024},
+    }
+    superexec_clientapp_resources = _as_dict(resources.get("superexec_clientapp")) or {
+        "cpu": 2000,
+        "mem": 2048,
+    }
+    superexec_serverapp_resources = _as_dict(resources.get("superexec_serverapp")) or {
+        "cpu": 2000,
+        "mem": 2048,
+    }
+    superlink_resources = _as_dict(resources.get("superlink")) or {
+        "cpu": 1000,
+        "mem": 1024,
+    }
+    network = _as_dict(deploy.get("network"))
+    network_profiles = _as_dict(network.get("profiles")) or {
+        "none": {},
+        "low": {
+            "delay_ms": 0,
+            "jitter_ms": 0,
+            "loss_pct": 0,
+            "rate_mbit": 1000,
+            "rate_latency_ms": 0,
+            "rate_burst_kbit": 256,
+        },
+        "med": {
+            "delay_ms": 60,
+            "jitter_ms": 10,
+            "loss_pct": 1.0,
+            "rate_mbit": 50,
+            "rate_latency_ms": 50,
+            "rate_burst_kbit": 256,
+        },
+        "high": {
+            "delay_ms": 120,
+            "jitter_ms": 25,
+            "loss_pct": 2.5,
+            "rate_mbit": 20,
+            "rate_latency_ms": 50,
+            "rate_burst_kbit": 256,
+        },
+    }
+    network_ingress_profiles = _as_dict(network.get("ingress_profiles"))
+    network_egress_profiles = _as_dict(network.get("egress_profiles"))
+    network_apply = {
+        "superexec_serverapp": False,
+        "superexec_clientapp": False,
+        **_as_dict(network.get("apply")),
+    }
+    return EffectiveDeployConfig(
+        supernodes=supernodes,
+        supernode_resources=supernode_resources,
+        superexec_clientapp_resources=superexec_clientapp_resources,
+        superexec_serverapp_resources=superexec_serverapp_resources,
+        superlink_resources=superlink_resources,
+        superexec_env=superexec_env,
+        network_profiles=network_profiles,
+        network_ingress_profiles=network_ingress_profiles,
+        network_egress_profiles=network_egress_profiles,
+        network_default=_as_optional_str(network.get("default_profile")) or "none",
+        network_default_assignment=_as_optional_str_list(network.get("default_assignment")),
+        network_interface=_as_optional_str(network.get("interface")) or "eth0",
+        network_image=_as_optional_str(network.get("image")) or DEFAULT_NETEM_IMAGE,
+        network_apply=network_apply,
+        allow_oversubscribe=_as_bool(placement.get("allow_oversubscribe"), default=True),
+        spread_across_hosts=_as_bool(placement.get("spread_across_hosts"), default=True),
+        prefer_spread_across_hosts=_as_bool(
+            placement.get("prefer_spread_across_hosts"), default=True
+        ),
     )
 
 
@@ -203,6 +306,63 @@ def _split_image_reference(image: str) -> tuple[str | None, str]:
     if "." in first or ":" in first or first == "localhost":
         return first, remainder
     return None
+
+
+def _as_dict(value: object) -> dict[str, object]:
+    return value if isinstance(value, dict) else {}
+
+
+def _as_optional_str(value: object) -> str | None:
+    if isinstance(value, str) and value:
+        return value
+    return None
+
+
+def _as_optional_str_list(value: object) -> list[str] | None:
+    if isinstance(value, str):
+        text = value.strip()
+        return [text] if text else None
+    if isinstance(value, list):
+        result = [str(item).strip() for item in value if str(item).strip()]
+        return result or None
+    return None
+
+
+def _as_string_dict(value: dict[str, object]) -> dict[str, str]:
+    resolved: dict[str, str] = {}
+    for key, raw in value.items():
+        if not isinstance(key, str) or not key:
+            continue
+        if raw is None:
+            continue
+        text = str(raw).strip()
+        if text:
+            resolved[key] = text
+    return resolved
+
+
+def _as_bool(value: object, *, default: bool) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in {"1", "true", "yes", "on"}:
+            return True
+        if lowered in {"0", "false", "no", "off"}:
+            return False
+    return default
+
+
+def _as_positive_int_dict(value: dict[str, object]) -> dict[str, int]:
+    resolved: dict[str, int] = {}
+    for key, raw in value.items():
+        try:
+            count = int(raw)
+        except (TypeError, ValueError):
+            continue
+        if count > 0:
+            resolved[str(key)] = count
+    return resolved
 
 
 def _find_deploy_config(base: Path) -> Path | None:

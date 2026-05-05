@@ -160,7 +160,7 @@ _HELP_CONFIG_SECTIONS = [
             "  placement:\n"
             "    allow_oversubscribe: true\n"
             "    spread_across_hosts: true\n"
-            "    prefer_spread_across_hosts: false\n"
+            "    prefer_spread_across_hosts: true\n"
             "  resources:\n"
             "    supernode:\n"
             "      default: { cpu: 1000, mem: 1024 }\n"
