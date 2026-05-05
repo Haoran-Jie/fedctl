@@ -7,6 +7,8 @@ import time
 from typing import Any
 import logging
 
+from fedctl.config.deploy import EffectiveDeployConfig, resolve_effective_deploy_config
+
 from ..config import SubmitConfig
 from ..config import load_repo_config_data
 from ..nomad_client import NomadClient, NomadError
@@ -306,6 +308,16 @@ def _build_nomad_job(submission: dict[str, Any], cfg: SubmitConfig) -> dict[str,
     priority = submission.get("priority") or cfg.default_priority
     env = dict(submission.get("env") or {})
     env["SUBMIT_SUBMISSION_ID"] = submission["id"]
+    if cfg.nomad_endpoint:
+        env.setdefault("FEDCTL_ENDPOINT", cfg.nomad_endpoint)
+    namespace = submission.get("namespace") or cfg.nomad_namespace or "default"
+    if namespace:
+        env.setdefault("FEDCTL_NAMESPACE", str(namespace))
+    if cfg.nomad_token:
+        env.setdefault("NOMAD_TOKEN", cfg.nomad_token)
+    result_store = _submission_result_store(submission)
+    if result_store:
+        env.setdefault("FEDCTL_RESULT_STORE", result_store)
     if cfg.service_endpoint:
         env["SUBMIT_SERVICE_ENDPOINT"] = cfg.service_endpoint
     report_token = _select_report_token(cfg)
@@ -322,7 +334,7 @@ def _build_nomad_job(submission: dict[str, Any], cfg: SubmitConfig) -> dict[str,
         node_class=submission["node_class"],
         image=submission["submit_image"],
         artifact_url=submission["artifact_url"],
-        namespace=submission.get("namespace") or cfg.nomad_namespace or "default",
+        namespace=namespace,
         args=submission.get("args") or [],
         env=env,
         priority=priority,
@@ -330,6 +342,28 @@ def _build_nomad_job(submission: dict[str, Any], cfg: SubmitConfig) -> dict[str,
         docker_socket=cfg.docker_socket,
     )
     return render_submit_job(spec)
+
+
+def _submission_result_store(submission: dict[str, Any]) -> str | None:
+    existing_env = submission.get("env")
+    if isinstance(existing_env, dict):
+        existing = existing_env.get("FEDCTL_RESULT_STORE")
+        if isinstance(existing, str) and existing.strip():
+            return existing.strip()
+
+    submit_request = submission.get("submit_request")
+    if isinstance(submit_request, dict):
+        artifact_store = submit_request.get("artifact_store")
+        if isinstance(artifact_store, str) and artifact_store.strip():
+            return artifact_store.strip()
+
+    repo_config = load_repo_config_data()
+    submit = repo_config.get("submit")
+    if isinstance(submit, dict):
+        artifact_store = submit.get("artifact_store")
+        if isinstance(artifact_store, str) and artifact_store.strip():
+            return artifact_store.strip()
+    return None
 
 
 def _latest_alloc(allocs: object) -> dict[str, Any] | None:
@@ -1001,14 +1035,7 @@ def _parse_int(value: str) -> int | None:
 
 
 def _repo_resource_overrides(name: str) -> dict[str, dict[str, int]]:
-    data = load_repo_config_data()
-    deploy = data.get("deploy", {}) if isinstance(data.get("deploy"), dict) else {}
-    resources = (
-        deploy.get("resources", {})
-        if isinstance(deploy.get("resources"), dict)
-        else {}
-    )
-    raw = resources.get(name, {})
+    raw = _effective_resource_config(_repo_effective_deploy_config(), name)
     cleaned: dict[str, dict[str, int]] = {}
 
     if isinstance(raw, dict):
@@ -1051,16 +1078,27 @@ def _repo_default_resource(name: str, *, cpu: int, mem: int) -> dict[str, int]:
 
 
 def _repo_allow_oversubscribe_default() -> bool:
-    data = load_repo_config_data()
-    deploy = data.get("deploy", {}) if isinstance(data.get("deploy"), dict) else {}
-    placement = (
-        deploy.get("placement", {})
-        if isinstance(deploy.get("placement"), dict)
-        else {}
-    )
-    value = placement.get("allow_oversubscribe")
+    value = _repo_effective_deploy_config().allow_oversubscribe
     if isinstance(value, bool):
         return value
     if isinstance(value, str):
         return value.strip().lower() in {"1", "true", "yes", "on"}
-    return False
+    return True
+
+
+def _repo_effective_deploy_config() -> EffectiveDeployConfig:
+    return resolve_effective_deploy_config(load_repo_config_data())
+
+
+def _effective_resource_config(
+    config: EffectiveDeployConfig, name: str
+) -> dict[str, object]:
+    if name == "supernode":
+        return config.supernode_resources
+    if name == "superexec_clientapp":
+        return config.superexec_clientapp_resources
+    if name == "superexec_serverapp":
+        return config.superexec_serverapp_resources
+    if name == "superlink":
+        return config.superlink_resources
+    return {}
