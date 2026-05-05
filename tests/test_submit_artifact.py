@@ -310,6 +310,47 @@ def test_submit_service_client_prompts_and_saves_missing_token(
     assert yaml.safe_load(deploy_cfg_path.read_text())["submit"]["token"] == "prompt-token"
 
 
+def test_empty_prompted_submit_token_shows_registration_hint(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(submit_cmd.getpass, "getpass", lambda _: "")
+
+    token = submit_cmd._prompt_for_submit_token()
+
+    output = capsys.readouterr().out
+    assert token is None
+    assert "Submit-service bearer token required" in output
+    assert "fedctl submit register-token" in output
+    assert "--name <username>" in output
+    assert "fedctl submit set-token" in output
+    assert "FEDCTL_SUBMIT_TOKEN" in output
+
+
+def test_noninteractive_missing_submit_token_shows_registration_hint(
+    monkeypatch, tmp_path: Path, capsys
+) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    monkeypatch.setattr(submit_cmd, "_interactive_stdin", lambda: False)
+
+    def fake_check_auth(self):
+        raise submit_cmd.SubmitServiceError("Submit service error 401: Missing bearer token")
+
+    monkeypatch.setattr(submit_cmd.SubmitServiceClient, "check_auth", fake_check_auth)
+
+    client = submit_cmd._submit_service_client(
+        deploy_cfg={"submit": {"endpoint": "http://submit.example", "token": ""}},
+        deploy_cfg_path=tmp_path / "deploy-default.yaml",
+        prompt_for_token=True,
+        validate_auth=True,
+    )
+
+    output = capsys.readouterr().out
+    assert client is submit_cmd._SUBMIT_AUTH_FAILED
+    assert "Missing submit-service bearer token" in output
+    assert "fedctl submit register-token" in output
+    assert "--name <username>" in output
+    assert "fedctl submit set-token" in output
+    assert "FEDCTL_SUBMIT_TOKEN" in output
+
+
 def test_submit_service_client_prompts_and_replaces_invalid_token(
     monkeypatch, tmp_path: Path
 ) -> None:
