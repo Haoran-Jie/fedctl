@@ -241,8 +241,8 @@ def test_ui_help_command_detail_shows_rich_guidance(tmp_path, monkeypatch: pytes
     assert "When to use it" in page.text
     assert "Dissertation experiment with explicit config" in page.text
     assert "Apply a network profile" in page.text
-    assert "--net &#x27;rpi4[*]=med&#x27;" in page.text
-    assert "--net &#x27;rpi5[*]=none&#x27;" in page.text
+    assert "--net &#39;rpi4[*]=med&#39;" in page.text
+    assert "--net &#39;rpi5[*]=none&#39;" in page.text
     assert "Related commands" in page.text
     assert "submit logs" in page.text
 
