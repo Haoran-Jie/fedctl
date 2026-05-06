@@ -115,7 +115,7 @@ class Dispatcher:
         )
         inventory_nodes, inventory_error = _inventory_snapshot(self._inventory)
         free_nodes = _node_free_resources(inventory_nodes) if inventory_nodes else []
-        running = self._storage.list_submissions(limit=200, statuses=["running"])
+        running = self._storage.list_submissions(limit=200, statuses=["running", "cancelling"])
         for submission in running:
             reserved, reason = _reserve_running_submission_capacity(
                 submission,
@@ -169,15 +169,17 @@ class Dispatcher:
             if result.submitted:
                 free_nodes = candidate_nodes
                 running.append({**submission, "status": "running"})
-        self._purge_completed_jobs()
+        self._purge_terminal_jobs()
 
     def _reconcile_running(self) -> None:
         if not self._cfg.nomad_endpoint:
             return
         running = self._storage.list_submissions(limit=100)
         for submission in running:
-            if submission.get("status") != "running":
+            submission_status = submission.get("status")
+            if submission_status not in {"running", "cancelling"}:
                 continue
+            cancelling = submission_status == "cancelling"
             nomad_job_id = submission.get("nomad_job_id") or submission.get("id")
             if not nomad_job_id:
                 continue
@@ -195,15 +197,22 @@ class Dispatcher:
                         job = client.job(nomad_job_id)
                     except NomadError as exc:
                         if _nomad_error_status(exc) == 404:
+                            terminal = "cancelled" if cancelling else "failed"
                             self._storage.set_status(
                                 submission["id"],
-                                "failed",
+                                terminal,
                                 finished_at=utcnow(),
-                                error_message="Nomad job missing",
+                                error_message=None if cancelling else "Nomad job missing",
                             )
                         continue
                     terminal_status = _submission_job_status(job)
-                    if terminal_status == "completed":
+                    if cancelling and terminal_status in {"completed", "cancelled"}:
+                        self._storage.set_status(
+                            submission["id"],
+                            "cancelled",
+                            finished_at=utcnow(),
+                        )
+                    elif terminal_status == "completed":
                         self._storage.set_status(
                             submission["id"],
                             "completed",
@@ -218,17 +227,25 @@ class Dispatcher:
                     continue
             except NomadError as exc:
                 if _nomad_error_status(exc) == 404:
+                    terminal = "cancelled" if cancelling else "failed"
                     self._storage.set_status(
                         submission["id"],
-                        "failed",
+                        terminal,
                         finished_at=utcnow(),
-                        error_message="Nomad job missing",
+                        error_message=None if cancelling else "Nomad job missing",
                     )
                 continue
             finally:
                 client.close()
             status = _submission_alloc_status(allocs)
             if status == "complete":
+                if cancelling:
+                    self._storage.set_status(
+                        submission["id"],
+                        "cancelled",
+                        finished_at=utcnow(),
+                    )
+                    continue
                 detail = _latest_allocation_detail(
                     allocs,
                     cfg=self._cfg,
@@ -249,20 +266,24 @@ class Dispatcher:
                         finished_at=utcnow(),
                     )
             elif status in {"failed", "lost"}:
+                terminal = "cancelled" if cancelling else "failed"
                 self._storage.set_status(
                     submission["id"],
-                    "failed",
+                    terminal,
                     finished_at=utcnow(),
-                    error_message=f"Nomad allocation {status}",
+                    error_message=None if cancelling else f"Nomad allocation {status}",
                 )
 
-    def _purge_completed_jobs(self) -> None:
+    def _purge_terminal_jobs(self) -> None:
         delay_s = max(0, int(self._cfg.autopurge_completed_after_s))
         if delay_s <= 0 or not self._cfg.nomad_endpoint:
             return
         now = utcnow()
-        completed = self._storage.list_submissions(limit=200, statuses=["completed"])
-        for submission in completed:
+        terminal = self._storage.list_submissions(
+            limit=200,
+            statuses=["completed", "failed", "cancelled"],
+        )
+        for submission in terminal:
             nomad_job_id = submission.get("nomad_job_id")
             if not isinstance(nomad_job_id, str) or not nomad_job_id:
                 continue
@@ -283,8 +304,9 @@ class Dispatcher:
                 client.stop_job(nomad_job_id, purge=True)
             except NomadError as exc:
                 logger.warning(
-                    "completed job purge failed: submission=%s job=%s err=%s",
+                    "terminal job purge failed: submission=%s status=%s job=%s err=%s",
                     submission.get("id"),
+                    submission.get("status"),
                     nomad_job_id,
                     exc,
                 )
@@ -296,8 +318,9 @@ class Dispatcher:
                 {"nomad_job_id": None},
             )
             logger.info(
-                "purged completed submission job: submission=%s job=%s",
+                "purged terminal submission job: submission=%s status=%s job=%s",
                 submission.get("id"),
+                submission.get("status"),
                 nomad_job_id,
             )
 

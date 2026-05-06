@@ -65,13 +65,16 @@ def test_list_submissions_active_only_filter(
 
     first = client.post("/v1/submissions", json=_payload()).json()["submission_id"]
     second = client.post("/v1/submissions", json=_payload()).json()["submission_id"]
+    third = client.post("/v1/submissions", json=_payload()).json()["submission_id"]
     storage.update_submission(first, {"status": "completed"})
     storage.update_submission(second, {"status": "running"})
+    storage.update_submission(third, {"status": "cancelling"})
 
     response = client.get("/v1/submissions", params={"limit": 10, "active_only": "true"})
     assert response.status_code == 200
     ids = [entry["submission_id"] for entry in response.json()]
     assert second in ids
+    assert third in ids
     assert first not in ids
 
 
@@ -166,6 +169,48 @@ def test_token_map_enforces_owner_scope_and_admin_override(
     admin_cancel_bob = client.post(f"/v1/submissions/{bob_id}/cancel", headers=admin_headers)
     assert admin_cancel_bob.status_code == 200
     assert admin_cancel_bob.json()["status"] == "cancelled"
+
+
+def test_cancel_running_submission_enters_cancelling_until_runner_is_terminal(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import submit_service.app.submissions_service as service_mod
+
+    stopped: list[tuple[str, bool]] = []
+
+    class FakeNomadClient:
+        def __init__(self, *args, **kwargs):
+            return None
+
+        def stop_job(self, job_id: str, *, purge: bool = False):
+            stopped.append((job_id, purge))
+            return {}
+
+        def close(self) -> None:
+            return None
+
+    monkeypatch.setenv("SUBMIT_NOMAD_ENDPOINT", "http://nomad.example:4646")
+    monkeypatch.setattr(service_mod, "NomadClient", FakeNomadClient)
+    client = _make_client(tmp_path, monkeypatch)
+    storage = client.app.state.storage
+    submission_id = client.post("/v1/submissions", json=_payload()).json()["submission_id"]
+    storage.update_submission(
+        submission_id,
+        {
+            "status": "running",
+            "nomad_job_id": submission_id,
+            "started_at": "2026-01-01T00:00:00+00:00",
+        },
+    )
+
+    response = client.post(f"/v1/submissions/{submission_id}/cancel")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "cancelling"
+    assert stopped == [(submission_id, False)]
+    updated = storage.get_submission(submission_id)
+    assert updated["finished_at"] is None
 
 
 def test_report_token_can_attach_archived_logs_for_registered_user(

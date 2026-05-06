@@ -4,7 +4,6 @@
 <section class="panel narrow">
   <div class="eyebrow">Internal access</div>
   <h1>Login</h1>
-  <p class="muted">Use an existing submit-service bearer token. Project submission still happens through <code>fedctl submit run &lt;project-dir&gt;</code>.</p>
   {% if error %}
   <div class="alert error">{{ error }}</div>
   {% endif %}
@@ -16,9 +15,5 @@
   {% if registration_enabled %}
   <p class="muted">Need a token? <a href="/register">Register a bearer token</a>.</p>
   {% endif %}
-  <div class="hint-card">
-    <strong>CLI remains the primary entrypoint</strong>
-    <p>Use the web UI for monitoring, logs, cancellation, and cluster visibility. Submit new project runs from a machine with <code>fedctl</code> installed.</p>
-  </div>
 </section>
 {% endblock %}

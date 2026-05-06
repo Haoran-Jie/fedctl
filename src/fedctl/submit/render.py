@@ -26,6 +26,8 @@ class SubmitJobSpec:
     memory_mb: int = 1024
     docker_socket: str | None = "/var/run/docker.sock"
     docker_socket_name: str = "docker-socket"
+    kill_signal: str = "SIGTERM"
+    kill_timeout_ns: int = 30_000_000_000
 
 
 def render_submit_job(spec: SubmitJobSpec) -> dict[str, Any]:
@@ -47,6 +49,8 @@ def render_submit_job(spec: SubmitJobSpec) -> dict[str, Any]:
         "memory_mb": spec.memory_mb,
         "docker_socket": spec.docker_socket,
         "docker_socket_name": spec.docker_socket_name,
+        "kill_signal": spec.kill_signal,
+        "kill_timeout_ns": spec.kill_timeout_ns,
     }
     return _render_template(env, "submit_runner.json.j2", context)
 

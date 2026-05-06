@@ -339,7 +339,7 @@ def _submission_order(order: str, *, default_priority: int = 50) -> str:
         return (
             "ORDER BY "
             "CASE "
-            "WHEN status = 'running' THEN 0 "
+            "WHEN status IN ('running', 'cancelling') THEN 0 "
             "WHEN status IN ('queued', 'blocked') THEN 1 "
             "ELSE 2 END ASC, "
             f"CASE WHEN status IN ('queued', 'blocked') THEN COALESCE(priority, {safe_default_priority}) END DESC, "

@@ -69,6 +69,10 @@ def test_ui_requires_session_and_login_succeeds(tmp_path, monkeypatch: pytest.Mo
     response = client.get("/")
     assert response.status_code == 200
     assert "Bearer token" in response.text
+    assert "Use an existing submit-service bearer token" not in response.text
+    assert "fedctl submit run &lt;project-dir&gt;" not in response.text
+    assert "CLI remains the primary entrypoint" not in response.text
+    assert "Submit new project runs" not in response.text
     assert 'href="/help"' in response.text
     assert 'href="/submissions"' not in response.text
     assert 'href="/nodes"' not in response.text
@@ -241,6 +245,13 @@ def test_ui_help_command_detail_shows_rich_guidance(tmp_path, monkeypatch: pytes
     assert "When to use it" in page.text
     assert "Dissertation experiment with explicit config" in page.text
     assert "Apply a network profile" in page.text
+    assert "profiles that are defined in the selected deploy config" in page.text
+    assert "deploy.network.profiles" in page.text
+    assert "deploy.network.ingress_profiles" in page.text
+    assert "deploy.network.egress_profiles" in page.text
+    assert "quotes only protect [*] from shell glob expansion" in page.text
+    assert 'href="http://testserver/help/config/deploy-config"' in page.text
+    assert "Open deploy config reference" in page.text
     assert "--net &#39;rpi4[*]=med&#39;" in page.text
     assert "--net &#39;rpi5[*]=none&#39;" in page.text
     assert "Related commands" in page.text

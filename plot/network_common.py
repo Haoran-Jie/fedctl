@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
-import wandb
 import numpy as np
 
 from common import cache_is_fresh, force_refresh_requested, plot_output_path, write_csv_plot
@@ -422,6 +421,8 @@ def fetch_or_load(raw_filename: str, summary_filename: str) -> tuple[list[EvalPo
     points, summaries = load_cached(raw_filename, summary_filename)
     if points and summaries:
         return points, summaries
+
+    import wandb
 
     api = wandb.Api(timeout=60)
     all_points: list[EvalPoint] = []

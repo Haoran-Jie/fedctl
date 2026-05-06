@@ -31,3 +31,5 @@ def test_render_submit_job_basic() -> None:
     assert task["Config"]["args"] == ["-m", "fedctl.submit.runner", "--path", "local/project"]
     assert task["Artifacts"][0]["GetterSource"] == "https://example.com/archive.tar.gz"
     assert task["Env"]["FEDCTL_ENDPOINT"] == "http://127.0.0.1:4646"
+    assert task["KillSignal"] == "SIGTERM"
+    assert task["KillTimeout"] == 30_000_000_000

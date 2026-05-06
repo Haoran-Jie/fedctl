@@ -841,6 +841,64 @@ def test_dispatcher_autopurges_completed_jobs_after_delay(tmp_path, monkeypatch)
     assert updated.get("nomad_job_id") is None
 
 
+def test_dispatcher_autopurges_cancelled_jobs_after_delay(tmp_path, monkeypatch) -> None:
+    db_path = tmp_path / "submit.db"
+    storage = Storage(StorageConfig(db_url=f"sqlite:///{db_path}"))
+    storage.init_db()
+    finished_at = (dispatcher_mod.utcnow() - timedelta(seconds=120)).isoformat()
+    _create_submission(
+        storage,
+        submission_id="sub-cancelled",
+        status="cancelled",
+        created_at="2026-01-01T00:00:00+00:00",
+        priority=50,
+    )
+    storage.update_submission(
+        "sub-cancelled",
+        {
+            "nomad_job_id": "sub-cancelled",
+            "finished_at": finished_at,
+            "namespace": "default",
+        },
+    )
+
+    calls: list[tuple[str, bool]] = []
+
+    class FakeNomadClient:
+        def __init__(self, *args, **kwargs):
+            return None
+
+        def stop_job(self, job_id: str, *, purge: bool = False):
+            calls.append((job_id, purge))
+            return {}
+
+        def close(self):
+            return None
+
+    monkeypatch.setattr(dispatcher_mod, "NomadClient", FakeNomadClient)
+    monkeypatch.setattr(dispatcher_mod, "_inventory_snapshot", lambda inventory: ([], None))
+    monkeypatch.setattr(
+        dispatcher_mod,
+        "_reserve_submission_capacity",
+        lambda submission, free_nodes, inventory_error: (True, None),
+    )
+
+    cfg = _cfg(db_path)
+    cfg = SubmitConfig(
+        **{
+            **cfg.__dict__,
+            "nomad_endpoint": "http://nomad.example:4646",
+            "autopurge_completed_after_s": 60,
+        }
+    )
+    dispatcher = dispatcher_mod.Dispatcher(storage, cfg)
+    dispatcher.run_once()
+
+    assert calls == [("sub-cancelled", True)]
+    updated = storage.get_submission("sub-cancelled")
+    assert updated.get("nomad_job_id") is None
+
+
 def test_dispatcher_marks_running_submission_failed_when_nomad_job_missing(
     tmp_path, monkeypatch
 ) -> None:
@@ -1145,6 +1203,65 @@ def test_dispatcher_marks_running_submission_completed_when_allocs_gone_but_job_
 
     updated = storage.get_submission("sub-dead-job")
     assert updated["status"] == "completed"
+    assert updated["error_message"] is None
+    assert updated["finished_at"] is not None
+
+
+def test_dispatcher_marks_cancelling_submission_cancelled_when_job_dead(
+    tmp_path, monkeypatch
+) -> None:
+    db_path = tmp_path / "submit.db"
+    storage = Storage(StorageConfig(db_url=f"sqlite:///{db_path}"))
+    storage.init_db()
+    _create_submission(
+        storage,
+        submission_id="sub-cancelling",
+        status="cancelling",
+        created_at="2026-01-01T00:00:00+00:00",
+        priority=50,
+    )
+    storage.update_submission(
+        "sub-cancelling",
+        {
+            "nomad_job_id": "sub-cancelling",
+            "started_at": dispatcher_mod.utcnow().isoformat(),
+            "namespace": "default",
+        },
+    )
+
+    class FakeNomadClient:
+        def __init__(self, *args, **kwargs):
+            return None
+
+        def job_allocations(self, job_id: str):
+            return []
+
+        def job(self, job_id: str):
+            return {"ID": job_id, "Status": "dead", "Stop": True}
+
+        def close(self):
+            return None
+
+    monkeypatch.setattr(dispatcher_mod, "NomadClient", FakeNomadClient)
+    monkeypatch.setattr(dispatcher_mod, "_inventory_snapshot", lambda inventory: ([], None))
+    monkeypatch.setattr(
+        dispatcher_mod,
+        "_reserve_submission_capacity",
+        lambda submission, free_nodes, inventory_error: (True, None),
+    )
+
+    cfg = _cfg(db_path)
+    cfg = SubmitConfig(
+        **{
+            **cfg.__dict__,
+            "nomad_endpoint": "http://nomad.example:4646",
+        }
+    )
+    dispatcher = dispatcher_mod.Dispatcher(storage, cfg)
+    dispatcher.run_once()
+
+    updated = storage.get_submission("sub-cancelling")
+    assert updated["status"] == "cancelled"
     assert updated["error_message"] is None
     assert updated["finished_at"] is not None
 

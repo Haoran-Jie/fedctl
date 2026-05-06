@@ -119,6 +119,7 @@ _SECTION_KEY_MAP: dict[str, dict[str, str]] = {
     "evaluation": {
         "client-eval-enabled": "client-eval-enabled",
         "final-client-eval-enabled": "final-client-eval-enabled",
+        "submodel-local-eval-enabled": "submodel-local-eval-enabled",
         "target-score": "target-score",
         "stop-on-target-score": "stop-on-target-score",
     },

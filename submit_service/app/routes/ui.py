@@ -32,7 +32,7 @@ router = APIRouter(include_in_schema=False)
 _TEMPLATE_DIR = Path(__file__).resolve().parents[1] / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATE_DIR))
 
-_STATUS_FILTERS = ["active", "completed", "failed", "cancelled", "all"]
+_STATUS_FILTERS = ["active", "completed", "failed", "cancelled", "cancelling", "all"]
 _SUBMISSIONS_UI_DEFAULT_LIMIT = 100
 _SUBMISSIONS_UI_MAX_LIMIT = 1000
 _LOG_JOBS = [
@@ -489,7 +489,11 @@ _HELP_COMMANDS = [
             },
             {
                 "title": "Apply a network profile",
-                "body": "Use --net to assign a deploy-config network profile to selected devices for one submission.",
+                "body": "Use --net to assign profiles that are defined in the selected deploy config, such as deploy.network.profiles, deploy.network.ingress_profiles, or deploy.network.egress_profiles. The quotes only protect [*] from shell glob expansion; they are not part of the fedctl syntax.",
+                "config_link": {
+                    "slug": "deploy-config",
+                    "label": "Open deploy config reference",
+                },
                 "command": (
                     "fedctl submit run apps/fedctl_research \\\n"
                     "  --run-config path/to/run.toml \\\n"
@@ -550,7 +554,7 @@ _HELP_COMMANDS = [
         "syntax": "fedctl submit register-token --name <username>",
         "details": [
             "Use this command for first-time setup when the submit service has self-registration enabled. It calls the registration API without requiring an existing bearer token, receives a user-scoped token, and stores it locally.",
-            "The token itself is not printed unless --print-token is passed.",
+            "The token itself is not printed unless --print-token is passed during registration.",
         ],
         "use_cases": [
             "Set up a fresh fedctl install without manually editing YAML.",
@@ -573,7 +577,7 @@ _HELP_COMMANDS = [
             {"name": "--name", "type": "TEXT", "description": "Username attached to the registered token"},
             {"name": "--token", "type": "TEXT", "description": "Optional caller-provided bearer token; omit to let the service generate one"},
             {"name": "--deploy-config", "type": "PATH", "description": "Deploy config used to find submit.endpoint"},
-            {"name": "--print-token", "type": "FLAG", "description": "Print the token after saving it locally"},
+            {"name": "--print-token", "type": "FLAG", "description": "Print the newly generated token after saving it locally"},
         ],
         "notes": [
             "Registration must be enabled on the submit service by the operator.",
@@ -751,11 +755,11 @@ _HELP_COMMANDS = [
     },
     {
         "name": "submit cancel",
-        "summary": "Stop an active submission and mark it cancelled.",
+        "summary": "Stop an active submission and let runner cleanup finish.",
         "importance": "standard",
         "syntax": "fedctl submit cancel <submission-id>",
         "details": [
-            "Cancellation is the safe way to stop work that is queued, blocked, submitting, or running. The submit service marks the submission as cancelled and asks Nomad to stop related jobs when applicable.",
+            "Cancellation is the safe way to stop work that is queued, blocked, submitting, or running. Queued and blocked submissions become cancelled immediately; running submissions enter cancelling while the submit runner archives logs and destroys related jobs.",
             "Use cancellation instead of deleting records directly; it preserves enough history to understand what was stopped.",
         ],
         "use_cases": [
@@ -777,7 +781,7 @@ _HELP_COMMANDS = [
         ],
         "notes": [
             "Use this for queued, running, or blocked submissions.",
-            "After cancellation, use submit status or the web UI to confirm the record is terminal.",
+            "After cancellation, use submit status or the web UI to confirm the record has moved from cancelling to cancelled.",
         ],
         "related": ["submit ls", "submit status", "submit purge"],
     },
@@ -1206,14 +1210,19 @@ def submission_cancel(
     principal = current_ui_principal(request)
     if principal is None:
         return RedirectResponse(url="/login", status_code=303)
-    cancel_submission_record(
+    record = cancel_submission_record(
         request.app.state.storage,
         request.app.state.cfg,
         submission_id=submission_id,
         principal=principal.as_auth_principal(),
     )
+    notice = (
+        "Cancellation requested; runner cleanup is in progress."
+        if record.status == "cancelling"
+        else "Submission cancelled."
+    )
     return RedirectResponse(
-        url=_append_notice(f"/submissions/{submission_id}", "Submission cancelled."),
+        url=_append_notice(f"/submissions/{submission_id}", notice),
         status_code=303,
     )
 
@@ -1594,7 +1603,7 @@ def _queue_panel_rows(
     *,
     default_priority: int,
 ) -> dict[str, list[dict[str, Any]]]:
-    running = [row for row in rows if row.get("status") == "running"]
+    running = [row for row in rows if row.get("status") in {"running", "cancelling"}]
     pending = [row for row in rows if row.get("status") in {"queued", "blocked"}]
 
     def pending_key(row: dict[str, Any]) -> tuple[int, str, str]:
@@ -2069,7 +2078,7 @@ def _fmt_runtime(started: Any, finished: Any, status: Any) -> str:
     dt_finished = _parse_dt(finished)
     if dt_finished is not None:
         return _fmt_duration_between(dt_started, dt_finished)
-    if str(status or "").lower() in {"running"}:
+    if str(status or "").lower() in {"running", "cancelling"}:
         return _fmt_duration_between(dt_started, _now_like(dt_started))
     return "-"
 

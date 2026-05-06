@@ -32,7 +32,14 @@ from ..workers.dispatcher import dispatch_submission
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
-_SUBMISSION_STATUS_FILTERS = {"active", "completed", "failed", "cancelled", "all"}
+_SUBMISSION_STATUS_FILTERS = {
+    "active",
+    "completed",
+    "failed",
+    "cancelled",
+    "cancelling",
+    "all",
+}
 
 
 def get_config(request: Request) -> SubmitConfig:

@@ -201,6 +201,103 @@ def test_run_submit_passes_submit_service_context_to_artifact_upload(
     assert "--allow-oversubscribe" in captured["submission_payload"]["args"]
 
 
+def test_run_submit_uses_unique_archive_name_per_submission(
+    monkeypatch, tmp_path: Path
+) -> None:
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    archive = tmp_path / "archive.tar.gz"
+    archive.write_bytes(b"artifact-bytes")
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        submit_cmd,
+        "inspect_flwr_project",
+        lambda _: SimpleNamespace(
+            project_name="demo-project",
+            local_sim_num_supernodes=None,
+            root=project_root,
+        ),
+    )
+    monkeypatch.setattr(
+        submit_cmd,
+        "resolve_deploy_config",
+        lambda **_: SimpleNamespace(
+            data={
+                "submit": {
+                    "image": "submit-image:latest",
+                    "artifact_store": "s3+presign://fedctl-submits/fedctl-submits",
+                    "endpoint": "http://submit.example:8080",
+                    "token": "token-from-config",
+                }
+            },
+            path=None,
+        ),
+    )
+
+    class FakeSubmitClient:
+        endpoint = "http://submit.example:8080"
+        token = "token-from-client"
+
+        def create_submission(self, payload):
+            captured["submission_payload"] = payload
+            return {"submission_id": "sub-123"}
+
+    monkeypatch.setattr(
+        submit_cmd,
+        "_submit_service_client",
+        lambda **_: FakeSubmitClient(),
+    )
+
+    def fake_build_project_archive(project_root_arg, archive_stem, **kwargs):
+        captured["archive_stem"] = archive_stem
+        return archive
+
+    monkeypatch.setattr(submit_cmd, "_build_project_archive", fake_build_project_archive)
+    monkeypatch.setattr(
+        submit_cmd,
+        "upload_artifact",
+        lambda archive_path, artifact_store, **kwargs: "https://signed.example/get-object",
+    )
+    monkeypatch.setattr(submit_cmd, "load_config", lambda: object())
+    monkeypatch.setattr(
+        submit_cmd,
+        "get_effective_config",
+        lambda _: SimpleNamespace(namespace="default"),
+    )
+
+    status = submit_cmd.run_submit(
+        path=str(project_root),
+        flwr_version="1.25.0",
+        image=None,
+        no_cache=False,
+        platform=None,
+        context=None,
+        push=False,
+        num_supernodes=2,
+        auto_supernodes=True,
+        supernodes=None,
+        net=None,
+        allow_oversubscribe=None,
+        deploy_config=None,
+        experiment="demo-exp",
+        timeout_seconds=120,
+        federation="remote-deployment",
+        stream=True,
+        destroy=True,
+        submit_image=None,
+        artifact_store=None,
+        priority=50,
+    )
+
+    assert status == 0
+    archive_stem = captured["archive_stem"]
+    assert isinstance(archive_stem, str)
+    assert archive_stem.startswith("demo-project-demo-exp-")
+    assert archive_stem != "demo-project"
+    assert "/" not in archive_stem
+
+
 def test_run_submit_requires_token_for_default_submit_service(
     monkeypatch, tmp_path: Path
 ) -> None:
@@ -503,6 +600,9 @@ def test_run_submit_register_token_defaults_user_and_saves_token(
     }
     assert saved == {"token": "fedctl_secret", "deploy_cfg_path": None}
     assert "fedctl_secret" not in output
+    assert "submit.token" in output
+    assert "Use --print-token" in output
+    assert "future registration" in output
 
 
 def test_run_submit_token_set_validates_and_saves_token(

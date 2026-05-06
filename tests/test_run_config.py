@@ -98,6 +98,7 @@ def test_resolve_run_config_normalizes_nested_project_relative_file(tmp_path: Pa
                 "[evaluation]",
                 "client-eval-enabled = false",
                 "final-client-eval-enabled = true",
+                "submodel-local-eval-enabled = false",
                 "target-score = 0.60",
                 "stop-on-target-score = true",
                 "",
@@ -147,6 +148,7 @@ def test_resolve_run_config_normalizes_nested_project_relative_file(tmp_path: Pa
     assert normalized["fiarse-global-learning-rate"] == 0.75
     assert normalized["client-eval-enabled"] is False
     assert normalized["final-client-eval-enabled"] is True
+    assert normalized["submodel-local-eval-enabled"] is False
     assert normalized["wandb-enabled"] is True
     assert normalized["wandb-tags"] == "realistic,heterofl"
     assert "seeds" not in normalized

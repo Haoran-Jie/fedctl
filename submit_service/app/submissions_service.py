@@ -31,7 +31,7 @@ class ResolvedLogs:
     source: str
 
 
-_ACTIVE_STATUSES = {"queued", "running", "blocked"}
+_ACTIVE_STATUSES = {"queued", "running", "blocked", "cancelling"}
 _CANCELLABLE_STATUSES = {"queued", "running", "blocked"}
 _PURGEABLE_STATUSES = {"completed", "failed", "cancelled"}
 _REGISTERED_TOKEN_PREFIX = "fedctl_"
@@ -420,8 +420,10 @@ def cancel_submission_record(
     principal: AuthPrincipal,
 ) -> SubmissionRecord:
     record = get_submission_or_404(storage, submission_id, principal)
+    status = str(record.get("status") or "")
     nomad_job_id = record.get("nomad_job_id")
-    if nomad_job_id and cfg.nomad_endpoint:
+    stop_requested = False
+    if status == "running" and nomad_job_id and cfg.nomad_endpoint:
         client = NomadClient(
             cfg.nomad_endpoint,
             token=cfg.nomad_token,
@@ -431,16 +433,27 @@ def cancel_submission_record(
         )
         try:
             client.stop_job(nomad_job_id)
+            stop_requested = True
         except NomadError:
             pass
         finally:
             client.close()
 
-    updated = storage.set_status(
-        submission_id,
-        "cancelled",
-        finished_at=utcnow(),
-    )
+    if stop_requested:
+        updated = storage.update_submission(
+            submission_id,
+            {
+                "status": "cancelling",
+                "blocked_reason": None,
+                "error_message": None,
+            },
+        )
+    else:
+        updated = storage.set_status(
+            submission_id,
+            "cancelled",
+            finished_at=utcnow(),
+        )
     return SubmissionRecord.from_row(updated)
 
 

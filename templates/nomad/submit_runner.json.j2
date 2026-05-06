@@ -43,6 +43,8 @@
               }
             ],
             "Env": {{ env | tojson }},
+            "KillSignal": "{{ kill_signal }}",
+            "KillTimeout": {{ kill_timeout_ns }},
             {% if docker_socket %}
             "VolumeMounts": [
               {

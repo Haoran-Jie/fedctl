@@ -119,6 +119,13 @@
           <div class="doc-example-copy">
             <h3>{{ example.title }}</h3>
             {% if example.body %}<p>{{ example.body }}</p>{% endif %}
+            {% if example.config_link %}
+            <p>
+              <a href="{{ request.url_for('help_config_detail', config_slug=example.config_link.slug) }}">
+                {{ example.config_link.label }}
+              </a>
+            </p>
+            {% endif %}
           </div>
           <div class="terminal-card">
             <div class="terminal-bar">

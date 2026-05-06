@@ -12,6 +12,7 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
+from uuid import uuid4
 
 from rich.text import Text
 import httpx
@@ -244,7 +245,7 @@ def run_submit(
     try:
         archive_path = _build_project_archive(
             info.root,
-            project_name,
+            _submit_archive_stem(project_name=project_name, experiment=exp_name),
             deploy_config_path=deploy_cfg_path,
             run_config_path=(
                 resolved_run_config.archive_source if resolved_run_config else None
@@ -1009,7 +1010,8 @@ def run_submit_register_token(
     else:
         console.print(
             "[yellow]Note:[/yellow] Token was saved locally and is not printed. "
-            "Use --print-token to display it."
+            f"To view it later, inspect submit.token in {path}. "
+            "Use --print-token on a future registration if you need the newly generated token printed immediately."
         )
     return 0
 
@@ -1081,9 +1083,14 @@ def _build_project_archive(
     temp_dir = Path(tempfile.mkdtemp(prefix="fedctl-submit-"))
     archive_path = temp_dir / f"{project_name}.tar.gz"
     replace_rel_path = Path(run_config_arcname) if run_config_arcname else None
+    skip_dirs = set(_ARCHIVE_SKIP_DIRS)
+    if run_config_path is not None and run_config_arcname:
+        skip_dirs.add("run_configs")
+    if deploy_config_path is not None:
+        skip_dirs.add("deploy_configs")
     with tarfile.open(archive_path, "w:gz") as tar:
         for root, dirs, files in os.walk(project_root):
-            dirs[:] = [d for d in dirs if d not in _ARCHIVE_SKIP_DIRS]
+            dirs[:] = [d for d in dirs if d not in skip_dirs]
             rel_root = Path(root).relative_to(project_root)
             for name in files:
                 if name in _ARCHIVE_SKIP_DIRS:
@@ -1109,6 +1116,12 @@ def _build_project_archive(
             arcname = Path(project_root.name) / run_config_arcname
             tar.add(run_config_path, arcname=arcname)
     return archive_path
+
+
+def _submit_archive_stem(*, project_name: str, experiment: str) -> str:
+    base = f"{project_name}-{experiment}-{uuid4().hex[:8]}"
+    safe = re.sub(r"[^A-Za-z0-9._-]+", "-", base).strip("-")
+    return safe or f"{project_name}-{uuid4().hex[:8]}"
 
 
 def _runner_args(

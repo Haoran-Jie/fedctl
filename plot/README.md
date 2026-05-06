@@ -15,8 +15,10 @@ This folder contains the reproducible plotting pipeline for dissertation figures
 - `compute_runtime.py`: compute-main runtime decomposition table
 - `slow_client_tradeoff.py`: slow-client inclusion trade-off plot/table data
 - `fixed_pair_interp.py`: fixed-pair interpolation triptych
+- `fedcover_pilot.py`: FedCover pilot W&B aggregation and table rows
 - `network_client_trips.py`: network-main accuracy versus client trips
 - `network_wall_clock.py`: network-main accuracy versus wall-clock time
+- `network_main_accuracy_combined.py`: combined 2x4 network-main accuracy figure
 - `async_participation_staleness.py`: async client participation/staleness heatmap
 - `network_common.py`: shared network-main W&B loading/aggregation helpers
 
