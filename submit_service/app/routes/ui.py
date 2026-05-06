@@ -32,7 +32,7 @@ router = APIRouter(include_in_schema=False)
 _TEMPLATE_DIR = Path(__file__).resolve().parents[1] / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATE_DIR))
 
-_STATUS_FILTERS = ["active", "completed", "failed", "cancelled", "cancelling", "all"]
+_STATUS_FILTERS = ["active", "completed", "failed", "cancelled", "all"]
 _SUBMISSIONS_UI_DEFAULT_LIMIT = 100
 _SUBMISSIONS_UI_MAX_LIMIT = 1000
 _LOG_JOBS = [

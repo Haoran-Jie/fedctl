@@ -13,6 +13,7 @@ from common import cache_is_fresh, force_refresh_requested, plot_output_path, wr
 ENTITY = "samueljie1-the-university-of-cambridge"
 PROJECT = "fedctl"
 TARGET_ACC = 0.60
+WARMUP_CLIENT_TRIPS = 20
 
 RAW_FILENAME = "fedcover_pilot_raw.csv"
 SUMMARY_FILENAME = "fedcover_pilot_summary.csv"
@@ -40,6 +41,7 @@ class RunRow:
     final_acc: float
     target_client_trips: float
     target_wall_clock_s: float
+    post_warmup_target_wall_clock_s: float
     final_client_trips: float
     runtime_s: float
     rpi4_weight_share: float | None
@@ -69,6 +71,7 @@ RAW_FIELDS = [
     "final_acc",
     "target_client_trips",
     "target_wall_clock_s",
+    "post_warmup_target_wall_clock_s",
     "final_client_trips",
     "runtime_s",
     "rpi4_weight_share",
@@ -104,6 +107,25 @@ def _history_best_acc(run) -> float:
     return best
 
 
+def _warmup_wall_clock_s(run, spec: RunSpec) -> float:
+    if spec.synchronous:
+        for row in run.scan_history(keys=["server_round", "round_system/train_duration_s"], page_size=1000):
+            if row.get("server_round") == 1 and isinstance(row.get("round_system/train_duration_s"), (int, float)):
+                return float(row["round_system/train_duration_s"])
+        raise RuntimeError(f"Missing first-round warm-up duration for {run.id}")
+
+    candidates: list[tuple[int, float]] = []
+    for row in run.scan_history(keys=["client_trip", "progress/wall_clock_s"], page_size=1000):
+        client_trip = row.get("client_trip")
+        wall_clock_s = row.get("progress/wall_clock_s")
+        if isinstance(client_trip, (int, float)) and isinstance(wall_clock_s, (int, float)):
+            candidates.append((int(client_trip), float(wall_clock_s)))
+    for client_trip, wall_clock_s in sorted(candidates):
+        if client_trip >= WARMUP_CLIENT_TRIPS:
+            return wall_clock_s
+    raise RuntimeError(f"Missing warm-up wall-clock point at {WARMUP_CLIENT_TRIPS} client trips for {run.id}")
+
+
 def _fetch_row(api, spec: RunSpec) -> RunRow:
     run = api.run(f"{ENTITY}/{PROJECT}/{spec.run_id}")
     if run.state != "finished":
@@ -123,6 +145,8 @@ def _fetch_row(api, spec: RunSpec) -> RunRow:
     target_wall_clock_s = _summary_number(summary, ("target/wall_clock_s_to_target",)) or runtime_s
     if target_client_trips is None:
         raise RuntimeError(f"Missing client trips for {spec.run_id}")
+    warmup_wall_clock_s = _warmup_wall_clock_s(run, spec)
+    post_warmup_target_wall_clock_s = max(0.0, float(target_wall_clock_s) - warmup_wall_clock_s)
 
     rpi4_weight = _summary_number(summary, ("fairness/run_weight_total_rpi4",))
     rpi5_weight = _summary_number(summary, ("fairness/run_weight_total_rpi5",))
@@ -144,6 +168,7 @@ def _fetch_row(api, spec: RunSpec) -> RunRow:
         final_acc=float(final_acc),
         target_client_trips=float(target_client_trips),
         target_wall_clock_s=float(target_wall_clock_s),
+        post_warmup_target_wall_clock_s=post_warmup_target_wall_clock_s,
         final_client_trips=float(final_client_trips),
         runtime_s=float(runtime_s),
         rpi4_weight_share=rpi4_weight_share,
@@ -173,6 +198,7 @@ def _load_cached() -> list[RunRow]:
                     final_acc=float(row["final_acc"]),
                     target_client_trips=float(row["target_client_trips"]),
                     target_wall_clock_s=float(row["target_wall_clock_s"]),
+                    post_warmup_target_wall_clock_s=float(row["post_warmup_target_wall_clock_s"]),
                     final_client_trips=float(row["final_client_trips"]),
                     runtime_s=float(row["runtime_s"]),
                     rpi4_weight_share=float(row["rpi4_weight_share"]) if row["rpi4_weight_share"] else None,
@@ -200,6 +226,7 @@ def _write_raw(rows: list[RunRow]) -> None:
                 row.final_acc,
                 row.target_client_trips,
                 row.target_wall_clock_s,
+                row.post_warmup_target_wall_clock_s,
                 row.final_client_trips,
                 row.runtime_s,
                 row.rpi4_weight_share if row.rpi4_weight_share is not None else "",
@@ -223,6 +250,9 @@ def _write_summary(rows: list[RunRow]) -> list[dict[str, object]]:
         final_mean, final_std = mean_std(row.final_acc for row in group)
         trips_mean, trips_std = mean_std(row.target_client_trips for row in group)
         time_mean, time_std = mean_std(row.target_wall_clock_s / 60.0 for row in group)
+        post_warmup_time_mean, post_warmup_time_std = mean_std(
+            row.post_warmup_target_wall_clock_s / 60.0 for row in group
+        )
         runtime_mean, runtime_std = mean_std(row.runtime_s / 60.0 for row in group)
         weight_values = [row.rpi4_weight_share for row in group if row.rpi4_weight_share is not None]
         weight_mean, weight_std = mean_std(weight_values) if weight_values else (0.0, 0.0)
@@ -249,6 +279,8 @@ def _write_summary(rows: list[RunRow]) -> list[dict[str, object]]:
                 "target_client_trips_std": trips_std,
                 "target_wall_clock_min_mean": time_mean,
                 "target_wall_clock_min_std": time_std,
+                "post_warmup_target_wall_clock_min_mean": post_warmup_time_mean,
+                "post_warmup_target_wall_clock_min_std": post_warmup_time_std,
                 "runtime_min_mean": runtime_mean,
                 "runtime_min_std": runtime_std,
                 "rpi4_weight_share_mean": weight_mean,
@@ -279,12 +311,19 @@ def _write_table_rows(summary_rows: list[dict[str, object]]) -> Path:
         censored = bool(row["target_censored"])
         trips = _fmt_mean_std(float(row["target_client_trips_mean"]), float(row["target_client_trips_std"]), digits=0)
         time = _fmt_mean_std(float(row["target_wall_clock_min_mean"]), float(row["target_wall_clock_min_std"]), digits=1)
+        post_warmup_time = _fmt_mean_std(
+            float(row["post_warmup_target_wall_clock_min_mean"]),
+            float(row["post_warmup_target_wall_clock_min_std"]),
+            digits=1,
+        )
         if censored:
-            trips = r"\(\ge " + trips + r"\)"
-            time = r"\(\ge " + time + r"\)"
+            trips = r"\cellcolor{gray!12}\(" + trips + r"\)"
+            time = r"\cellcolor{gray!12}\(" + time + r"\)"
+            post_warmup_time = r"\cellcolor{gray!12}\(" + post_warmup_time + r"\)"
         else:
             trips = r"\(" + trips + r"\)"
             time = r"\(" + time + r"\)"
+            post_warmup_time = r"\(" + post_warmup_time + r"\)"
         gain = "--"
         if row["coverage"] == "off":
             gain = r"\(1.00^\dagger\)"
@@ -294,12 +333,10 @@ def _write_table_rows(summary_rows: list[dict[str, object]]) -> Path:
             " & ".join(
                 [
                     _tex_method(str(row["label"])),
-                    str(row["execution"]),
-                    str(row["coverage"]),
-                    f"{int(row['target_reached_count'])}/{int(row['n'])}",
                     r"\(" + _fmt_mean_std(float(row["best_acc_mean"]), float(row["best_acc_std"]), scale=100.0, digits=1) + r"\)",
                     trips,
                     time,
+                    post_warmup_time,
                     r"\(" + _fmt_mean_std(float(row["rpi4_weight_share_mean"]), float(row["rpi4_weight_share_std"]), scale=100.0, digits=1) + r"\)",
                     gain,
                 ]
