@@ -320,7 +320,12 @@ def _submission_jobs_report(experiment: str = "exp") -> dict[str, object]:
 
 
 def _all_typed_bundle_blocked_reason() -> str:
-    return "compute-node:rpi4: need 10, have 0; compute-node:rpi5: need 10, have 0"
+    return (
+        "Waiting for available rpi4 compute nodes. Requested 10 rpi4 nodes, "
+        "but 0 eligible nodes have enough free CPU and memory.; "
+        "Waiting for available rpi5 compute nodes. Requested 10 rpi5 nodes, "
+        "but 0 eligible nodes have enough free CPU and memory."
+    )
 
 
 def _patch_live_queue_resources(monkeypatch) -> None:
@@ -475,7 +480,8 @@ def test_dispatcher_blocks_when_running_submission_already_reserves_all_nodes(
     updated = storage.get_submission("sub-queued")
     assert updated["status"] == "blocked"
     assert updated["blocked_reason"] == (
-        "strict placement waits for running submissions: sub-running"
+        "Waiting for another run to finish because this submission requested exclusive compute "
+        "nodes. Running now: sub-running."
     )
 
 
@@ -524,7 +530,8 @@ def test_dispatcher_blocks_second_submission_even_when_nodes_have_spare_resource
     updated = storage.get_submission("sub-queued")
     assert updated["status"] == "blocked"
     assert updated["blocked_reason"] == (
-        "strict placement waits for running submissions: sub-running"
+        "Waiting for another run to finish because this submission requested exclusive compute "
+        "nodes. Running now: sub-running."
     )
 
 
@@ -669,7 +676,8 @@ def test_dispatcher_blocks_strict_submission_while_soft_submission_is_running(
     updated = storage.get_submission("sub-queued-strict")
     assert updated["status"] == "blocked"
     assert updated["blocked_reason"] == (
-        "strict placement waits for running submissions: sub-running-soft"
+        "Waiting for another run to finish because this submission requested exclusive compute "
+        "nodes. Running now: sub-running-soft."
     )
 
 
@@ -729,7 +737,10 @@ def test_dispatcher_temporarily_reserves_running_soft_submission_until_child_job
     assert dispatched_ids == []
     updated = storage.get_submission("sub-queued")
     assert updated["status"] == "blocked"
-    assert "compute-node:rpi4: need cpu 30000, available 20000" in str(updated["blocked_reason"])
+    assert (
+        "Waiting for available rpi4 compute capacity. Requested 30,000 CPU units, "
+        "but only 20,000 CPU units are currently free."
+    ) in str(updated["blocked_reason"])
 
 
 def test_dispatcher_releases_queue_once_previous_submission_completed(

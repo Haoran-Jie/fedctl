@@ -703,12 +703,16 @@ def _submission_uses_strict_queue_reservation(submission: dict[str, Any]) -> boo
 def _strict_submission_wait_reason(running: list[dict[str, Any]]) -> str:
     ids = [str(row.get("id") or row.get("submission_id") or "") for row in running]
     ids = [value for value in ids if value]
+    base = (
+        "Waiting for another run to finish because this submission requested exclusive "
+        "compute nodes."
+    )
     if not ids:
-        return "strict placement waits for running submissions"
+        return base
     shown = ", ".join(ids[:3])
     if len(ids) > 3:
         shown = f"{shown}, +{len(ids) - 3} more"
-    return f"strict placement waits for running submissions: {shown}"
+    return f"{base} Running now: {shown}."
 
 
 def _pending_soft_submission_requirements(
@@ -826,7 +830,7 @@ def _check_requirement(
     if count <= 0:
         return True, None
     if not candidates:
-        return False, f"{req['name']}: no matching nodes"
+        return False, _format_no_matching_nodes_reason(req)
 
     cpu = int(req.get("cpu") or 0)
     mem = int(req.get("mem") or 0)
@@ -837,7 +841,11 @@ def _check_requirement(
         if not ok:
             return (
                 False,
-                f"{req['name']}: need {count}, have {len(_eligible_nodes(candidates, cpu, mem))}",
+                _format_strict_node_count_reason(
+                    req,
+                    requested=count,
+                    available=len(_eligible_nodes(candidates, cpu, mem)),
+                ),
             )
         return True, None
 
@@ -847,20 +855,137 @@ def _check_requirement(
     if aggregate_cpu < cpu * count:
         return (
             False,
-            f"{req['name']}: need cpu {cpu*count}, available {aggregate_cpu}",
+            _format_resource_shortage_reason(
+                req,
+                resource="CPU units",
+                requested=cpu * count,
+                available=aggregate_cpu,
+            ),
         )
     if aggregate_mem < mem * count:
         return (
             False,
-            f"{req['name']}: need mem {mem*count}, available {aggregate_mem}",
+            _format_resource_shortage_reason(
+                req,
+                resource="MB of memory",
+                requested=mem * count,
+                available=aggregate_mem,
+            ),
         )
     ok = _reserve_soft(candidates, cpu=cpu, mem=mem, count=count)
     if not ok:
         return (
             False,
-            f"{req['name']}: insufficient per-node capacity",
+            _format_per_node_capacity_reason(req),
         )
     return True, None
+
+
+def _format_no_matching_nodes_reason(req: dict[str, Any]) -> str:
+    nodes_label = _requirement_nodes_label(req)
+    return f"Waiting for available {nodes_label}. No ready {nodes_label} are currently available."
+
+
+def _format_strict_node_count_reason(
+    req: dict[str, Any],
+    *,
+    requested: int,
+    available: int,
+) -> str:
+    label = _requirement_nodes_label(req)
+    nodes_label = _requirement_requested_nodes_label(req, requested)
+    have_word = "node has" if available == 1 else "nodes have"
+    return (
+        f"Waiting for available {label}. Requested {_fmt_count(requested)} {nodes_label}, "
+        f"but {_fmt_count(available)} eligible {have_word} enough free CPU and memory."
+    )
+
+
+def _format_resource_shortage_reason(
+    req: dict[str, Any],
+    *,
+    resource: str,
+    requested: int,
+    available: int,
+) -> str:
+    label = _requirement_capacity_label(req)
+    verb = "are" if resource == "CPU units" else "is"
+    return (
+        f"Waiting for available {label}. Requested {_fmt_count(requested)} {resource}, "
+        f"but only {_fmt_count(available)} {resource} {verb} currently free."
+    )
+
+
+def _format_per_node_capacity_reason(req: dict[str, Any]) -> str:
+    label = _requirement_workload_label(req)
+    return (
+        "Waiting for nodes with enough per-node capacity. "
+        f"The cluster has enough total free CPU and memory for {label}, "
+        "but no single eligible node can fit one requested workload."
+    )
+
+
+def _requirement_capacity_label(req: dict[str, Any]) -> str:
+    name = str(req.get("name") or "")
+    device_type = req.get("device_type")
+    if name.startswith("compute-node:") and isinstance(device_type, str) and device_type:
+        return f"{device_type} compute capacity"
+    if name == "compute-node":
+        return "compute capacity"
+    if name == "superlink":
+        return "SuperLink capacity"
+    if name == "superexec-serverapp":
+        return "SuperExec server app capacity"
+    if name == "submit-runner":
+        return "submit runner capacity"
+    return f"{name or 'cluster'} capacity"
+
+
+def _requirement_nodes_label(req: dict[str, Any]) -> str:
+    name = str(req.get("name") or "")
+    device_type = req.get("device_type")
+    if name.startswith("compute-node:") and isinstance(device_type, str) and device_type:
+        return f"{device_type} compute nodes"
+    if name == "compute-node":
+        return "compute nodes"
+    if name == "superlink":
+        return "SuperLink nodes"
+    if name == "superexec-serverapp":
+        return "SuperExec server app nodes"
+    if name == "submit-runner":
+        return "submit runner nodes"
+    return f"{name or 'matching'} nodes"
+
+
+def _requirement_requested_nodes_label(req: dict[str, Any], count: int) -> str:
+    name = str(req.get("name") or "")
+    device_type = req.get("device_type")
+    suffix = "node" if count == 1 else "nodes"
+    if name.startswith("compute-node:") and isinstance(device_type, str) and device_type:
+        return f"{device_type} {suffix}"
+    if name == "compute-node":
+        return f"compute {suffix}"
+    return f"{_requirement_nodes_label(req)}"
+
+
+def _requirement_workload_label(req: dict[str, Any]) -> str:
+    name = str(req.get("name") or "")
+    device_type = req.get("device_type")
+    if name.startswith("compute-node:") and isinstance(device_type, str) and device_type:
+        return f"{device_type} compute workloads"
+    if name == "compute-node":
+        return "compute workloads"
+    if name == "superlink":
+        return "the SuperLink workload"
+    if name == "superexec-serverapp":
+        return "the SuperExec server app workload"
+    if name == "submit-runner":
+        return "the submit runner workload"
+    return f"{name or 'the requested'} workload"
+
+
+def _fmt_count(value: int) -> str:
+    return f"{value:,}"
 
 
 def _filter_nodes(
