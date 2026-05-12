@@ -19,6 +19,24 @@ def test_submit_allows_options_after_path(monkeypatch) -> None:
     assert result.exit_code == 0
     assert captured["path"] == "../proj"
     assert captured["experiment"] == "testexp"
+    assert captured["num_supernodes"] is None
+
+
+def test_submit_run_num_supernodes_is_explicit_override(monkeypatch) -> None:
+    runner = CliRunner()
+    captured = {}
+
+    def fake_run_submit(**kwargs):
+        captured.update(kwargs)
+        return 0
+
+    monkeypatch.setattr(submit_commands, "run_submit", fake_run_submit)
+    result = runner.invoke(
+        cli.app,
+        ["submit", "run", "../proj", "--num-supernodes", "5"],
+    )
+    assert result.exit_code == 0
+    assert captured["num_supernodes"] == 5
 
 
 def test_submit_run_uses_visible_deploy_config_option(monkeypatch) -> None:

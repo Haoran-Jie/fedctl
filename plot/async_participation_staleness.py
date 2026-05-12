@@ -312,18 +312,26 @@ def plot_heatmaps(rows: list[UpdateRow]) -> dict[str, object]:
 
     client_summaries: dict[str, list[dict[str, object]]] = {}
     image = None
+    x_edges = np.arange(0.5, MAX_STEPS + 1.5)
+    y_edges = np.arange(0.5, sum(DEVICE_SLOTS.values()) + 1.5)
     for ax, spec in zip(axes.flat, [spec for row in spec_by_cell for spec in row], strict=True):
         matrix, node_summary = _run_matrix(rows, spec)
         client_summaries[spec.run_id] = node_summary
-        image = ax.imshow(
+        ax.set_facecolor("white")
+        image = ax.pcolormesh(
+            x_edges,
+            y_edges,
             np.ma.masked_invalid(matrix),
             cmap=cmap,
             vmin=0,
             vmax=norm_cap,
-            interpolation="none",
-            aspect="auto",
-            extent=(0.5, MAX_STEPS + 0.5, sum(DEVICE_SLOTS.values()) + 0.5, 0.5),
+            shading="flat",
+            edgecolors="none",
+            linewidth=0,
+            antialiased=False,
+            rasterized=False,
         )
+        image.set_snap(True)
 
         ax.set_title(spec.title, pad=6)
         ax.set_xlim(0.5, MAX_STEPS + 0.5)

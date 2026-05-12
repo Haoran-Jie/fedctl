@@ -9,8 +9,9 @@ deploy:
       WANDB_PROJECT: "fedctl"
       WANDB_ENTITY: "samueljie1-the-university-of-cambridge"
   placement:
-    allow_oversubscribe: true
+    allow_oversubscribe: false
     spread_across_hosts: true
+    prefer_spread_across_hosts: true
   resources:
     supernode:
       default: { cpu: 1000, mem: 1024 }

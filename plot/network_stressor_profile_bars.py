@@ -6,7 +6,6 @@ import statistics
 from dataclasses import dataclass
 
 import matplotlib.pyplot as plt
-from matplotlib.patches import Patch
 
 from common import (
     PUBLICATION_FIGURE_WIDTH,
@@ -169,8 +168,8 @@ def _write_summary(aggregates: list[Aggregate]) -> None:
                 for method, buffer_size in VARIANT_ORDER
             ],
             "censored_definition": (
-                "Bars are hatched when at least one seed did not reach the 60% target; "
-                "that seed contributes its final observed wall-clock time."
+                "When at least one seed did not reach the 60% target, that seed contributes "
+                "its final observed wall-clock time to the aggregate."
             ),
             "delta_label_definition": (
                 "Bar labels on stressed profiles show percentage change in mean wall-clock time "
@@ -192,7 +191,7 @@ def _delta_label(slowdown_vs_none: float) -> str:
 def _plot(aggregates: list[Aggregate]) -> None:
     apply_publication_style()
     colors = default_cycle_colors(len(VARIANT_ORDER))
-    fig, ax = plt.subplots(figsize=(PUBLICATION_FIGURE_WIDTH, 5.8))
+    fig, ax = plt.subplots(figsize=(PUBLICATION_FIGURE_WIDTH, 5))
 
     by_key = {(row.profile, row.method, row.buffer_size): row for row in aggregates}
     x_positions = list(range(len(PROFILE_ORDER)))
@@ -202,12 +201,10 @@ def _plot(aggregates: list[Aggregate]) -> None:
     for idx, (method, buffer_size) in enumerate(VARIANT_ORDER):
         means: list[float] = []
         stds: list[float] = []
-        censored: list[bool] = []
         for profile in PROFILE_ORDER:
             row = by_key[(profile, method, buffer_size)]
             means.append(row.mean_wall_clock_min)
             stds.append(row.std_wall_clock_min)
-            censored.append(row.censored)
         bars = ax.bar(
             [x + offsets[idx] for x in x_positions],
             means,
@@ -219,9 +216,6 @@ def _plot(aggregates: list[Aggregate]) -> None:
             linewidth=0.45,
             label=METHOD_LABELS[(method, buffer_size)],
         )
-        for bar, is_censored in zip(bars, censored, strict=True):
-            if is_censored:
-                bar.set_hatch("///")
         for profile, bar, mean in zip(PROFILE_ORDER, bars, means, strict=True):
             if profile == "none":
                 continue
@@ -246,12 +240,10 @@ def _plot(aggregates: list[Aggregate]) -> None:
     ax.set_axisbelow(True)
 
     handles, labels = ax.get_legend_handles_labels()
-    handles.append(Patch(facecolor="white", edgecolor="black", hatch="///", label="censored seed"))
-    labels.append("censored seed")
     ax.legend(
         handles,
         labels,
-        ncol=4,
+        ncol=6,
         loc="upper center",
         bbox_to_anchor=(0.5, 1.22),
         frameon=True,

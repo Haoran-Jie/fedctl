@@ -1,0 +1,109 @@
+{
+  "runs": [
+    {
+      "case": "A",
+      "seed": 1337,
+      "run_id": "fpm16oq8",
+      "eval_points": 21,
+      "has_summary": true
+    },
+    {
+      "case": "A",
+      "seed": 1338,
+      "run_id": "0af3kedu",
+      "eval_points": 21,
+      "has_summary": true
+    },
+    {
+      "case": "A",
+      "seed": 1339,
+      "run_id": "6gj362to",
+      "eval_points": 21,
+      "has_summary": true
+    },
+    {
+      "case": "B",
+      "seed": 1337,
+      "run_id": "g72gi4nc",
+      "eval_points": 21,
+      "has_summary": true
+    },
+    {
+      "case": "B",
+      "seed": 1338,
+      "run_id": "7omy50op",
+      "eval_points": 21,
+      "has_summary": true
+    },
+    {
+      "case": "B",
+      "seed": 1339,
+      "run_id": "ujj3zqhx",
+      "eval_points": 21,
+      "has_summary": true
+    },
+    {
+      "case": "C",
+      "seed": 1337,
+      "run_id": "tzfxbsw3",
+      "eval_points": 21,
+      "has_summary": true
+    },
+    {
+      "case": "C",
+      "seed": 1338,
+      "run_id": "2qfr68hm",
+      "eval_points": 21,
+      "has_summary": true
+    },
+    {
+      "case": "C",
+      "seed": 1339,
+      "run_id": "ob28xz99",
+      "eval_points": 21,
+      "has_summary": true
+    },
+    {
+      "case": "D",
+      "seed": 1337,
+      "run_id": "6mdnoagt",
+      "eval_points": 21,
+      "has_summary": true
+    },
+    {
+      "case": "D",
+      "seed": 1338,
+      "run_id": "pmkh74e7",
+      "eval_points": 21,
+      "has_summary": true
+    },
+    {
+      "case": "D",
+      "seed": 1339,
+      "run_id": "pdc8ren0",
+      "eval_points": 21,
+      "has_summary": true
+    },
+    {
+      "case": "E",
+      "seed": 1337,
+      "run_id": "cxrzamhs",
+      "eval_points": 21,
+      "has_summary": true
+    },
+    {
+      "case": "E",
+      "seed": 1338,
+      "run_id": "jbpa4i7h",
+      "eval_points": 21,
+      "has_summary": true
+    },
+    {
+      "case": "E",
+      "seed": 1339,
+      "run_id": "2f390yeq",
+      "eval_points": 21,
+      "has_summary": true
+    }
+  ]
+}

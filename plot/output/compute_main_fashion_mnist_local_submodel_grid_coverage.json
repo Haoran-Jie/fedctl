@@ -1,0 +1,246 @@
+{
+  "task": "fashion_mnist_cnn",
+  "seed": 1337,
+  "runs": [
+    {
+      "run_id": "rr93i4c5",
+      "regime": "iid",
+      "method": "heterofl",
+      "seed": 1337,
+      "rows": 80,
+      "rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": "bx49lc5k",
+      "regime": "iid",
+      "method": "heterofl",
+      "seed": 1338,
+      "rows": 80,
+      "rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": "b6u6rysf",
+      "regime": "iid",
+      "method": "heterofl",
+      "seed": 1339,
+      "rows": 80,
+      "rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": "cd0ivgux",
+      "regime": "iid",
+      "method": "fedrolex",
+      "seed": 1337,
+      "rows": 80,
+      "rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": "lj2tvp1q",
+      "regime": "iid",
+      "method": "fedrolex",
+      "seed": 1338,
+      "rows": 80,
+      "rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": "8zgkmfjk",
+      "regime": "iid",
+      "method": "fedrolex",
+      "seed": 1339,
+      "rows": 80,
+      "rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": "9qyjzjpg",
+      "regime": "iid",
+      "method": "fiarse",
+      "seed": 1337,
+      "rows": 80,
+      "rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": "iahdid32",
+      "regime": "iid",
+      "method": "fiarse",
+      "seed": 1338,
+      "rows": 80,
+      "rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": "wpc1jj0r",
+      "regime": "iid",
+      "method": "fiarse",
+      "seed": 1339,
+      "rows": 80,
+      "rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": "qan3d15l",
+      "regime": "noniid",
+      "method": "heterofl",
+      "seed": 1337,
+      "rows": 80,
+      "rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": "xnxiedtl",
+      "regime": "noniid",
+      "method": "heterofl",
+      "seed": 1338,
+      "rows": 80,
+      "rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": "338jz3jx",
+      "regime": "noniid",
+      "method": "heterofl",
+      "seed": 1339,
+      "rows": 80,
+      "rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": "uwlxpang",
+      "regime": "noniid",
+      "method": "fedrolex",
+      "seed": 1337,
+      "rows": 80,
+      "rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": "dfxe9all",
+      "regime": "noniid",
+      "method": "fedrolex",
+      "seed": 1338,
+      "rows": 80,
+      "rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": "r9cu44c3",
+      "regime": "noniid",
+      "method": "fedrolex",
+      "seed": 1339,
+      "rows": 80,
+      "rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": "lp0lif2n",
+      "regime": "noniid",
+      "method": "fiarse",
+      "seed": 1337,
+      "rows": 80,
+      "rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": "dn4zet2u",
+      "regime": "noniid",
+      "method": "fiarse",
+      "seed": 1338,
+      "rows": 80,
+      "rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    },
+    {
+      "run_id": "c87h2c85",
+      "regime": "noniid",
+      "method": "fiarse",
+      "seed": 1339,
+      "rows": 80,
+      "rates": [
+        0.125,
+        0.25,
+        0.5,
+        1.0
+      ]
+    }
+  ],
+  "rate_labels": {
+    "1.0": "1",
+    "0.5": "1/2",
+    "0.25": "1/4",
+    "0.125": "1/8"
+  }
+}

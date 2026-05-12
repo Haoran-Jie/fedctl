@@ -5,7 +5,6 @@
   <div>
     <div class="eyebrow">Submit CLI guide</div>
     <h1>fedctl submit help</h1>
-    <p class="muted">This page covers the submit-focused CLI surface. Start with <code>fedctl submit run</code>, then use status, logs, results, and inventory as needed.</p>
   </div>
   <div class="quick-command">
     <span class="quick-command-label">Primary command</span>
@@ -44,6 +43,13 @@
             {% endif %}
             {% if step.link_url and step.link_label %}
             <p class="muted"><a href="{{ step.link_url }}">{{ step.link_label }}</a></p>
+            {% endif %}
+            {% if step.links %}
+            <p class="muted">
+              {% for link in step.links %}
+              <a href="{{ link.url }}">{{ link.label }}</a>{% if not loop.last %} · {% endif %}
+              {% endfor %}
+            </p>
             {% endif %}
             <pre><code>{{ step.command }}</code></pre>
           </div>

@@ -58,7 +58,7 @@ def run_run(
     platform: str | None = None,
     context: str | None = None,
     push: bool = False,
-    num_supernodes: int = 2,
+    num_supernodes: int | None = None,
     auto_supernodes: bool = False,
     supernodes: list[str] | None = None,
     net: list[str] | None = None,
@@ -85,9 +85,6 @@ def run_run(
         return 1
 
     project_name = info.project_name or "project"
-    if not supernodes and auto_supernodes and info.local_sim_num_supernodes:
-        num_supernodes = info.local_sim_num_supernodes
-        _print_ok(f"Using num-supernodes={num_supernodes}")
 
     exp_name = resolve_run_experiment_name(project_name=project_name, experiment=experiment)
     _print_ok(f"Experiment: {exp_name}")
@@ -561,7 +558,7 @@ def _run_seed_sweep(
     platform: str | None,
     context: str | None,
     push: bool,
-    num_supernodes: int,
+    num_supernodes: int | None,
     auto_supernodes: bool,
     supernodes: list[str] | None,
     net: list[str] | None,

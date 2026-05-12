@@ -16,6 +16,9 @@ from .io import (
 )
 
 
+DEFAULT_SUPERNODES: dict[str, int] = {"rpi4": 2, "rpi5": 2}
+
+
 def load_deploy_config(
     base: Path | None = None, config_path: Path | None = None
 ) -> dict[str, Any]:
@@ -133,7 +136,9 @@ def parse_submit_deploy_config(deploy_cfg: dict[str, Any]) -> SubmitDeployConfig
 
 def resolve_effective_deploy_config(deploy_cfg: dict[str, Any]) -> EffectiveDeployConfig:
     deploy = _as_dict(deploy_cfg.get("deploy"))
-    supernodes = _as_positive_int_dict(_as_dict(deploy.get("supernodes")))
+    supernodes = _as_positive_int_dict(_as_dict(deploy.get("supernodes"))) or dict(
+        DEFAULT_SUPERNODES
+    )
     placement = _as_dict(deploy.get("placement"))
     resources = _as_dict(deploy.get("resources"))
     superexec = _as_dict(deploy.get("superexec"))

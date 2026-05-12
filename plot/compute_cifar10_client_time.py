@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import csv
+import argparse
 import json
 import plistlib
 import re
@@ -48,10 +49,41 @@ from common import (
 
 ENTITY = "samueljie1-the-university-of-cambridge"
 PROJECT = "fedctl"
-TASK = "cifar10_cnn"
-SEED = 1340
-STEM = "compute_main_cifar10_seed1340_client_train_time"
-TMPDIR = TMP_DIR / "wandb_cifar10_seed1340_client_train_time"
+TASK_CONFIGS = {
+    "cifar10_cnn": {
+        "task": "cifar10_cnn",
+        "seed": 1340,
+        "stem": "compute_main_cifar10_seed1340_client_train_time",
+        "tmpdir": TMP_DIR / "wandb_cifar10_seed1340_client_train_time",
+        "runs": (
+            ("iid", "heterofl", "skhigedl"),
+            ("iid", "fedrolex", "i99r0zn3"),
+            ("iid", "fiarse", "y51ex006"),
+            ("noniid", "heterofl", "prg5qiyn"),
+            ("noniid", "fedrolex", "bj8ua1of"),
+            ("noniid", "fiarse", "b2jm399x"),
+        ),
+    },
+    "fashion_mnist_cnn": {
+        "task": "fashion_mnist_cnn",
+        "seed": 1338,
+        "stem": "compute_main_fashion_mnist_seed1338_client_train_time",
+        "tmpdir": TMP_DIR / "wandb_fashion_mnist_seed1338_client_train_time",
+        "runs": (
+            ("iid", "heterofl", "rkomuihv"),
+            ("iid", "fedrolex", "uwqx102v"),
+            ("iid", "fiarse", "jztd8rhr"),
+            ("noniid", "heterofl", "qxd817p7"),
+            ("noniid", "fedrolex", "bbvgjhlc"),
+            ("noniid", "fiarse", "kz2joewu"),
+        ),
+    },
+}
+DEFAULT_TASK = "cifar10_cnn"
+TASK = TASK_CONFIGS[DEFAULT_TASK]["task"]
+SEED = TASK_CONFIGS[DEFAULT_TASK]["seed"]
+STEM = TASK_CONFIGS[DEFAULT_TASK]["stem"]
+TMPDIR = TASK_CONFIGS[DEFAULT_TASK]["tmpdir"]
 
 METHOD_ORDER = ("heterofl", "fedrolex", "fiarse")
 METHOD_TITLES = {
@@ -78,14 +110,7 @@ RATE_LABELS = {
     1.0: "1",
 }
 
-RUNS = (
-    ("iid", "heterofl", "skhigedl"),
-    ("iid", "fedrolex", "i99r0zn3"),
-    ("iid", "fiarse", "y51ex006"),
-    ("noniid", "heterofl", "prg5qiyn"),
-    ("noniid", "fedrolex", "bj8ua1of"),
-    ("noniid", "fiarse", "b2jm399x"),
-)
+RUNS = TASK_CONFIGS[DEFAULT_TASK]["runs"]
 
 ROUND_TABLE_RE = re.compile(r"round_table_(\d+)_")
 
@@ -130,6 +155,27 @@ class AggregateRow:
 
 def run_specs() -> list[RunSpec]:
     return [RunSpec(regime=regime, method=method, run_id=run_id) for regime, method, run_id in RUNS]
+
+
+def configure_from_args() -> None:
+    parser = argparse.ArgumentParser(
+        description="Plot client training time by device class and model rate for compute-main submodel runs."
+    )
+    parser.add_argument(
+        "--task",
+        choices=sorted(TASK_CONFIGS),
+        default=DEFAULT_TASK,
+        help="Task/run family to plot.",
+    )
+    args = parser.parse_args()
+
+    config = TASK_CONFIGS[args.task]
+    global TASK, SEED, STEM, TMPDIR, RUNS
+    TASK = config["task"]
+    SEED = config["seed"]
+    STEM = config["stem"]
+    TMPDIR = config["tmpdir"]
+    RUNS = config["runs"]
 
 
 def _table_sort_key(name: str) -> tuple[int, str]:
@@ -503,4 +549,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    configure_from_args()
     main()

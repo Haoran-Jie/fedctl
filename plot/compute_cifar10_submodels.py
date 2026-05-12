@@ -5,6 +5,7 @@ import csv
 import json
 import plistlib
 import sys
+from argparse import ArgumentParser
 from dataclasses import dataclass
 
 import matplotlib
@@ -46,9 +47,6 @@ from common import (
 
 ENTITY = "samueljie1-the-university-of-cambridge"
 PROJECT = "fedctl"
-TASK = "cifar10_cnn"
-SEED = 1340
-TMPDIR = TMP_DIR / "wandb_cifar10_seed1340_local_submodel"
 
 METHOD_ORDER = ("heterofl", "fedrolex", "fiarse")
 METHOD_TITLES = {
@@ -70,24 +68,80 @@ RATE_LABELS = {
     0.125: "1/8",
 }
 
+TASK_CONFIGS = {
+    "cifar10_cnn": {
+        "task": "cifar10_cnn",
+        "seed": 1340,
+        "tmpdir": "wandb_cifar10_seed1340_local_submodel",
+        "output_stem": "compute_main_cifar10_seed1340_local_submodel_grid",
+        "display_x": (0.35, 0.90),
+        "runs": (
+            ("iid", "heterofl", "skhigedl"),
+            ("iid", "fedrolex", "i99r0zn3"),
+            ("iid", "fiarse", "y51ex006"),
+            ("noniid", "heterofl", "prg5qiyn"),
+            ("noniid", "fedrolex", "bj8ua1of"),
+            ("noniid", "fiarse", "b2jm399x"),
+        ),
+    },
+    "fashion_mnist_cnn": {
+        "task": "fashion_mnist_cnn",
+        "seed": 1337,
+        "tmpdir": "wandb_fashion_mnist_seed1337_local_submodel",
+        "output_stem": "compute_main_fashion_mnist_local_submodel_grid",
+        "display_x": (0.30, 0.90),
+        "runs": (
+            ("iid", "heterofl", 1337, "rr93i4c5"),
+            ("iid", "heterofl", 1338, "bx49lc5k"),
+            ("iid", "heterofl", 1339, "b6u6rysf"),
+            ("iid", "fedrolex", 1337, "cd0ivgux"),
+            ("iid", "fedrolex", 1338, "lj2tvp1q"),
+            ("iid", "fedrolex", 1339, "8zgkmfjk"),
+            ("iid", "fiarse", 1337, "9qyjzjpg"),
+            ("iid", "fiarse", 1338, "iahdid32"),
+            ("iid", "fiarse", 1339, "wpc1jj0r"),
+            ("noniid", "heterofl", 1337, "qan3d15l"),
+            ("noniid", "heterofl", 1338, "xnxiedtl"),
+            ("noniid", "heterofl", 1339, "338jz3jx"),
+            ("noniid", "fedrolex", 1337, "uwlxpang"),
+            ("noniid", "fedrolex", 1338, "dfxe9all"),
+            ("noniid", "fedrolex", 1339, "r9cu44c3"),
+            ("noniid", "fiarse", 1337, "lp0lif2n"),
+            ("noniid", "fiarse", 1338, "dn4zet2u"),
+            ("noniid", "fiarse", 1339, "c87h2c85"),
+        ),
+    },
+}
+
+TASK = "cifar10_cnn"
+SEED = 1340
+TMPDIR = TMP_DIR / "wandb_cifar10_seed1340_local_submodel"
+OUTPUT_STEM = "compute_main_cifar10_seed1340_local_submodel_grid"
 DISPLAY_X_LO = 0.35
 DISPLAY_X_HI = 0.90
 DISPLAY_BIN_COUNT = 20
+RUNS = TASK_CONFIGS["cifar10_cnn"]["runs"]
 
-RUNS = (
-    ("iid", "heterofl", "skhigedl"),
-    ("iid", "fedrolex", "i99r0zn3"),
-    ("iid", "fiarse", "y51ex006"),
-    ("noniid", "heterofl", "prg5qiyn"),
-    ("noniid", "fedrolex", "bj8ua1of"),
-    ("noniid", "fiarse", "b2jm399x"),
-)
+
+def configure(task_key: str) -> None:
+    global TASK, SEED, TMPDIR, OUTPUT_STEM, DISPLAY_X_LO, DISPLAY_X_HI, RUNS
+
+    config = TASK_CONFIGS[task_key]
+    TASK = str(config["task"])
+    SEED = int(config["seed"])
+    TMPDIR = TMP_DIR / str(config["tmpdir"])
+    OUTPUT_STEM = str(config["output_stem"])
+    display_x = config["display_x"]
+    DISPLAY_X_LO = float(display_x[0])
+    DISPLAY_X_HI = float(display_x[1])
+    RUNS = config["runs"]
 
 
 @dataclass(frozen=True)
 class RunSpec:
     regime: str
     method: str
+    seed: int
     run_id: str | None
 
 
@@ -105,7 +159,17 @@ class Row:
 
 
 def run_specs() -> list[RunSpec]:
-    return [RunSpec(regime=regime, method=method, run_id=run_id) for regime, method, run_id in RUNS]
+    specs: list[RunSpec] = []
+    for raw in RUNS:
+        if len(raw) == 3:
+            regime, method, run_id = raw
+            specs.append(RunSpec(regime=regime, method=method, seed=SEED, run_id=run_id))
+        elif len(raw) == 4:
+            regime, method, seed, run_id = raw
+            specs.append(RunSpec(regime=regime, method=method, seed=int(seed), run_id=run_id))
+        else:
+            raise ValueError(f"unexpected run spec: {raw!r}")
+    return specs
 
 
 def fetch_table_rows(api: wandb.Api, spec: RunSpec) -> list[Row]:
@@ -116,11 +180,14 @@ def fetch_table_rows(api: wandb.Api, spec: RunSpec) -> list[Row]:
     outdir = TMPDIR / spec.run_id
     outdir.mkdir(parents=True, exist_ok=True)
 
-    rows: list[Row] = []
-    for remote in run.files():
-        if "media/table/submodel/local_client_table" not in remote.name:
-            continue
+    table_files = [
+        remote
+        for remote in run.files()
+        if "media/table/submodel/local_client_table" in remote.name
+    ]
 
+    rows: list[Row] = []
+    for remote in table_files:
         remote.download(root=str(outdir), replace=True)
         path = outdir / remote.name
         payload = json.loads(path.read_text())
@@ -136,7 +203,7 @@ def fetch_table_rows(api: wandb.Api, spec: RunSpec) -> list[Row]:
                     run_id=spec.run_id,
                     regime=spec.regime,
                     method=spec.method,
-                    seed=SEED,
+                    seed=spec.seed,
                     model_rate=float(raw[idx["model_rate"]]),
                     eval_acc=float(raw[idx[eval_key]]),
                     device_type=str(raw[idx["device_type"]]),
@@ -148,7 +215,7 @@ def fetch_table_rows(api: wandb.Api, spec: RunSpec) -> list[Row]:
 
 
 def load_cached_rows() -> list[Row]:
-    cache_path = plot_output_path("compute_main_cifar10_seed1340_local_submodel_grid_raw.csv")
+    cache_path = plot_output_path(f"{OUTPUT_STEM}_raw.csv")
     if not cache_is_fresh(cache_path) or force_refresh_requested():
         return []
 
@@ -185,7 +252,7 @@ def main() -> None:
                 if spec.run_id is not None:
                     all_rows.extend(fetch_table_rows(api, spec))
         except Exception:
-            cache_path = plot_output_path("compute_main_cifar10_seed1340_local_submodel_grid_raw.csv")
+            cache_path = plot_output_path(f"{OUTPUT_STEM}_raw.csv")
             if not cache_path.exists():
                 raise
             all_rows = load_cached_rows()
@@ -198,13 +265,18 @@ def main() -> None:
                 "run_id": spec.run_id,
                 "regime": spec.regime,
                 "method": spec.method,
+                "seed": spec.seed,
                 "rows": len(rows),
                 "rates": sorted({row.model_rate for row in rows}),
             }
         )
 
+    missing = [item for item in coverage if item["run_id"] is not None and item["rows"] == 0]
+    if missing:
+        raise RuntimeError(f"missing local-submodel table rows for {missing}")
+
     write_csv_dual(
-        "compute_main_cifar10_seed1340_local_submodel_grid_raw.csv",
+        f"{OUTPUT_STEM}_raw.csv",
         [
             "run_id",
             "regime",
@@ -233,7 +305,7 @@ def main() -> None:
     )
 
     write_json_dual(
-        "compute_main_cifar10_seed1340_local_submodel_grid_coverage.json",
+        f"{OUTPUT_STEM}_coverage.json",
         {
             "task": TASK,
             "seed": SEED,
@@ -321,7 +393,7 @@ def main() -> None:
     fig.legend(handles, labels, loc="upper center", ncol=4, frameon=True, bbox_to_anchor=(0.5, 1))
     fig.tight_layout(rect=(0.0, 0.02, 1.0, 0.94))
 
-    outputs = save_figure_dual(fig, "compute_main_cifar10_seed1340_local_submodel_grid")
+    outputs = save_figure_dual(fig, OUTPUT_STEM)
     left_pdf, right_pdf = outputs["pdf"]
     print(
         json.dumps(
@@ -341,4 +413,13 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    parser = ArgumentParser(description="Plot local submodel client accuracy distributions.")
+    parser.add_argument(
+        "--task",
+        choices=sorted(TASK_CONFIGS),
+        default="cifar10_cnn",
+        help="Task/run set to plot.",
+    )
+    args = parser.parse_args()
+    configure(args.task)
     main()

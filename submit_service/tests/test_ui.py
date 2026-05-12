@@ -270,7 +270,7 @@ def test_ui_help_config_detail_pages_show_rich_guidance(tmp_path, monkeypatch: p
     assert "deploy.network.ingress_profiles.&lt;name&gt;" in deploy_page.text
     assert "FEDCTL_SUBMIT_TOKEN" in deploy_page.text
     assert "128.232.61.111:5000" in deploy_page.text
-    assert "local-simulation.num-supernodes" in deploy_page.text
+    assert "CamMLSys typed default of rpi4: 2 and rpi5: 2" in deploy_page.text
     assert "Legacy top-level registry fallback" in deploy_page.text
     assert "--repo-config" in deploy_page.text
     assert "fedctl submit run quickstart-numpy --deploy-config .fedctl/fedctl.yaml" in deploy_page.text

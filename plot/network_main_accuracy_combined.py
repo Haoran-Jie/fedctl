@@ -52,6 +52,7 @@ def _plot_panel(
     topology: str,
     colors: dict[str, str],
     linestyles: dict[str, str],
+    show_target_label: bool,
 ) -> None:
     for method in METHOD_ORDER:
         curve = [
@@ -70,9 +71,7 @@ def _plot_panel(
         ax.plot(
             xs[order],
             means[order],
-            marker="o",
-            markersize=3.0,
-            linewidth=1.7,
+            linewidth=1.35 if method == "fedasync" else 1.7,
             linestyle=linestyles[method],
             color=colors[method],
             label=METHOD_LABELS[method],
@@ -86,7 +85,7 @@ def _plot_panel(
                 means[order] + stds[order],
                 where=band,
                 color=colors[method],
-                alpha=0.16,
+                alpha=0.10,
                 linewidth=0,
             )
 
@@ -116,19 +115,20 @@ def _plot_panel(
             )
 
     ax.axhline(TARGET_ACC, color="#444444", linestyle=":", linewidth=1.2)
-    ax.text(
-        0.985,
-        TARGET_ACC - 0.04,
-        r"60\%",
-        transform=ax.get_yaxis_transform(),
-        ha="right",
-        va="bottom",
-        fontsize=11,
-        color="#333333",
-    )
+    if show_target_label:
+        ax.text(
+            0.985,
+            TARGET_ACC - 0.04,
+            r"60\%",
+            transform=ax.get_yaxis_transform(),
+            ha="right",
+            va="bottom",
+            fontsize=11,
+            color="#333333",
+        )
 
-    ax.set_ylim(0.25, 0.62)
-    ax.set_yticks([0.30, 0.40, 0.50, 0.60])
+    ax.set_ylim(0.39, 0.62)
+    ax.set_yticks([0.40, 0.50, 0.60])
 
     if x_axis == "client_trip":
         ax.set_xlim(0, BUDGET_TRIPS)
@@ -209,6 +209,7 @@ def main() -> None:
             topology=topology,
             colors=colors,
             linestyles=linestyles,
+            show_target_label=col_idx == len(columns) - 1,
         )
         _plot_panel(
             axes[1, col_idx],
@@ -219,6 +220,7 @@ def main() -> None:
             topology=topology,
             colors=colors,
             linestyles=linestyles,
+            show_target_label=col_idx == len(columns) - 1,
         )
 
         axes[0, col_idx].set_xlabel("Client trips")

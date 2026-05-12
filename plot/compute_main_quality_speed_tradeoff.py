@@ -53,6 +53,14 @@ TASKS = (
         accuracy_delta_pp=False,
     ),
     TaskSpec(
+        key='fashion_mnist',
+        title='Fashion-MNIST',
+        ylabel=r'$\Delta$ Global accuracy vs \texttt{FedAvg} (pp)',
+        xlim=(0.55, 1.35),
+        ylim=(-20.0, 1.0),
+        accuracy_delta_pp=True,
+    ),
+    TaskSpec(
         key='cifar10',
         title='CIFAR-10',
         ylabel=r'$\Delta$ Global accuracy vs \texttt{FedAvg} (pp)',
@@ -87,6 +95,20 @@ DATA: dict[str, dict[str, dict[str, Metric]]] = {
             'heterofl': Metric(0.689, 0.005, 38.5, 3.0),
             'fedrolex': Metric(0.597, 0.017, 37.4, 2.1),
             'fiarse': Metric(0.614, 0.070, 37.9, 1.1),
+        },
+    },
+    'fashion_mnist': {
+        'iid': {
+            'fedavg': Metric(83.88, 0.15, 37.8, 1.2),
+            'heterofl': Metric(81.95, 0.46, 31.9, 0.3),
+            'fedrolex': Metric(77.31, 1.09, 31.8, 0.4),
+            'fiarse': Metric(83.57, 0.20, 39.2, 0.1),
+        },
+        'noniid': {
+            'fedavg': Metric(80.86, 3.00, 61.6, 2.5),
+            'heterofl': Metric(69.73, 4.73, 49.2, 3.3),
+            'fedrolex': Metric(64.13, 6.89, 50.2, 1.7),
+            'fiarse': Metric(76.38, 4.04, 65.7, 3.5),
         },
     },
     'cifar10': {
@@ -180,7 +202,7 @@ def main() -> None:
     apply_publication_style()
     colors = dict(zip(METHOD_COLOR_ORDER, default_cycle_colors(len(METHOD_COLOR_ORDER)), strict=True))
 
-    fig, axes = plt.subplots(1, 2, figsize=(PUBLICATION_FIGURE_WIDTH, 4.8), sharex=False, sharey=False)
+    fig, axes = plt.subplots(1, 3, figsize=(PUBLICATION_FIGURE_WIDTH, 4.6), sharex=False, sharey=False)
 
     for ax, task in zip(axes, TASKS, strict=True):
         task_rows = [row for row in rows if row['task'] == task.key]
@@ -215,7 +237,10 @@ def main() -> None:
         ax.set_xlim(*task.xlim)
         ax.set_ylim(*task.ylim)
         ax.set_xlabel(r'Speedup over \texttt{FedAvg} ($\times$)')
-        ax.set_ylabel(task.ylabel)
+        if task.key == 'california_housing':
+            ax.set_ylabel(task.ylabel)
+        else:
+            ax.set_ylabel(r'$\Delta$ accuracy (pp)')
 
     method_handles = [
         Line2D(
@@ -249,13 +274,13 @@ def main() -> None:
         handles=method_handles + regime_handles,
         loc='upper center',
         ncol=6,
-        bbox_to_anchor=(0.5, 1.05),
+        bbox_to_anchor=(0.5, 1.06),
         frameon=True,
         columnspacing=0.75,
         handletextpad=0.30,
     )
 
-    fig.tight_layout(rect=(0.0, 0.0, 1.0, 0.92), w_pad=2.0)
+    fig.tight_layout(rect=(0.0, 0.0, 1.0, 0.91), w_pad=1.4)
     outputs = save_figure_plot_with_writeup_pdf(fig, STEM)
     plt.close(fig)
     print(

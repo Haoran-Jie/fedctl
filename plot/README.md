@@ -8,9 +8,10 @@ This folder contains the reproducible plotting pipeline for dissertation figures
 - `*.py`: plot entrypoints
 
 ## Entrypoints
-- `compute_cifar10_submodels.py`: CIFAR-10 local submodel accuracy grid
+- `compute_cifar10_submodels.py`: CIFAR-10 and Fashion-MNIST local submodel accuracy grids
 - `compute_california_submodels.py`: California Housing local submodel R2 grid
-- `compute_cifar10_client_time.py`: per-client CIFAR-10 training-time curves
+- `compute_cifar10_client_time.py`: per-client CIFAR-10 and Fashion-MNIST training-time curves
+- `evaluation_datasets.py`: evaluation-task dataset sample and scatter figures
 - `compute_fedrolex_submodels.py`: FedRolex local submodel histogram
 - `compute_runtime.py`: compute-main runtime decomposition table
 - `slow_client_tradeoff.py`: slow-client inclusion trade-off plot/table data

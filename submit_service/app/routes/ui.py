@@ -256,7 +256,7 @@ _HELP_CONFIG_SECTIONS = [
                     "submit.token or FEDCTL_SUBMIT_TOKEN provides the bearer token; fedctl submit register-token can create and save this value for a user.",
                     "submit.image optionally overrides the built-in fedctl submit runner image.",
                     "deploy.image_registry optionally overrides the built-in CamMLSys registry.",
-                    "deploy.supernodes is optional. If omitted, fedctl can fall back to the Flower project's local-simulation.num-supernodes unless overridden by CLI flags or a deploy preset.",
+                    "deploy.supernodes is optional. If omitted, fedctl uses the built-in CamMLSys typed default of rpi4: 2 and rpi5: 2; explicit CLI flags or deploy presets override that.",
                 ],
             },
         ],
@@ -304,7 +304,7 @@ _HELP_CONFIG_SECTIONS = [
                     {
                         "path": "deploy.supernodes",
                         "type": "map[string]int",
-                        "description": "Optional typed SuperNode counts such as {rpi4: 2, rpi5: 2}. If omitted, fedctl can fall back to the Flower project's local-simulation.num-supernodes unless a CLI flag or deploy preset overrides it.",
+                        "description": "Optional typed SuperNode counts such as {rpi4: 2, rpi5: 2}. If omitted, fedctl uses the built-in CamMLSys typed default of rpi4: 2 and rpi5: 2; pass --num-supernodes for an untyped count or --supernodes for another typed split.",
                     },
                     {
                         "path": "deploy.superexec.env",
@@ -457,7 +457,7 @@ _HELP_CONFIG_SECTIONS = [
             "Resolution order is --deploy-config, project .fedctl/fedctl.yaml, then the active user profile.",
             "Fresh installs create a CamMLSys default deploy config; use fedctl submit register-token, add submit.token, or set FEDCTL_SUBMIT_TOKEN.",
             "deploy.image_registry is the canonical registry field for CamMLSys runs.",
-            "deploy.supernodes is optional; when omitted, fedctl can fall back to the Flower project's local-simulation.num-supernodes.",
+            "deploy.supernodes is optional; when omitted, fedctl materializes the built-in CamMLSys default rpi4: 2 and rpi5: 2.",
         ],
         "related_commands": [
             "submit register-token",
@@ -556,8 +556,8 @@ _HELP_COMMANDS = [
             {"name": "--platform", "type": "TEXT", "description": "Docker build platform"},
             {"name": "--context", "type": "PATH", "description": "Docker build context directory"},
             {"name": "--push/--no-push", "type": "FLAG", "description": "Push Docker image to registry (default: yes)"},
-            {"name": "--num-supernodes", "type": "INTEGER", "description": "Number of supernode tasks (default: 2)"},
-            {"name": "--auto-supernodes/--no-auto-supernodes", "type": "FLAG", "description": "Auto-detect supernodes from project (default: yes)"},
+            {"name": "--num-supernodes", "type": "INTEGER", "description": "Override the deploy config with an untyped SuperNode count"},
+            {"name": "--auto-supernodes/--no-auto-supernodes", "type": "FLAG", "description": "Allow project local-simulation settings to fill an untyped count when no typed deployment selection applies"},
             {"name": "--supernodes", "type": "TEXT", "description": "Supernode resource config (repeatable)"},
             {"name": "--net", "type": "TEXT", "description": "Network config (repeatable)"},
             {"name": "--allow-oversubscribe/--no-allow-oversubscribe", "type": "FLAG", "description": "Allow resource oversubscription"},
@@ -1108,9 +1108,11 @@ def help_page(request: Request) -> HTMLResponse:
                         "You can also register in the web UI, then save the generated token with"
                     ),
                     "body_code": "fedctl submit set-token <token>",
-                    "body_suffix": ".",
-                    "link_url": "/register",
-                    "link_label": "Register in the web UI",
+                    "body_suffix": ". After you have a token, use it to log in to the web UI.",
+                    "links": [
+                        {"url": "/register", "label": "Register in the web UI"},
+                        {"url": "/login", "label": "Log in with your token"},
+                    ],
                     "command": "fedctl submit register-token --name <username>",
                 },
                 {

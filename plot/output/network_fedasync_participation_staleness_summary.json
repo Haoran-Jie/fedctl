@@ -1,0 +1,115 @@
+{
+  "runs": [
+    {
+      "method": "fedasync",
+      "seed": 1337,
+      "run_id": "u2awvlob",
+      "source": "network_main",
+      "updates_in_plotted_steps": 100,
+      "rpi4_updates_in_plotted_steps": 12,
+      "max_staleness_plotted_steps": 48
+    }
+  ],
+  "client_order_by_run": {
+    "u2awvlob": [
+      {
+        "row": 0,
+        "device_type": "rpi5",
+        "slot": 0,
+        "node_id": "4214547550354760372"
+      },
+      {
+        "row": 1,
+        "device_type": "rpi5",
+        "slot": 1,
+        "node_id": "6112231474357601882"
+      },
+      {
+        "row": 2,
+        "device_type": "rpi5",
+        "slot": 2,
+        "node_id": "8207643442973133991"
+      },
+      {
+        "row": 3,
+        "device_type": "rpi5",
+        "slot": 3,
+        "node_id": "8590650825039225370"
+      },
+      {
+        "row": 4,
+        "device_type": "rpi5",
+        "slot": 4,
+        "node_id": "8891719579463104067"
+      },
+      {
+        "row": 5,
+        "device_type": "rpi5",
+        "slot": 5,
+        "node_id": "11607394136474989718"
+      },
+      {
+        "row": 6,
+        "device_type": "rpi5",
+        "slot": 6,
+        "node_id": "12816508956676887436"
+      },
+      {
+        "row": 7,
+        "device_type": "rpi5",
+        "slot": 7,
+        "node_id": "15001245936710154293"
+      },
+      {
+        "row": 8,
+        "device_type": "rpi5",
+        "slot": 8,
+        "node_id": "15439651552993784664"
+      },
+      {
+        "row": 9,
+        "device_type": "rpi5",
+        "slot": 9,
+        "node_id": "15921130119528930642"
+      },
+      {
+        "row": 10,
+        "device_type": "rpi4",
+        "slot": 0,
+        "node_id": "164509846111561167"
+      },
+      {
+        "row": 11,
+        "device_type": "rpi4",
+        "slot": 1,
+        "node_id": "4998706684233461772"
+      },
+      {
+        "row": 12,
+        "device_type": "rpi4",
+        "slot": 2,
+        "node_id": "5680975054487755936"
+      },
+      {
+        "row": 13,
+        "device_type": "rpi4",
+        "slot": 3,
+        "node_id": "7802510188056893496"
+      },
+      {
+        "row": 14,
+        "device_type": "rpi4",
+        "slot": 4,
+        "node_id": "17983675319955909201"
+      }
+    ]
+  },
+  "max_steps": 100,
+  "staleness_color_cap": 48,
+  "paths": {
+    "pdf": [
+      "/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/plot/output/network_fedasync_participation_staleness.pdf",
+      "/Users/samueljie/Library/CloudStorage/OneDrive-UniversityofCambridge/Uni/Computer_Science/Year4/Dissertation/fedctl/writeup/figures/network_fedasync_participation_staleness.pdf"
+    ]
+  }
+}

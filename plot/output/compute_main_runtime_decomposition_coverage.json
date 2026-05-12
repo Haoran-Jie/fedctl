@@ -1,6 +1,6 @@
 {
-  "runs": 48,
-  "expected_runs": 48,
+  "runs": 72,
+  "expected_runs": 72,
   "missing_metric_counts": {
     "train_round_s": 0,
     "client_train_mean_s": 0,

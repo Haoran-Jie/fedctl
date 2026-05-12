@@ -27,6 +27,7 @@ METHOD_TITLES = {
 TASK_TITLES = {
     "california_housing_mlp": r"California Housing",
     "cifar10_cnn": r"CIFAR-10",
+    "fashion_mnist_cnn": r"Fashion-MNIST",
 }
 REGIME_TITLES = {
     "iid": "IID",
@@ -83,6 +84,30 @@ RUNS = (
     ("cifar10_cnn", "noniid", "fiarse", 1337, "0fkj0quv"),
     ("cifar10_cnn", "noniid", "fiarse", 1338, "t1xizie2"),
     ("cifar10_cnn", "noniid", "fiarse", 1339, "6ibt9sv7"),
+    ("fashion_mnist_cnn", "iid", "fedavg", 1337, "ce7n1pha"),
+    ("fashion_mnist_cnn", "iid", "fedavg", 1338, "sokv8oat"),
+    ("fashion_mnist_cnn", "iid", "fedavg", 1339, "a65t8p5o"),
+    ("fashion_mnist_cnn", "iid", "heterofl", 1337, "55e68no5"),
+    ("fashion_mnist_cnn", "iid", "heterofl", 1338, "rkomuihv"),
+    ("fashion_mnist_cnn", "iid", "heterofl", 1339, "9nkdd4l5"),
+    ("fashion_mnist_cnn", "iid", "fedrolex", 1337, "89j8dlwz"),
+    ("fashion_mnist_cnn", "iid", "fedrolex", 1338, "uwqx102v"),
+    ("fashion_mnist_cnn", "iid", "fedrolex", 1339, "d41h0av4"),
+    ("fashion_mnist_cnn", "iid", "fiarse", 1337, "p10tm92e"),
+    ("fashion_mnist_cnn", "iid", "fiarse", 1338, "jztd8rhr"),
+    ("fashion_mnist_cnn", "iid", "fiarse", 1339, "r46w48wa"),
+    ("fashion_mnist_cnn", "noniid", "fedavg", 1337, "ik2ovm3p"),
+    ("fashion_mnist_cnn", "noniid", "fedavg", 1338, "xb2lasl3"),
+    ("fashion_mnist_cnn", "noniid", "fedavg", 1339, "3xs6f91s"),
+    ("fashion_mnist_cnn", "noniid", "heterofl", 1337, "jl9z8z7b"),
+    ("fashion_mnist_cnn", "noniid", "heterofl", 1338, "qxd817p7"),
+    ("fashion_mnist_cnn", "noniid", "heterofl", 1339, "41gny8cn"),
+    ("fashion_mnist_cnn", "noniid", "fedrolex", 1337, "ah5vf711"),
+    ("fashion_mnist_cnn", "noniid", "fedrolex", 1338, "bbvgjhlc"),
+    ("fashion_mnist_cnn", "noniid", "fedrolex", 1339, "giy5gk87"),
+    ("fashion_mnist_cnn", "noniid", "fiarse", 1337, "lj4polc4"),
+    ("fashion_mnist_cnn", "noniid", "fiarse", 1338, "kz2joewu"),
+    ("fashion_mnist_cnn", "noniid", "fiarse", 1339, "x8g42tb0"),
 )
 
 METRICS = {
@@ -207,6 +232,14 @@ def _fmt_relative(value: float, baseline: float) -> str:
     return f"{value / baseline:.2f}$\\times$"
 
 
+def _fmt_mean_pair(left: list[float], right: list[float], digits: int = 1) -> str:
+    left_clean = [v for v in left if math.isfinite(v)]
+    right_clean = [v for v in right if math.isfinite(v)]
+    if not left_clean or not right_clean:
+        return "--"
+    return f"{statistics.fmean(left_clean):.{digits}f} / {statistics.fmean(right_clean):.{digits}f}"
+
+
 def _latex_table(rows: list[RunMetrics]) -> str:
     lines = [
         r"\begin{table}[H]",
@@ -214,17 +247,18 @@ def _latex_table(rows: list[RunMetrics]) -> str:
         r"\scriptsize",
         r"\renewcommand{\arraystretch}{1.08}",
         r"\setlength{\tabcolsep}{2.7pt}",
-        r"\caption{\textbf{Compute-main runtime and bottleneck decomposition.} Entries report mean $\pm$ standard deviation over completed seeds \texttt{1337}, \texttt{1338}, and \texttt{1339}. Runtime is end-to-end server-observed training time from \texttt{runtime/total\_server\_s}. Train round is the wall-clock latency of the synchronous training phase in each round; client train mean/std summarise the client-reported local training durations within a round; client eval is the synchronous client-evaluation phase; server eval is centralized evaluation time. Lower is better for all timing columns.}",
+        r"\caption{\textbf{Compute-main runtime and bottleneck decomposition.} Runtime, train round, and evaluation columns report mean $\pm$ standard deviation over completed seeds \texttt{1337}, \texttt{1338}, and \texttt{1339}. Runtime is end-to-end server-observed training time from \texttt{runtime/total\_server\_s}. Client train $\mu/\sigma$ gives the average within-round client-training mean and dispersion. Client eval is the synchronous client-evaluation phase; server eval is centralized evaluation time. Lower is better for timing columns.}",
         r"\label{tab:compute_main_runtime}",
-        r"\resizebox{\textwidth}{!}{%",
-        r"\begin{tabular}{@{}lllrrrrrrr@{}}",
+        r"\begin{adjustbox}{max width=\textwidth}",
+        r"\begin{tabular}{@{}lllrrrrrr@{}}",
         r"\toprule",
-        r"Regime & Task & Method & \makecell[c]{Runtime\\(min)} & Rel. & \makecell[c]{Train\\round (s)} & \makecell[c]{Client train\\mean (s)} & \makecell[c]{Client train\\std (s)} & \makecell[c]{Client eval\\round (s)} & \makecell[c]{Server\\eval (s)} \\",
+        r"Task & Data & Method & \makecell[c]{Runtime\\(min)} & Rel. & \makecell[c]{Train\\round (s)} & \makecell[c]{Client train\\$\mu/\sigma$ (s)} & \makecell[c]{Client eval\\round (s)} & \makecell[c]{Server\\eval (s)} \\",
         r"\midrule",
     ]
     first_block = True
-    for regime in ("iid", "noniid"):
-        for task in ("california_housing_mlp", "cifar10_cnn"):
+    for task in ("california_housing_mlp", "fashion_mnist_cnn", "cifar10_cnn"):
+        first_regime_for_task = True
+        for regime in ("iid", "noniid"):
             block = [r for r in rows if r.regime == regime and r.task == task]
             if not block:
                 continue
@@ -247,24 +281,27 @@ def _latex_table(rows: list[RunMetrics]) -> str:
                 runtime_cell = _fmt_mean_std(runtime_values)
                 if abs(runtime_mean - best_runtime) < 1e-9:
                     runtime_cell = rf"\textbf{{{runtime_cell}}}"
+                task_cell = TASK_TITLES[task] if first_method and first_regime_for_task else ""
                 regime_cell = REGIME_TITLES[regime] if first_method else ""
-                task_cell = TASK_TITLES[task] if first_method else ""
                 first_method = False
                 lines.append(
                     " & ".join([
-                        regime_cell,
                         task_cell,
+                        regime_cell,
                         METHOD_TITLES[method],
                         runtime_cell,
                         _fmt_relative(runtime_mean, best_runtime),
                         _fmt_mean_std([r.train_round_s for r in method_rows]),
-                        _fmt_mean_std([r.client_train_mean_s for r in method_rows]),
-                        _fmt_mean_std([r.client_train_std_s for r in method_rows]),
+                        _fmt_mean_pair(
+                            [r.client_train_mean_s for r in method_rows],
+                            [r.client_train_std_s for r in method_rows],
+                        ),
                         _fmt_mean_std([r.client_eval_round_s for r in method_rows]),
                         _fmt_mean_std([r.server_eval_s for r in method_rows]),
                     ]) + r" \\"
                 )
-    lines.extend([r"\bottomrule", r"\end{tabular}%", r"}", r"\end{table}", ""])
+            first_regime_for_task = False
+    lines.extend([r"\bottomrule", r"\end{tabular}", r"\end{adjustbox}", r"\end{table}", ""])
     return "\n".join(lines)
 
 
@@ -280,6 +317,8 @@ def main() -> None:
         "client_eval_round_s",
         "server_eval_s",
     )
+    if len(rows) != len(RUNS):
+        rows = []
     if rows and any(not math.isfinite(getattr(row, metric)) for row in rows for metric in metric_names):
         rows = []
     if not rows:

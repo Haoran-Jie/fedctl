@@ -244,6 +244,7 @@ def test_deploy_config_defaults_extracts_superexec_env_map() -> None:
 def test_deploy_config_defaults_use_cammlsys_behavior_when_omitted() -> None:
     deploy_defaults = _deploy_config_defaults({})
 
+    assert deploy_defaults.supernodes == {"rpi4": 2, "rpi5": 2}
     assert deploy_defaults.supernode_resources == {
         "default": {"cpu": 1000, "mem": 1024},
         "rpi4": {"cpu": 1000, "mem": 1024},

@@ -4,6 +4,7 @@ from __future__ import annotations
 import csv
 import json
 import statistics
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
@@ -14,6 +15,12 @@ ENTITY = "samueljie1-the-university-of-cambridge"
 PROJECT = "fedctl"
 TARGET_ACC = 0.60
 WARMUP_CLIENT_TRIPS = 20
+CIFAR10_CNN = "cifar10_cnn"
+FASHION_MNIST_CNN = "fashion_mnist_cnn"
+TASK_LABELS = {
+    CIFAR10_CNN: "CIFAR-10",
+    FASHION_MNIST_CNN: "Fashion-MNIST",
+}
 
 RAW_FILENAME = "fedcover_pilot_raw.csv"
 SUMMARY_FILENAME = "fedcover_pilot_summary.csv"
@@ -22,20 +29,26 @@ TABLE_FILENAME = "fedcover_pilot_table_rows.tex"
 
 @dataclass(frozen=True)
 class RunSpec:
+    task: str
+    regime: str
     method: str
     label: str
     seed: int
     run_id: str
     synchronous: bool
     coverage: str
+    target_acc: float
 
 
 @dataclass(frozen=True)
 class RunRow:
+    task: str
+    regime: str
     method: str
     label: str
     seed: int
     run_id: str
+    target_acc: float
     target_reached: bool
     best_acc: float
     final_acc: float
@@ -50,22 +63,88 @@ class RunRow:
 
 
 RUNS = (
-    RunSpec("heterofl", "HeteroFL", 1337, "p7mswz2d", True, "--"),
-    RunSpec("heterofl", "HeteroFL", 1338, "uez5yc9s", True, "--"),
-    RunSpec("heterofl", "HeteroFL", 1339, "z2a8to3q", True, "--"),
-    RunSpec("async_heterofl", "Async HeteroFL", 1337, "entgqdnf", False, "off"),
-    RunSpec("async_heterofl", "Async HeteroFL", 1338, "l1qhsxeq", False, "off"),
-    RunSpec("async_heterofl", "Async HeteroFL", 1339, "wi1dsf8d", False, "off"),
-    RunSpec("fedcover", "FedCover", 1337, "eajmk8ms", False, "on"),
-    RunSpec("fedcover", "FedCover", 1338, "kawgrsj8", False, "on"),
-    RunSpec("fedcover", "FedCover", 1339, "pu8puo1w", False, "on"),
+    RunSpec(CIFAR10_CNN, "iid", "heterofl", "HeteroFL", 1337, "skgjfp96", True, "--", 0.70),
+    RunSpec(CIFAR10_CNN, "iid", "heterofl", "HeteroFL", 1338, "swcyl60o", True, "--", 0.70),
+    RunSpec(CIFAR10_CNN, "iid", "heterofl", "HeteroFL", 1339, "0fprnayr", True, "--", 0.70),
+    RunSpec(CIFAR10_CNN, "iid", "async_heterofl", "Async HeteroFL", 1337, "rbbmbqrk", False, "off", 0.70),
+    RunSpec(CIFAR10_CNN, "iid", "async_heterofl", "Async HeteroFL", 1338, "tdvy3281", False, "off", 0.70),
+    RunSpec(CIFAR10_CNN, "iid", "async_heterofl", "Async HeteroFL", 1339, "yh7l1gn2", False, "off", 0.70),
+    RunSpec(CIFAR10_CNN, "iid", "fedcover_025", "FedCover (gamma=0.25)", 1337, "09hgsf50", False, "on", 0.70),
+    RunSpec(CIFAR10_CNN, "iid", "fedcover_025", "FedCover (gamma=0.25)", 1338, "3mneknxw", False, "on", 0.70),
+    RunSpec(CIFAR10_CNN, "iid", "fedcover_025", "FedCover (gamma=0.25)", 1339, "0v5kju3r", False, "on", 0.70),
+    RunSpec(CIFAR10_CNN, "iid", "fedcover_050", "FedCover (gamma=0.5)", 1337, "0gdpojh3", False, "on", 0.70),
+    RunSpec(CIFAR10_CNN, "iid", "fedcover_050", "FedCover (gamma=0.5)", 1338, "m8o9ponh", False, "on", 0.70),
+    RunSpec(CIFAR10_CNN, "iid", "fedcover_050", "FedCover (gamma=0.5)", 1339, "d1vif1gu", False, "on", 0.70),
+    RunSpec(CIFAR10_CNN, "iid", "fedcover_100", "FedCover (gamma=1.0)", 1337, "mv2gxvn3", False, "on", 0.70),
+    RunSpec(CIFAR10_CNN, "iid", "fedcover_100", "FedCover (gamma=1.0)", 1338, "90ops15j", False, "on", 0.70),
+    RunSpec(CIFAR10_CNN, "iid", "fedcover_100", "FedCover (gamma=1.0)", 1339, "6to03qrl", False, "on", 0.70),
+    RunSpec(CIFAR10_CNN, "iid", "fedbuff_full", "Full-model FedBuff", 1337, "ml89yipf", False, "--", 0.70),
+    RunSpec(CIFAR10_CNN, "iid", "fedbuff_full", "Full-model FedBuff", 1338, "l7fazyan", False, "--", 0.70),
+    RunSpec(CIFAR10_CNN, "iid", "fedbuff_full", "Full-model FedBuff", 1339, "xdrjj60u", False, "--", 0.70),
+    RunSpec(CIFAR10_CNN, "noniid", "heterofl", "HeteroFL", 1337, "p7mswz2d", True, "--", 0.60),
+    RunSpec(CIFAR10_CNN, "noniid", "heterofl", "HeteroFL", 1338, "uez5yc9s", True, "--", 0.60),
+    RunSpec(CIFAR10_CNN, "noniid", "heterofl", "HeteroFL", 1339, "z2a8to3q", True, "--", 0.60),
+    RunSpec(CIFAR10_CNN, "noniid", "async_heterofl", "Async HeteroFL", 1337, "entgqdnf", False, "off", 0.60),
+    RunSpec(CIFAR10_CNN, "noniid", "async_heterofl", "Async HeteroFL", 1338, "l1qhsxeq", False, "off", 0.60),
+    RunSpec(CIFAR10_CNN, "noniid", "async_heterofl", "Async HeteroFL", 1339, "wi1dsf8d", False, "off", 0.60),
+    RunSpec(CIFAR10_CNN, "noniid", "fedcover_025", "FedCover (gamma=0.25)", 1337, "zi9feeeu", False, "on", 0.60),
+    RunSpec(CIFAR10_CNN, "noniid", "fedcover_025", "FedCover (gamma=0.25)", 1338, "fzw6cb7h", False, "on", 0.60),
+    RunSpec(CIFAR10_CNN, "noniid", "fedcover_025", "FedCover (gamma=0.25)", 1339, "fdyjrc8t", False, "on", 0.60),
+    RunSpec(CIFAR10_CNN, "noniid", "fedcover_050", "FedCover (gamma=0.5)", 1337, "eajmk8ms", False, "on", 0.60),
+    RunSpec(CIFAR10_CNN, "noniid", "fedcover_050", "FedCover (gamma=0.5)", 1338, "kawgrsj8", False, "on", 0.60),
+    RunSpec(CIFAR10_CNN, "noniid", "fedcover_050", "FedCover (gamma=0.5)", 1339, "pu8puo1w", False, "on", 0.60),
+    RunSpec(CIFAR10_CNN, "noniid", "fedcover_100", "FedCover (gamma=1.0)", 1337, "lyv9lu4o", False, "on", 0.60),
+    RunSpec(CIFAR10_CNN, "noniid", "fedcover_100", "FedCover (gamma=1.0)", 1338, "i5j7we6u", False, "on", 0.60),
+    RunSpec(CIFAR10_CNN, "noniid", "fedcover_100", "FedCover (gamma=1.0)", 1339, "ptpcdne6", False, "on", 0.60),
+    RunSpec(CIFAR10_CNN, "noniid", "fedbuff_full", "Full-model FedBuff", 1337, "myahfz65", False, "--", 0.60),
+    RunSpec(CIFAR10_CNN, "noniid", "fedbuff_full", "Full-model FedBuff", 1338, "96hydsfz", False, "--", 0.60),
+    RunSpec(CIFAR10_CNN, "noniid", "fedbuff_full", "Full-model FedBuff", 1339, "wr5u7vc0", False, "--", 0.60),
+    RunSpec(FASHION_MNIST_CNN, "iid", "heterofl", "HeteroFL", 1337, "xbk5a0d7", True, "--", 0.80),
+    RunSpec(FASHION_MNIST_CNN, "iid", "heterofl", "HeteroFL", 1338, "3xe4f92g", True, "--", 0.80),
+    RunSpec(FASHION_MNIST_CNN, "iid", "heterofl", "HeteroFL", 1339, "9kpa75am", True, "--", 0.80),
+    RunSpec(FASHION_MNIST_CNN, "iid", "async_heterofl", "Async HeteroFL", 1337, "5g63o6yh", False, "off", 0.80),
+    RunSpec(FASHION_MNIST_CNN, "iid", "async_heterofl", "Async HeteroFL", 1338, "rt6cqg71", False, "off", 0.80),
+    RunSpec(FASHION_MNIST_CNN, "iid", "async_heterofl", "Async HeteroFL", 1339, "hngxry4a", False, "off", 0.80),
+    RunSpec(FASHION_MNIST_CNN, "iid", "fedcover_025", "FedCover (gamma=0.25)", 1337, "jl6nu6r3", False, "on", 0.80),
+    RunSpec(FASHION_MNIST_CNN, "iid", "fedcover_025", "FedCover (gamma=0.25)", 1338, "56obpb0t", False, "on", 0.80),
+    RunSpec(FASHION_MNIST_CNN, "iid", "fedcover_025", "FedCover (gamma=0.25)", 1339, "qz67k7o2", False, "on", 0.80),
+    RunSpec(FASHION_MNIST_CNN, "iid", "fedcover_050", "FedCover (gamma=0.5)", 1337, "buktl4bo", False, "on", 0.80),
+    RunSpec(FASHION_MNIST_CNN, "iid", "fedcover_050", "FedCover (gamma=0.5)", 1338, "4nkgrs9s", False, "on", 0.80),
+    RunSpec(FASHION_MNIST_CNN, "iid", "fedcover_050", "FedCover (gamma=0.5)", 1339, "us7y074d", False, "on", 0.80),
+    RunSpec(FASHION_MNIST_CNN, "iid", "fedcover_100", "FedCover (gamma=1.0)", 1337, "d8rmrpwj", False, "on", 0.80),
+    RunSpec(FASHION_MNIST_CNN, "iid", "fedcover_100", "FedCover (gamma=1.0)", 1338, "dk2xt4dn", False, "on", 0.80),
+    RunSpec(FASHION_MNIST_CNN, "iid", "fedcover_100", "FedCover (gamma=1.0)", 1339, "b6n8wobd", False, "on", 0.80),
+    RunSpec(FASHION_MNIST_CNN, "iid", "fedbuff_full", "Full-model FedBuff", 1337, "8d3qk95x", False, "--", 0.80),
+    RunSpec(FASHION_MNIST_CNN, "iid", "fedbuff_full", "Full-model FedBuff", 1338, "9ned06a0", False, "--", 0.80),
+    RunSpec(FASHION_MNIST_CNN, "iid", "fedbuff_full", "Full-model FedBuff", 1339, "aqwbw2vt", False, "--", 0.80),
+    RunSpec(FASHION_MNIST_CNN, "noniid", "heterofl", "HeteroFL", 1337, "pt8w9zh4", True, "--", 0.75),
+    RunSpec(FASHION_MNIST_CNN, "noniid", "heterofl", "HeteroFL", 1338, "5kq7hj2z", True, "--", 0.75),
+    RunSpec(FASHION_MNIST_CNN, "noniid", "heterofl", "HeteroFL", 1339, "owxt6cco", True, "--", 0.75),
+    RunSpec(FASHION_MNIST_CNN, "noniid", "async_heterofl", "Async HeteroFL", 1337, "g82jlxnl", False, "off", 0.75),
+    RunSpec(FASHION_MNIST_CNN, "noniid", "async_heterofl", "Async HeteroFL", 1338, "ki8ngk96", False, "off", 0.75),
+    RunSpec(FASHION_MNIST_CNN, "noniid", "async_heterofl", "Async HeteroFL", 1339, "c0i58l5x", False, "off", 0.75),
+    RunSpec(FASHION_MNIST_CNN, "noniid", "fedcover_025", "FedCover (gamma=0.25)", 1337, "i0c4ku8f", False, "on", 0.75),
+    RunSpec(FASHION_MNIST_CNN, "noniid", "fedcover_025", "FedCover (gamma=0.25)", 1338, "yn1uk84u", False, "on", 0.75),
+    RunSpec(FASHION_MNIST_CNN, "noniid", "fedcover_025", "FedCover (gamma=0.25)", 1339, "2tk7my56", False, "on", 0.75),
+    RunSpec(FASHION_MNIST_CNN, "noniid", "fedcover_050", "FedCover (gamma=0.5)", 1337, "vfepok63", False, "on", 0.75),
+    RunSpec(FASHION_MNIST_CNN, "noniid", "fedcover_050", "FedCover (gamma=0.5)", 1338, "50qd2dpx", False, "on", 0.75),
+    RunSpec(FASHION_MNIST_CNN, "noniid", "fedcover_050", "FedCover (gamma=0.5)", 1339, "ayjypqfy", False, "on", 0.75),
+    RunSpec(FASHION_MNIST_CNN, "noniid", "fedcover_100", "FedCover (gamma=1.0)", 1337, "ex41xxq2", False, "on", 0.75),
+    RunSpec(FASHION_MNIST_CNN, "noniid", "fedcover_100", "FedCover (gamma=1.0)", 1338, "gr2i8evd", False, "on", 0.75),
+    RunSpec(FASHION_MNIST_CNN, "noniid", "fedcover_100", "FedCover (gamma=1.0)", 1339, "4tupaano", False, "on", 0.75),
+    RunSpec(FASHION_MNIST_CNN, "noniid", "fedbuff_full", "Full-model FedBuff", 1337, "abz74nkf", False, "--", 0.75),
+    RunSpec(FASHION_MNIST_CNN, "noniid", "fedbuff_full", "Full-model FedBuff", 1338, "4q3u22we", False, "--", 0.75),
+    RunSpec(FASHION_MNIST_CNN, "noniid", "fedbuff_full", "Full-model FedBuff", 1339, "1wrk9gl0", False, "--", 0.75),
 )
 
 RAW_FIELDS = [
+    "task",
+    "regime",
     "method",
     "label",
     "seed",
     "run_id",
+    "target_acc",
     "target_reached",
     "best_acc",
     "final_acc",
@@ -159,10 +238,13 @@ def _fetch_row(api, spec: RunSpec) -> RunRow:
         rpi4_weight_share = None
 
     return RunRow(
+        task=spec.task,
+        regime=spec.regime,
         method=spec.method,
         label=spec.label,
         seed=spec.seed,
         run_id=spec.run_id,
+        target_acc=spec.target_acc,
         target_reached=target_reached,
         best_acc=_history_best_acc(run),
         final_acc=float(final_acc),
@@ -189,10 +271,13 @@ def _load_cached() -> list[RunRow]:
         for row in reader:
             rows.append(
                 RunRow(
+                    task=row["task"],
+                    regime=row["regime"],
                     method=row["method"],
                     label=row["label"],
                     seed=int(row["seed"]),
                     run_id=row["run_id"],
+                    target_acc=float(row["target_acc"]),
                     target_reached=row["target_reached"].lower() == "true",
                     best_acc=float(row["best_acc"]),
                     final_acc=float(row["final_acc"]),
@@ -217,10 +302,13 @@ def _write_raw(rows: list[RunRow]) -> None:
         RAW_FIELDS,
         (
             [
+                row.task,
+                row.regime,
                 row.method,
                 row.label,
                 row.seed,
                 row.run_id,
+                row.target_acc,
                 row.target_reached,
                 row.best_acc,
                 row.final_acc,
@@ -245,7 +333,11 @@ def _fmt_mean_std(mean: float, std: float, *, scale: float = 1.0, digits: int = 
 def _write_summary(rows: list[RunRow]) -> list[dict[str, object]]:
     summary_rows: list[dict[str, object]] = []
     for spec in RUNS[::3]:
-        group = [row for row in rows if row.method == spec.method]
+        group = [
+            row
+            for row in rows
+            if row.task == spec.task and row.regime == spec.regime and row.method == spec.method
+        ]
         best_mean, best_std = mean_std(row.best_acc for row in group)
         final_mean, final_std = mean_std(row.final_acc for row in group)
         trips_mean, trips_std = mean_std(row.target_client_trips for row in group)
@@ -264,10 +356,14 @@ def _write_summary(rows: list[RunRow]) -> list[dict[str, object]]:
         censored = reached < len(group)
         summary_rows.append(
             {
+                "task": spec.task,
+                "task_label": TASK_LABELS.get(spec.task, spec.task),
+                "regime": spec.regime,
                 "method": spec.method,
                 "label": spec.label,
                 "execution": "sync" if spec.synchronous else "async",
                 "coverage": spec.coverage,
+                "target_acc": spec.target_acc,
                 "n": len(group),
                 "target_reached_count": reached,
                 "target_censored": censored,
@@ -302,12 +398,53 @@ def _write_summary(rows: list[RunRow]) -> list[dict[str, object]]:
 def _tex_method(label: str) -> str:
     if label == "Async HeteroFL":
         return r"\texttt{Async-HeteroFL}"
+    if label == "Full-model FedBuff":
+        return r"Full-model \texttt{FedBuff}"
+    if label.startswith("FedCover (gamma="):
+        gamma = label.removeprefix("FedCover (gamma=").removesuffix(")")
+        return rf"\texttt{{FedCover}} \((\gamma={gamma})\)"
     return rf"\texttt{{{label}}}"
+
+
+def _tex_data_label(regime: str) -> str:
+    if regime == "iid":
+        return "IID"
+    if regime == "noniid":
+        return "Non-IID"
+    return regime
+
+
+def _tex_task_label(task: str) -> str:
+    return TASK_LABELS.get(task, task.replace("_", r"\_"))
 
 
 def _write_table_rows(summary_rows: list[dict[str, object]]) -> Path:
     lines: list[str] = []
+    task_counts = Counter(str(row["task"]) for row in summary_rows)
+    regime_counts: Counter[tuple[str, str]] = Counter()
     for row in summary_rows:
+        task = str(row["task"])
+        regime = str(row["regime"])
+        regime_counts[(task, regime)] += 1
+    task_seen: dict[str, int] = {}
+    regime_seen: dict[tuple[str, str], int] = {}
+    for row in summary_rows:
+        task = str(row["task"])
+        regime = str(row["regime"])
+        if task_seen and task not in task_seen:
+            lines.append(r"\addlinespace[0.35em]")
+        elif regime_seen and (task, regime) not in regime_seen:
+            lines.append(r"\addlinespace[0.2em]")
+        task_cell = ""
+        task_seen_count = task_seen.get(task, 0)
+        if task_seen_count == 0:
+            task_cell = rf"\multirow{{{task_counts[task]}}}{{*}}{{\makecell[l]{{{_tex_task_label(task)}}}}}"
+        task_seen[task] = task_seen_count + 1
+        seen = regime_seen.get((task, regime), 0)
+        data_cell = ""
+        if seen == 0:
+            data_cell = rf"\multirow{{{regime_counts[(task, regime)]}}}{{*}}{{{_tex_data_label(regime)}}}"
+        regime_seen[(task, regime)] = seen + 1
         censored = bool(row["target_censored"])
         trips = _fmt_mean_std(float(row["target_client_trips_mean"]), float(row["target_client_trips_std"]), digits=0)
         time = _fmt_mean_std(float(row["target_wall_clock_min_mean"]), float(row["target_wall_clock_min_std"]), digits=1)
@@ -332,6 +469,8 @@ def _write_table_rows(summary_rows: list[dict[str, object]]) -> Path:
         lines.append(
             " & ".join(
                 [
+                    task_cell,
+                    data_cell,
                     _tex_method(str(row["label"])),
                     r"\(" + _fmt_mean_std(float(row["best_acc_mean"]), float(row["best_acc_std"]), scale=100.0, digits=1) + r"\)",
                     trips,
@@ -359,7 +498,10 @@ def main() -> None:
     summary_rows = _write_summary(rows)
     table_path = _write_table_rows(summary_rows)
     payload = {
-        "target_acc": TARGET_ACC,
+        "targets": {
+            f"{task}:{regime}": target
+            for (task, regime), target in sorted({(row.task, row.regime): row.target_acc for row in rows}.items())
+        },
         "runs": [row.__dict__ for row in rows],
         "summary": summary_rows,
         "table_rows": str(table_path),

@@ -103,7 +103,7 @@ def run_submit(
     platform: str | None,
     context: str | None,
     push: bool,
-    num_supernodes: int,
+    num_supernodes: int | None,
     auto_supernodes: bool,
     supernodes: list[str] | None,
     net: list[str] | None,
@@ -127,9 +127,6 @@ def run_submit(
         return 1
 
     project_name = info.project_name or "project"
-    if not supernodes and auto_supernodes and info.local_sim_num_supernodes:
-        num_supernodes = info.local_sim_num_supernodes
-        _print_ok(f"Using num-supernodes={num_supernodes}")
 
     deploy_resolution = resolve_deploy_config(
         deploy_config=deploy_config,
@@ -192,8 +189,17 @@ def run_submit(
             )
     effective_deploy_cfg = resolve_effective_deploy_config(deploy_cfg)
     deploy_supernodes = effective_deploy_cfg.supernodes
-    if not supernodes and deploy_supernodes:
-        supernodes = [f"{device_type}={count}" for device_type, count in deploy_supernodes.items()]
+    if not supernodes and num_supernodes is None and deploy_supernodes:
+        supernodes = [
+            f"{device_type}={count}"
+            for device_type, count in deploy_supernodes.items()
+        ]
+    if not supernodes and num_supernodes is None:
+        if auto_supernodes and info.local_sim_num_supernodes:
+            num_supernodes = info.local_sim_num_supernodes
+            _print_ok(f"Using num-supernodes={num_supernodes}")
+        else:
+            num_supernodes = 2
     if allow_oversubscribe is None:
         allow_oversubscribe = bool(effective_deploy_cfg.allow_oversubscribe)
 
@@ -1162,7 +1168,7 @@ def _runner_args(
     platform: str | None,
     context: str | None,
     push: bool,
-    num_supernodes: int,
+    num_supernodes: int | None,
     auto_supernodes: bool,
     supernodes: list[str] | None,
     net: list[str] | None,
@@ -1197,7 +1203,7 @@ def _runner_args(
     if seed is not None:
         args.extend(["--seed", str(seed)])
     if not use_typed_supernodes:
-        args.extend(["--num-supernodes", str(num_supernodes)])
+        args.extend(["--num-supernodes", str(num_supernodes or 2)])
     if image:
         args.extend(["--image", image])
     if no_cache:
@@ -1294,7 +1300,7 @@ def _original_submit_request(
     platform: str | None,
     context: str | None,
     push: bool,
-    num_supernodes: int,
+    num_supernodes: int | None,
     auto_supernodes: bool,
     supernodes: list[str] | None,
     net: list[str] | None,
@@ -1328,7 +1334,7 @@ def _original_submit_request(
     if seed is not None:
         options["seed"] = seed
     if not use_typed_supernodes:
-        options["num_supernodes"] = num_supernodes
+        options["num_supernodes"] = num_supernodes or 2
     if image:
         options["image"] = image
     if no_cache:
@@ -1425,7 +1431,7 @@ def _submit_seed_sweep(
     platform: str | None,
     context: str | None,
     push: bool,
-    num_supernodes: int,
+    num_supernodes: int | None,
     auto_supernodes: bool,
     supernodes: list[str] | None,
     net: list[str] | None,

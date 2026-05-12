@@ -38,6 +38,6 @@
       "label": "\\texttt{FedSW}\\(_{5}\\)"
     }
   ],
-  "censored_definition": "Bars are hatched when at least one seed did not reach the 60% target; that seed contributes its final observed wall-clock time.",
+  "censored_definition": "When at least one seed did not reach the 60% target, that seed contributes its final observed wall-clock time to the aggregate.",
   "delta_label_definition": "Bar labels on stressed profiles show percentage change in mean wall-clock time relative to the same method under the none profile."
 }

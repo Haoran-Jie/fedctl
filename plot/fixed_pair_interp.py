@@ -28,9 +28,9 @@ from common import (
 ENTITY = 'samueljie1-the-university-of-cambridge'
 PROJECT = 'fedctl'
 PAIR_ORDER = (
-    ('pair_a_c', 'a-c'),
-    ('pair_a_e', 'a-e'),
-    ('pair_c_e', 'c-e'),
+    ('pair_a_c', r'1 vs 1/4'),
+    ('pair_a_e', r'1 vs 1/16'),
+    ('pair_c_e', r'1/4 vs 1/16'),
 )
 PAIR_X_SCALE = {
     'pair_a_c': 1e5,
@@ -222,16 +222,14 @@ def main() -> None:
     method_colors = dict(zip(METHODS, default_cycle_colors(len(METHODS)), strict=True))
     legend_handles = []
     fig, axes = plt.subplots(
-        2,
+        1,
         3,
-        figsize=(PUBLICATION_FIGURE_WIDTH, 7.2),
-        sharex='col',
-        sharey='row',
+        figsize=(PUBLICATION_FIGURE_WIDTH, 3.5),
+        sharey=True,
     )
 
     for col_idx, (pair_tag, pair_label) in enumerate(PAIR_ORDER):
-        ax_params = axes[0, col_idx]
-        ax_time = axes[1, col_idx]
+        ax_params = axes[col_idx]
         for method in METHODS:
             series = sorted(grouped[pair_tag][method].items())
             if not series:
@@ -241,7 +239,7 @@ def main() -> None:
             stds = np.array([np.std([p.score for p in vals]) for _, vals in series], dtype=float)
             train_means = np.array([np.mean([p.train_duration_s for p in vals]) for _, vals in series], dtype=float)
             counts = np.array([len(vals) for _, vals in series], dtype=int)
-            ax_params.plot(
+            params_line, = ax_params.plot(
                 xs,
                 means,
                 marker=MARKERS[method],
@@ -250,37 +248,21 @@ def main() -> None:
                 color=method_colors[method],
                 label=LABELS[method],
             )
-            time_line, = ax_time.plot(
-                xs,
-                train_means,
-                marker=MARKERS[method],
-                linestyle=LINESTYLES[method],
-                linewidth=2.2,
-                color=method_colors[method],
-                label=LABELS[method],
-            )
             if col_idx == 0:
-                legend_handles.append(time_line)
+                legend_handles.append(params_line)
             if np.any(counts > 1):
                 ax_params.fill_between(xs, means - stds, means + stds, color=method_colors[method], alpha=0.16)
-                train_stds = np.array([np.std([p.train_duration_s for p in vals]) for _, vals in series], dtype=float)
-                ax_time.fill_between(xs, train_means - train_stds, train_means + train_stds, color=method_colors[method], alpha=0.16)
             for x, train_duration_mean, mean, std, count in zip(xs, train_means, means, stds, counts, strict=True):
                 aggregated_rows.append([pair_tag, method, x, train_duration_mean, mean, std, count])
 
         ax_params.set_title(pair_label)
         x_scale = PAIR_X_SCALE[pair_tag]
-        for ax in (ax_params, ax_time):
-            ax.xaxis.set_major_formatter(FuncFormatter(lambda value, _pos, scale=x_scale: f"{value / scale:g}"))
+        ax_params.xaxis.set_major_formatter(FuncFormatter(lambda value, _pos, scale=x_scale: f"{value / scale:g}"))
         ax_params.yaxis.set_major_formatter(FuncFormatter(lambda value, _pos: f"{value:.2f}"))
-        ax_time.yaxis.set_major_formatter(FuncFormatter(lambda value, _pos: f"{value:.0f}"))
-        ax_time.text(1.03, -0.05, f'1e{int(np.log10(x_scale))}', transform=ax_time.transAxes, ha='right', va='top')
+        ax_params.text(1.03, -0.16, f'1e{int(np.log10(x_scale))}', transform=ax_params.transAxes, ha='right', va='top')
+        ax_params.set_xlabel('Average Model Parameters', labelpad=7)
         if col_idx == 0:
             ax_params.set_ylabel('Accuracy')
-            ax_time.set_ylabel('Mean Client Train Time (s)')
-
-    for ax in axes[1, :]:
-        ax.set_xlabel('Average Model Parameters', labelpad=7)
     fig.legend(
         handles=legend_handles,
         labels=[LABELS[method] for method in METHODS],
@@ -289,8 +271,8 @@ def main() -> None:
         frameon=True,
         bbox_to_anchor=(0.5, 1.02),
     )
-    fig.tight_layout(rect=(0, 0, 1, 0.96))
-    fig.subplots_adjust(bottom=0.12, hspace=0.30, wspace=0.20)
+    fig.tight_layout(rect=(0, 0, 1, 0.92))
+    fig.subplots_adjust(bottom=0.24, wspace=0.20)
 
     write_csv_plot(
         'fixed_pair_interpolation_triptych_aggregated.csv',
