@@ -34,7 +34,7 @@
       <div class="help-steps">
         {% for step in quickstart_steps %}
         <article class="help-step">
-          <div class="help-step-index">{{ loop.index }}</div>
+          <div class="help-step-index">{{ step.index | default(loop.index) }}</div>
           <div class="help-step-body">
             <h3>{{ step.title }}</h3>
             <p class="muted">{{ step.body }}</p>

@@ -159,8 +159,10 @@ def test_ui_help_page_shows_submit_commands(tmp_path, monkeypatch: pytest.Monkey
     assert "Most important" in page.text
     assert "On this page" in page.text
     assert 'href="#quickstart"' in page.text
-    assert "Install fedctl" in page.text
-    assert "python -m pip install fedctl" in page.text
+    assert "Install fedctl and Flower" in page.text
+    assert "python -m pip install fedctl flwr" in page.text
+    assert "Create a Flower example" in page.text
+    assert "flwr new @flwrlabs/quickstart-numpy" in page.text
     assert "Register a bearer token" in page.text
     assert "Register a user-scoped bearer token from the CLI" in page.text
     assert "fedctl submit register-token --name &lt;username&gt;" in page.text
@@ -168,10 +170,13 @@ def test_ui_help_page_shows_submit_commands(tmp_path, monkeypatch: pytest.Monkey
     assert "~/.config/fedctl/config.toml" in page.text
     assert "~/.config/fedctl/deploy-default.yaml" in page.text
     assert "FEDCTL_SUBMIT_TOKEN" in page.text
-    assert "fedctl submit run &lt;project-dir&gt;" in page.text
-    assert "fedctl submit run &lt;project-dir&gt; --stream" not in page.text
-    assert "--run-config path/to/run.toml" in page.text
-    assert "--deploy-config path/to/deploy.yaml" in page.text
+    assert "fedctl submit run quickstart-numpy" in page.text
+    assert "fedctl submit run quickstart-numpy --stream" not in page.text
+    assert re.search(r'<div class="help-step-index">4a</div>\s*<div class="help-step-body">\s*<h3>Submit with defaults</h3>', page.text)
+    assert re.search(r'<div class="help-step-index">4b</div>\s*<div class="help-step-body">\s*<h3>Submit with config files</h3>', page.text)
+    assert "--run-config quickstart-numpy/run.toml" in page.text
+    assert "Deploy configs are for cluster execution settings" in page.text
+    assert "../quickstart-pytorch" not in page.text
     assert "fedctl submit results &lt;submission-id&gt; --download --out ./results" in page.text
     assert 'href="#configs"' in page.text
     assert "Config files" in page.text
@@ -194,13 +199,22 @@ def test_ui_help_config_detail_pages_show_rich_guidance(tmp_path, monkeypatch: p
     experiment_page = client.get("/help/config/run-config")
     assert experiment_page.status_code == 200
     assert "Run config" in experiment_page.text
-    assert "Run settings passed to Flower" in experiment_page.text
+    assert "Flower run-config values for submit runs" in experiment_page.text
     assert "Workflow" in experiment_page.text
     assert "File shape" in experiment_page.text
+    assert "flwr run --run-config" in experiment_page.text
+    assert "[tool.flwr.app.config]" in experiment_page.text
+    assert "quickstart-numpy/pyproject.toml defines num-server-rounds = 3" in experiment_page.text
+    assert "quickstart-numpy/run.toml" in experiment_page.text
+    assert "num-server-rounds = 30" in experiment_page.text
+    assert "local-epochs" in experiment_page.text
+    assert "learning-rate" in experiment_page.text
+    assert "batch-size" in experiment_page.text
     assert "Sectioned TOML is normalized into Flower" in experiment_page.text
     assert "--run-config-override" in experiment_page.text
     assert "It does not contain the submit-service bearer token." in experiment_page.text
     assert 'href="http://testserver/help/submit-run"' in experiment_page.text
+    assert "../quickstart-pytorch" not in experiment_page.text
 
     deploy_page = client.get("/help/config/deploy-config")
     assert deploy_page.status_code == 200
@@ -243,7 +257,10 @@ def test_ui_help_command_detail_shows_rich_guidance(tmp_path, monkeypatch: pytes
     page = client.get("/help/submit-run")
     assert page.status_code == 200
     assert "When to use it" in page.text
-    assert "Dissertation experiment with explicit config" in page.text
+    assert "flwr new @flwrlabs/quickstart-numpy" in page.text
+    assert "fedctl submit run quickstart-numpy" in page.text
+    assert "quickstart-numpy/run.toml" in page.text
+    assert "Advanced experiment with explicit config" in page.text
     assert "Apply a network profile" in page.text
     assert "profiles that are defined in the selected deploy config" in page.text
     assert "deploy.network.profiles" in page.text
@@ -254,6 +271,9 @@ def test_ui_help_command_detail_shows_rich_guidance(tmp_path, monkeypatch: pytes
     assert "Open deploy config reference" in page.text
     assert "--net &#39;rpi4[*]=med&#39;" in page.text
     assert "--net &#39;rpi5[*]=none&#39;" in page.text
+    assert "path/to/run.toml" in page.text
+    assert "../quickstart-pytorch" not in page.text
+    assert "apps/fedctl_research/run_configs/network_heterogeneity/main/cifar10_cnn/iid/all_rpi5/fedbuff.toml" not in page.text
     assert "Related commands" in page.text
     assert "submit logs" in page.text
 

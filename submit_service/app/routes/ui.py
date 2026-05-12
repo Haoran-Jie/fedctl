@@ -46,42 +46,42 @@ _HELP_CONFIG_SECTIONS = [
     {
         "slug": "run-config",
         "title": "Run config",
-        "summary": "Sectioned TOML that describes the workload, method, seed, and Flower run settings.",
-        "subtitle": "Run settings passed to Flower",
+        "summary": "TOML values passed to Flower as run-config overrides for a submitted app.",
+        "subtitle": "Flower run-config values for submit runs",
         "description": (
-            "A run config is a TOML file for workload, method, seed, and Flower run-config values. "
-            "fedctl validates and flattens it into the run config used by the remote Flower run."
+            "A run config lets fedctl submit run expose the same idea as Flower's flwr run --run-config: "
+            "override values your Flower app defines under [tool.flwr.app.config]."
         ),
-        "command": "fedctl submit run apps/fedctl_research --run-config path/to/run.toml",
+        "command": "fedctl submit run quickstart-numpy --run-config quickstart-numpy/run.toml",
         "snippet": (
-            "[run]\n"
-            "method = \"fedavg\"\n"
-            "task = \"fashion_mnist_mlp\"\n"
-            "seed = 1337\n\n"
             "[server]\n"
-            "num-server-rounds = 3\n"
-            "min-available-nodes = 4"
+            "num-server-rounds = 30"
         ),
         "details": [
-            "Use a run config when a run needs to be reproducible. The file describes what should be trained and how Flower should run it; it does not choose the submit service, registry, Nomad node placement, or cluster resources.",
-            "fedctl reads the sectioned TOML, applies seed expansion and command-line overrides, then writes the normalized run config consumed by the submit runner. The remote runner ultimately invokes Flower with a concrete --run-config for one child run.",
-            "For a normal Flower project, this file is optional. If it is omitted, fedctl can submit the project using the defaults already present in the Flower app, such as pyproject.toml and local-simulation.num-supernodes.",
+            "The Numpy quickstart starts with num-server-rounds = 3 in pyproject.toml under [tool.flwr.app.config]. A file such as quickstart-numpy/run.toml can override that value for a submitted run.",
+            "fedctl accepts either flat Flower run-config keys or small sections such as [server]. Before the remote runner starts Flower, fedctl flattens the sectioned file into the keys Flower expects.",
+            "For a normal Flower project, this file is optional. If it is omitted, fedctl submits the project using the defaults already present in the Flower app.",
         ],
         "flow": [
             "Read the TOML passed with --run-config.",
-            "Expand seed sweeps into one submission per seed when the config declares multiple seeds.",
+            "Flatten supported sections such as [server] into Flower run-config keys.",
             "Apply --seed and --run-config-override values from the CLI.",
-            "Flatten sectioned TOML into Flower-compatible run-config keys.",
-            "Run the remote Flower app with one concrete normalized config.",
+            "Run the submitted Flower app with one concrete normalized run config.",
         ],
         "sections": [
             {
-                "title": "Typical contents",
+                "title": "Numpy quickstart example",
                 "items": [
-                    "Run identity: method, task, seed, dataset split, and naming metadata.",
-                    "Server settings: rounds, aggregation method parameters, buffer size, or async method knobs.",
-                    "Client settings: local epochs, batch size, learning rate, and model/data options.",
-                    "Device-specific settings when the project wants rpi4/rpi5 behavior to differ.",
+                    "quickstart-numpy/pyproject.toml defines num-server-rounds = 3 under [tool.flwr.app.config].",
+                    "quickstart-numpy/run.toml can set [server] num-server-rounds = 30 to run more rounds through fedctl submit.",
+                    "The Numpy quickstart only reads num-server-rounds; other apps can expose additional run-config keys.",
+                ],
+            },
+            {
+                "title": "Other app-defined keys",
+                "items": [
+                    "Flower apps can read keys such as fraction-evaluate, local-epochs, learning-rate, and batch-size from context.run_config.",
+                    "Use those keys when the app defines or reads them; fedctl passes the normalized run config through to Flower.",
                 ],
             },
             {
@@ -103,25 +103,32 @@ _HELP_CONFIG_SECTIONS = [
         ],
         "examples": [
             {
-                "title": "Submit with a run config",
-                "body": "Use this when the project has a reusable TOML file for the run settings.",
+                "title": "Create a run config for the Numpy quickstart",
+                "body": "Save this as quickstart-numpy/run.toml to override the default three server rounds.",
                 "command": (
-                    "fedctl submit run apps/fedctl_research \\\n"
-                    "  --run-config apps/fedctl_research/run_configs/smoke/compute_heterogeneity/fashion_mnist_mlp/fedavg.toml"
+                    "[server]\n"
+                    "num-server-rounds = 30"
+                ),
+            },
+            {
+                "title": "Submit with the run config",
+                "body": "Pass the file to fedctl submit run; fedctl flattens [server] into Flower's num-server-rounds key.",
+                "command": (
+                    "fedctl submit run quickstart-numpy \\\n"
+                    "  --run-config quickstart-numpy/run.toml"
                 ),
             },
             {
                 "title": "Override one Flower run-config value",
                 "body": "Use an override for a small temporary change without copying the run-config file.",
                 "command": (
-                    "fedctl submit run apps/fedctl_research \\\n"
-                    "  --run-config apps/fedctl_research/run_configs/smoke/compute_heterogeneity/fashion_mnist_mlp/fedavg.toml \\\n"
-                    "  --run-config-override num-server-rounds=5"
+                    "fedctl submit run quickstart-numpy \\\n"
+                    "  --run-config-override num-server-rounds=30"
                 ),
             },
         ],
         "notes": [
-            "Use this for algorithm, dataset, seed, and training parameters.",
+            "Use this for values your Flower app exposes through [tool.flwr.app.config] and context.run_config.",
             "Sectioned TOML is normalized into Flower's flat --run-config input.",
             "Seed sweeps expand into separate submissions before Flower starts.",
             "Use --run-config-override for one-off value changes without copying the file.",
@@ -424,7 +431,7 @@ _HELP_CONFIG_SECTIONS = [
             {
                 "title": "Use the default CamMLSys deploy config",
                 "body": "Most users can rely on the generated user deploy config after adding their bearer token.",
-                "command": "FEDCTL_SUBMIT_TOKEN=<token> fedctl submit run ../quickstart-pytorch",
+                "command": "FEDCTL_SUBMIT_TOKEN=<token> fedctl submit run quickstart-numpy",
             },
             {
                 "title": "Use an explicit project deploy config",
@@ -458,33 +465,39 @@ _HELP_COMMANDS = [
         "syntax": "fedctl submit run <project-dir> [OPTIONS]",
         "details": [
             "Use this command to turn a local Flower app or research project into a submit-service job. The runner inspects the project, builds or reuses the required images, uploads the project archive, creates the submission record, and dispatches work through Nomad.",
-            "For dissertation experiments, the most repeatable form is to pass the project directory, an explicit run config, a deployment config via --deploy-config, a seeded submit image, and a seed.",
+            "For a first run, create the Flower Numpy quickstart with flwr new @flwrlabs/quickstart-numpy and submit it as fedctl submit run quickstart-numpy. Add --run-config when you want to override Flower app config values for that submission.",
+            "For dissertation experiments and advanced cluster work, the repeatable form can also pass an explicit run config, deploy config, seeded submit image, and seed.",
         ],
         "use_cases": [
-            "Launch a quick local Flower project with the default deployment settings.",
-            "Run a tracked experiment from a TOML config and fixed random seed.",
+            "Launch a Flower quickstart project with the default deployment settings.",
+            "Run the same project with a TOML run config that overrides Flower app config values.",
             "Keep Nomad jobs around after completion when you need live allocation logs for debugging.",
         ],
         "examples": [
             {
                 "title": "Minimal project submission",
                 "body": "Submit the project with default options and stream the runner output.",
-                "command": "fedctl submit run ../quickstart-pytorch",
+                "command": "fedctl submit run quickstart-numpy",
             },
             {
                 "title": "Named run for easier tracking",
                 "body": "Give the submission and W&B run a readable experiment name.",
-                "command": "fedctl submit run ../quickstart-pytorch --exp pytorch-baseline-r1",
+                "command": "fedctl submit run quickstart-numpy --exp numpy-baseline-r1",
             },
             {
-                "title": "Dissertation experiment with explicit config",
-                "body": "Use the research app, a run config, a deployment config, a fixed seed, and the cluster submit image.",
+                "title": "Submit with a run config",
+                "body": "Use a small TOML file to override values from [tool.flwr.app.config], such as num-server-rounds.",
                 "command": (
-                    "./.venv/bin/fedctl submit run apps/fedctl_research \\\n"
-                    "  --run-config apps/fedctl_research/run_configs/network_heterogeneity/main/cifar10_cnn/iid/all_rpi5/fedbuff.toml \\\n"
-                    "  --deploy-config apps/fedctl_research/deploy_configs/network_heterogeneity/main/all_rpi5/none.yaml \\\n"
-                    "  --submit-image 128.232.61.111:5000/fedctl-submit:latest \\\n"
-                    "  --seed 1337"
+                    "fedctl submit run quickstart-numpy \\\n"
+                    "  --run-config quickstart-numpy/run.toml"
+                ),
+            },
+            {
+                "title": "Override one run-config value",
+                "body": "Patch one Flower run-config key without creating a TOML file.",
+                "command": (
+                    "fedctl submit run quickstart-numpy \\\n"
+                    "  --run-config-override num-server-rounds=30"
                 ),
             },
             {
@@ -505,12 +518,18 @@ _HELP_COMMANDS = [
             {
                 "title": "Debug failed deployment state",
                 "body": "Keep Nomad jobs after completion or failure so their live allocation state can be inspected.",
-                "command": "fedctl submit run ../quickstart-pytorch --exp debug-r1 --no-destroy --verbose",
+                "command": "fedctl submit run quickstart-numpy --exp debug-r1 --no-destroy --verbose",
             },
             {
-                "title": "Override one run-config value",
-                "body": "Patch a Flower run-config key without creating a new run-config TOML.",
-                "command": "fedctl submit run apps/fedctl_research --run-config-override num-server-rounds=5 --seed 1337",
+                "title": "Advanced experiment with explicit config",
+                "body": "Use this pattern for checked-in experiment configs that need a deploy config, fixed seed, and seeded submit image.",
+                "command": (
+                    "./.venv/bin/fedctl submit run apps/fedctl_research \\\n"
+                    "  --run-config path/to/run.toml \\\n"
+                    "  --deploy-config path/to/deploy.yaml \\\n"
+                    "  --submit-image 128.232.61.111:5000/fedctl-submit:latest \\\n"
+                    "  --seed 1337"
+                ),
             },
         ],
         "flags": [
@@ -1061,11 +1080,19 @@ def help_page(request: Request) -> HTMLResponse:
             "config_sections": _HELP_CONFIG_SECTIONS,
             "quickstart_steps": [
                 {
-                    "title": "Install fedctl",
-                    "body": "Install the CLI in the Python environment you use for Flower projects.",
-                    "command": "python -m pip install fedctl",
+                    "index": "1",
+                    "title": "Install fedctl and Flower",
+                    "body": "Install fedctl and the Flower CLI in the Python environment you use for Flower projects.",
+                    "command": "python -m pip install fedctl flwr",
                 },
                 {
+                    "index": "2",
+                    "title": "Create a Flower example",
+                    "body": "Use Flower's Numpy quickstart as the first project to submit through fedctl.",
+                    "command": "flwr new @flwrlabs/quickstart-numpy",
+                },
+                {
+                    "index": "3",
                     "title": "Register a bearer token",
                     "body": (
                         "The first fedctl command creates ~/.config/fedctl/config.toml and "
@@ -1079,31 +1106,34 @@ def help_page(request: Request) -> HTMLResponse:
                     ),
                 },
                 {
-                    "title": "Submit a Flower project",
+                    "index": "4a",
+                    "title": "Submit with defaults",
                     "body": (
-                        "For a normal Flower project, you can submit the project directory directly. "
+                        "Submit the generated Flower project directory directly. "
                         "fedctl uses the generated CamMLSys deploy defaults unless the project provides its own config."
                     ),
-                    "command": "fedctl submit run <project-dir>",
+                    "command": "fedctl submit run quickstart-numpy",
                 },
                 {
-                    "title": "Add config files when needed",
+                    "index": "4b",
+                    "title": "Submit with config files",
                     "body": (
-                        "Use a run config for Flower run settings and a deploy config for cluster execution settings. "
-                        "Open the config file cards below for the full field reference."
+                        "Use a run config to override Flower app settings such as num-server-rounds. "
+                        "Deploy configs are for cluster execution settings and are covered below."
                     ),
                     "command": (
-                        "fedctl submit run <project-dir> \\\n"
-                        "  --run-config path/to/run.toml \\\n"
-                        "  --deploy-config path/to/deploy.yaml"
+                        "fedctl submit run quickstart-numpy \\\n"
+                        "  --run-config quickstart-numpy/run.toml"
                     ),
                 },
                 {
+                    "index": "5",
                     "title": "Check queue and status",
                     "body": "List active submissions, then inspect one specific submission if needed.",
                     "command": "fedctl submit ls --active\nfedctl submit status <submission-id>",
                 },
                 {
+                    "index": "6",
                     "title": "Inspect logs and download results",
                     "body": "Follow logs while the run starts, then download result artifacts after completion.",
                     "command": (
