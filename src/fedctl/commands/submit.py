@@ -484,6 +484,8 @@ def run_submit_status(*, submission_id: str) -> int:
         nomad_job_id = record.get("nomad_job_id")
         if nomad_job_id and nomad_job_id != resolved_id:
             console.print(f"[bold]Nomad Job:[/bold] {nomad_job_id}")
+        if _is_active_submit_status(status):
+            _print_submit_logs_next_step(str(resolved_id))
         return 0
 
     cfg = load_config()
@@ -507,6 +509,8 @@ def run_submit_status(*, submission_id: str) -> int:
             alloc_id = alloc.get("ID")
             if isinstance(alloc_id, str):
                 console.print(f"[bold]Alloc ID:[/bold] {alloc_id}")
+        if _is_active_nomad_status(job_status) or _is_active_nomad_status(alloc_status):
+            _print_submit_logs_next_step(submission_id)
         return 0
 
     except NomadTLSError as exc:
@@ -725,7 +729,19 @@ def _style_log_line(text: Text, stripped: str) -> None:
         text.stylize("bright_black")
 
 
-_ACTIVE_SUBMISSION_STATUSES = {"queued", "running", "blocked"}
+_ACTIVE_SUBMISSION_STATUSES = {"queued", "running", "blocked", "cancelling"}
+
+
+def _is_active_submit_status(status: object) -> bool:
+    return str(status or "").lower() in _ACTIVE_SUBMISSION_STATUSES
+
+
+def _is_active_nomad_status(status: object) -> bool:
+    return str(status or "").lower() in {"pending", "running"}
+
+
+def _print_submit_logs_next_step(submission_id: str) -> None:
+    console.print(f"[cyan]Next:[/cyan] fedctl submit logs {submission_id}")
 
 
 def run_submit_ls(*, limit: int, status_filter: str = "active") -> int:
