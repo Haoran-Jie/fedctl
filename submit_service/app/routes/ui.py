@@ -1109,7 +1109,7 @@ def help_page(request: Request) -> HTMLResponse:
                     "command": "fedctl submit register-token --name <username>",
                 },
                 {
-                    "index": "3a",
+                    "index": "3",
                     "title": "Submit your project",
                     "body": (
                         "Submit any Flower project directory directly. If you want a disposable example first, "
@@ -1121,25 +1121,13 @@ def help_page(request: Request) -> HTMLResponse:
                     ),
                 },
                 {
-                    "index": "3b",
-                    "title": "Submit with config files",
-                    "body": (
-                        "Use a run config to override Flower app settings such as num-server-rounds. "
-                        "Deploy configs are for cluster execution settings and are covered below."
-                    ),
-                    "command": (
-                        "fedctl submit run quickstart-numpy \\\n"
-                        "  --run-config quickstart-numpy/run.toml"
-                    ),
-                },
-                {
-                    "index": "5",
+                    "index": "4",
                     "title": "Check queue and status",
                     "body": "List active submissions, then inspect one specific submission if needed.",
                     "command": "fedctl submit ls --active\nfedctl submit status <submission-id>",
                 },
                 {
-                    "index": "6",
+                    "index": "5",
                     "title": "Inspect logs and download results",
                     "body": "Inspect submit logs while the run starts, then download result artifacts after completion.",
                     "command": (

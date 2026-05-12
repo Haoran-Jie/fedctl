@@ -181,10 +181,12 @@ def test_ui_help_page_shows_submit_commands(tmp_path, monkeypatch: pytest.Monkey
     assert "fedctl submit run quickstart-numpy --stream" not in page.text
     assert "fedctl submit logs &lt;submission-id&gt; --job submit" in page.text
     assert "fedctl submit logs &lt;submission-id&gt; --job submit --follow" not in page.text
-    assert re.search(r'<div class="help-step-index">3a</div>\s*<div class="help-step-body">\s*<h3>Submit your project</h3>', page.text)
-    assert re.search(r'<div class="help-step-index">3b</div>\s*<div class="help-step-body">\s*<h3>Submit with config files</h3>', page.text)
-    assert "--run-config quickstart-numpy/run.toml" in page.text
-    assert "Deploy configs are for cluster execution settings" in page.text
+    assert re.search(r'<div class="help-step-index">3</div>\s*<div class="help-step-body">\s*<h3>Submit your project</h3>', page.text)
+    assert "Submit with config files" not in page.text
+    assert '<div class="help-step-index">3a</div>' not in page.text
+    assert '<div class="help-step-index">3b</div>' not in page.text
+    assert re.search(r'<div class="help-step-index">4</div>\s*<div class="help-step-body">\s*<h3>Check queue and status</h3>', page.text)
+    assert re.search(r'<div class="help-step-index">5</div>\s*<div class="help-step-body">\s*<h3>Inspect logs and download results</h3>', page.text)
     assert "../quickstart-pytorch" not in page.text
     assert "fedctl submit results &lt;submission-id&gt; --download --out ./results" in page.text
     assert 'href="#configs"' in page.text
