@@ -37,7 +37,11 @@
           <div class="help-step-index">{{ step.index | default(loop.index) }}</div>
           <div class="help-step-body">
             <h3>{{ step.title }}</h3>
+            {% if step.body_code %}
+            <p class="muted">{{ step.body_prefix }} <code>{{ step.body_code }}</code>{{ step.body_suffix }}</p>
+            {% else %}
             <p class="muted">{{ step.body }}</p>
+            {% endif %}
             {% if step.link_url and step.link_label %}
             <p class="muted"><a href="{{ step.link_url }}">{{ step.link_label }}</a></p>
             {% endif %}

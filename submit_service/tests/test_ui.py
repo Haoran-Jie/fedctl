@@ -170,11 +170,12 @@ def test_ui_help_page_shows_submit_commands(tmp_path, monkeypatch: pytest.Monkey
     assert "Create a Flower example" not in page.text
     assert "Register a bearer token" in page.text
     assert "Register from the CLI to create a user token and save it in your fedctl config." in page.text
+    assert "fedctl submit set-token &lt;token&gt;" in page.text
+    assert "FEDCTL_SUBMIT_TOKEN remains available for temporary overrides." not in page.text
     assert 'href="/register">Register in the web UI</a>' in page.text
     assert "fedctl submit register-token --name &lt;username&gt;" in page.text
     assert "fedctl submit register-token --name &lt;username&gt;\nfedctl submit ls" not in page.text
     assert "submit-service bearer token" in page.text
-    assert "FEDCTL_SUBMIT_TOKEN" in page.text
     assert "flwr new @flwrlabs/quickstart-numpy" in page.text
     assert "fedctl submit run quickstart-numpy" in page.text
     assert "fedctl submit run quickstart-numpy --stream" not in page.text

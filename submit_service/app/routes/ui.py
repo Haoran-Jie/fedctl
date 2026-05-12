@@ -1098,11 +1098,12 @@ def help_page(request: Request) -> HTMLResponse:
                 {
                     "index": "2",
                     "title": "Register a bearer token",
-                    "body": (
+                    "body_prefix": (
                         "Register from the CLI to create a user token and save it in your fedctl config. "
-                        "You can also register in the web UI, then paste the generated token into fedctl with "
-                        "fedctl submit set-token. FEDCTL_SUBMIT_TOKEN remains available for temporary overrides."
+                        "You can also register in the web UI, then save the generated token with"
                     ),
+                    "body_code": "fedctl submit set-token <token>",
+                    "body_suffix": ".",
                     "link_url": "/register",
                     "link_label": "Register in the web UI",
                     "command": "fedctl submit register-token --name <username>",
