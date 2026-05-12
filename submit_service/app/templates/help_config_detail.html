@@ -47,7 +47,7 @@
       <h2>File shape</h2>
       <div class="doc-code-block">
         <div class="doc-code-header">
-          <span>Minimal shape</span>
+          <span>{{ config.snippet_label | default('Minimal shape') }}</span>
           <button
             type="button"
             class="doc-copy-button"
@@ -65,7 +65,7 @@
       {% if config.full_snippet %}
       <div class="doc-code-block">
         <div class="doc-code-header">
-          <span>Full shape</span>
+          <span>{{ config.full_snippet_label | default('Full shape') }}</span>
           <button
             type="button"
             class="doc-copy-button"

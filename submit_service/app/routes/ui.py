@@ -53,13 +53,29 @@ _HELP_CONFIG_SECTIONS = [
             "override values your Flower app defines under [tool.flwr.app.config]."
         ),
         "command": "fedctl submit run quickstart-numpy --run-config quickstart-numpy/run.toml",
+        "snippet_label": "Original pyproject.toml config",
         "snippet": (
+            "[tool.flwr.app.config]\n"
+            "num-server-rounds = 3\n"
+            "fraction-evaluate = 0.5\n"
+            "local-epochs = 1\n"
+            "learning-rate = 0.1\n"
+            "batch-size = 32"
+        ),
+        "full_snippet_label": "Example quickstart-numpy/run.toml override",
+        "full_snippet": (
             "[server]\n"
-            "num-server-rounds = 30"
+            "num-server-rounds = 30\n"
+            "fraction-evaluate = 0.5\n\n"
+            "[client]\n"
+            "local-epochs = 10\n"
+            "learning-rate = 0.05\n"
+            "batch-size = 64"
         ),
         "details": [
-            "The Numpy quickstart starts with num-server-rounds = 3 in pyproject.toml under [tool.flwr.app.config]. A file such as quickstart-numpy/run.toml can override that value for a submitted run.",
-            "fedctl accepts either flat Flower run-config keys or small sections such as [server]. Before the remote runner starts Flower, fedctl flattens the sectioned file into the keys Flower expects.",
+            "A Flower app advertises the run-config keys that can be overridden under [tool.flwr.app.config] in pyproject.toml. The first code block shows the example defaults.",
+            "A file such as quickstart-numpy/run.toml can override any of those advertised values for a submitted run. The second code block changes the number of server rounds, local epochs, learning rate, and batch size.",
+            "fedctl accepts either flat Flower run-config keys or small sections such as [server] and [client]. Before the remote runner starts Flower, fedctl flattens the sectioned file into the keys Flower expects.",
             "For a normal Flower project, this file is optional. If it is omitted, fedctl submits the project using the defaults already present in the Flower app.",
         ],
         "flow": [
@@ -72,16 +88,9 @@ _HELP_CONFIG_SECTIONS = [
             {
                 "title": "Numpy quickstart example",
                 "items": [
-                    "quickstart-numpy/pyproject.toml defines num-server-rounds = 3 under [tool.flwr.app.config].",
-                    "quickstart-numpy/run.toml can set [server] num-server-rounds = 30 to run more rounds through fedctl submit.",
-                    "The Numpy quickstart only reads num-server-rounds; other apps can expose additional run-config keys.",
-                ],
-            },
-            {
-                "title": "Other app-defined keys",
-                "items": [
-                    "Flower apps can read keys such as fraction-evaluate, local-epochs, learning-rate, and batch-size from context.run_config.",
-                    "Use those keys when the app defines or reads them; fedctl passes the normalized run config through to Flower.",
+                    "The app's pyproject.toml lists the available run-config keys: num-server-rounds, fraction-evaluate, local-epochs, learning-rate, and batch-size.",
+                    "quickstart-numpy/run.toml only needs to include values you want to override for this submitted run.",
+                    "fedctl passes the normalized run config through to Flower, where the app reads the values from context.run_config.",
                 ],
             },
             {
@@ -104,15 +113,17 @@ _HELP_CONFIG_SECTIONS = [
         "examples": [
             {
                 "title": "Create a run config for the Numpy quickstart",
-                "body": "Save this as quickstart-numpy/run.toml to override the default three server rounds.",
+                "body": "Save this as quickstart-numpy/run.toml to override selected values from [tool.flwr.app.config].",
                 "command": (
                     "[server]\n"
-                    "num-server-rounds = 30"
+                    "num-server-rounds = 30\n\n"
+                    "[client]\n"
+                    "local-epochs = 10"
                 ),
             },
             {
                 "title": "Submit with the run config",
-                "body": "Pass the file to fedctl submit run; fedctl flattens [server] into Flower's num-server-rounds key.",
+                "body": "Pass the file to fedctl submit run; fedctl flattens sections such as [server] and [client] into Flower run-config keys.",
                 "command": (
                     "fedctl submit run quickstart-numpy \\\n"
                     "  --run-config quickstart-numpy/run.toml"

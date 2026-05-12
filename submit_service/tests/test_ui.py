@@ -202,14 +202,21 @@ def test_ui_help_config_detail_pages_show_rich_guidance(tmp_path, monkeypatch: p
     assert "Flower run-config values for submit runs" in experiment_page.text
     assert "Workflow" in experiment_page.text
     assert "File shape" in experiment_page.text
+    assert "Original pyproject.toml config" in experiment_page.text
+    assert "Example quickstart-numpy/run.toml override" in experiment_page.text
     assert "flwr run --run-config" in experiment_page.text
     assert "[tool.flwr.app.config]" in experiment_page.text
-    assert "quickstart-numpy/pyproject.toml defines num-server-rounds = 3" in experiment_page.text
+    assert "num-server-rounds = 3" in experiment_page.text
+    assert "fraction-evaluate = 0.5" in experiment_page.text
+    assert "local-epochs = 1" in experiment_page.text
+    assert "learning-rate = 0.1" in experiment_page.text
+    assert "batch-size = 32" in experiment_page.text
     assert "quickstart-numpy/run.toml" in experiment_page.text
     assert "num-server-rounds = 30" in experiment_page.text
-    assert "local-epochs" in experiment_page.text
-    assert "learning-rate" in experiment_page.text
-    assert "batch-size" in experiment_page.text
+    assert "local-epochs = 10" in experiment_page.text
+    assert "learning-rate = 0.05" in experiment_page.text
+    assert "batch-size = 64" in experiment_page.text
+    assert "only needs to include values you want to override" in experiment_page.text
     assert "Sectioned TOML is normalized into Flower" in experiment_page.text
     assert "--run-config-override" in experiment_page.text
     assert "It does not contain the submit-service bearer token." in experiment_page.text
