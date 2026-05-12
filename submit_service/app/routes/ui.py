@@ -1105,10 +1105,7 @@ def help_page(request: Request) -> HTMLResponse:
                     ),
                     "link_url": "/register",
                     "link_label": "Register in the web UI",
-                    "command": (
-                        "fedctl submit register-token --name <username>\n"
-                        "fedctl submit ls"
-                    ),
+                    "command": "fedctl submit register-token --name <username>",
                 },
                 {
                     "index": "3a",
