@@ -583,8 +583,8 @@ _HELP_COMMANDS = [
         "importance": "standard",
         "syntax": "fedctl submit register-token --name <username>",
         "details": [
-            "Use this command for first-time setup when the submit service has self-registration enabled. It calls the registration API without requiring an existing bearer token, receives a user-scoped token, and stores it locally.",
-            "The token itself is not printed unless --print-token is passed during registration.",
+            "Use this command for first-time setup when the submit service has self-registration enabled. It calls the registration API without requiring an existing bearer token.",
+            "The service generates the bearer token. The CLI prints it, saves it to your user deploy config, and copies it to the clipboard when the local platform supports clipboard access.",
         ],
         "use_cases": [
             "Set up a fresh fedctl install without manually editing YAML.",
@@ -594,7 +594,7 @@ _HELP_COMMANDS = [
         "examples": [
             {
                 "title": "Register a user token",
-                "body": "The returned token is saved to the user deploy config.",
+                "body": "The generated token is printed once and saved to the user deploy config.",
                 "command": "fedctl submit register-token --name alice",
             },
             {
@@ -605,9 +605,7 @@ _HELP_COMMANDS = [
         ],
         "flags": [
             {"name": "--name", "type": "TEXT", "description": "Username attached to the registered token"},
-            {"name": "--token", "type": "TEXT", "description": "Optional caller-provided bearer token; omit to let the service generate one"},
             {"name": "--deploy-config", "type": "PATH", "description": "Deploy config used to find submit.endpoint"},
-            {"name": "--print-token", "type": "FLAG", "description": "Print the newly generated token after saving it locally"},
         ],
         "notes": [
             "Registration must be enabled on the submit service by the operator.",
@@ -986,7 +984,6 @@ def register_page(request: Request) -> HTMLResponse | RedirectResponse:
 def register_submit(
     request: Request,
     name: str = Form(...),
-    token: str | None = Form(None),
 ) -> HTMLResponse:
     cfg: SubmitConfig = request.app.state.cfg
     try:
@@ -994,7 +991,6 @@ def register_submit(
             request.app.state.storage,
             cfg,
             name=name,
-            token=token,
         )
     except HTTPException as exc:
         return _render(
@@ -1100,11 +1096,12 @@ def help_page(request: Request) -> HTMLResponse:
                     "index": "2",
                     "title": "Register a bearer token",
                     "body": (
-                        "The first fedctl command creates ~/.config/fedctl/config.toml and "
-                        "~/.config/fedctl/deploy-default.yaml. Register a user-scoped bearer token from the CLI "
-                        "or use the web UI at /register; the CLI command saves the returned token locally. "
-                        "FEDCTL_SUBMIT_TOKEN remains available for temporary overrides."
+                        "Register from the CLI to create a user token and save it in your fedctl config. "
+                        "You can also register in the web UI, then paste the generated token into fedctl with "
+                        "fedctl submit set-token. FEDCTL_SUBMIT_TOKEN remains available for temporary overrides."
                     ),
+                    "link_url": "/register",
+                    "link_label": "Register in the web UI",
                     "command": (
                         "fedctl submit register-token --name <username>\n"
                         "fedctl submit ls"

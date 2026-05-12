@@ -92,6 +92,8 @@ def test_submit_register_token_routes_to_runner(monkeypatch) -> None:
     assert result.exit_code == 0
     assert captured["name"] == "alice"
     assert captured["deploy_config"] == "cluster.yaml"
+    assert "token" not in captured
+    assert "print_token" not in captured
 
 
 def test_submit_register_token_help_hides_legacy_repo_config_option() -> None:
@@ -100,6 +102,8 @@ def test_submit_register_token_help_hides_legacy_repo_config_option() -> None:
 
     assert result.exit_code == 0
     assert "--deploy-config" in result.output
+    assert "--print-token" not in result.output
+    assert "--token" not in result.output
     assert "--repo-config" not in result.output
 
 

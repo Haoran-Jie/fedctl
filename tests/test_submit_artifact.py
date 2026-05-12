@@ -586,23 +586,20 @@ def test_run_submit_register_token_defaults_user_and_saves_token(
         return tmp_path / "deploy-default.yaml"
 
     monkeypatch.setattr(submit_cmd, "_store_submit_token", fake_store_submit_token)
+    monkeypatch.setattr(submit_cmd, "_copy_to_clipboard", lambda token: True)
 
     status = submit_cmd.run_submit_register_token(
         name=None,
-        token=None,
     )
 
     output = capsys.readouterr().out
     assert status == 0
-    assert registered == {
-        "name": "alice",
-        "token": None,
-    }
+    assert registered == {"name": "alice"}
     assert saved == {"token": "fedctl_secret", "deploy_cfg_path": None}
-    assert "fedctl_secret" not in output
-    assert "submit.token" in output
-    assert "Use --print-token" in output
-    assert "future registration" in output
+    assert "Bearer token:" in output
+    assert "fedctl_secret" in output
+    assert "Copied bearer token to clipboard" in output
+    assert "Use --print-token" not in output
 
 
 def test_run_submit_token_set_validates_and_saves_token(

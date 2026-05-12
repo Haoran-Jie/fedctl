@@ -452,23 +452,10 @@ def submit_register_token(
         "--name",
         help="Username for the registered token.",
     ),
-    token: str | None = typer.Option(
-        None,
-        "--token",
-        help=(
-            "Optional bearer token to register. "
-            "Omit to let the service generate one."
-        ),
-    ),
     deploy_config: str | None = typer.Option(
         None, "--deploy-config", help="Path to deploy config YAML."
     ),
     legacy_repo_config: str | None = typer.Option(None, "--repo-config", hidden=True),
-    print_token: bool = typer.Option(
-        False,
-        "--print-token",
-        help="Print the registered token after saving it locally.",
-    ),
 ) -> None:
     """Register a user-scoped submit-service bearer token."""
     from fedctl.commands.submit import run_submit_register_token
@@ -480,9 +467,7 @@ def submit_register_token(
     raise SystemExit(
         run_submit_register_token(
             name=name,
-            token=token,
             deploy_config=resolved_deploy_config,
-            print_token=print_token,
         )
     )
 

@@ -38,6 +38,9 @@
           <div class="help-step-body">
             <h3>{{ step.title }}</h3>
             <p class="muted">{{ step.body }}</p>
+            {% if step.link_url and step.link_label %}
+            <p class="muted"><a href="{{ step.link_url }}">{{ step.link_label }}</a></p>
+            {% endif %}
             <pre><code>{{ step.command }}</code></pre>
           </div>
         </article>

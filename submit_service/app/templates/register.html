@@ -4,7 +4,7 @@
 <section class="panel narrow">
   <div class="eyebrow">Internal access</div>
   <h1>Register bearer token</h1>
-  <p class="muted">Create a user-scoped bearer token for the CLI and web UI. Leave the token field blank to let the service generate a strong token.</p>
+  <p class="muted">Enter a username and the service will generate a user-scoped bearer token for the CLI and web UI.</p>
   {% if error %}
   <div class="alert error">{{ error }}</div>
   {% endif %}
@@ -17,6 +17,7 @@
     <span class="quick-command-label">Bearer token</span>
     <code>{{ registered.token }}</code>
   </div>
+  <p><button type="button" class="button secondary" data-copy="{{ registered.token }}" data-copy-label="Copy token" data-copy-done-label="Copied">Copy token</button></p>
   <div class="quick-command">
     <span class="quick-command-label">Save to fedctl config</span>
     <code>fedctl submit set-token</code>
@@ -31,8 +32,6 @@
   <form method="post" action="/register" class="stack">
     <label for="name">Username</label>
     <input id="name" name="name" type="text" required autofocus placeholder="flwruser11">
-    <label for="token">Bearer token</label>
-    <input id="token" name="token" type="password" placeholder="Leave blank to generate">
     <button type="submit">Register token</button>
   </form>
   <p class="muted"><a href="/login">Back to login</a></p>

@@ -35,7 +35,6 @@ _ACTIVE_STATUSES = {"queued", "running", "blocked", "cancelling"}
 _CANCELLABLE_STATUSES = {"queued", "running", "blocked"}
 _PURGEABLE_STATUSES = {"completed", "failed", "cancelled"}
 _REGISTERED_TOKEN_PREFIX = "fedctl_"
-_MIN_REGISTERED_TOKEN_LENGTH = 24
 _USERNAME_RE = re.compile(r"^[A-Za-z0-9_.-]{3,64}$")
 
 
@@ -96,12 +95,11 @@ def register_bearer_token(
     cfg: SubmitConfig,
     *,
     name: str,
-    token: str | None = None,
 ) -> dict[str, str]:
     if not cfg.registration_enabled:
         raise HTTPException(status_code=403, detail="Token registration is disabled.")
     clean_name = _clean_registered_name(name)
-    issued_token = _clean_registered_token(token) if token else _generate_bearer_token()
+    issued_token = _generate_bearer_token()
     try:
         record = storage.create_bearer_token(
             token_hash=_token_hash(issued_token),
@@ -147,17 +145,6 @@ def _clean_registered_name(name: str) -> str:
             detail="Username must be 3-64 characters and use only letters, numbers, dot, dash, or underscore.",
         )
     return cleaned
-
-
-def _clean_registered_token(token: str) -> str:
-    cleaned = (token or "").strip()
-    if len(cleaned) < _MIN_REGISTERED_TOKEN_LENGTH or any(ch.isspace() for ch in cleaned):
-        raise HTTPException(
-            status_code=422,
-            detail=f"Bearer token must be at least {_MIN_REGISTERED_TOKEN_LENGTH} characters with no whitespace.",
-        )
-    return cleaned
-
 
 
 def get_submission_or_404(

@@ -133,10 +133,16 @@ def test_ui_registers_generated_bearer_token(tmp_path, monkeypatch: pytest.Monke
     assert login.status_code == 200
     assert "Register a bearer token" in login.text
 
+    register = client.get("/register")
+    assert register.status_code == 200
+    assert 'name="token"' not in register.text
+    assert "Leave the token field blank" not in register.text
+
     form = client.post("/register", data={"name": "alice"})
     assert form.status_code == 200
     assert "Token registered for alice" in form.text
     assert "fedctl_" in form.text
+    assert 'data-copy-label="Copy token"' in form.text
     assert "fedctl submit set-token" in form.text
     assert "export FEDCTL_SUBMIT_TOKEN=fedctl_" in form.text
     match = re.search(r"fedctl_[A-Za-z0-9_-]+", form.text)
@@ -163,11 +169,10 @@ def test_ui_help_page_shows_submit_commands(tmp_path, monkeypatch: pytest.Monkey
     assert "python -m pip install fedctl flwr" in page.text
     assert "Create a Flower example" not in page.text
     assert "Register a bearer token" in page.text
-    assert "Register a user-scoped bearer token from the CLI or use the web UI at /register" in page.text
+    assert "Register from the CLI to create a user token and save it in your fedctl config." in page.text
+    assert 'href="/register">Register in the web UI</a>' in page.text
     assert "fedctl submit register-token --name &lt;username&gt;" in page.text
     assert "submit-service bearer token" in page.text
-    assert "~/.config/fedctl/config.toml" in page.text
-    assert "~/.config/fedctl/deploy-default.yaml" in page.text
     assert "FEDCTL_SUBMIT_TOKEN" in page.text
     assert "flwr new @flwrlabs/quickstart-numpy" in page.text
     assert "fedctl submit run quickstart-numpy" in page.text
@@ -288,7 +293,9 @@ def test_ui_help_command_detail_shows_rich_guidance(tmp_path, monkeypatch: pytes
     assert register_page.status_code == 200
     assert "Register a user-scoped bearer token" in register_page.text
     assert "--registration-code" not in register_page.text
-    assert "--print-token" in register_page.text
+    assert "--print-token" not in register_page.text
+    assert "--token" not in register_page.text
+    assert "prints it, saves it to your user deploy config, and copies it to the clipboard" in register_page.text
 
     set_token_page = client.get("/help/submit-set-token")
     assert set_token_page.status_code == 200

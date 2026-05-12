@@ -5,6 +5,8 @@ import json
 import re
 import shlex
 import getpass
+import shutil
+import subprocess
 import sys
 from urllib.parse import urlparse
 import tarfile
@@ -964,9 +966,7 @@ def run_submit_inventory(
 def run_submit_register_token(
     *,
     name: str | None,
-    token: str | None,
     deploy_config: str | None = None,
-    print_token: bool = False,
 ) -> int:
     client = _submit_service_client(deploy_config=deploy_config, validate_auth=False)
     if client is None or isinstance(client, _SubmitAuthFailed):
@@ -984,10 +984,7 @@ def run_submit_register_token(
         return 1
 
     try:
-        registered = client.register_token(
-            name=resolved_name,
-            token=token,
-        )
+        registered = client.register_token(name=resolved_name)
     except SubmitServiceError as exc:
         console.print(f"[red]✗ Token registration failed:[/red] {exc}")
         return 1
@@ -1000,20 +997,48 @@ def run_submit_register_token(
     path = _store_submit_token(issued_token, deploy_cfg_path=None)
     _print_ok(f"Registered bearer token for {registered.get('name') or resolved_name}")
     _print_ok(f"Saved submit token: {path}")
+    console.print("[bold]Bearer token:[/bold]")
+    console.print(issued_token)
+    if _copy_to_clipboard(issued_token):
+        _print_ok("Copied bearer token to clipboard.")
+    else:
+        console.print(
+            "[yellow]Note:[/yellow] Clipboard copy was not available; "
+            "copy the token above if you need to paste it elsewhere."
+        )
     if os.environ.get("FEDCTL_SUBMIT_TOKEN"):
         console.print(
             "[yellow]Note:[/yellow] FEDCTL_SUBMIT_TOKEN is set; "
             "it overrides saved config."
         )
-    if print_token:
-        console.print(issued_token)
-    else:
-        console.print(
-            "[yellow]Note:[/yellow] Token was saved locally and is not printed. "
-            f"To view it later, inspect submit.token in {path}. "
-            "Use --print-token on a future registration if you need the newly generated token printed immediately."
-        )
     return 0
+
+
+def _copy_to_clipboard(text: str) -> bool:
+    commands = (
+        ("pbcopy",),
+        ("wl-copy",),
+        ("xclip", "-selection", "clipboard"),
+        ("xsel", "--clipboard", "--input"),
+        ("clip.exe",),
+    )
+    for command in commands:
+        if shutil.which(command[0]) is None:
+            continue
+        try:
+            subprocess.run(
+                command,
+                input=text,
+                text=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=True,
+                timeout=2,
+            )
+        except (OSError, subprocess.SubprocessError):
+            continue
+        return True
+    return False
 
 
 def run_submit_token_set(

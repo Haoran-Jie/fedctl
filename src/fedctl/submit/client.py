@@ -32,11 +32,8 @@ class SubmitServiceClient:
         self,
         *,
         name: str,
-        token: str | None = None,
     ) -> dict[str, Any]:
         payload: dict[str, str] = {"name": name}
-        if token:
-            payload["token"] = token
         return self._request("POST", "/v1/tokens/register", json_payload=payload)
 
     def check_auth(self) -> None:

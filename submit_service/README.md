@@ -128,9 +128,9 @@ Users can then register through the fedctl CLI:
 fedctl submit register-token --name alice
 ```
 
-The command stores the returned bearer token in the user deploy config and does
-not print it by default. Users can also open `/register` or call the API
-directly:
+The command prints the generated bearer token, copies it to the local clipboard
+when available, and stores it in the user deploy config. Users can also open
+`/register` in the web UI or call the API directly:
 
 ```bash
 curl -X POST http://127.0.0.1:8080/v1/tokens/register \

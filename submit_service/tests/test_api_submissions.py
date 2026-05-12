@@ -327,11 +327,15 @@ def test_register_bearer_token_creates_user_scoped_token(
     )
     assert duplicate.status_code == 409
 
-    short_token = client.post(
+    custom_token = client.post(
         "/v1/tokens/register",
-        json={"name": "bob", "token": "short"},
+        json={"name": "bob", "token": "caller-supplied-token"},
     )
-    assert short_token.status_code == 422
+    assert custom_token.status_code == 200
+    custom_data = custom_token.json()
+    assert custom_data["name"] == "bob"
+    assert custom_data["token"].startswith("fedctl_")
+    assert custom_data["token"] != "caller-supplied-token"
 
 
 def test_owner_can_purge_single_terminal_submission_only(

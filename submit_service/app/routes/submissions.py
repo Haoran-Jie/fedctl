@@ -80,7 +80,6 @@ def register_token(
         storage,
         cfg,
         name=payload.name,
-        token=payload.token,
     )
     return TokenRegistrationResponse(**registered)
 

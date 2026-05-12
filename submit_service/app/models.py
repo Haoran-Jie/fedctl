@@ -30,7 +30,6 @@ class SubmissionLogsUpdate(BaseModel):
 
 class TokenRegistrationRequest(BaseModel):
     name: str
-    token: str | None = None
 
 
 class TokenRegistrationResponse(BaseModel):
