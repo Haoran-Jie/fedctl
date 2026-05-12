@@ -477,7 +477,7 @@ _HELP_COMMANDS = [
         "details": [
             "Use this command to turn a local Flower app or research project into a submit-service job. The runner inspects the project, builds or reuses the required images, uploads the project archive, creates the submission record, and dispatches work through Nomad.",
             "For a first run, create the Flower Numpy quickstart with flwr new @flwrlabs/quickstart-numpy and submit it as fedctl submit run quickstart-numpy. Add --run-config when you want to override Flower app config values for that submission.",
-            "For dissertation experiments and advanced cluster work, the repeatable form can also pass an explicit run config, deploy config, seeded submit image, and seed.",
+            "For advanced cluster work, the repeatable form can also pass an explicit run config, deploy config, typed SuperNode counts, network profiles, and a pinned submit image.",
         ],
         "use_cases": [
             "Launch a Flower quickstart project with the default deployment settings.",
@@ -512,6 +512,15 @@ _HELP_COMMANDS = [
                 ),
             },
             {
+                "title": "Select rpi4 and rpi5 node counts",
+                "body": "Use repeatable --supernodes flags when you want a typed deployment instead of the project's default SuperNode count.",
+                "command": (
+                    "fedctl submit run quickstart-numpy \\\n"
+                    "  --supernodes rpi4=2 \\\n"
+                    "  --supernodes rpi5=2"
+                ),
+            },
+            {
                 "title": "Apply a network profile",
                 "body": "Use --net to assign profiles that are defined in the selected deploy config, such as deploy.network.profiles, deploy.network.ingress_profiles, or deploy.network.egress_profiles. The quotes only protect [*] from shell glob expansion; they are not part of the fedctl syntax.",
                 "config_link": {
@@ -533,13 +542,12 @@ _HELP_COMMANDS = [
             },
             {
                 "title": "Advanced experiment with explicit config",
-                "body": "Use this pattern for checked-in experiment configs that need a deploy config, fixed seed, and seeded submit image.",
+                "body": "Use this pattern for checked-in experiment configs that need a deploy config and pinned submit image.",
                 "command": (
                     "./.venv/bin/fedctl submit run quickstart-numpy \\\n"
                     "  --run-config path/to/run.toml \\\n"
                     "  --deploy-config path/to/deploy.yaml \\\n"
-                    "  --submit-image 128.232.61.111:5000/fedctl-submit:latest \\\n"
-                    "  --seed 1337"
+                    "  --submit-image 128.232.61.111:5000/fedctl-submit:latest"
                 ),
             },
         ],

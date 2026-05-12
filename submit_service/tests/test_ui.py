@@ -277,6 +277,9 @@ def test_ui_help_command_detail_shows_rich_guidance(tmp_path, monkeypatch: pytes
     assert "fedctl submit run quickstart-numpy" in page.text
     assert "quickstart-numpy/run.toml" in page.text
     assert "Advanced experiment with explicit config" in page.text
+    assert "Select rpi4 and rpi5 node counts" in page.text
+    assert "--supernodes rpi4=2" in page.text
+    assert "--supernodes rpi5=2" in page.text
     assert "Apply a network profile" in page.text
     assert "profiles that are defined in the selected deploy config" in page.text
     assert "deploy.network.profiles" in page.text
@@ -289,6 +292,9 @@ def test_ui_help_command_detail_shows_rich_guidance(tmp_path, monkeypatch: pytes
     assert "--net &#39;rpi5[*]=none&#39;" in page.text
     assert "path/to/run.toml" in page.text
     assert "./.venv/bin/fedctl submit run quickstart-numpy" in page.text
+    assert "--seed 1337" not in page.text
+    assert "fixed seed" not in page.text
+    assert "seeded submit image" not in page.text
     assert "fedctl submit run apps/fedctl_research" not in page.text
     assert "../quickstart-pytorch" not in page.text
     assert "apps/fedctl_research/run_configs/network_heterogeneity/main/cifar10_cnn/iid/all_rpi5/fedbuff.toml" not in page.text
