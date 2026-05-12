@@ -1087,17 +1087,11 @@ def help_page(request: Request) -> HTMLResponse:
                 },
                 {
                     "index": "2",
-                    "title": "Create a Flower example",
-                    "body": "Use Flower's Numpy quickstart as the first project to submit through fedctl.",
-                    "command": "flwr new @flwrlabs/quickstart-numpy",
-                },
-                {
-                    "index": "3",
                     "title": "Register a bearer token",
                     "body": (
                         "The first fedctl command creates ~/.config/fedctl/config.toml and "
-                        "~/.config/fedctl/deploy-default.yaml. Register a user-scoped bearer token from the CLI; "
-                        "the command saves the returned token locally. "
+                        "~/.config/fedctl/deploy-default.yaml. Register a user-scoped bearer token from the CLI "
+                        "or use the web UI at /register; the CLI command saves the returned token locally. "
                         "FEDCTL_SUBMIT_TOKEN remains available for temporary overrides."
                     ),
                     "command": (
@@ -1106,16 +1100,19 @@ def help_page(request: Request) -> HTMLResponse:
                     ),
                 },
                 {
-                    "index": "4a",
-                    "title": "Submit with defaults",
+                    "index": "3a",
+                    "title": "Submit your project",
                     "body": (
-                        "Submit the generated Flower project directory directly. "
-                        "fedctl uses the generated CamMLSys deploy defaults unless the project provides its own config."
+                        "Submit any Flower project directory directly. If you want a disposable example first, "
+                        "create Flower's Numpy quickstart and submit that directory."
                     ),
-                    "command": "fedctl submit run quickstart-numpy",
+                    "command": (
+                        "flwr new @flwrlabs/quickstart-numpy\n"
+                        "fedctl submit run quickstart-numpy"
+                    ),
                 },
                 {
-                    "index": "4b",
+                    "index": "3b",
                     "title": "Submit with config files",
                     "body": (
                         "Use a run config to override Flower app settings such as num-server-rounds. "
