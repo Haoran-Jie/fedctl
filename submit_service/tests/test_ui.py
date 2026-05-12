@@ -295,6 +295,9 @@ def test_ui_help_command_detail_shows_rich_guidance(tmp_path, monkeypatch: pytes
     assert "--seed 1337" not in page.text
     assert "fixed seed" not in page.text
     assert "seeded submit image" not in page.text
+    assert "Debug failed deployment state" not in page.text
+    assert "debug-r1" not in page.text
+    assert "--no-destroy --verbose" not in page.text
     assert "fedctl submit run apps/fedctl_research" not in page.text
     assert "../quickstart-pytorch" not in page.text
     assert "apps/fedctl_research/run_configs/network_heterogeneity/main/cifar10_cnn/iid/all_rpi5/fedbuff.toml" not in page.text

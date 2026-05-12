@@ -536,11 +536,6 @@ _HELP_COMMANDS = [
                 ),
             },
             {
-                "title": "Debug failed deployment state",
-                "body": "Keep Nomad jobs after completion or failure so their live allocation state can be inspected.",
-                "command": "fedctl submit run quickstart-numpy --exp debug-r1 --no-destroy --verbose",
-            },
-            {
                 "title": "Advanced experiment with explicit config",
                 "body": "Use this pattern for checked-in experiment configs that need a deploy config and pinned submit image.",
                 "command": (
