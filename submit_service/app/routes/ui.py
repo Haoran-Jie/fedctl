@@ -155,7 +155,7 @@ _HELP_CONFIG_SECTIONS = [
             "A deploy config is YAML consumed by fedctl and the submit runner. It is not passed to Flower; "
             "it stores user credentials and optional overrides for the built-in CamMLSys service, image, registry, resource, placement, and network defaults."
         ),
-        "command": "fedctl submit run apps/fedctl_research --deploy-config .fedctl/fedctl.yaml",
+        "command": "fedctl submit run quickstart-numpy --deploy-config .fedctl/fedctl.yaml",
         "snippet": (
             "deploy:\n"
             "  superexec:\n"
@@ -448,7 +448,7 @@ _HELP_CONFIG_SECTIONS = [
                 "title": "Use an explicit project deploy config",
                 "body": "Use this when the project has a checked-in or repo-local deployment preset.",
                 "command": (
-                    "fedctl submit run apps/fedctl_research \\\n"
+                    "fedctl submit run quickstart-numpy \\\n"
                     "  --deploy-config .fedctl/main_compute_heterogeneity.yaml"
                 ),
             },
@@ -519,7 +519,7 @@ _HELP_COMMANDS = [
                     "label": "Open deploy config reference",
                 },
                 "command": (
-                    "fedctl submit run apps/fedctl_research \\\n"
+                    "fedctl submit run quickstart-numpy \\\n"
                     "  --run-config path/to/run.toml \\\n"
                     "  --deploy-config path/to/deploy.yaml \\\n"
                     "  --net 'rpi4[*]=med' \\\n"
@@ -535,7 +535,7 @@ _HELP_COMMANDS = [
                 "title": "Advanced experiment with explicit config",
                 "body": "Use this pattern for checked-in experiment configs that need a deploy config, fixed seed, and seeded submit image.",
                 "command": (
-                    "./.venv/bin/fedctl submit run apps/fedctl_research \\\n"
+                    "./.venv/bin/fedctl submit run quickstart-numpy \\\n"
                     "  --run-config path/to/run.toml \\\n"
                     "  --deploy-config path/to/deploy.yaml \\\n"
                     "  --submit-image 128.232.61.111:5000/fedctl-submit:latest \\\n"

@@ -177,6 +177,8 @@ def test_ui_help_page_shows_submit_commands(tmp_path, monkeypatch: pytest.Monkey
     assert "flwr new @flwrlabs/quickstart-numpy" in page.text
     assert "fedctl submit run quickstart-numpy" in page.text
     assert "fedctl submit run quickstart-numpy --stream" not in page.text
+    assert "fedctl submit logs &lt;submission-id&gt; --job submit" in page.text
+    assert "fedctl submit logs &lt;submission-id&gt; --job submit --follow" not in page.text
     assert re.search(r'<div class="help-step-index">3a</div>\s*<div class="help-step-body">\s*<h3>Submit your project</h3>', page.text)
     assert re.search(r'<div class="help-step-index">3b</div>\s*<div class="help-step-body">\s*<h3>Submit with config files</h3>', page.text)
     assert "--run-config quickstart-numpy/run.toml" in page.text
@@ -261,6 +263,8 @@ def test_ui_help_config_detail_pages_show_rich_guidance(tmp_path, monkeypatch: p
     assert "local-simulation.num-supernodes" in deploy_page.text
     assert "Legacy top-level registry fallback" in deploy_page.text
     assert "--repo-config" in deploy_page.text
+    assert "fedctl submit run quickstart-numpy --deploy-config .fedctl/fedctl.yaml" in deploy_page.text
+    assert "fedctl submit run apps/fedctl_research" not in deploy_page.text
 
 
 def test_ui_help_command_detail_shows_rich_guidance(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -284,12 +288,12 @@ def test_ui_help_command_detail_shows_rich_guidance(tmp_path, monkeypatch: pytes
     assert "--net &#39;rpi4[*]=med&#39;" in page.text
     assert "--net &#39;rpi5[*]=none&#39;" in page.text
     assert "path/to/run.toml" in page.text
+    assert "./.venv/bin/fedctl submit run quickstart-numpy" in page.text
+    assert "fedctl submit run apps/fedctl_research" not in page.text
     assert "../quickstart-pytorch" not in page.text
     assert "apps/fedctl_research/run_configs/network_heterogeneity/main/cifar10_cnn/iid/all_rpi5/fedbuff.toml" not in page.text
     assert "Related commands" in page.text
     assert "submit logs" in page.text
-    assert "fedctl submit logs &lt;submission-id&gt; --job submit" in page.text
-    assert "fedctl submit logs &lt;submission-id&gt; --job submit --follow" not in page.text
 
     register_page = client.get("/help/submit-register-token")
     assert register_page.status_code == 200
