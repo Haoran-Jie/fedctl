@@ -861,7 +861,12 @@ _HELP_COMMANDS = [
         "syntax": "fedctl submit results <submission-id> [--download] [--out PATH]",
         "details": [
             "Use results after a submission has completed and uploaded artifacts. Without --download, the command reports result locations; with --download, it writes artifacts into a local directory.",
-            "Result availability depends on the submit runner and research app producing artifacts. If no artifacts are listed, inspect submit logs to check whether upload occurred.",
+            (
+                "Result availability depends on the submitted app producing files. The Numpy quickstart normally "
+                "does not save result artifacts; an app such as Flower's PyTorch quickstart can produce one by "
+                'saving a file, for example torch.save(state_dict, "final_model.pt").'
+            ),
+            "If no artifacts are listed, inspect submit logs to check whether upload occurred.",
         ],
         "use_cases": [
             "Copy artifact URLs for a completed experiment.",
@@ -1134,7 +1139,11 @@ def help_page(request: Request) -> HTMLResponse:
                 {
                     "index": "5",
                     "title": "Inspect logs and download results",
-                    "body": "Inspect submit logs while the run starts, then download result artifacts after completion.",
+                    "body": (
+                        "Inspect submit logs while the run starts, then download result artifacts after completion. "
+                        "The Numpy quickstart may have no artifacts; an app such as Flower's PyTorch quickstart can "
+                        'make a file available for download by saving it, for example torch.save(state_dict, "final_model.pt").'
+                    ),
                     "command": (
                         "fedctl submit logs <submission-id>\n"
                         "fedctl submit results <submission-id> --download --out ./results"

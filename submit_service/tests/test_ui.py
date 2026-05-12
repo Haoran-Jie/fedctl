@@ -190,6 +190,9 @@ def test_ui_help_page_shows_submit_commands(tmp_path, monkeypatch: pytest.Monkey
     assert '<div class="help-step-index">3b</div>' not in page.text
     assert re.search(r'<div class="help-step-index">4</div>\s*<div class="help-step-body">\s*<h3>Check queue and status</h3>', page.text)
     assert re.search(r'<div class="help-step-index">5</div>\s*<div class="help-step-body">\s*<h3>Inspect logs and download results</h3>', page.text)
+    assert "The Numpy quickstart may have no artifacts" in page.text
+    assert "Flower&#39;s PyTorch quickstart" in page.text
+    assert "torch.save(state_dict, &#34;final_model.pt&#34;)" in page.text
     assert "../quickstart-pytorch" not in page.text
     assert "fedctl submit results &lt;submission-id&gt; --download --out ./results" in page.text
     assert 'href="#configs"' in page.text
@@ -310,6 +313,12 @@ def test_ui_help_command_detail_shows_rich_guidance(tmp_path, monkeypatch: pytes
     assert "apps/fedctl_research/run_configs/network_heterogeneity/main/cifar10_cnn/iid/all_rpi5/fedbuff.toml" not in page.text
     assert "Related commands" in page.text
     assert "submit logs" in page.text
+
+    results_page = client.get("/help/submit-results")
+    assert results_page.status_code == 200
+    assert "The Numpy quickstart normally does not save result artifacts" in results_page.text
+    assert "Flower&#39;s PyTorch quickstart" in results_page.text
+    assert "torch.save(state_dict, &#34;final_model.pt&#34;)" in results_page.text
 
     register_page = client.get("/help/submit-register-token")
     assert register_page.status_code == 200
