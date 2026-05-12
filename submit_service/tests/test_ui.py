@@ -288,6 +288,8 @@ def test_ui_help_command_detail_shows_rich_guidance(tmp_path, monkeypatch: pytes
     assert "apps/fedctl_research/run_configs/network_heterogeneity/main/cifar10_cnn/iid/all_rpi5/fedbuff.toml" not in page.text
     assert "Related commands" in page.text
     assert "submit logs" in page.text
+    assert "fedctl submit logs &lt;submission-id&gt; --job submit" in page.text
+    assert "fedctl submit logs &lt;submission-id&gt; --job submit --follow" not in page.text
 
     register_page = client.get("/help/submit-register-token")
     assert register_page.status_code == 200

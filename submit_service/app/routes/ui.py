@@ -1140,9 +1140,9 @@ def help_page(request: Request) -> HTMLResponse:
                 {
                     "index": "6",
                     "title": "Inspect logs and download results",
-                    "body": "Follow logs while the run starts, then download result artifacts after completion.",
+                    "body": "Inspect submit logs while the run starts, then download result artifacts after completion.",
                     "command": (
-                        "fedctl submit logs <submission-id> --job submit --follow\n"
+                        "fedctl submit logs <submission-id> --job submit\n"
                         "fedctl submit results <submission-id> --download --out ./results"
                     ),
                 },
