@@ -179,7 +179,10 @@ def test_ui_help_page_shows_submit_commands(tmp_path, monkeypatch: pytest.Monkey
     assert "flwr new @flwrlabs/quickstart-numpy" in page.text
     assert "fedctl submit run quickstart-numpy" in page.text
     assert "fedctl submit run quickstart-numpy --stream" not in page.text
-    assert "fedctl submit logs &lt;submission-id&gt; --job submit" in page.text
+    assert "active runs appear on the submissions page when you are logged in" in page.text
+    assert 'href="/submissions">Open submissions page</a>' in page.text
+    assert "fedctl submit logs &lt;submission-id&gt;" in page.text
+    assert "fedctl submit logs &lt;submission-id&gt; --job submit" not in page.text
     assert "fedctl submit logs &lt;submission-id&gt; --job submit --follow" not in page.text
     assert re.search(r'<div class="help-step-index">3</div>\s*<div class="help-step-body">\s*<h3>Submit your project</h3>', page.text)
     assert "Submit with config files" not in page.text

@@ -1123,7 +1123,12 @@ def help_page(request: Request) -> HTMLResponse:
                 {
                     "index": "4",
                     "title": "Check queue and status",
-                    "body": "List active submissions, then inspect one specific submission if needed.",
+                    "body": (
+                        "After fedctl submit run, active runs appear on the submissions page when you are logged in. "
+                        "You can also list active submissions from the CLI and inspect one specific submission if needed."
+                    ),
+                    "link_url": "/submissions",
+                    "link_label": "Open submissions page",
                     "command": "fedctl submit ls --active\nfedctl submit status <submission-id>",
                 },
                 {
@@ -1131,7 +1136,7 @@ def help_page(request: Request) -> HTMLResponse:
                     "title": "Inspect logs and download results",
                     "body": "Inspect submit logs while the run starts, then download result artifacts after completion.",
                     "command": (
-                        "fedctl submit logs <submission-id> --job submit\n"
+                        "fedctl submit logs <submission-id>\n"
                         "fedctl submit results <submission-id> --download --out ./results"
                     ),
                 },
