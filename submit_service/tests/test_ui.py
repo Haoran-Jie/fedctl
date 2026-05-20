@@ -73,6 +73,7 @@ def test_ui_requires_session_and_login_succeeds(tmp_path, monkeypatch: pytest.Mo
     assert "fedctl submit run &lt;project-dir&gt;" not in response.text
     assert "CLI remains the primary entrypoint" not in response.text
     assert "Submit new project runs" not in response.text
+    assert 'class="brand" href="/login"' in response.text
     assert 'href="/help"' in response.text
     assert 'href="/submissions"' not in response.text
     assert 'href="/nodes"' not in response.text
@@ -131,7 +132,8 @@ def test_ui_registers_generated_bearer_token(tmp_path, monkeypatch: pytest.Monke
 
     login = client.get("/login")
     assert login.status_code == 200
-    assert "Register a bearer token" in login.text
+    assert "fedctl submit register-token --name" in login.text
+    assert 'href="/register"' not in login.text
 
     register = client.get("/register")
     assert register.status_code == 200
@@ -158,6 +160,7 @@ def test_ui_help_page_shows_submit_commands(tmp_path, monkeypatch: pytest.Monkey
     page = client.get("/help")
     assert page.status_code == 200
     assert 'href="http://testserver/static/style.css?v=21"' in page.text
+    assert 'class="brand" href="/login"' in page.text
     assert "fedctl submit run" in page.text
     assert "fedctl submit register-token" in page.text
     assert "fedctl submit set-token" in page.text
@@ -169,11 +172,11 @@ def test_ui_help_page_shows_submit_commands(tmp_path, monkeypatch: pytest.Monkey
     assert "python -m pip install fedctl flwr" in page.text
     assert "Create a Flower example" not in page.text
     assert "Register a bearer token" in page.text
-    assert "Register from the CLI to create a user token and save it in your fedctl config." in page.text
-    assert "fedctl submit set-token &lt;token&gt;" in page.text
-    assert "After you have a token, use it to log in to the web UI." in page.text
+    assert "Run the CLI command below to create a user token, save it in your fedctl config" in page.text
+    assert "The printed token also lets you log in to the web UI." in page.text
+    assert "fedctl submit set-token &lt;token&gt;" not in page.text
     assert "FEDCTL_SUBMIT_TOKEN remains available for temporary overrides." not in page.text
-    assert 'href="/register">Register in the web UI</a>' in page.text
+    assert 'href="/register">Register in the web UI</a>' not in page.text
     assert 'href="/login">Log in with your token</a>' in page.text
     assert "fedctl submit register-token --name &lt;username&gt;" in page.text
     assert "fedctl submit register-token --name &lt;username&gt;\nfedctl submit ls" not in page.text

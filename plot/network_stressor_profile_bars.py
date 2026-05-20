@@ -215,6 +215,7 @@ def _plot(aggregates: list[Aggregate]) -> None:
             edgecolor="black",
             linewidth=0.45,
             label=METHOD_LABELS[(method, buffer_size)],
+            alpha=0.88,
         )
         for profile, bar, mean in zip(PROFILE_ORDER, bars, means, strict=True):
             if profile == "none":

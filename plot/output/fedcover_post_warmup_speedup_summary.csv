@@ -1,0 +1,17 @@
+task,regime,method,gamma,n,speedup_mean_pct,speedup_std_pct,coverage_gain_mean,coverage_gain_std
+cifar10_cnn,iid,fedcover_025,0.25,3,16.177932,14.876780,1.234183,0.108160
+cifar10_cnn,iid,fedcover_050,0.5,3,30.249736,11.040610,2.026920,0.563108
+cifar10_cnn,iid,fedcover_100,1.0,3,46.798202,5.872505,2.653209,0.058232
+cifar10_cnn,iid,fedcover_150,1.5,3,49.536734,1.105704,2.732084,0.169658
+cifar10_cnn,noniid,fedcover_025,0.25,3,5.967954,33.289875,1.271505,0.075995
+cifar10_cnn,noniid,fedcover_050,0.5,3,32.308215,14.381712,2.221966,0.355792
+cifar10_cnn,noniid,fedcover_100,1.0,3,46.843002,24.050915,2.812577,0.099996
+cifar10_cnn,noniid,fedcover_150,1.5,3,55.648470,7.715460,2.905234,0.081955
+fashion_mnist_cnn,iid,fedcover_025,0.25,3,11.206426,10.133340,1.417382,0.098641
+fashion_mnist_cnn,iid,fedcover_050,0.5,3,31.508530,7.399295,1.992712,0.507476
+fashion_mnist_cnn,iid,fedcover_100,1.0,3,55.188048,4.743715,2.926749,0.044181
+fashion_mnist_cnn,iid,fedcover_150,1.5,3,56.650126,3.788824,2.933266,0.056731
+fashion_mnist_cnn,noniid,fedcover_025,0.25,3,3.936467,31.537731,1.445090,0.111241
+fashion_mnist_cnn,noniid,fedcover_050,0.5,3,23.076675,27.993994,1.709909,0.118860
+fashion_mnist_cnn,noniid,fedcover_100,1.0,3,22.705996,58.897532,2.456895,0.526695
+fashion_mnist_cnn,noniid,fedcover_150,1.5,3,47.493807,19.834345,2.902110,0.116083

@@ -69,15 +69,18 @@ RUNS = (
     RunSpec(CIFAR10_CNN, "iid", "async_heterofl", "Async HeteroFL", 1337, "rbbmbqrk", False, "off", 0.70),
     RunSpec(CIFAR10_CNN, "iid", "async_heterofl", "Async HeteroFL", 1338, "tdvy3281", False, "off", 0.70),
     RunSpec(CIFAR10_CNN, "iid", "async_heterofl", "Async HeteroFL", 1339, "yh7l1gn2", False, "off", 0.70),
-    RunSpec(CIFAR10_CNN, "iid", "fedcover_025", "FedCover (gamma=0.25)", 1337, "09hgsf50", False, "on", 0.70),
-    RunSpec(CIFAR10_CNN, "iid", "fedcover_025", "FedCover (gamma=0.25)", 1338, "3mneknxw", False, "on", 0.70),
-    RunSpec(CIFAR10_CNN, "iid", "fedcover_025", "FedCover (gamma=0.25)", 1339, "0v5kju3r", False, "on", 0.70),
-    RunSpec(CIFAR10_CNN, "iid", "fedcover_050", "FedCover (gamma=0.5)", 1337, "0gdpojh3", False, "on", 0.70),
-    RunSpec(CIFAR10_CNN, "iid", "fedcover_050", "FedCover (gamma=0.5)", 1338, "m8o9ponh", False, "on", 0.70),
-    RunSpec(CIFAR10_CNN, "iid", "fedcover_050", "FedCover (gamma=0.5)", 1339, "d1vif1gu", False, "on", 0.70),
-    RunSpec(CIFAR10_CNN, "iid", "fedcover_100", "FedCover (gamma=1.0)", 1337, "mv2gxvn3", False, "on", 0.70),
-    RunSpec(CIFAR10_CNN, "iid", "fedcover_100", "FedCover (gamma=1.0)", 1338, "90ops15j", False, "on", 0.70),
-    RunSpec(CIFAR10_CNN, "iid", "fedcover_100", "FedCover (gamma=1.0)", 1339, "6to03qrl", False, "on", 0.70),
+    RunSpec(CIFAR10_CNN, "iid", "fedcover_025", "FedCover (gamma=0.25)", 1337, "r9qfq30j", False, "on", 0.70),
+    RunSpec(CIFAR10_CNN, "iid", "fedcover_025", "FedCover (gamma=0.25)", 1338, "34a2mba7", False, "on", 0.70),
+    RunSpec(CIFAR10_CNN, "iid", "fedcover_025", "FedCover (gamma=0.25)", 1339, "v6cy9cxd", False, "on", 0.70),
+    RunSpec(CIFAR10_CNN, "iid", "fedcover_050", "FedCover (gamma=0.5)", 1337, "snek24c3", False, "on", 0.70),
+    RunSpec(CIFAR10_CNN, "iid", "fedcover_050", "FedCover (gamma=0.5)", 1338, "8mik8rtd", False, "on", 0.70),
+    RunSpec(CIFAR10_CNN, "iid", "fedcover_050", "FedCover (gamma=0.5)", 1339, "92un87jd", False, "on", 0.70),
+    RunSpec(CIFAR10_CNN, "iid", "fedcover_100", "FedCover (gamma=1.0)", 1337, "ulvt1676", False, "on", 0.70),
+    RunSpec(CIFAR10_CNN, "iid", "fedcover_100", "FedCover (gamma=1.0)", 1338, "fjl051me", False, "on", 0.70),
+    RunSpec(CIFAR10_CNN, "iid", "fedcover_100", "FedCover (gamma=1.0)", 1339, "qbn78ulq", False, "on", 0.70),
+    RunSpec(CIFAR10_CNN, "iid", "fedcover_150", "FedCover (gamma=1.5)", 1337, "twi7tjzf", False, "on", 0.70),
+    RunSpec(CIFAR10_CNN, "iid", "fedcover_150", "FedCover (gamma=1.5)", 1338, "dmywljiz", False, "on", 0.70),
+    RunSpec(CIFAR10_CNN, "iid", "fedcover_150", "FedCover (gamma=1.5)", 1339, "nv03dvin", False, "on", 0.70),
     RunSpec(CIFAR10_CNN, "iid", "fedbuff_full", "Full-model FedBuff", 1337, "ml89yipf", False, "--", 0.70),
     RunSpec(CIFAR10_CNN, "iid", "fedbuff_full", "Full-model FedBuff", 1338, "l7fazyan", False, "--", 0.70),
     RunSpec(CIFAR10_CNN, "iid", "fedbuff_full", "Full-model FedBuff", 1339, "xdrjj60u", False, "--", 0.70),
@@ -87,15 +90,18 @@ RUNS = (
     RunSpec(CIFAR10_CNN, "noniid", "async_heterofl", "Async HeteroFL", 1337, "entgqdnf", False, "off", 0.60),
     RunSpec(CIFAR10_CNN, "noniid", "async_heterofl", "Async HeteroFL", 1338, "l1qhsxeq", False, "off", 0.60),
     RunSpec(CIFAR10_CNN, "noniid", "async_heterofl", "Async HeteroFL", 1339, "wi1dsf8d", False, "off", 0.60),
-    RunSpec(CIFAR10_CNN, "noniid", "fedcover_025", "FedCover (gamma=0.25)", 1337, "zi9feeeu", False, "on", 0.60),
-    RunSpec(CIFAR10_CNN, "noniid", "fedcover_025", "FedCover (gamma=0.25)", 1338, "fzw6cb7h", False, "on", 0.60),
-    RunSpec(CIFAR10_CNN, "noniid", "fedcover_025", "FedCover (gamma=0.25)", 1339, "fdyjrc8t", False, "on", 0.60),
-    RunSpec(CIFAR10_CNN, "noniid", "fedcover_050", "FedCover (gamma=0.5)", 1337, "eajmk8ms", False, "on", 0.60),
-    RunSpec(CIFAR10_CNN, "noniid", "fedcover_050", "FedCover (gamma=0.5)", 1338, "kawgrsj8", False, "on", 0.60),
-    RunSpec(CIFAR10_CNN, "noniid", "fedcover_050", "FedCover (gamma=0.5)", 1339, "pu8puo1w", False, "on", 0.60),
-    RunSpec(CIFAR10_CNN, "noniid", "fedcover_100", "FedCover (gamma=1.0)", 1337, "lyv9lu4o", False, "on", 0.60),
-    RunSpec(CIFAR10_CNN, "noniid", "fedcover_100", "FedCover (gamma=1.0)", 1338, "i5j7we6u", False, "on", 0.60),
-    RunSpec(CIFAR10_CNN, "noniid", "fedcover_100", "FedCover (gamma=1.0)", 1339, "ptpcdne6", False, "on", 0.60),
+    RunSpec(CIFAR10_CNN, "noniid", "fedcover_025", "FedCover (gamma=0.25)", 1337, "4u407gbw", False, "on", 0.60),
+    RunSpec(CIFAR10_CNN, "noniid", "fedcover_025", "FedCover (gamma=0.25)", 1338, "kopt79h3", False, "on", 0.60),
+    RunSpec(CIFAR10_CNN, "noniid", "fedcover_025", "FedCover (gamma=0.25)", 1339, "p7aoy1fe", False, "on", 0.60),
+    RunSpec(CIFAR10_CNN, "noniid", "fedcover_050", "FedCover (gamma=0.5)", 1337, "sya5lejq", False, "on", 0.60),
+    RunSpec(CIFAR10_CNN, "noniid", "fedcover_050", "FedCover (gamma=0.5)", 1338, "fof1ybkp", False, "on", 0.60),
+    RunSpec(CIFAR10_CNN, "noniid", "fedcover_050", "FedCover (gamma=0.5)", 1339, "aeinm9ad", False, "on", 0.60),
+    RunSpec(CIFAR10_CNN, "noniid", "fedcover_100", "FedCover (gamma=1.0)", 1337, "w6ee9u31", False, "on", 0.60),
+    RunSpec(CIFAR10_CNN, "noniid", "fedcover_100", "FedCover (gamma=1.0)", 1338, "nr4vekx5", False, "on", 0.60),
+    RunSpec(CIFAR10_CNN, "noniid", "fedcover_100", "FedCover (gamma=1.0)", 1339, "4tk6e8bs", False, "on", 0.60),
+    RunSpec(CIFAR10_CNN, "noniid", "fedcover_150", "FedCover (gamma=1.5)", 1337, "3aqm4h2m", False, "on", 0.60),
+    RunSpec(CIFAR10_CNN, "noniid", "fedcover_150", "FedCover (gamma=1.5)", 1338, "sfvlphdn", False, "on", 0.60),
+    RunSpec(CIFAR10_CNN, "noniid", "fedcover_150", "FedCover (gamma=1.5)", 1339, "bclh4bsr", False, "on", 0.60),
     RunSpec(CIFAR10_CNN, "noniid", "fedbuff_full", "Full-model FedBuff", 1337, "myahfz65", False, "--", 0.60),
     RunSpec(CIFAR10_CNN, "noniid", "fedbuff_full", "Full-model FedBuff", 1338, "96hydsfz", False, "--", 0.60),
     RunSpec(CIFAR10_CNN, "noniid", "fedbuff_full", "Full-model FedBuff", 1339, "wr5u7vc0", False, "--", 0.60),
@@ -105,15 +111,18 @@ RUNS = (
     RunSpec(FASHION_MNIST_CNN, "iid", "async_heterofl", "Async HeteroFL", 1337, "5g63o6yh", False, "off", 0.80),
     RunSpec(FASHION_MNIST_CNN, "iid", "async_heterofl", "Async HeteroFL", 1338, "rt6cqg71", False, "off", 0.80),
     RunSpec(FASHION_MNIST_CNN, "iid", "async_heterofl", "Async HeteroFL", 1339, "hngxry4a", False, "off", 0.80),
-    RunSpec(FASHION_MNIST_CNN, "iid", "fedcover_025", "FedCover (gamma=0.25)", 1337, "jl6nu6r3", False, "on", 0.80),
-    RunSpec(FASHION_MNIST_CNN, "iid", "fedcover_025", "FedCover (gamma=0.25)", 1338, "56obpb0t", False, "on", 0.80),
-    RunSpec(FASHION_MNIST_CNN, "iid", "fedcover_025", "FedCover (gamma=0.25)", 1339, "qz67k7o2", False, "on", 0.80),
-    RunSpec(FASHION_MNIST_CNN, "iid", "fedcover_050", "FedCover (gamma=0.5)", 1337, "buktl4bo", False, "on", 0.80),
-    RunSpec(FASHION_MNIST_CNN, "iid", "fedcover_050", "FedCover (gamma=0.5)", 1338, "4nkgrs9s", False, "on", 0.80),
-    RunSpec(FASHION_MNIST_CNN, "iid", "fedcover_050", "FedCover (gamma=0.5)", 1339, "us7y074d", False, "on", 0.80),
-    RunSpec(FASHION_MNIST_CNN, "iid", "fedcover_100", "FedCover (gamma=1.0)", 1337, "d8rmrpwj", False, "on", 0.80),
-    RunSpec(FASHION_MNIST_CNN, "iid", "fedcover_100", "FedCover (gamma=1.0)", 1338, "dk2xt4dn", False, "on", 0.80),
-    RunSpec(FASHION_MNIST_CNN, "iid", "fedcover_100", "FedCover (gamma=1.0)", 1339, "b6n8wobd", False, "on", 0.80),
+    RunSpec(FASHION_MNIST_CNN, "iid", "fedcover_025", "FedCover (gamma=0.25)", 1337, "0zlvu078", False, "on", 0.80),
+    RunSpec(FASHION_MNIST_CNN, "iid", "fedcover_025", "FedCover (gamma=0.25)", 1338, "1izdzlgf", False, "on", 0.80),
+    RunSpec(FASHION_MNIST_CNN, "iid", "fedcover_025", "FedCover (gamma=0.25)", 1339, "3l1kaacp", False, "on", 0.80),
+    RunSpec(FASHION_MNIST_CNN, "iid", "fedcover_050", "FedCover (gamma=0.5)", 1337, "xinsr69a", False, "on", 0.80),
+    RunSpec(FASHION_MNIST_CNN, "iid", "fedcover_050", "FedCover (gamma=0.5)", 1338, "vtqjdo1h", False, "on", 0.80),
+    RunSpec(FASHION_MNIST_CNN, "iid", "fedcover_050", "FedCover (gamma=0.5)", 1339, "g8srvurq", False, "on", 0.80),
+    RunSpec(FASHION_MNIST_CNN, "iid", "fedcover_100", "FedCover (gamma=1.0)", 1337, "lbu83hxg", False, "on", 0.80),
+    RunSpec(FASHION_MNIST_CNN, "iid", "fedcover_100", "FedCover (gamma=1.0)", 1338, "4lvs9uck", False, "on", 0.80),
+    RunSpec(FASHION_MNIST_CNN, "iid", "fedcover_100", "FedCover (gamma=1.0)", 1339, "nqv19jvu", False, "on", 0.80),
+    RunSpec(FASHION_MNIST_CNN, "iid", "fedcover_150", "FedCover (gamma=1.5)", 1337, "uv40yr5z", False, "on", 0.80),
+    RunSpec(FASHION_MNIST_CNN, "iid", "fedcover_150", "FedCover (gamma=1.5)", 1338, "jx12kmpw", False, "on", 0.80),
+    RunSpec(FASHION_MNIST_CNN, "iid", "fedcover_150", "FedCover (gamma=1.5)", 1339, "48uuxc54", False, "on", 0.80),
     RunSpec(FASHION_MNIST_CNN, "iid", "fedbuff_full", "Full-model FedBuff", 1337, "8d3qk95x", False, "--", 0.80),
     RunSpec(FASHION_MNIST_CNN, "iid", "fedbuff_full", "Full-model FedBuff", 1338, "9ned06a0", False, "--", 0.80),
     RunSpec(FASHION_MNIST_CNN, "iid", "fedbuff_full", "Full-model FedBuff", 1339, "aqwbw2vt", False, "--", 0.80),
@@ -123,15 +132,18 @@ RUNS = (
     RunSpec(FASHION_MNIST_CNN, "noniid", "async_heterofl", "Async HeteroFL", 1337, "g82jlxnl", False, "off", 0.75),
     RunSpec(FASHION_MNIST_CNN, "noniid", "async_heterofl", "Async HeteroFL", 1338, "ki8ngk96", False, "off", 0.75),
     RunSpec(FASHION_MNIST_CNN, "noniid", "async_heterofl", "Async HeteroFL", 1339, "c0i58l5x", False, "off", 0.75),
-    RunSpec(FASHION_MNIST_CNN, "noniid", "fedcover_025", "FedCover (gamma=0.25)", 1337, "i0c4ku8f", False, "on", 0.75),
-    RunSpec(FASHION_MNIST_CNN, "noniid", "fedcover_025", "FedCover (gamma=0.25)", 1338, "yn1uk84u", False, "on", 0.75),
-    RunSpec(FASHION_MNIST_CNN, "noniid", "fedcover_025", "FedCover (gamma=0.25)", 1339, "2tk7my56", False, "on", 0.75),
-    RunSpec(FASHION_MNIST_CNN, "noniid", "fedcover_050", "FedCover (gamma=0.5)", 1337, "vfepok63", False, "on", 0.75),
-    RunSpec(FASHION_MNIST_CNN, "noniid", "fedcover_050", "FedCover (gamma=0.5)", 1338, "50qd2dpx", False, "on", 0.75),
-    RunSpec(FASHION_MNIST_CNN, "noniid", "fedcover_050", "FedCover (gamma=0.5)", 1339, "ayjypqfy", False, "on", 0.75),
-    RunSpec(FASHION_MNIST_CNN, "noniid", "fedcover_100", "FedCover (gamma=1.0)", 1337, "ex41xxq2", False, "on", 0.75),
-    RunSpec(FASHION_MNIST_CNN, "noniid", "fedcover_100", "FedCover (gamma=1.0)", 1338, "gr2i8evd", False, "on", 0.75),
-    RunSpec(FASHION_MNIST_CNN, "noniid", "fedcover_100", "FedCover (gamma=1.0)", 1339, "4tupaano", False, "on", 0.75),
+    RunSpec(FASHION_MNIST_CNN, "noniid", "fedcover_025", "FedCover (gamma=0.25)", 1337, "a2rowzvn", False, "on", 0.75),
+    RunSpec(FASHION_MNIST_CNN, "noniid", "fedcover_025", "FedCover (gamma=0.25)", 1338, "91s7xboq", False, "on", 0.75),
+    RunSpec(FASHION_MNIST_CNN, "noniid", "fedcover_025", "FedCover (gamma=0.25)", 1339, "ng0e7if0", False, "on", 0.75),
+    RunSpec(FASHION_MNIST_CNN, "noniid", "fedcover_050", "FedCover (gamma=0.5)", 1337, "btg9s4t9", False, "on", 0.75),
+    RunSpec(FASHION_MNIST_CNN, "noniid", "fedcover_050", "FedCover (gamma=0.5)", 1338, "gm4gyrg9", False, "on", 0.75),
+    RunSpec(FASHION_MNIST_CNN, "noniid", "fedcover_050", "FedCover (gamma=0.5)", 1339, "53p6367y", False, "on", 0.75),
+    RunSpec(FASHION_MNIST_CNN, "noniid", "fedcover_100", "FedCover (gamma=1.0)", 1337, "91wjngil", False, "on", 0.75),
+    RunSpec(FASHION_MNIST_CNN, "noniid", "fedcover_100", "FedCover (gamma=1.0)", 1338, "lfbmt0qj", False, "on", 0.75),
+    RunSpec(FASHION_MNIST_CNN, "noniid", "fedcover_100", "FedCover (gamma=1.0)", 1339, "7qo54riw", False, "on", 0.75),
+    RunSpec(FASHION_MNIST_CNN, "noniid", "fedcover_150", "FedCover (gamma=1.5)", 1337, "s86cw117", False, "on", 0.75),
+    RunSpec(FASHION_MNIST_CNN, "noniid", "fedcover_150", "FedCover (gamma=1.5)", 1338, "zmovdfg8", False, "on", 0.75),
+    RunSpec(FASHION_MNIST_CNN, "noniid", "fedcover_150", "FedCover (gamma=1.5)", 1339, "30ao1wq8", False, "on", 0.75),
     RunSpec(FASHION_MNIST_CNN, "noniid", "fedbuff_full", "Full-model FedBuff", 1337, "abz74nkf", False, "--", 0.75),
     RunSpec(FASHION_MNIST_CNN, "noniid", "fedbuff_full", "Full-model FedBuff", 1338, "4q3u22we", False, "--", 0.75),
     RunSpec(FASHION_MNIST_CNN, "noniid", "fedbuff_full", "Full-model FedBuff", 1339, "1wrk9gl0", False, "--", 0.75),
@@ -176,9 +188,26 @@ def _summary_number(summary: dict[str, object], keys: tuple[str, ...]) -> float 
 
 def _history_best_acc(run) -> float:
     best: float | None = None
-    for row in run.scan_history(page_size=1000):
-        for key in ("eval_server/eval-acc", "eval_server/eval-score", "eval_server_trip/eval-acc", "eval_server_trip/eval-score"):
+    keys = (
+        "eval_server/eval-acc",
+        "eval_server/eval-score",
+        "eval_server_trip/eval-acc",
+        "eval_server_trip/eval-score",
+    )
+    for key in keys:
+        for row in run.scan_history(keys=[key], page_size=500):
             value = row.get(key)
+            if isinstance(value, (int, float)):
+                best = float(value) if best is None else max(best, float(value))
+    if best is None:
+        summary = dict(run.summary)
+        for key in (
+            "final/eval_server/eval-acc",
+            "final/eval_server/eval-score",
+            "eval_server/eval-acc",
+            "eval_server/eval-score",
+        ):
+            value = summary.get(key)
             if isinstance(value, (int, float)):
                 best = float(value) if best is None else max(best, float(value))
     if best is None:
@@ -291,8 +320,6 @@ def _load_cached() -> list[RunRow]:
                     coverage_mass_mean=float(row["coverage_mass_mean"]) if row["coverage_mass_mean"] else None,
                 )
             )
-    if {row.run_id for row in rows} != {spec.run_id for spec in RUNS}:
-        return []
     return rows
 
 
@@ -399,7 +426,7 @@ def _tex_method(label: str) -> str:
     if label == "Async HeteroFL":
         return r"\texttt{Async-HeteroFL}"
     if label == "Full-model FedBuff":
-        return r"Full-model \texttt{FedBuff}"
+        return r"\texttt{FedBuff}\(^*\)"
     if label.startswith("FedCover (gamma="):
         gamma = label.removeprefix("FedCover (gamma=").removesuffix(")")
         return rf"\texttt{{FedCover}} \((\gamma={gamma})\)"
@@ -418,17 +445,74 @@ def _tex_task_label(task: str) -> str:
     return TASK_LABELS.get(task, task.replace("_", r"\_"))
 
 
+TABLE_METHOD_ORDER = {
+    "fedbuff_full": 0,
+    "heterofl": 1,
+    "async_heterofl": 2,
+    "fedcover_025": 3,
+    "fedcover_050": 4,
+    "fedcover_100": 5,
+    "fedcover_150": 6,
+}
+
+
 def _write_table_rows(summary_rows: list[dict[str, object]]) -> Path:
     lines: list[str] = []
-    task_counts = Counter(str(row["task"]) for row in summary_rows)
+    ordered_rows = sorted(
+        summary_rows,
+        key=lambda row: (
+            (CIFAR10_CNN, FASHION_MNIST_CNN).index(str(row["task"])),
+            ("iid", "noniid").index(str(row["regime"])),
+            TABLE_METHOD_ORDER[str(row["method"])],
+        ),
+    )
+    rank_fields = (
+        ("target_client_trips_mean", "target_client_trips_std"),
+        ("target_wall_clock_min_mean", "target_wall_clock_min_std"),
+        ("post_warmup_target_wall_clock_min_mean", "post_warmup_target_wall_clock_min_std"),
+    )
+    ranks: dict[tuple[str, str, str, str], str] = {}
+    for task in (CIFAR10_CNN, FASHION_MNIST_CNN):
+        for regime in ("iid", "noniid"):
+            comparable = [
+                row
+                for row in ordered_rows
+                if row["task"] == task
+                and row["regime"] == regime
+                and row["method"] != "fedbuff_full"
+                and not bool(row["target_censored"])
+            ]
+            for mean_field, std_field in rank_fields:
+                ranked = sorted(
+                    comparable,
+                    key=lambda row: (float(row[mean_field]), float(row[std_field]), str(row["method"])),
+                )
+                if ranked:
+                    ranks[(task, regime, str(ranked[0]["method"]), mean_field)] = "best"
+                if len(ranked) > 1:
+                    ranks[(task, regime, str(ranked[1]["method"]), mean_field)] = "second"
+
+    def _target_metric_cell(row: dict[str, object], mean_field: str, std_field: str, digits: int) -> str:
+        value = _fmt_mean_std(float(row[mean_field]), float(row[std_field]), digits=digits)
+        if bool(row["target_censored"]):
+            return rf"\evalcensored{{{value}}}"
+        cell = r"\(" + value + r"\)"
+        rank = ranks.get((str(row["task"]), str(row["regime"]), str(row["method"]), mean_field))
+        if rank == "best":
+            return rf"\evalbest{{{cell}}}"
+        if rank == "second":
+            return rf"\evalsecond{{{cell}}}"
+        return cell
+
+    task_counts = Counter(str(row["task"]) for row in ordered_rows)
     regime_counts: Counter[tuple[str, str]] = Counter()
-    for row in summary_rows:
+    for row in ordered_rows:
         task = str(row["task"])
         regime = str(row["regime"])
         regime_counts[(task, regime)] += 1
     task_seen: dict[str, int] = {}
     regime_seen: dict[tuple[str, str], int] = {}
-    for row in summary_rows:
+    for row in ordered_rows:
         task = str(row["task"])
         regime = str(row["regime"])
         if task_seen and task not in task_seen:
@@ -445,22 +529,14 @@ def _write_table_rows(summary_rows: list[dict[str, object]]) -> Path:
         if seen == 0:
             data_cell = rf"\multirow{{{regime_counts[(task, regime)]}}}{{*}}{{{_tex_data_label(regime)}}}"
         regime_seen[(task, regime)] = seen + 1
-        censored = bool(row["target_censored"])
-        trips = _fmt_mean_std(float(row["target_client_trips_mean"]), float(row["target_client_trips_std"]), digits=0)
-        time = _fmt_mean_std(float(row["target_wall_clock_min_mean"]), float(row["target_wall_clock_min_std"]), digits=1)
-        post_warmup_time = _fmt_mean_std(
-            float(row["post_warmup_target_wall_clock_min_mean"]),
-            float(row["post_warmup_target_wall_clock_min_std"]),
-            digits=1,
+        trips = _target_metric_cell(row, "target_client_trips_mean", "target_client_trips_std", 0)
+        time = _target_metric_cell(row, "target_wall_clock_min_mean", "target_wall_clock_min_std", 1)
+        post_warmup_time = _target_metric_cell(
+            row,
+            "post_warmup_target_wall_clock_min_mean",
+            "post_warmup_target_wall_clock_min_std",
+            1,
         )
-        if censored:
-            trips = r"\cellcolor{gray!12}\(" + trips + r"\)"
-            time = r"\cellcolor{gray!12}\(" + time + r"\)"
-            post_warmup_time = r"\cellcolor{gray!12}\(" + post_warmup_time + r"\)"
-        else:
-            trips = r"\(" + trips + r"\)"
-            time = r"\(" + time + r"\)"
-            post_warmup_time = r"\(" + post_warmup_time + r"\)"
         gain = "--"
         if row["coverage"] == "off":
             gain = r"\(1.00^\dagger\)"
@@ -472,7 +548,6 @@ def _write_table_rows(summary_rows: list[dict[str, object]]) -> Path:
                     task_cell,
                     data_cell,
                     _tex_method(str(row["label"])),
-                    r"\(" + _fmt_mean_std(float(row["best_acc_mean"]), float(row["best_acc_std"]), scale=100.0, digits=1) + r"\)",
                     trips,
                     time,
                     post_warmup_time,
@@ -489,11 +564,15 @@ def _write_table_rows(summary_rows: list[dict[str, object]]) -> Path:
 
 def main() -> None:
     rows = _load_cached()
-    if not rows:
+    rows_by_id = {row.run_id: row for row in rows}
+    missing_specs = [spec for spec in RUNS if spec.run_id not in rows_by_id]
+    if missing_specs or not rows:
         import wandb
 
         api = wandb.Api(timeout=60)
-        rows = [_fetch_row(api, spec) for spec in RUNS]
+        fetched_rows = {spec.run_id: _fetch_row(api, spec) for spec in missing_specs or RUNS}
+        rows_by_id.update(fetched_rows)
+        rows = [rows_by_id[spec.run_id] for spec in RUNS]
         _write_raw(rows)
     summary_rows = _write_summary(rows)
     table_path = _write_table_rows(summary_rows)

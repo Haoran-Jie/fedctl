@@ -6,8 +6,6 @@ import statistics
 from dataclasses import dataclass
 from typing import Iterable
 
-import wandb
-
 from common import cache_is_fresh, force_refresh_requested, plot_output_path, write_csv_plot
 
 ENTITY = "samueljie1-the-university-of-cambridge"
@@ -326,6 +324,8 @@ def fetch_or_load() -> list[SummaryRow]:
     cached = _load_cache()
     if cached:
         return cached
+    import wandb
+
     api = wandb.Api(timeout=60)
     run_map = _fetch_run_map(api)
     rows = [_row_from_run(spec, run_map[spec.run_id]) for spec in RUNS]

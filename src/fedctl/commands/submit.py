@@ -1021,6 +1021,10 @@ def run_submit_register_token(
     _print_ok(f"Saved submit token: {path}")
     console.print("[bold]Bearer token:[/bold]")
     console.print(issued_token)
+    console.print(
+        f"[bold]Web login:[/bold] Use this token to log in at "
+        f"{client.endpoint.rstrip('/')}/login"
+    )
     if _copy_to_clipboard(issued_token):
         _print_ok("Copied bearer token to clipboard.")
     else:

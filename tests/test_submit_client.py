@@ -69,6 +69,25 @@ def test_submit_client_raises_on_http_error(monkeypatch) -> None:
         raise AssertionError("Expected SubmitServiceError")
 
 
+def test_submit_client_timeout_error_names_endpoint_and_override(monkeypatch) -> None:
+    def fake_request(method, url, json=None, params=None, headers=None, timeout=None):
+        raise httpx.TimeoutException("timed out")
+
+    monkeypatch.setattr(httpx, "request", fake_request)
+
+    client = SubmitServiceClient(endpoint="http://submit.example", timeout=3)
+    try:
+        client.check_auth()
+    except SubmitServiceError as exc:
+        message = str(exc)
+        assert "timed out after 3s" in message
+        assert "http://submit.example/v1/submissions" in message
+        assert "FEDCTL_SUBMIT_ENDPOINT" in message
+        assert "submit.endpoint" in message
+    else:
+        raise AssertionError("Expected SubmitServiceError")
+
+
 def test_submit_client_list_submissions_active_only(monkeypatch) -> None:
     captured = {}
 
@@ -178,3 +197,21 @@ def test_submit_client_stream_logs(monkeypatch) -> None:
     assert captured["params"]["index"] == "2"
     assert captured["headers"]["Authorization"] == "Bearer token-123"
     assert captured["headers"]["X-Submit-User"] == "alice"
+
+
+def test_submit_client_stream_timeout_error_names_endpoint(monkeypatch) -> None:
+    def fake_stream(method, url, params=None, headers=None, timeout=None):
+        raise httpx.TimeoutException("timed out")
+
+    monkeypatch.setattr(httpx, "stream", fake_stream)
+
+    client = SubmitServiceClient(endpoint="http://submit.example", timeout=4)
+    try:
+        list(client.stream_logs("sub-1"))
+    except SubmitServiceError as exc:
+        message = str(exc)
+        assert "timed out after 4s" in message
+        assert "http://submit.example/v1/submissions/sub-1/logs" in message
+        assert "FEDCTL_SUBMIT_ENDPOINT" in message
+    else:
+        raise AssertionError("Expected SubmitServiceError")

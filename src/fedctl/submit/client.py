@@ -117,7 +117,7 @@ class SubmitServiceClient:
                 for line in response.iter_lines():
                     yield line
         except httpx.HTTPError as exc:
-            raise SubmitServiceError(str(exc)) from exc
+            raise SubmitServiceError(self._format_transport_error(exc, url=url)) from exc
 
     def cancel_submission(self, submission_id: str) -> dict[str, Any]:
         return self._request("POST", f"/v1/submissions/{submission_id}/cancel")
@@ -181,7 +181,7 @@ class SubmitServiceClient:
                 timeout=self.timeout,
             )
         except httpx.HTTPError as exc:
-            raise SubmitServiceError(str(exc)) from exc
+            raise SubmitServiceError(self._format_transport_error(exc, url=url)) from exc
         if response.status_code >= 400:
             raise SubmitServiceError(
                 f"Submit service error {response.status_code}: {response.text[:200]}"
@@ -189,3 +189,18 @@ class SubmitServiceClient:
         if text_response:
             return response.text
         return response.json()
+
+    def _format_transport_error(self, exc: httpx.HTTPError, *, url: str) -> str:
+        endpoint = self.endpoint.rstrip("/")
+        hint = (
+            "Check that the submit endpoint is reachable from this machine. "
+            "Override it with FEDCTL_SUBMIT_ENDPOINT or submit.endpoint if needed."
+        )
+        if isinstance(exc, httpx.TimeoutException):
+            return (
+                f"Request to submit service timed out after {self.timeout:g}s "
+                f"({url}). {hint}"
+            )
+        detail = str(exc).strip()
+        suffix = f": {detail}" if detail else ""
+        return f"Could not reach submit service at {endpoint} ({url}){suffix}. {hint}"

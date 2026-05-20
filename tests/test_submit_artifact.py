@@ -573,6 +573,8 @@ def test_run_submit_register_token_defaults_user_and_saves_token(
     registered: dict[str, object] = {}
 
     class FakeSubmitClient:
+        endpoint = "http://submit.example"
+
         def register_token(self, **kwargs):
             registered.update(kwargs)
             return {"name": kwargs["name"], "role": "user", "token": "fedctl_secret"}
@@ -598,6 +600,7 @@ def test_run_submit_register_token_defaults_user_and_saves_token(
     assert saved == {"token": "fedctl_secret", "deploy_cfg_path": None}
     assert "Bearer token:" in output
     assert "fedctl_secret" in output
+    assert "Use this token to log in at http://submit.example/login" in output
     assert "Copied bearer token to clipboard" in output
     assert "Use --print-token" not in output
 

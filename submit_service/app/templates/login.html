@@ -13,7 +13,7 @@
     <button type="submit">Log in</button>
   </form>
   {% if registration_enabled %}
-  <p class="muted">Need a token? <a href="/register">Register a bearer token</a>.</p>
+  <p class="muted">Need a token? Run <code>fedctl submit register-token --name &lt;username&gt;</code> in your terminal.</p>
   {% endif %}
 </section>
 {% endblock %}

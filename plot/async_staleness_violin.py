@@ -44,7 +44,7 @@ CATEGORY_POSITIONS = tuple(reversed(range(len(PANELS))))
 
 def _style_violin(parts: dict[str, object], *, facecolor: str) -> None:
     for body in parts['bodies']:
-        facecolor = darken_color_hls(facecolor, factor=0.9)
+        # facecolor = darken_color_hls(facecolor, factor=0.9)
         body.set_facecolor(facecolor)
         body.set_edgecolor('#303030')
         body.set_alpha(0.85)
