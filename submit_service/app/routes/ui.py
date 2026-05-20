@@ -1119,6 +1119,8 @@ def help_page(request: Request) -> HTMLResponse:
                         "Submit any Flower project directory directly. If you want a disposable example first, "
                         "create Flower's Numpy quickstart and submit that directory."
                     ),
+                    "link_url": "/help/submit-run#examples",
+                    "link_label": "See more fedctl submit run examples",
                     "command": (
                         "flwr new @flwrlabs/quickstart-numpy\n"
                         "fedctl submit run quickstart-numpy"

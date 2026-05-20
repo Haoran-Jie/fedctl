@@ -183,6 +183,7 @@ def test_ui_help_page_shows_submit_commands(tmp_path, monkeypatch: pytest.Monkey
     assert "submit-service bearer token" in page.text
     assert "flwr new @flwrlabs/quickstart-numpy" in page.text
     assert "fedctl submit run quickstart-numpy" in page.text
+    assert 'href="/help/submit-run#examples">See more fedctl submit run examples</a>' in page.text
     assert "fedctl submit run quickstart-numpy --stream" not in page.text
     assert "active runs appear on the submissions page when you are logged in" in page.text
     assert 'href="/submissions">Open submissions page</a>' in page.text
