@@ -161,6 +161,7 @@ def test_ui_help_page_shows_submit_commands(tmp_path, monkeypatch: pytest.Monkey
     assert page.status_code == 200
     assert 'href="http://testserver/static/style.css?v=21"' in page.text
     assert 'class="brand" href="/login"' in page.text
+    assert "Primary command" not in page.text
     assert "fedctl submit run" in page.text
     assert "fedctl submit register-token" in page.text
     assert "fedctl submit set-token" in page.text
