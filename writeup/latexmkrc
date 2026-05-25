@@ -1,0 +1,4 @@
+$out_dir = 'out';
+$aux_dir = 'out';
+$pdf_mode = 5;
+$xelatex = 'xelatex -synctex=1 -shell-escape %O %S';

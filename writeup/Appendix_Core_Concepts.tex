@@ -1,0 +1,80 @@
+% !TeX root = main.tex
+%TC:ignore
+\chapter{Core Systems Concepts}
+\label{appendix:systems_definitions}
+
+This appendix defines the systems terms used in the implementation chapter. The definitions are intentionally operational: they explain how each concept is used in this dissertation, rather than documenting every feature of the underlying tool.
+
+\section{Flower}
+\label{def:flower}
+
+\begin{definition}
+\textbf{Flower.}
+Flower is an open-source framework for defining and running federated-learning workloads \parencite{beutel2022flower}. In this dissertation, Flower is the layer in which the server-side coordination logic and client-side training logic are written; \texttt{fedctl} supplies the surrounding deployment path that places those roles on the cluster, configures them, and preserves the resulting evidence.
+\end{definition}
+
+Flower separates the project-specific learning logic from the runtime processes that connect a federation. A Flower project can therefore be run locally for development or connected to a remote federation in which server-side and client-side work execute as separate processes. \texttt{fedctl} uses this separation: it keeps the learning problem inside the Flower project, while controlling placement, network conditions, images, logs, and artifacts outside Flower.
+
+\section{Flower Runtime Components}
+\label{def:flower_components}
+
+The implementation chapter refers to the following Flower-facing roles. The wording here is a dissertation-specific summary of Flower's deployment architecture,\footnote{\href{https://flower.ai/docs/framework/explanation-flower-architecture.html}{Flower architecture documentation}.} focused on the concepts needed to understand \texttt{fedctl}.
+
+\begin{description}[leftmargin=2.8cm, style=nextline]
+  \item[SuperLink] The central communication service for a Flower federation. It is the rendezvous point between server-side app execution and the connected client-side runtime endpoints; it routes run instructions and results, but does not contain the learning method.
+  \item[SuperNode] The client-side runtime endpoint in a Flower federation. It connects to the SuperLink and exposes a client endpoint that can be selected for work during a run; it is the runtime presence of a client, not the client training code itself.
+  \item[ServerApp] The project-specific server-side application for a run. It contains the logic that starts and coordinates the FL workload, including client selection, aggregation, global evaluation, and server-side metric logging.
+  \item[ClientApp] The project-specific client-side application executed for selected client work. It loads the assigned local data, performs local training or evaluation, and returns model updates and metrics.
+  \item[SuperExec] The executor process that runs a \texttt{ServerApp} or \texttt{ClientApp} and connects that app process to the corresponding Flower runtime endpoint. In \texttt{fedctl}, ServerApp and ClientApp SuperExec containers are the application jobs rendered into Nomad.
+\end{description}
+
+The term \emph{logical client} refers to the client identity used by the FL experiment. In this deployment, each logical client is realised by a paired SuperNode endpoint and ClientApp SuperExec job. A logical client need not be the same thing as a physical machine: \texttt{fedctl} maps logical clients to physical devices through deployment configuration and Nomad placement, then records the device label with the resulting metrics.
+
+\section{Nomad}
+\label{def:nomad}
+
+\begin{definition}
+\textbf{Nomad.}
+Nomad is a cluster scheduler from HashiCorp used to place and run containerised jobs across a pool of machines \parencite{nomad}. In this dissertation, Nomad is the execution substrate beneath Flower: \texttt{fedctl} renders Flower roles into Nomad jobs, adds placement constraints and resource reservations, and submits those jobs to the Raspberry Pi cluster.
+\end{definition}
+
+The main Nomad terms used in Chapter~\ref{chap:implementation} are:
+
+\begin{description}[leftmargin=2.8cm, style=nextline]
+  \item[Job] A submitted unit of work. \texttt{fedctl} renders separate jobs for Flower runtime services, application executors, and submit-runner work.
+  \item[Task group] A group of tasks that Nomad schedules together. \texttt{fedctl} uses task groups to represent repeated logical-client roles such as SuperNodes.
+  \item[Allocation] A concrete placement of a task group on a physical Nomad client node.
+  \item[Constraint] A scheduling rule. Device-aware placement uses constraints such as matching a requested worker type to Nomad node metadata.
+  \item[Service] A named network endpoint registered by a running task. Flower roles discover each other through these services rather than through hard-coded IP addresses.
+\end{description}
+
+Nomad does not implement the FL algorithm. It decides where the runtime processes execute, reserves resources, exposes service addresses, and reports operational state. This is why the implementation chapter distinguishes the Flower method layer from the Nomad deployment layer.
+
+\section{Containers, Registry, and Submit Runner}
+\label{def:containers_registry_submit_runner}
+
+\begin{definition}
+\textbf{Container image and registry.}
+A container image packages the code and dependencies required to run a process. A registry stores these images so cluster nodes can pull the same executable environment. In this dissertation, the SuperExec image contains the Flower project and research application used by ServerApp and ClientApp jobs.
+\end{definition}
+
+\begin{definition}
+\textbf{Submit runner.}
+The submit runner is a short-lived cluster job launched by the submit service. It downloads the submitted bundle, reconstructs the user request, builds or selects the SuperExec image, renders the Nomad jobs, and starts the Flower run.
+\end{definition}
+
+This extra runner layer keeps the user's laptop out of the critical path after submission. Once a run has been accepted, queueing, deployment, logging, and artifact capture proceed on the cluster side.
+
+\section{Network Impairment and Evidence}
+\label{def:network_evidence}
+
+\begin{definition}
+\textbf{\texttt{netem}.}
+\texttt{netem} is the Linux network-emulation facility used to add controlled delay, jitter, packet loss, and bandwidth limits. \texttt{fedctl} applies \texttt{netem} through deployment-side network profiles so that network stress can change without modifying FL method code. Non-\texttt{none} profiles are enforced by a rendered wrapper around the affected Flower runtime container.
+\end{definition}
+
+\begin{definition}
+\textbf{W\&B and structured artifacts.}
+Weights \& Biases (W\&B) stores experiment metrics and run summaries. Structured artifacts are files emitted by the research application, such as event-level asynchronous-update logs and per-client diagnostic rows. Together with submit-service logs, they form the evidence path used to regenerate tables, figures, and failure diagnostics.
+\end{definition}
+%TC:endignore

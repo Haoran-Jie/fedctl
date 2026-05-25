@@ -1,0 +1,174 @@
+% !TeX root = main.tex
+\chapter{Reproducibility Material}
+\label{appendix:reproducibility_material}
+
+This appendix records the current configuration families used to reproduce the dissertation experiments. It is intentionally limited to the active run and deployment surfaces: the older exploratory branches remain in the repository, but are not part of the main evaluation story in Chapter~\ref{chap:evaluation}.
+
+\section{Evaluation Settings}
+\label{appendix:evaluation_settings}
+
+The tables below collect the main run settings that are referenced but not repeated in Chapter~\ref{chap:evaluation}. They are summaries of the resolved run and deploy configs, not a replacement for the archived artifacts attached to each submitted run.
+
+\begin{table}[!htbp]
+\centering
+\caption{Main compute-heterogeneity benchmark settings.}
+\label{tab:appendix_compute_settings}
+\footnotesize
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.28\textwidth}X}
+\toprule
+Setting & Value \\
+\midrule
+Deployment & \(20\) logical clients on \(10\times\texttt{rpi4}+10\times\texttt{rpi5}\). \\
+Tasks & \texttt{california\_housing\_mlp}, \texttt{fashion\_mnist\_cnn}, and \texttt{cifar10\_cnn}. \\
+Methods & \texttt{FedAvg}, \texttt{HeteroFL}, \texttt{FedRolex}, and \texttt{FIARSE}. \\
+Model-rate assignment & \(0.125,0.25\) on \texttt{rpi4}; \(0.5,1.0\) on \texttt{rpi5}; \(5\) clients per rate group. \\
+Batch sizes & CIFAR-10 and Fashion-MNIST: \texttt{rpi4}=8, \texttt{rpi5}=32. California Housing: \texttt{rpi4}=32, \texttt{rpi5}=128. \\
+Data regimes & IID with matched dataset caps; CIFAR-10 and Fashion-MNIST non-IID Dirichlet \(\alpha=0.3\); California Housing non-IID continuous-feature split. \\
+Optimisation and metrics & Classification reports accuracy; regression uses \texttt{Adam} and reports \(R^2\). \\
+Seeds & \(1337\)--\(1339\), unless a figure caption states a diagnostic rerun seed. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{table}[!htbp]
+\centering
+\caption{Main straggler-induced heterogeneity benchmark settings.}
+\label{tab:appendix_straggler_settings}
+\footnotesize
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.28\textwidth}X}
+\toprule
+Setting & Value \\
+\midrule
+Task & \texttt{cifar10\_cnn}. \\
+Design & \(2\times2\) matrix over data regime (IID/non-IID) and topology (all-\texttt{rpi5}/mixed). \\
+Deployments & \(15\) logical clients. The homogeneous control uses \(15\times\texttt{rpi5}\); the mixed treatment uses \(10\times\texttt{rpi5}+5\times\texttt{rpi4}\). \\
+Methods & \texttt{FedAvg}, \texttt{FedAsync}, \texttt{FedBuff}, and \texttt{FedStaleWeight}; compact tables abbreviate \texttt{FedStaleWeight} as \texttt{FedSW}. \\
+Budgets & \texttt{FedAvg}: \(50\) rounds. Asynchronous methods: \(100\) server steps and \texttt{train-concurrency}=15. \\
+Buffered settings & Main \texttt{FedBuff}/\texttt{FedStaleWeight} runs use \(K=10\); the network-stressor sweep also includes \(K=5\) variants. \\
+Endpoint & First validation accuracy \(\ge 60\%\), reported by completed client trips and wall-clock time. \\
+Seeds & \(1337\)--\(1339\). \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{table}[!htbp]
+\centering
+\caption{Asynchronous-submodel and \texttt{FedCover} benchmark settings.}
+\label{tab:appendix_fedcover_settings}
+\footnotesize
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.28\textwidth}X}
+\toprule
+Setting & Value \\
+\midrule
+Deployment & \(20\) logical clients on \(10\times\texttt{rpi4}+10\times\texttt{rpi5}\). \\
+Tasks and data & CIFAR-10 and Fashion-MNIST under IID and Dirichlet non-IID \(\alpha=0.3\). \\
+Submodel assignment & Nested \texttt{HeteroFL} rates \(0.125,0.25,0.5,1.0\), matched to the compute-heterogeneity assignment. \\
+Methods & Synchronous \texttt{HeteroFL}, coverage-disabled asynchronous \texttt{HeteroFL}, \texttt{FedCover} with \(\gamma\in\{0.25,0.5,1.0,1.5\}\), and \texttt{FedBuff}. \\
+Targets & CIFAR-10: \(70\%\) IID and \(60\%\) non-IID. Fashion-MNIST: \(80\%\) IID and \(75\%\) non-IID. \\
+Warm-up adjustment & Post-warm-up time subtracts the first \(20\) completed client trips. \\
+Seeds & \(1337\)--\(1339\). \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\FloatBarrier
+\section{Run-Config Families}
+
+Application-side choices are stored under \path{apps/fedctl_research/run_configs/}. These TOML files use the sectioned run-config schema described in Chapter~\ref{chap:implementation}; \texttt{fedctl} lowers the sectioned form into the flat Flower run config passed to the application.
+
+\begin{table}[!htbp]
+\centering
+\caption{Active run-config families for the dissertation evaluation.}
+\label{tab:appendix_run_config_families}
+\footnotesize
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.41\textwidth}X}
+\toprule
+Run-config family & Role in the evaluation \\
+\midrule
+\path{compute_heterogeneity/main/cifar10_cnn/} & Main compute-heterogeneity classification evaluation under IID and non-IID splits. \\
+\path{compute_heterogeneity/main/california_housing_mlp/} & Main compute-heterogeneity tabular-regression evaluation under IID and non-IID splits. \\
+\path{compute_heterogeneity/ablations/slow_minority/} & Slow-minority ablation comparing exclusion, full-model inclusion, and reduced-rate inclusion of slower devices. \\
+\path{compute_heterogeneity/ablations/slow_majority/} & Slow-majority rerun family for the updated weak-client inclusion decision. \\
+\path{network_heterogeneity/main/cifar10_cnn/} & Main asynchronous target-attainment matrix over IID/non-IID data and mixed/all-\texttt{rpi5} topologies. \\
+\path{network_heterogeneity/ablations/network_stressor_sweep/cifar10_cnn/} & Network-stressor sweep used to separate straggler effects from artificial link impairment. \\
+\path{network_heterogeneity/ablations/device_correlated_non_iid/cifar10_cnn/} & Device-correlated non-IID experiment where slower devices hold systematically different classes. \\
+\path{compute_heterogeneity/ablations/fedcover_pilot/} & Asynchronous-submodel and \texttt{FedCover} evaluation under CIFAR-10 and Fashion-MNIST. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\FloatBarrier
+\section{Deployment Presets}
+
+Deploy config choices are stored under \path{apps/fedctl_research/deploy_configs/}. These YAML files fix the physical or logical device pool, placement policy, resource reservations, submit-service endpoint, and optional \texttt{netem} profiles. The main presets used by the evaluation are summarised in Table~\ref{tab:appendix_deploy_presets}.
+
+\begin{table}[!htbp]
+\centering
+\caption{Representative deploy config presets used by the evaluation.}
+\label{tab:appendix_deploy_presets}
+\footnotesize
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.42\textwidth}>{\centering\arraybackslash}p{0.16\textwidth}X}
+\toprule
+Deployment preset & SuperNodes & Use \\
+\midrule
+\path{compute_heterogeneity/main/none.yaml} & \(10\) \texttt{rpi4} + \(10\) \texttt{rpi5} & Main compute-heterogeneity runs on the mixed Raspberry Pi testbed. \\
+\path{compute_heterogeneity/ablations/slow_minority/mixed.yaml} & \(3\) \texttt{rpi4} + \(12\) \texttt{rpi5} & Slow-minority inclusion experiment. \\
+\path{compute_heterogeneity/ablations/slow_minority/rpi5_only.yaml} & \(12\) \texttt{rpi5} & Slow-minority exclusion control. \\
+\path{network_heterogeneity/main/mixed/none.yaml} & \(5\) \texttt{rpi4} + \(10\) \texttt{rpi5} & Mixed-topology no-impairment asynchronous target-attainment runs. \\
+\path{network_heterogeneity/main/all_rpi5/none.yaml} & \(15\) \texttt{rpi5} & Packed all-\texttt{rpi5} no-impairment control runs. \\
+\path{network_heterogeneity/ablations/network_stressor_sweep/*.yaml} & \(5\) \texttt{rpi4} + \(10\) \texttt{rpi5} & Dedicated network-stressor sweep presets. \\
+\path{network_heterogeneity/ablations/device_correlated_non_iid/none.yaml} & \(5\) \texttt{rpi4} + \(10\) \texttt{rpi5} & Device-correlated non-IID fairness experiment. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\FloatBarrier
+\section{Network Profiles}
+
+The network-stressor sweep uses named \texttt{netem} profiles from the dedicated network-stressor deploy config presets. The default dissertation deployment applies impairment at the SuperNode role; SuperExec wrappers can be enabled separately but are disabled in these presets.
+
+\begin{table}[!htbp]
+\centering
+\caption{Network-stressor profiles used in the asynchronous sweep.}
+\label{tab:appendix_network_profiles}
+\footnotesize
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.16\textwidth}>{\centering\arraybackslash}p{0.13\textwidth}>{\centering\arraybackslash}p{0.13\textwidth}>{\centering\arraybackslash}p{0.13\textwidth}>{\centering\arraybackslash}p{0.13\textwidth}X}
+\toprule
+Profile & Delay & Jitter & Loss & Rate & Direction \\
+\midrule
+\texttt{none} & -- & -- & -- & -- & No artificial impairment. \\
+\texttt{mild} & \(20\) ms & \(5\) ms & \(0.0\%\) & \(100\) Mbit/s & Symmetric. \\
+\texttt{med} & \(60\) ms & \(15\) ms & \(0.5\%\) & \(50\) Mbit/s & Symmetric. \\
+\texttt{asym\_up} & \(90\) ms & \(20\) ms & \(0.5\%\) & \(20\) Mbit/s & Egress impaired, ingress left as \texttt{none}. \\
+\texttt{asym\_down} & \(90\) ms & \(20\) ms & \(0.5\%\) & \(20\) Mbit/s & Ingress impaired, egress left as \texttt{none}. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\FloatBarrier
+\section{Representative Commands}
+
+The following commands show the reproducibility pattern rather than every submitted run. Multi-seed runs are encoded by the run config itself, and a single run can be forced with \texttt{--seed} when needed.
+
+\begin{codeblock}[minted options app={breaklines,breakanywhere,fontsize=\footnotesize}]{bash}
+fedctl submit run apps/fedctl_research \
+  --run-config apps/fedctl_research/run_configs/compute_heterogeneity/main/cifar10_cnn/iid/fedrolex.toml \
+  --deploy-config apps/fedctl_research/deploy_configs/compute_heterogeneity/main/none.yaml \
+  --stream
+\end{codeblock}
+
+\begin{codeblock}[minted options app={breaklines,breakanywhere,fontsize=\footnotesize}]{bash}
+fedctl submit run apps/fedctl_research \
+  --run-config apps/fedctl_research/run_configs/network_heterogeneity/main/cifar10_cnn/noniid/mixed/fedasync.toml \
+  --deploy-config apps/fedctl_research/deploy_configs/network_heterogeneity/main/mixed/none.yaml \
+  --stream
+\end{codeblock}
+
+\begin{codeblock}[minted options app={breaklines,breakanywhere,fontsize=\footnotesize}]{bash}
+fedctl submit run apps/fedctl_research \
+  --run-config apps/fedctl_research/run_configs/network_heterogeneity/ablations/network_stressor_sweep/cifar10_cnn/fedstaleweight.toml \
+  --deploy-config apps/fedctl_research/deploy_configs/network_heterogeneity/ablations/network_stressor_sweep/med.yaml \
+  --stream
+\end{codeblock}
+
+For archival runs, the submit artifact stores the resolved request, copied external run config as \path{.fedctl/run_config.toml} when applicable, deployment metadata, role logs, and result artifacts. This is the reproducibility surface used by the submit-service UI and by the result retrieval workflow.

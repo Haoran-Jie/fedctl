@@ -1,0 +1,41 @@
+% !TeX root = main.tex
+\chapter{Conclusions}
+\label{chap:conclusions}
+
+This dissertation developed \texttt{fedctl}, evaluated heterogeneous federated learning on real edge hardware, and proposed \texttt{FedCover} for asynchronous submodel FL. Its central finding is that FL methods cannot be evaluated through final accuracy alone: deployment, device class, straggler-induced heterogeneity, network path, and submodel quality all affect method behaviour.
+
+Taken together, the results support three claims. First, final accuracy hides wall-clock time, client-trip efficiency, deployable submodel quality, stale-update influence, and slow-device representation. Second, asynchronous submodel FL is feasible without redesigning either underlying method family, but timing-dependent buffers make accepted parameter coverage dynamic. Third, \texttt{FedCover} is a practical correction for this setting, improving target and post-warm-up time over the coverage-unaware asynchronous-submodel baseline without turning the gain into a slow-device weighting effect.
+
+\section{Work completed}
+
+\paragraph{1. Developed \texttt{fedctl}: a tool for deployed FL evaluation.} \hangindent=2em
+To fulfil main aim~\hyperref[aim:a]{(a)} and support extension aim~\hyperref[eaim:a]{(a)}, I designed and implemented \texttt{fedctl}, a reusable run path for Flower projects on a Nomad-managed edge cluster. It provides a command-line interface, queued remote execution, and browser inspection for status, logs, and artifacts. Its main design choice is the split between Flower run config and deploy config: method, task, partitioning, seed, placement, resources, and network conditions are preserved as experiment state rather than hidden in launch scripts.
+
+\paragraph{2. Built a heterogeneous Raspberry Pi cluster for deployed FL evaluation.} \hangindent=2em
+To fulfil main aim~\hyperref[aim:b]{(b)}, I built and provisioned a Raspberry Pi cluster from \(30\times\texttt{rpi4}\) and \(20\times\texttt{rpi5}\) devices, configured with Ansible and scheduled through Nomad. \texttt{fedctl} exposes the cluster as typed workers, applies controlled \texttt{netem} impairment, and records device-labelled diagnostics. The testbed turns physical heterogeneity into controlled experimental variables with a traceable evidence path through configuration, logs, W\&B metrics, artifacts, and runtime metadata.
+
+\paragraph{3. Evaluated compute heterogeneity with submodel FL.} \hangindent=2em
+To fulfil main aim~\hyperref[aim:c]{(c)}, I implemented and evaluated \texttt{FedAvg}, \texttt{HeteroFL}, \texttt{FedRolex}, and \texttt{FIARSE} on the same workloads, covering aim~\hyperref[aim:c.1]{(c.1)}--\hyperref[aim:c.3]{(c.3)}. Section~\ref{sec:eval_compute_heterogeneity} showed that submodel FL helps when local compute is the bottleneck, but the best method depends on the objective: \texttt{FedAvg} remains the full-model quality control, \texttt{FIARSE} gives the strongest deployable submodel quality, and \texttt{HeteroFL}/\texttt{FedRolex} give the clearest wall-clock savings.
+
+\paragraph{4. Evaluated straggler-induced heterogeneity with asynchronous FL.} \hangindent=2em
+To fulfil extension aims~\hyperref[eaim:a]{(a)}, \hyperref[eaim:b]{(b)}, and \hyperref[eaim:d]{(d)}, I implemented and evaluated \texttt{FedAsync}, \texttt{FedBuff}, and \texttt{FedStaleWeight} under mixed completion times and controlled network conditions. Section~\ref{sec:eval_network_heterogeneity} showed that asynchrony is useful mainly when client completion times differ: in all-\texttt{rpi5} controls, synchronous \texttt{FedAvg} remains the stronger target-attainment baseline, while mixed \texttt{rpi4}/\texttt{rpi5} runs make \texttt{FedAsync} fastest and \texttt{FedStaleWeight} better at restoring slow-device influence.
+
+\paragraph{5. Combined asynchronous FL with submodel FL and proposed \texttt{FedCover}.} \hangindent=2em
+To fulfil extension aim~\hyperref[eaim:c]{(c)} and complete the asynchronous evaluation in extension aim~\hyperref[eaim:d]{(d)}, I evaluated buffered asynchronous aggregation over nested submodel updates and introduced \texttt{FedCover} in Section~\ref{sec:fedcover_impl}. Unlike workload-adaptive prior work \parencite{zhang2023timelyfl}, this dissertation fixes the nested model-rate assignment and isolates aggregation-side coverage correction. Section~\ref{sec:eval_async_submodel_fl} shows that the coverage-unaware composition, labelled \texttt{Async-HeteroFL}, is feasible, but stale-weighted buffers make parameter coverage dynamic. \texttt{FedCover}'s capped inverse-coverage correction improves target and post-warm-up time without materially changing slow-device representation.
+
+\section{Future work}
+\label{sec:future_work}
+
+\paragraph{Broader workloads and larger deployments.} \hangindent=2em
+The evaluated workloads expose compute and runtime trade-offs, but not language, personalization, privacy-sensitive tasks, or long-running availability patterns \parencite{caldas2018leaf,lai2022fedscale,li2021ditto}. Future work should test whether the same trade-offs hold on broader tasks and more volatile deployments.
+
+\paragraph{Representation-aware asynchronous training.} \hangindent=2em
+Weighting stale updates can improve slow-device influence, but it cannot make slow clients arrive more often. Device-correlated skew therefore needs methods that combine staleness weighting with fairness-aware objectives, device-aware admission, client selection, or data-aware scheduling \parencite{li2019qffl,nishio2018fedcs,lai2021oort,chai2020tifl}.
+
+\paragraph{Hardware-aware submodel execution.} \hangindent=2em
+\texttt{FIARSE} improves submodel quality here, but executes sparse masks through dense PyTorch kernels on edge CPUs. Future work should separate the algorithmic value of sparse importance-selected submodels from the systems cost of executing them without sparse-kernel or hardware support.
+
+\paragraph{Trace-driven straggler-induced heterogeneity evaluation.} \hangindent=2em
+The \texttt{netem} profiles make impairment repeatable, but they remain controlled approximations of real deployment conditions. Future work should replay measured edge-network traces through the same \texttt{fedctl} path, connecting controlled profiles with real path variability \parencite{bonawitz2019towards,lai2022fedscale}.
+
+This dissertation argues that FL systems should be evaluated as deployed distributed systems rather than idealised statistical abstractions.

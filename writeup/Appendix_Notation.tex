@@ -1,0 +1,64 @@
+% !TeX root = main.tex
+\chapter{Notation Reference}
+\label{chap:notation}
+
+This appendix summarises the main notation used throughout the dissertation. The goal is not to restate every paper-specific symbol, but to keep the shared notation for the synchronous, submodel, and buffered-asynchronous methods in one place.
+
+\section*{General Federated Learning}
+\vspace{-1em}
+\begin{longtable}{@{} p{0.18\linewidth} p{0.78\linewidth} @{}}
+$\mathcal{K}$ & Set of all available clients. \\
+$\mathcal{C}_t$ & Client cohort selected in synchronous round $t$. \\
+$t$ & Synchronous communication-round index. \\
+$s$ & Buffered-asynchronous server-step index. \\
+$T$ & Total number of synchronous rounds. \\
+$S$ & Total number of asynchronous server steps. \\
+$w^{(t)}$ & Global model after synchronous round $t$. \\
+$w^{[s]}$ & Global model after asynchronous server step $s$. \\
+$D_k$ & Local training dataset stored on client $k$. \\
+$n_k$ & Number of training examples used by client $k$. \\
+$p_k$ & Client weight in the global objective; selected-cohort FedAvg normalisation is written explicitly over $\mathcal{C}_t$ in the main text. \\
+$F_k(w)$ & Local objective of client $k$. \\
+$F(w)$ & Global objective, typically $F(w)=\sum_{k \in \mathcal{K}} p_k F_k(w)$. \\
+$\eta_\ell$ & Client-side learning rate for local optimisation. \\
+$\eta_s$ & Server-side learning rate used in aggregation updates. \\
+$E$ & Number of local epochs per synchronous round. \\
+$\tilde{w}_k^{(t+1)}$ & Local model returned by client $k$ after training from synchronous global model $w^{(t)}$. \\
+\end{longtable}
+
+\section*{Submodel Training}
+\vspace{-1em}
+\begin{longtable}{@{} p{0.18\linewidth} p{0.78\linewidth} @{}}
+$r_k^{(t)}$, $r_k^{[s]}$ & Model rate assigned to client $k$ in synchronous round $t$ or asynchronous dispatch step $s$. \\
+$I_k^{(t)}$, $I_k^{[s]}$ & Parameter subset visible to client $k$ in synchronous round $t$ or asynchronous dispatch step $s$. \\
+$w_{k,0}^{(t)}$ & Client-visible model or submodel used by client $k$ before local training. \\
+$\mathcal{U}_j^{(t)}$ & Set of participating clients whose extracted submodels include global parameter $j$ at round $t$. \\
+$\beta_k$ & Selective aggregation weight for client $k$. In the implemented methods, $\beta_k=n_k$ for \texttt{HeteroFL} and $\beta_k=1$ for \texttt{FedRolex}; \texttt{FIARSE} aggregates sparse nonzero deltas per parameter. \\
+$\Psi$ & Extraction policy that maps a global model and model rate to the client-visible submodel indices. \\
+$s_j$ & Magnitude-based importance score assigned to parameter $j$ for the \texttt{FIARSE} sparse mask. \\
+\end{longtable}
+
+\section*{Buffered-Asynchronous Training}
+\vspace{-1em}
+\begin{longtable}{@{} p{0.18\linewidth} p{0.78\linewidth} @{}}
+$M$ & Maximum number of concurrent in-flight client requests in buffered asynchronous execution. \\
+$K$ & Buffer size used by the server before applying an asynchronous update. \\
+$\mathcal{B}$ & Mutable set of accepted updates currently stored in the async buffer. \\
+$\mathcal{B}_s$ & Accepted buffer whose aggregate is applied at asynchronous server step $s$. \\
+$v_i$ & Model version originally sent to the client that produced async update $i$. \\
+$\Delta_i$ & Delta associated with async update $i$, using the sign convention $\Delta_i=w^{[v_i]}-\tilde{w}_i$. \\
+$\tau_i$ & Staleness of async update $i$, measured in server steps since version $v_i$. \\
+$q_i$ & Nonnegative score assigned to buffered async update $i$ before normalisation. \\
+$\alpha_i$ & Normalised aggregation weight applied to buffered async update $i$, usually $\alpha_i=q_i/\sum_{u\in\mathcal{B}_s}q_u$. \\
+$g(\tau_i)$ & Staleness-weighting function used to construct a buffered score from update staleness. \\
+\end{longtable}
+
+\section*{Method-Specific Parameters}
+\vspace{-1em}
+\begin{longtable}{@{} p{0.18\linewidth} p{0.78\linewidth} @{}}
+$a$ & Polynomial staleness-decay exponent for the weighted \texttt{FedBuff} variant. \\
+$c_j^{[s]}$ & Observed stale-weighted coverage mass for parameter $j$ in accepted buffer $\mathcal{B}_s$. \\
+$\gamma$ & FedCover coverage-gain exponent. \\
+$\kappa_{\max}$ & Maximum FedCover inverse-coverage gain. \\
+$\kappa_j^{[s]}$ & Capped inverse-coverage gain applied to parameter $j$ at server step $s$. \\
+\end{longtable}

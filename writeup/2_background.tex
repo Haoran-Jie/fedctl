@@ -1,0 +1,266 @@
+% !TeX root = main.tex
+\chapter{Background}
+\label{chap:background}
+
+This chapter establishes the setting used throughout the dissertation. It first defines FL through the standard global objective and synchronous \texttt{FedAvg} loop, which provide the reference point for later method comparisons (Section~\ref{sec:problem_setting}). It then separates the heterogeneity mechanisms that matter for the evaluation: data heterogeneity changes local objectives, compute heterogeneity changes the model work clients can feasibly perform, and straggler-induced heterogeneity changes update arrival time, staleness, and influence (Section~\ref{sec:heterogeneity_problems}).
+
+\section{Federated Learning Setting}
+\label{sec:problem_setting}
+
+Federated learning (FL) trains a shared model across distributed clients without centralising their raw data \parencite{mcmahan2017fedavg,kairouz2021advances,bonawitz2019towards}. Let \(\mathcal{K}\) denote the client set, \(D_k\) the local dataset held by client \(k\), and \(w\) the global model parameters. The standard objective is \footnote{The mathematical symbols and notation used throughout the dissertation are summarised in Appendix~\ref{chap:notation}.}
+\[
+    F(w) = \sum_{k \in \mathcal{K}} p_k F_k(w),
+    \qquad
+    F_k(w) = \frac{1}{|D_k|}\sum_{(x,y)\in D_k} \ell(w;x,y),
+\]
+where \(p_k\) is usually uniform or proportional to \(|D_k|\). In a synchronous \texttt{FedAvg} round, the server sends \(w^{(t)}\) to a selected client set \(\mathcal{C}_t\), each client performs local optimisation, and the server averages returned models:
+\[
+    \tilde{w}_k^{(t+1)}
+    =
+    \operatorname{ClientUpdate}(w^{(t)}, D_k),
+    \qquad
+    w^{(t+1)}
+    =
+    \sum_{k\in\mathcal{C}_t}
+    \frac{|D_k|}{\sum_{j\in\mathcal{C}_t}|D_j|}
+    \tilde{w}_k^{(t+1)}.
+\]
+Figure~\ref{fig:background_fl_round} connects this optimisation view to the deployed execution path used in the experiments: selected clients train locally, updates cross the network boundary, and the server records the configuration and runtime evidence needed to interpret the result.
+
+\begin{figure}[!htbp]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{tikzpicture}[
+  >=Latex,
+  font=\scriptsize,
+  panel/.style={draw=black!18, fill=black!2, rounded corners=6pt},
+  clientrow/.style={draw=black!22, fill=white, rounded corners=4pt, minimum width=9.75cm, minimum height=1.02cm},
+  serverbox/.style={draw=darkblue!75!black, fill=darkblue!8, rounded corners=4pt, align=center, minimum width=2.25cm, minimum height=0.70cm},
+  evidence/.style={draw=black!24, fill=black!3, rounded corners=4pt, align=center, text width=2.1cm, minimum height=1.00cm},
+  data/.style={draw=paletteOrange!85!black, fill=paletteOrange!10, rounded corners=2pt, align=center, minimum width=1.10cm, minimum height=0.36cm, text=paletteOrange!90!black},
+  train/.style={draw=paletteGreen!80!black, fill=paletteGreen!10, rounded corners=2pt, align=center, minimum width=1.30cm, minimum height=0.36cm},
+  update/.style={draw=darkblue!70!black, fill=darkblue!6, rounded corners=2pt, align=center, minimum width=1.10cm, minimum height=0.36cm, text=darkblue!75!black},
+  fast/.style={draw=paletteGreen!80!black, fill=paletteGreen!13, rounded corners=2pt, align=center, minimum width=1.10cm, minimum height=0.36cm, text=paletteGreen!65!black},
+  slow/.style={draw=paletteGreen!80!black, fill=paletteGreen!7, rounded corners=2pt, align=center, minimum width=1.10cm, minimum height=0.36cm, text=paletteGreen!55!black},
+  otherdev/.style={draw=paletteGreen!60!black, fill=paletteGreen!5, rounded corners=2pt, align=center, minimum width=1.10cm, minimum height=0.36cm, text=paletteGreen!60!black},
+  axis/.style={rounded corners=3pt, align=center, minimum height=0.50cm, font=\scriptsize\bfseries},
+  title/.style={font=\footnotesize\bfseries, anchor=west},
+  small/.style={font=\tiny, text=black!60, align=center},
+  flow/.style={-{Latex[length=1.7mm]}, line width=0.50pt, draw=black!55},
+  updateflow/.style={-{Latex[length=1.8mm]}, line width=0.60pt, draw=darkblue!70!black},
+  broadcast/.style={-{Latex[length=1.8mm]}, line width=0.60pt, draw=darkblue!70!black}
+]
+\draw[panel] (-7.75,-2.25) rectangle (2.55,3.2);
+\draw[panel] (3.45,-2.25) rectangle (9.25,3.2);
+\draw[densely dashed, line width=0.55pt, draw=black!55] (2.90,-1.80) -- (2.90,2.70);
+\node[title, text=black!70] at (-7.45,2.62) {client side: selected devices};
+\node[title, text=darkblue!75!black] at (3.75,2.62) {server side};
+\node[small, rotate=90] at (3.15,0.57) {network boundary};
+
+\foreach \id/\y/\device/\devstyle/\detail in {
+  k/1.64/\texttt{rpi5}/fast/larger local work,
+  j/0.46/\texttt{rpi4}/slow/slower completion,
+  n/-0.72/edge/otherdev/available client
+} {
+  \node[clientrow] (row\id) at (-2.52,\y+0.05) {};
+  \node[data] (data\id) at (-5.15,\y+0.05) {\(D_{\id}\)};
+  \node[\devstyle] (dev\id) at (-3.45,\y+0.05) {\device};
+  \node[train] (train\id) at (-1.55,\y+0.05) {local train};
+  \node[update] (upd\id) at (0.55,\y+0.05) {\(\Delta w_{\id}\)};
+  \node[small, anchor=west] at (-4.35,\y-0.35) {\detail};
+  \draw[flow] (data\id) -- (dev\id);
+  \draw[flow] (dev\id) -- (train\id);
+  \draw[flow] (train\id) -- (upd\id);
+}
+\node[font=\scriptsize\bfseries, anchor=west] at (-7.28,1.68) {Client \(k\)};
+\node[font=\scriptsize\bfseries, anchor=west] at (-7.28,0.50) {Client \(j\)};
+\node[font=\scriptsize\bfseries, anchor=west] at (-7.28,-0.68) {Client \(n\)};
+
+\node[serverbox] (global) at (4.95,1.85) {global model\\\(w^{(t)}\)};
+\node[serverbox, fill=darkblue!5, draw=darkblue!70!black] (agg) at (4.95,0.51) {aggregation\\weighted mean};
+\node[serverbox] (next) at (4.95,-1.12) {next model\\\(w^{(t+1)}\)};
+\node[evidence] (evid) at (7.72,0.51) {run config\\deploy config\\logs/metrics};
+
+\draw[broadcast] (global.west) -- (2.90,1.85);
+\node[small, text=darkblue!70!black] at (2.60,2.10) {broadcast \(w^{(t)}\)};
+
+\draw[draw=darkblue!70!black, line width=0.45pt] (2.52,-0.67) -- (2.52,1.69);
+\draw[updateflow] (updk.east) -- (2.52,1.69);
+\draw[updateflow] (updj.east) -- (2.52,0.51);
+\draw[updateflow] (updn.east) -- (2.52,-0.67);
+\draw[updateflow] (2.52,0.51) -- (agg.west);
+\node[small, text=darkblue!70!black] at (1.05,-0.28) {returned client updates};
+
+\draw[broadcast] (global) -- (agg);
+\draw[broadcast] (agg) -- (next);
+\draw[flow, draw=darkblue!60!black] (agg.east) -- (evid.west);
+
+\draw[panel] (-7.75,-4.02) rectangle (9.25,-2.38);
+\node[title] at (-7.45,-2.72) {where heterogeneity enters the evaluation};
+\node[axis, draw=paletteOrange!85!black, fill=paletteOrange!11, text=paletteOrange!90!black, minimum width=4.70cm, text width=4.25cm]
+  at (-4.95,-3.40) {data: different \(D_k\) and local objectives};
+\node[axis, draw=paletteGreen!80!black, fill=paletteGreen!10, text=paletteGreen!65!black, minimum width=4.70cm, text width=4.25cm]
+  at (0.45,-3.40) {compute: feasible local model work};
+\node[axis, draw=darkblue!70!black, fill=darkblue!7, text=darkblue!70!black, minimum width=4.70cm, text width=4.25cm]
+  at (5.85,-3.40) {straggler-induced: arrival time and staleness};
+
+\node[
+  draw=paletteOrange!85!black,
+  fill=paletteOrange!8,
+  rounded corners=3pt,
+  align=center,
+  minimum width=7.20cm,
+  minimum height=0.52cm
+]
+  at (-3,-1.72)
+  {\textcolor{paletteOrange!90!black}{\(F(w)=\sum_k p_kF_k(w)\) is estimated without centralising raw data}};
+\end{tikzpicture}
+\end{adjustbox}
+\caption{\textbf{Federated-learning abstraction and deployed execution path.}}
+\label{fig:background_fl_round}
+\end{figure}
+
+This abstraction separates optimisation from raw-data movement. However, it abstracts away the systems path taken by each update: client selection, device placement, local training time, communication time, queueing, and failure handling. In a homogeneous cluster these effects may be small enough to treat as engineering detail. On heterogeneous edge hardware they become part of the experimental treatment, because they determine which clients can train, how long a round takes, and which updates actually influence the model.
+
+This dissertation is therefore closest to the \textbf{cross-device edge-FL setting} in its systems assumptions: clients are resource-constrained devices, device capability matters, and availability or completion time can vary \parencite{kairouz2021advances,wang2021field,bonawitz2019towards}. The experiments use an addressable Raspberry Pi cluster so that the same physical hardware can be reused across methods and the source of heterogeneity can be measured.
+
+\section{Heterogeneity in Federated Learning}
+\label{sec:heterogeneity_problems}
+
+Real edge-FL deployments are heterogeneous in several ways. User devices collect different data, expose different processor and memory budgets, and return updates through networks with variable latency, bandwidth, and availability \parencite{kairouz2021advances,wang2021field,bonawitz2019towards,lai2022fedscale}. Treating these effects as one generic ``heterogeneity'' problem hides the mechanism being tested. This dissertation separates them into \textbf{data heterogeneity, compute heterogeneity, and straggler-induced heterogeneity} so that each method family is evaluated against the deployment pressure it is designed to address.
+
+\begin{figure}[H]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{tikzpicture}[
+  >=Latex,
+  font=\scriptsize,
+  heteroCard/.style={rounded corners=4pt, minimum width=4.05cm, minimum height=3.15cm, inner sep=0pt, outer sep=0pt},
+  dataCard/.style={heteroCard, draw=paletteOrange!85!black, fill=paletteOrange!8},
+  computeCard/.style={heteroCard, draw=paletteGreen!80!black, fill=paletteGreen!8},
+  stragglerCard/.style={heteroCard, draw=darkblue!75!black, fill=darkblue!7},
+  cardTitle/.style={align=center, text width=3.58cm, inner sep=0pt, outer sep=0pt, font=\small\bfseries},
+  cardBody/.style={align=center, text width=3.58cm, inner sep=0pt, outer sep=0pt, font=\scriptsize},
+  note/.style={draw=black!25, fill=black!3, rounded corners=3pt, align=center, text width=11.5cm, minimum height=0.55cm, inner sep=4pt, font=\scriptsize\bfseries, text=black!70},
+  arrow/.style={-{Latex[length=1.8mm]}, line width=0.45pt, draw=black!45}
+]
+\node[dataCard] (data) at (0,0) {};
+\node[computeCard] (compute) at (4.65,0) {};
+\node[stragglerCard] (straggler) at (9.3,0) {};
+
+\node[cardTitle, text=paletteOrange!90!black, anchor=north] at ([yshift=-0.22cm]data.north) {Data\\heterogeneity};
+\node[cardTitle, text=paletteGreen!70!black, anchor=north] at ([yshift=-0.22cm]compute.north) {Compute\\heterogeneity};
+\node[cardTitle, text=darkblue!85!black, anchor=north] at ([yshift=-0.22cm]straggler.north) {Straggler-induced\\heterogeneity};
+
+\node[cardBody, anchor=north] at ([yshift=-1.42cm]data.north) {
+  different \(D_k\) \\ different \(F_k\)\\[0.75em]
+  label skew\\
+  feature skew\\
+  % device-correlated skew
+};
+\node[cardBody, anchor=north] at ([yshift=-1.42cm]compute.north) {
+  different feasible\\local model training\\[0.75em]
+  % \(r_k \in (0,1]\)\\
+  % submodel rate\\[0.25em]
+  CPU, memory,\\batch/model size
+};
+\node[cardBody, anchor=north] at ([yshift=-1.42cm]straggler.north) {
+  different completion\\time \(C_k\)\\[0.75em]
+  latency, bandwidth\\
+  queueing staleness \(\tau_i\)
+};
+
+\node[note] (note) at (4.65,-2.35)
+  {different mechanism \(\rightarrow\) different measurement \(\rightarrow\) different method family};
+\draw[arrow] (data.south) -- (note.north -| data.south);
+\draw[arrow] (compute.south) -- (note.north);
+\draw[arrow] (straggler.south) -- (note.north -| straggler.south);
+\end{tikzpicture}
+\end{adjustbox}
+\caption{\textbf{Three forms of heterogeneity used in this dissertation.} The taxonomy separates data-distribution, local-capacity, and update-timing effects.}
+\label{fig:background_heterogeneity_forms}
+\end{figure}
+
+\subsection{Data Heterogeneity}
+
+Data heterogeneity means that client datasets need not be sampled from the same distribution. Formally, \(D_k \not\sim D_j\) for some clients \(k,j\), so the local objectives \(F_k\) can point in different optimisation directions. This is a standard FL challenge \parencite{kairouz2021advances,wang2021field}. It can appear as label skew, where clients observe different class proportions; feature skew, where the input distribution differs across clients; or device-correlated skew, where the data distribution is systematically tied to hardware class or availability. In this dissertation it is not the only focus, but it is deliberately included because it interacts with systems heterogeneity: if slower devices also hold different labels or feature ranges, then excluding or underweighting those devices changes both runtime and learned behaviour. The evaluation therefore uses both IID and non-IID partitions, and includes one device-correlated ablation to test whether stale-aware weighting can compensate when slow devices carry distinct data.
+
+\subsection{Compute Heterogeneity}
+\label{sec:background_compute_heterogeneity}
+
+Compute heterogeneity refers to differences in the local model work that clients can support, including \textbf{processor speed, memory capacity, and the feasible batch or model size} \parencite{li2020fedprox,lai2022fedscale}. The evaluation represents this with mixed \texttt{rpi4} and \texttt{rpi5} workers. In real deployments, the problem is not only that weaker devices take longer: for some model--device pairs, holding the full model, activations, and optimiser state may be unrealistic. If every selected client nevertheless trains the full model, then synchronous round time is governed by the slowest selected client:
+\[
+    T_{\mathrm{round}}^{(t)}
+    =
+    \max_{k\in\mathcal{C}_t}
+    T_k^{\mathrm{train}}(w, B_k, E)
+    +
+    T_{\mathrm{sync}}^{(t)},
+\]
+where \(B_k\) is the local batch size, \(E\) the number of local epochs, and \(T_{\mathrm{sync}}^{(t)}\) groups the communication and orchestration cost for the round. Submodel FL changes this cost model by assigning smaller subnetworks to weaker clients \parencite{diao2021heterofl,horvath2021fjord,alam2022fedrolex,wu2024fiarse}. If \(r_k^{(t)}\in(0,1]\) is client \(k\)'s model rate in round \(t\), then
+\[
+    w_{k,0}^{(t)} = \operatorname{Slice}(w^{(t)}, I_k^{(t)}),
+    \qquad
+    \frac{|I_k^{(t)}|}{|w^{(t)}|} \approx r_k^{(t)}.
+\]
+The resulting question is not only whether smaller local models reduce runtime, but whether they make participation feasible while preserving useful full-model and submodel quality.
+
+\subsection{Straggler-Induced Heterogeneity}
+\label{sec:background_straggler_heterogeneity}
+
+Straggler-induced heterogeneity arises even when all clients train the same model. A client update has an end-to-end completion time
+\[
+    C_k^{(t)}
+    =
+    T_{k,\mathrm{down}}^{(t)}
+    +
+    T_{k,\mathrm{train}}^{(t)}
+    +
+    T_{k,\mathrm{up}}^{(t)}
+    +
+    T_{k,\mathrm{queue}}^{(t)},
+\]
+combining model download, local training, upload, and deployment/runtime overhead. Network conditions change the communication terms through delay, jitter, loss, bandwidth, and asymmetry. Synchronous FL waits for a fixed cohort, so the maximum completion time dominates a round. Asynchronous FL avoids that barrier, but introduces \textbf{stale updates}: if a client trained on server version \(v_i\) and the server is now at step \(s\), then \textbf{staleness \(\tau\)} is:
+\[
+    \tau_i = s - v_i.
+\]
+This distinction motivates methods different from those used for compute heterogeneity, including asynchronous aggregation and systems-aware client scheduling \parencite{xie2019asynchronous,nguyen2022fedbuff,ma2024fedstaleweight,lai2021oort}.
+
+These heterogeneity axes lead to the method families reviewed in Chapter~\ref{chap:related_work}. Compute heterogeneity motivates submodel FL, where clients train different-sized slices of a shared model. Straggler-induced heterogeneity motivates asynchronous FL, where the server need not wait for the slowest clients. Their intersection motivates asynchronous submodel FL.
+
+% \subsection{Why the Axes Must Be Separated}
+
+% The three heterogeneity sources overlap in deployed systems, but they should not be collapsed into one generic ``heterogeneous FL'' problem. Data heterogeneity changes the local objective. Compute heterogeneity changes feasible local model work and synchronous straggler cost. Straggler-induced heterogeneity changes update arrival order, staleness, and participation frequency. The evaluation therefore treats compute heterogeneity and straggler-induced heterogeneity as separate experimental axes, while also testing cases where systems and data skew are correlated.
+
+% \section{Platform Requirements}
+% \label{sec:hl_design_goal}
+
+% \texttt{fedctl} addresses these requirements through a concrete run path on real hardware: CLI submission, typed deployment control, separated run and deploy config, network shaping, and retained runtime evidence. Table~\ref{tab:background_requirements} summarises the resulting platform requirements.
+
+% \begin{table}[!htbp]
+% \centering
+% \caption{Heterogeneity axes and the platform requirements they induce.}
+% \label{tab:background_requirements}
+% \footnotesize
+% \begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.23\textwidth}>{\raggedright\arraybackslash}p{0.30\textwidth}>{\raggedright\arraybackslash}X}
+% \toprule
+% Heterogeneity axis & Required control & Required measurement \\
+% \midrule
+% Data heterogeneity & Dataset partitioning, seed control, task configuration & Global score, client/local score, class- or group-level diagnostics when data and device type are correlated \\
+% Compute heterogeneity & Typed placement, per-device batch sizes, model-rate assignment, resource reservations & End-to-end runtime, client train time, extracted-submodel quality, device/rate timing \\
+% Straggler-induced heterogeneity & Concurrency, buffer size, asynchronous update algorithm, \texttt{netem} impairment, topology choice & Time-to-target, completed client trips, staleness, update share, aggregate weight share \\
+% Reproducibility & Run config and deploy config separation, seed expansion, archived request metadata & Reconstructed command, effective configs, logs, W\&B histories, result artifacts \\
+% \bottomrule
+% \end{tabularx}
+% \end{table}
+
+% Two design consequences follow. First, workload and method choices must be separated from execution settings. In \texttt{fedctl}, run configs control the FL method, task, data split, seed, and method hyperparameters, while deploy configs control placement, resources, images, and network impairment. Second, the run path must preserve runtime evidence, not only final accuracy. The evaluation depends on timing, staleness, update share, aggregate weight share, logs, and configuration metadata to explain why a method behaved as it did.
+
+% \section{Starting Point}
+% \label{sec:starting_point}
+
+% The starting infrastructure was a mixed Raspberry Pi cluster managed with Nomad, Docker, and Ansible. Flower provided the FL runtime abstraction, and PyTorch provided the model/task implementation layer \parencite{beutel2022flower}. This was enough to run individual distributed workloads, but not enough to conduct controlled, repeated, method-comparable FL experiments on heterogeneous devices.
+
+% The missing capabilities became the core scope of \texttt{fedctl}: a reusable CLI submission path, typed placement for Flower roles, a run/deploy config split, controlled \texttt{netem} impairment, durable log/artifact capture, and a shared research application in which synchronous, submodel, and asynchronous methods could be compared under the same deployment controls.
+
+% The dissertation therefore has two linked contributions. It builds the evaluation platform needed to expose heterogeneity on the cluster, and it uses that platform to evaluate the method families reviewed in Chapter~\ref{chap:related_work}. This is why the implementation chapter is substantial: without the control plane, placement layer, network shaping, and observability surface, the empirical claims in Chapter~\ref{chap:evaluation} would not be reproducible or interpretable.

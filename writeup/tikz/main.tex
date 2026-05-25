@@ -1,0 +1,145 @@
+\documentclass[tikz,border=4pt]{standalone}
+
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{xstring}
+\usepackage{amsmath}
+\usetikzlibrary{arrows.meta,positioning,calc}
+
+\definecolor{acol}{HTML}{E2A038}
+\definecolor{bcol}{HTML}{87B867}
+\definecolor{ccol}{HTML}{D86A6A}
+\definecolor{dcol}{HTML}{6E9AD4}
+
+\definecolor{heteroflblue}{HTML}{2E5FA7}
+\definecolor{fedrolexpurple}{HTML}{7A4BA3}
+\definecolor{fiarsered}{HTML}{B54747}
+
+\tikzset{
+  >=Stealth,
+  paneltitle/.style={font=\bfseries\Large},
+  panelsub/.style={font=\large, text=black!70},
+  rowlabel/.style={font=\bfseries\large, align=left, text width=2.8cm},
+  collabel/.style={font=\bfseries\normalsize},
+  minibox/.style={draw=black!25, rounded corners=4pt, fill=black!1},
+  inputnode/.style={draw=black!55, circle, minimum size=4.6mm, inner sep=0pt, fill=white, line width=0.75pt},
+  outputnode/.style={draw=black!55, circle, minimum size=4.6mm, inner sep=0pt, fill=white, line width=0.75pt},
+  hiddenbase/.style={circle, minimum size=4.8mm, inner sep=0pt, line width=0.95pt, font=\itshape\footnotesize},
+  edge/.style={draw=black!55, line width=0.50pt},
+  globaledge/.style={draw=black!45, line width=0.55pt},
+  flowarrow/.style={-{Stealth[length=3.0mm]}, draw=black!55, line width=0.8pt},
+}
+
+% ------------------------------------------------------------------
+% Centered network drawing for 4 hidden nodes (a,b,c,d)
+% The origin (#2,#3) is the visual center of the whole network.
+% ------------------------------------------------------------------
+\newcommand{\drawnetwork}[5]{%
+  % #1 prefix, #2 x, #3 y, #4 selected list, #5 edge style
+  \begin{scope}[shift={(#2,#3)}]
+    % hidden nodes span roughly x = 0.00 ... 2.10, midpoint = 1.05
+    \begin{scope}[shift={(-1.05,0)}]
+
+      % input / output layer
+      \foreach \i/\xx in {1/0.15,2/1.05,3/1.95} {
+        \node[inputnode]  (#1-in-\i)  at (\xx, 1.10) {};
+        \node[outputnode] (#1-out-\i) at (\xx,-1.10) {};
+      }
+
+      % hidden layer
+      \IfSubStr{,#4,}{,a,}{\node[hiddenbase, draw=acol, fill=acol!18] (#1-h-a) at (0.00,0) {$a$};}{}
+      \IfSubStr{,#4,}{,b,}{\node[hiddenbase, draw=bcol, fill=bcol!18] (#1-h-b) at (0.70,0) {$b$};}{}
+      \IfSubStr{,#4,}{,c,}{\node[hiddenbase, draw=ccol, fill=ccol!18] (#1-h-c) at (1.40,0) {$c$};}{}
+      \IfSubStr{,#4,}{,d,}{\node[hiddenbase, draw=dcol, fill=dcol!18] (#1-h-d) at (2.10,0) {$d$};}{}
+
+      % edges
+      \foreach \src in {1,2,3} {
+        \IfSubStr{,#4,}{,a,}{\draw[#5] (#1-in-\src) -- (#1-h-a);\draw[#5] (#1-h-a) -- (#1-out-\src);}{}%
+        \IfSubStr{,#4,}{,b,}{\draw[#5] (#1-in-\src) -- (#1-h-b);\draw[#5] (#1-h-b) -- (#1-out-\src);}{}%
+        \IfSubStr{,#4,}{,c,}{\draw[#5] (#1-in-\src) -- (#1-h-c);\draw[#5] (#1-h-c) -- (#1-out-\src);}{}%
+        \IfSubStr{,#4,}{,d,}{\draw[#5] (#1-in-\src) -- (#1-h-d);\draw[#5] (#1-h-d) -- (#1-out-\src);}{}%
+      }
+
+    \end{scope}
+  \end{scope}
+}
+
+\newcommand{\drawpanel}[9]{%
+  % #1 x shift
+  % #2 title
+  % #3 title color
+  % #4 subtitle
+  % #5 large client at round j
+  % #6 small client at round j
+  % #7 large client at round j+1
+  % #8 small client at round j+1
+  % #9 panel id
+  \begin{scope}[shift={(#1,0)}]
+
+    % panel geometry
+    \def\gx{3.55}   % global model center x
+    \def\lx{1.55}   % large client center x
+    \def\sx{5.55}   % small client center x
+
+    % titles
+    \node[paneltitle, text=#3] at (\gx,0.60) {#2};
+    \node[panelsub] at (\gx,0.05) {#4};
+
+    % global model
+    \drawnetwork{#9-g}{\gx}{-1.80}{a,b,c,d}{globaledge}
+
+    % column labels
+    \node[collabel] at (\lx,-3.95) {Large client};
+    \node[collabel] at (\sx,-3.95) {Small client};
+
+    % elbow arrows: horizontal then vertical
+    \draw[flowarrow] (\gx-1.1,-2.75) -| (\lx,-3.80);
+    \draw[flowarrow] (\gx+1.1,-2.75) -| (\sx,-3.80);
+
+    % local boxes
+    \node[minibox, minimum width=3.70cm, minimum height=3.00cm] at (\lx,-5.75) {};
+    \node[minibox, minimum width=3.70cm, minimum height=3.00cm] at (\sx,-5.75) {};
+    \node[minibox, minimum width=3.70cm, minimum height=3.00cm] at (\lx,-9.35) {};
+    \node[minibox, minimum width=3.70cm, minimum height=3.00cm] at (\sx,-9.35) {};
+
+    % networks centered in boxes
+    \drawnetwork{#9-lj}{\lx}{-5.75}{#5}{edge}
+    \drawnetwork{#9-sj}{\sx}{-5.75}{#6}{edge}
+    \drawnetwork{#9-ljp}{\lx}{-9.35}{#7}{edge}
+    \drawnetwork{#9-sjp}{\sx}{-9.35}{#8}{edge}
+
+  \end{scope}
+}
+
+\begin{document}
+\begin{tikzpicture}
+
+  % row labels
+  \node[rowlabel, anchor=west] at (-0.20,-1.80) {Global\\model};
+  \node[rowlabel, anchor=west] at (-0.20,-5.75) {Round $j$};
+  \node[rowlabel, anchor=west] at (-0.20,-9.35) {Round $j{+}1$};
+
+  % HeteroFL: static nested extraction
+  % large client keeps larger submodel; small client keeps nested smaller one
+  \drawpanel{2.80}{HeteroFL}{heteroflblue}{static nested extraction}
+    {a,b,c,d}{a,b}
+    {a,b,c,d}{a,b}
+    {hetero}
+
+  % FedRolex: rolling extraction window on 4 nodes
+  % large: 3-node window shifts by one
+  % small: 2-node window shifts by one
+  \drawpanel{11.3}{FedRolex}{fedrolexpurple}{rolling extraction window}
+    {a,b,c}{c,d}
+    {b,c,d}{d,a}
+    {rolex}
+
+  % FIARSE: importance-aware selection
+  % non-contiguous, changed by importance ranking across rounds
+  \drawpanel{19.80}{FIARSE}{fiarsered}{importance-aware selection}
+    {a,c,d}{a,d}
+    {a,b,d}{b,c}
+    {fiarse}
+
+\end{tikzpicture}
+\end{document}

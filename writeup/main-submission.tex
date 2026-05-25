@@ -1,0 +1,322 @@
+\documentclass[12pt,a4paper,oneside]{report}
+
+\usepackage[headheight=15pt, headsep=16pt, top=18mm, bottom=18mm, hmargin=22mm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usepackage{parskip}
+\usepackage{setspace}
+\usepackage{refcount}
+\usepackage{amsmath, amssymb}
+\usepackage{amsthm}
+\usepackage{adjustbox}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{multirow}
+\usepackage{makecell}
+\usepackage{dirtree}
+\usepackage{float}
+\usepackage{placeins}
+\usepackage{enumitem}
+\usepackage[table]{xcolor}
+\usepackage{csquotes}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{subcaption}
+\usepackage[most]{tcolorbox}
+\tcbuselibrary{minted}
+% tcolorbox writes temporary listing files into the LaTeX output directory;
+% minted v3 no longer exposes an outputdir package option, so make the path
+% explicit for the repository's documented `-outdir=out` build.
+\makeatletter
+\def\minted@outputdir{out/}
+\makeatother
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{hyperref}
+\usepackage[backend=biber,style=authoryear-comp,maxcitenames=2,uniquelist=false,sorting=nyt]{biblatex}
+\addbibresource{references.bib}
+\usetikzlibrary{arrows.meta,calc,positioning}
+
+\definecolor{paletteGreen}{HTML}{2A6F62}
+\definecolor{paletteOrange}{HTML}{D96C3D}
+\definecolor{coreblue}{RGB}{230,240,255}
+\definecolor{darkblue}{RGB}{30,60,120}
+\definecolor{fedavggreen}{HTML}{2A6F62}
+\definecolor{heteroflblue}{HTML}{2E5FA7}
+\definecolor{fedrolexpurple}{HTML}{7A4BA3}
+\definecolor{fiarsered}{HTML}{B54747}
+\definecolor{fedbuffteal}{HTML}{1D7A73}
+\definecolor{fedstalebrown}{HTML}{8A5A2B}
+\definecolor{codeFrame}{HTML}{E4E4E4}
+\colorlet{evalBestText}{fiarsered}
+\colorlet{evalSecondText}{heteroflblue}
+\colorlet{codeBadgeBack}{paletteGreen!12!white}
+\colorlet{codeBadgeFrame}{paletteGreen!75!black}
+\newcommand{\evalbest}[1]{\textcolor{evalBestText}{{\bfseries\boldmath #1}}}
+\newcommand{\evalsecond}[1]{\textcolor{evalSecondText}{#1}}
+\newcommand{\evalcensored}[1]{\(\ge #1\)\textsuperscript{\(\ddagger\)}}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=paletteGreen,
+  citecolor=paletteGreen,
+  urlcolor=paletteGreen,
+  filecolor=paletteGreen
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\nouppercase{\rightmark}}
+\fancyhead[R]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\newtcolorbox{aimbox}{
+  colback=coreblue,
+  colframe=white,
+  boxrule=0pt,
+  sharp corners,
+  breakable
+}
+
+\newtcolorbox{definition}[1][]{%
+  colback=paletteGreen!15!white,
+  colframe=white,
+  boxrule=0pt,
+  sharp corners,
+  breakable,
+  before=\par\medskip,
+  after=\par\medskip,
+  #1
+}
+
+\newtcolorbox{paperbox}[1][]{
+  colback=gray!4,
+  colframe=paletteGreen!65!black,
+  boxrule=0.35pt,
+  sharp corners,
+  breakable,
+  #1
+}
+
+\newtheorem{theorem}{Theorem}[chapter]
+\newtheorem{lemma}[theorem]{Lemma}
+
+
+\font\codeLineNumberFont="Menlo" at 9pt
+\renewcommand{\theFancyVerbLine}{{\codeLineNumberFont\arabic{FancyVerbLine}}}
+
+\newtcblisting{codeblock}[2][]{
+  breakable,
+  enhanced,
+  listing only,
+  minted options app={
+    mathescape,
+    linenos,
+    fontsize=\small,
+    numbersep=10pt,
+    xleftmargin=0.8em
+  },
+  minted language=#2,
+  colback=gray!5,
+  colframe=codeFrame,
+  top=1pt,
+  bottom=1pt,
+  before skip=8pt,
+  after skip=8pt,
+  boxrule=0.2pt,
+  overlay unbroken and first={
+    \node[
+      anchor=north east,
+      fill=codeBadgeBack,
+      draw=codeBadgeFrame,
+      rounded corners=2pt,
+      line width=0.45pt,
+      inner xsep=5pt,
+      inner ysep=2pt,
+      font=\small\bfseries\ttfamily,
+      text=codeBadgeFrame
+    ] at ([xshift=-4pt,yshift=-3pt]interior.north east) {#2};
+  },
+  #1
+}
+
+\titleformat{\chapter}[hang]
+  {\normalfont\bfseries}
+  {\fontsize{60}{40}\selectfont\thechapter}
+  {0.2em}
+  {\fontsize{30}{30}\selectfont}
+
+\titleformat{\section}
+  {\normalfont\bfseries\Large}
+  {\fontsize{19}{22}\selectfont\thesection}
+  {0.6em}
+  {}
+
+\titleformat{\subsection}
+  {\normalfont\bfseries\large}
+  {\fontsize{16}{18}\selectfont\thesubsection}
+  {0.6em}
+  {}
+
+\title{Fedctl: A Heterogeneous Testbed for Realistic Federated Learning}
+\author{Haoran Jie}
+\date{May 2026}
+\newcommand{\candidatenumber}{3243Z}
+\newcommand{\college}{Robinson College}
+\newcommand{\coursethe}{Computer Science Tripos, Part III}
+\newcommand{\coursefor}{Part III of the Computer Science Tripos}
+\newcommand{\mainwordcount}{11,537}
+\newcommand{\totalpagecount}{69}
+\newif\ifsubmission
+% Uncomment for the anonymised submission copy:
+\submissiontrue
+
+\begin{document}
+
+\pagenumbering{gobble}
+\begin{sffamily}
+\begin{titlepage}
+\makeatletter
+
+\hspace*{-14mm}\includegraphics[width=65mm]{figures/logo-dcst-colour}
+
+\ifsubmission
+
+\begin{center}
+\Huge
+\vspace{\fill}
+\@title
+\vspace{\fill}
+
+\Large
+Candidate \candidatenumber
+\vspace{\fill}
+\end{center}
+
+\else
+
+\begin{center}
+\Huge
+\vspace{\fill}
+\@title
+\vspace{\fill}
+
+\@author
+\vspace{10mm}
+
+\Large
+\college
+\vfill
+
+\@date
+\vspace{\fill}
+\end{center}
+
+\fi
+
+\vspace{\fill}
+\begin{center}
+Submitted in partial fulfillment of the requirements for the\\
+\coursethe\\
+University of Cambridge
+\end{center}
+
+\makeatother
+\end{titlepage}
+
+\clearpage
+\makeatletter
+\@tempcnta=\getpagerefnumber{lastcontentpage}\relax%
+\advance\@tempcnta by -\getpagerefnumber{firstcontentpage}%
+\advance\@tempcnta by 1%
+\xdef\contentpages{\the\@tempcnta}%
+\makeatother
+
+Total page count: \totalpagecount
+
+Main chapters (excluding front matter, bibliography and appendices):
+\contentpages~pages
+(pp~\pageref{firstcontentpage}--\pageref{lastcontentpage})
+
+Main chapters word count: \mainwordcount
+
+Methodology used to generate that word count:
+
+\begin{quote}
+\begin{verbatim}
+$ texcount -merge -sum -q \
+    1_introduction.tex 2_background.tex 3_related_work.tex \
+    4_implementation.tex \
+    5_evaluation.tex 6_conclusions.tex
+11537
+\end{verbatim}
+\end{quote}
+\end{sffamily}
+
+\vspace{\fill}
+\onehalfspacing
+\textbf{\Huge Declaration}
+\vspace{40pt}
+
+I,
+\makeatletter\ifsubmission
+\candidatenumber,
+\else
+\@author\ of \college,
+\fi\makeatother
+being a candidate for \coursefor, hereby declare that this report and
+the work described in it are my own work, unaided except as may be
+specified below, and that the report does not contain material that
+has already been used to any substantial extent for a comparable
+purpose. In preparation of this report, I adhered to the
+\href{https://www.cst.cam.ac.uk/files/ai_policy.pdf}{Department of
+Computer Science and Technology AI Policy}. I am content for my report
+to be made available to the students and staff of the University.
+
+\ifsubmission\else
+\bigskip
+\textbf{Signed:}
+\fi
+
+\bigskip
+\textbf{Date:} 22 May 2026
+\vspace{\fill}
+
+\clearpage
+\pagenumbering{roman}
+\singlespacing
+\chapter*{Abstract}
+\input{abstract}
+
+\tableofcontents
+\clearpage
+
+\pagenumbering{arabic}
+\label{firstcontentpage}
+\input{1_introduction}
+\input{2_background}
+\input{3_related_work}
+\input{4_implementation}
+\input{5_evaluation}
+\input{6_conclusions}
+\label{lastcontentpage}
+
+\addcontentsline{toc}{chapter}{Bibliography}
+\printbibliography
+
+\appendix
+\input{Appendix_Notation}
+\input{Appendix_Core_Concepts}
+\input{Appendix_Algorithms}
+\input{Appendix_Operational_Evidence}
+\input{Appendix_Evaluation_Tasks}
+\input{Appendix_Reproducibility_Material}
+\input{Appendix_Additional_Figures}
+
+\label{lastpage}
+\end{document}

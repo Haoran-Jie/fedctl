@@ -1,0 +1,331 @@
+% !TeX root = main.tex
+\chapter{Related Work}
+\label{chap:related_work}
+
+This chapter reviews the FL methods that motivate the implementation and evaluation, focusing on the families needed for the heterogeneity axes introduced in Section~\ref{sec:heterogeneity_problems}: \textbf{synchronous full-model baselines}, \textbf{submodel FL for compute heterogeneity}, and \textbf{asynchronous FL for straggler-induced heterogeneity}. A summary of the main notation used in this chapter is collected separately in Appendix~\ref{chap:notation}.
+
+This dissertation does not attempt to survey all FL algorithms. Instead, it focuses on the method families most directly motivated by the two heterogeneity problems above and that can be compared credibly on the available testbed. Other important lines of work address data heterogeneity through \textbf{optimisation corrections} \parencite{li2020fedprox,karimireddy2020scaffold,wang2020fednova} or systems heterogeneity through \textbf{client selection and pacing} \parencite{nishio2018fedcs,lai2021oort,chai2020tifl}; these are complementary to the fixed-topology method comparisons evaluated here.
+
+% All methods studied here retain the federated objective defined in Section~\ref{sec:problem_setting}. The scientific question is therefore not what objective the methods claim to solve, but how they change the \emph{systems path} by which information from heterogeneous clients reaches the server model.
+
+\section{Homogeneous Synchronous Federated Learning}
+\label{sec:related_sync_fl}
+
+The reference point for both method families is standard synchronous FL. In the synchronous round, the server broadcasts \(w^{(t)}\), each selected client performs local optimisation, and the server aggregates the returned models by an example-weighted mean:
+\[
+    \tilde{w}_k^{(t+1)} \leftarrow \operatorname{ClientUpdate}(w^{(t)}, D_k),
+    \qquad
+    w^{(t+1)}
+    =
+    \sum_{k\in\mathcal{C}_t}
+    \frac{|D_k|}{\sum_{j\in\mathcal{C}_t}|D_j|}
+    \tilde{w}_k^{(t+1)}.
+\]
+
+\subsection{\texttt{FedAvg}}
+\label{sec:fedavg_related}
+
+\texttt{FedAvg} is the synchronous FL baseline \parencite{mcmahan2017fedavg}. It trains the full model on every selected client and waits for the selected cohort before aggregating, so it gives the reference behaviour against which the later heterogeneity-aware methods are compared. In this dissertation, its role is to show what is gained, and what is lost, when submodel assignment or asynchronous aggregation changes that round structure.
+
+\section{Submodel Federated Learning}
+\label{sec:related_model_heterogeneous_fl}
+
+\textbf{Submodel FL}, used here as shorthand for \textbf{partial-training-based model-heterogeneous FL}, responds to the compute and memory side of heterogeneity. Rather than assuming every client can store and train the full model, the server gives weaker devices a trainable parameter subset that fits their local resource budget. The methods studied here share a common partial-training structure, also explored in related partial-model approaches such as ordered dropout \parencite{horvath2021fjord}: (1) the server \textbf{extracts a client-visible subset} indexed by \(I_k^{(t)}\); (2) client \(k\) \textbf{trains only that subset}; and (3) the server \textbf{selectively aggregates} only the parameters actually updated by participating clients:
+\[
+    w_{k,0}^{(t)} = \operatorname{ClientView}(w^{(t)}, I_k^{(t)}),
+    \qquad
+    w_j^{(t+1)} =
+    \frac{\sum_{k \in \mathcal{U}_j^{(t)}} \beta_k \tilde{w}_{k,j}^{(t+1)}}
+         {\sum_{k \in \mathcal{U}_j^{(t)}} \beta_k},
+\]
+where \(\mathcal{U}_j^{(t)} = \{k \in \mathcal{C}_t : j \in I_k^{(t)}\}\) is the set of clients that updated parameter \(j\) in round \(t\). This common structure is important because it means the main differences between the methods are not in orchestration, but in \textbf{which parameter subset each device trains} and \textbf{how those partial views are folded back into the full model}.
+
+Figure~\ref{fig:model_heterogeneity_method_overview} gives the visual distinction between the three baselines. \texttt{HeteroFL} \textbf{reuses fixed nested prefixes}, \texttt{FedRolex} \textbf{rotates the selected window}, and \texttt{FIARSE} applies an \textbf{importance-aware sparse mask}.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/model_heterogeneity_method_overview.pdf}
+\caption{\textbf{Method-overview schematic for the three submodel FL baselines.}}
+\label{fig:model_heterogeneity_method_overview}
+\end{figure}
+
+\subsection{\texttt{HeteroFL}}
+\label{sec:heterofl_related}
+
+\texttt{HeteroFL} is the starting point for the compute-heterogeneity evaluation \parencite{diao2021heterofl}. It keeps a single global model but allows weaker clients to train smaller subnetworks created through structured width scaling. In practice, if \(r_k^{(t)} \in (0,1]\) is the \textbf{model rate} assigned to client \(k\), then each layer keeps only the first \(\lceil r_k^{(t)} d_\ell \rceil\) structured units. This is well aligned with real edge hardware because it turns processor and memory limits into an explicit model-rate decision rather than assuming every client can hold and train the same model at the same cost.
+
+\subsection{\texttt{FedRolex}}
+\label{sec:fedrolex_related}
+
+\texttt{FedRolex} addresses a limitation of static extraction in \texttt{HeteroFL} by rolling the extracted region of the model across rounds instead of always training the same nested prefix-style slice \parencite{alam2022fedrolex}. The limitation is practical as well as statistical: small clients may contain useful data, but if they repeatedly update only the same prefix of each layer, their information has little chance to affect other parameter regions of the full model. In abstract form, the extractor can be written as
+\[
+    I_k^{(t)} = \Psi_{\mathrm{roll}}\!\left(w^{(t)}, r_k^{(t)}, \rho_t\right),
+\]
+where the offset \(\rho_t\) advances with the round index and moves the active window across eligible channels. The intended benefit is more even coverage of the full parameter space and less coupling between device class and one fixed subnetwork. This design is useful here because it stays within a structured dense partial-training regime and therefore remains compatible with interpretable wall-clock comparison on CPU-bound devices.
+
+% \begin{definition}
+% \begin{lemma}[FedRolex coverage lemma {\normalfont\parencite{alam2022fedrolex}}]
+% Given \(I\) candidate indices and one uniformly chosen index per round, the expected number of rounds required to choose all indices at least once is
+% \[
+%     I \left(\frac{1}{I} + \frac{1}{I-1} + \cdots + \frac{1}{1}\right),
+% \]
+% which is asymptotically \(I \log I\) as \(I \to \infty\).
+% \end{lemma}
+% \end{definition}
+
+The FedRolex analysis gives a justification for rolling extraction: as the extraction window moves, the expected time to cover all eligible indices scales like \(I\log I\). For this dissertation, the relevant point is that rolling extraction reduces persistent under-coverage of parameter regions that static nested slicing may leave rarely updated.
+
+\subsection{\texttt{FIARSE}}
+\label{sec:fiarse_related}
+
+\texttt{FIARSE} sharpens the compute-heterogeneity question by observing that global-model quality is not the same as extracted-submodel quality \parencite{wu2024fiarse}. A method may perform well on the full global model while still producing poor smaller models for the weaker devices that actually train and may later execute them. This matters when submodel FL is used to satisfy memory or latency constraints, because the deployed object is the client-visible submodel rather than only the server's full model. The core idea is to construct a sparse submodel by thresholding parameter-importance scores. In this dissertation's implementation, the score for parameter \(j\) is its magnitude,
+\[
+    s_j = |w_j|,
+\]
+and the client model keeps the parameters above the rate-dependent threshold, with a straight-through binary mask during local training. The implementation therefore follows the sparse-mask training mechanism from the paper. The paper's efficiency argument relies on \textbf{sparse execution} and on avoiding separate importance-score storage, while the evaluation below runs the sparse masks through dense PyTorch kernels on Raspberry Pi CPUs. The results therefore separate FIARSE's submodel-quality benefit from the wall-clock behaviour of this dense execution path \parencite{wu2024fiarse, hoefler2021sparsity}.
+
+
+\section{Asynchronous Federated Learning}
+\label{sec:related_async_fl}
+
+Asynchronous FL responds to straggler-induced heterogeneity. It removes the round barrier that makes synchronous FL wait for a selected cohort to finish, which can be costly when device speed, network path, or runtime queueing differs across clients. Let server step \(s\) index server updates. If update \(i\) was trained from server version \(v_i\), its \textbf{staleness} at arrival is
+\[
+    \tau_i = s - v_i.
+\]
+The methods below differ in where this stale update enters the server aggregation: \texttt{FedAsync} handles each arrival immediately, whereas \texttt{FedBuff} and \texttt{FedStaleWeight} first collect a buffer and then apply one normalised aggregate. Figure~\ref{fig:async_method_overview} contrasts the immediate \texttt{FedAsync} update with the two buffered weighting choices.
+
+\begin{figure}[H]
+\centering
+\begin{adjustbox}{max width=\textwidth}
+\begin{tikzpicture}[
+  >=Latex,
+  font=\scriptsize,
+  outer/.style={draw=black!18, fill=gray!3, rounded corners=5pt, minimum width=15.1cm, minimum height=6.5cm},
+  panel/.style={draw=black!18, fill=white, rounded corners=4pt, minimum width=4.15cm, minimum height=2.05cm},
+  clientfast/.style={draw=darkblue!70!black, fill=darkblue!7, rounded corners=3pt, align=center, minimum width=1.35cm, minimum height=0.55cm},
+  clientslow/.style={draw=paletteOrange!85!black, fill=paletteOrange!12, rounded corners=3pt, align=center, minimum width=1.35cm, minimum height=0.55cm},
+  updatefast/.style={draw=darkblue!70!black, fill=darkblue!8, circle, minimum size=6.7mm, inner sep=0pt, font=\scriptsize\bfseries},
+  updateslow/.style={draw=paletteOrange!85!black, fill=paletteOrange!13, circle, minimum size=6.7mm, inner sep=0pt, font=\scriptsize\bfseries},
+  box/.style={draw=black!28, fill=white, rounded corners=3pt, align=center, inner sep=4pt},
+  arrow/.style={->, line width=0.65pt, draw=black!58},
+  mutedarrow/.style={->, line width=0.55pt, draw=black!38},
+  methodarrow/.style={->, line width=0.8pt},
+  note/.style={align=center, text=black!62},
+  barlabel/.style={font=\tiny, text=black!58, align=center}
+]
+\node[outer] at (0,0) {};
+\node[font=\bfseries\small, text=black!68] at (0,2.67) {Asynchronous execution choices};
+
+\node[box, text width=1.25cm] (server) at (-6.65,1.25) {server\\version \(v\)};
+\node[clientfast] (fast) at (-4.45,1.70) {fast\\clients};
+\node[clientslow] (slow) at (-4.45,0.78) {slow\\clients};
+\draw[mutedarrow] (server.east) -- (fast.west);
+\draw[mutedarrow] (server.east) -- (slow.west);
+\node[box, minimum width=1.75cm, minimum height=1.05cm] (buffer) at (0.85,1.22) {};
+\node[updatefast] (uone) at (-2.70,1.82) {\(u_1\)};
+\node[updatefast] (utwo) at (-1.86,1.20) {\(u_2\)};
+\node[updateslow] (uthree) at (-1.00,0.58) {\(u_3\)};
+\node[barlabel] at (-2.70,2.3) {\(\tau=0\)};
+\node[barlabel] at (-1.86,0.79) {\(\tau=1\)};
+\node[barlabel, text=paletteOrange!90!black] at (-1.00,0.16) {\(\tau=3\)};
+\draw[mutedarrow] (fast.east) -- (uone.west);
+\draw[mutedarrow] (fast.east) -- (utwo.west);
+\draw[mutedarrow] (slow.east) -- (uthree.west);
+
+\node[font=\scriptsize\bfseries, text=black!68] at (0.8,2) {buffer fills at \(K=3\)};
+\draw[draw=darkblue!70!black, fill=darkblue!8, line width=0.55pt] (0.21,0.9) rectangle (0.55,1.5);
+\draw[draw=darkblue!70!black, fill=darkblue!8, line width=0.55pt] (0.67,0.9) rectangle (1.01,1.5);
+\draw[draw=paletteOrange!85!black, fill=paletteOrange!13, line width=0.55pt] (1.13,0.9) rectangle (1.47,1.5);
+\node[barlabel, text=darkblue!80!black] at (0.85,0.50) {no buffer for \texttt{FedAsync}};
+\draw[arrow] (uone.east) -- (buffer.west);
+\draw[arrow] (utwo.east) -- (buffer.west);
+\draw[arrow] (uthree.east) -- (buffer.west);
+
+\node[box, text width=1.55cm, minimum height=0.78cm] (aggregate) at (3.65,1.22) {weighted\\aggregate};
+\node[box, text width=1.35cm, minimum height=0.78cm] (nextmodel) at (6.35,1.22) {next model\\\(w^{[s+1]}\)};
+\draw[arrow] (buffer.east) -- (aggregate.west);
+\draw[arrow] (aggregate.east) -- (nextmodel.west);
+
+\draw[draw=black!18, line width=0.45pt] (-6.35,-0.1) -- (6.35,-0.1);
+
+\node[panel] (fedasyncpanel) at (-4.85,-1.95) {};
+\node[panel] (fedbuffpanel) at (0,-1.95) {};
+\node[panel] (fedstalepanel) at (4.85,-1.95) {};
+
+\node[font=\bfseries\scriptsize, text=darkblue] at (-4.85,-0.6) {\texttt{FedAsync}: immediate mix};
+\node[font=\scriptsize, text=black!62] at (-4.85,-1.2) {\(\lambda_i=\lambda_0\varphi(\tau_i)\)};
+\node[updatefast, minimum size=6.2mm] (asyncupdate) at (-6.50,-2.15) {\(u_i\)};
+\node[box, text width=0.85cm, minimum height=0.55cm] (asyncmix) at (-5.1,-2.15) {mix\\now};
+\node[box, text width=0.85cm, minimum height=0.55cm] (asyncnext) at (-3.45,-2.15) {next\\model};
+\draw[arrow] (asyncupdate.east) -- (asyncmix.west);
+\draw[arrow] (asyncmix.east) -- (asyncnext.west);
+\node[barlabel] at (-6.50,-2.63) {\(\tau_i\)};
+\node[font=\tiny\bfseries, text=black!55, align=center] at (-5.0,-2.82) {no buffer};
+
+\node[font=\bfseries\scriptsize, text=fedbuffteal] at (0,-0.6) {\texttt{FedBuff}: stale decay};
+\node[font=\scriptsize, text=black!62] at (0,-1.2) {\(q_i=(1+\tau_i)^{-1/2}\)};
+\draw[->, draw=black!35, line width=0.45pt] (-1.65,-2.67) -- (1.65,-2.67);
+\draw[->, draw=black!35, line width=0.45pt] (-1.45,-2.90) -- (-1.45,-1.62);
+\draw[fill=darkblue!18, draw=darkblue!75!black] (-1.20,-2.67) rectangle (-0.78,-1.84);
+\draw[fill=darkblue!12, draw=darkblue!75!black] (-0.35,-2.67) rectangle (0.07,-2.08);
+\draw[fill=paletteOrange!12, draw=paletteOrange!90!black] (0.50,-2.67) rectangle (0.92,-2.39);
+\node[barlabel] at (-0.99,-2.84) {\(\tau=0\)};
+\node[barlabel] at (-0.14,-2.84) {\(\tau=1\)};
+\node[barlabel, text=paletteOrange!90!black] at (0.71,-2.84) {\(\tau=3\)};
+\node[barlabel, rotate=90] at (-1.72,-2.20) {weight \(\alpha\)};
+\node[font=\tiny\bfseries, text=paletteOrange!90!black, align=center] at (1.28,-2.04) {stale\\low};
+
+\node[font=\bfseries\scriptsize, text=fedstalebrown] at (4.85,-0.6) {\texttt{FedStaleWeight}: stale weights};
+\node[font=\scriptsize, text=black!62] at (4.85,-1.2) {\(q_i=\tau_iK+1\)};
+\draw[->, draw=black!35, line width=0.45pt] (3.20,-2.67) -- (6.50,-2.67);
+\draw[->, draw=black!35, line width=0.45pt] (3.40,-2.90) -- (3.40,-1.62);
+\draw[fill=darkblue!10, draw=darkblue!75!black] (3.65,-2.67) rectangle (4.07,-2.46);
+\draw[fill=darkblue!12, draw=darkblue!75!black] (4.50,-2.67) rectangle (4.92,-2.20);
+\draw[fill=paletteOrange!18, draw=paletteOrange!90!black] (5.35,-2.67) rectangle (5.77,-1.84);
+\node[barlabel] at (3.86,-2.84) {\(\tau=0\)};
+\node[barlabel] at (4.71,-2.84) {\(\tau=1\)};
+\node[barlabel, text=paletteOrange!90!black] at (5.56,-2.84) {\(\tau=3\)};
+\node[barlabel, rotate=90] at (3.13,-2.20) {weight \(\alpha\)};
+\node[font=\tiny\bfseries, text=paletteOrange!90!black, align=center] at (6.18,-2.04) {stale\\high};
+\end{tikzpicture}
+\end{adjustbox}
+\caption{\textbf{Method-overview schematic for the asynchronous FL baselines.}}
+\label{fig:async_method_overview}
+\end{figure}
+
+\subsection{\texttt{FedAsync}}
+\label{sec:fedasync_related}
+
+\texttt{FedAsync} is the fully asynchronous endpoint: every received client model immediately updates the server, with no aggregation buffer \parencite{xie2019asynchronous}. Each arrival interpolates between the current model \(w^{[s]}\) and returned model \(\tilde{w}_i\),
+\[
+    w^{[s+1]}
+    =
+    (1-\lambda_i) w^{[s]} + \lambda_i \tilde{w}_i,
+    \qquad
+    \lambda_i = \lambda_0 \varphi(\tau_i).
+\]
+Here \(\lambda_i\) is an immediate-arrival mixing coefficient, \(\lambda_0\) is the base rate, and \(\varphi\) is a staleness function, with constant, polynomial, or hinge choices. The method also regularises local training around the downloaded model, coupling non-blocking execution with stale-update control.
+
+\subsection{\texttt{FedBuff}}
+\label{sec:fedbuff_related}
+
+\texttt{FedBuff} sits between synchronous \texttt{FedAvg} and one-update-at-a-time \texttt{FedAsync} \parencite{nguyen2022fedbuff}. The server keeps several client jobs in flight. As clients finish, their updates are appended to a buffer; when \(K\) replies have accumulated, the server normalises their weights, applies one aggregate update, clears the buffer, and dispatches more work. This preserves non-blocking execution while avoiding a separate global update for every single arrival.
+
+For a filled buffer \(\mathcal{B}_s\), the buffered update is
+\[
+    \alpha_i = \frac{q_i}{\sum_{u\in\mathcal{B}_s} q_u},
+    \qquad
+    w^{[s+1]}
+    =
+    w^{[s]} - \eta_s
+    \sum_{i\in\mathcal{B}_s}\alpha_i\Delta_i .
+\]
+Here \(\Delta_i\) is the model delta from reply \(i\), following the sign convention in Appendix~\ref{chap:notation}. The buffered methods differ in the score \(q_i\) assigned before normalisation. The variant used here assigns each \texttt{FedBuff} reply \(i\) the \textbf{score}:
+\[
+    q_i = (1+\tau_i)^{-1/2}.
+\]
+Older replies therefore receive smaller buffer weights, but still contribute as part of the aggregate. The buffer size \(K\) controls how many updates are combined per server step, while client concurrency controls how many clients may train at once. This reduces straggler blocking, supports secure aggregation more naturally than \texttt{FedAsync}, and makes \(K\) the evaluation variable for speed, update diversity, and slow-device representation.
+
+% \begin{definition}
+% \begin{theorem}[FedBuff ergodic convergence {\normalfont\parencite{nguyen2022fedbuff}}]
+% Assume unbiased stochastic gradients, bounded local and global variance, bounded gradients, \(L\)-smooth local objectives, and bounded staleness. Let
+% \[
+%     A(Q) := \sum_{q=0}^{Q-1} \eta_\ell^{(q)},
+%     \qquad
+%     B(Q) := \sum_{q=0}^{Q-1} \left(\eta_\ell^{(q)}\right)^2.
+% \]
+% If the local and server learning rates satisfy \(\eta_s \eta_\ell^{(q)} Q \leq 1/L\) for all local steps \(q\), then the buffered asynchronous iterates satisfy the ergodic bound
+% \[
+% \begin{aligned}
+%     \frac{1}{T} \sum_{t=0}^{T-1} \left\lVert \nabla f(w^t) \right\rVert^2
+%     &\leq \frac{2 \left(f(w^0) - f^* \right)}{\eta_s A(Q) T}
+%     + \frac{L}{2}\frac{\eta_s B(Q)}{A(Q)} \sigma_\ell^2 \\
+%     &\quad + 3L^2 Q B(Q)\left(\eta_s^2 \tau_{\max,K}^2 + 1\right)
+%     \left(\sigma_\ell^2 + \sigma_g^2 + G\right).
+% \end{aligned}
+% \]
+% \end{theorem}
+% \end{definition}
+
+% The original analysis gives convergence under standard smooth non-convex assumptions and bounded staleness; here, the key point is that \texttt{FedBuff} exposes buffer size and staleness as optimisation variables rather than implementation details.
+
+\subsection{\texttt{FedStaleWeight}}
+\label{sec:fedstaleweight_related}
+
+\texttt{FedStaleWeight} keeps the same buffered execution model as \texttt{FedBuff}, but changes what the buffer weights mean \parencite{ma2024fedstaleweight}. Fast clients can dominate asynchronous training because they complete more trips, especially when device speed and data distribution are correlated. Rather than treating staleness only as an optimisation risk, \texttt{FedStaleWeight} uses it as a proxy for work from slower, otherwise under-represented clients.
+
+Using the normalised buffered update from Section~\ref{sec:fedbuff_related}, the \textbf{score} for reply \(i\) is:
+\[
+    q_i = \tau_iK + 1.
+\]
+Here \(\tau_i\) is the reply staleness and \(K\) is the buffer size. Staler replies therefore receive larger aggregate weights after normalisation, counteracting fast-client dominance. This is useful when staleness tracks under-represented client groups, but it is not a free optimisation improvement: if stale updates are merely obsolete same-distribution gradients, upweighting can hurt convergence. The representation effect is tested directly in Section~\ref{sec:eval_device_correlated_skew}, where data skew is tied to device class.
+
+% \begin{definition}
+% \begin{theorem}[FedStaleWeight ergodic convergence {\normalfont\parencite{ma2024fedstaleweight}}]
+% Under the same smoothness, bounded-variance, bounded-gradient, and bounded-staleness assumptions used for buffered asynchronous FL, let
+% \[
+%     A(Q) := \sum_{q=0}^{Q-1} \eta_\ell^{(q)},
+%     \qquad
+%     B(Q) := \sum_{q=0}^{Q-1} \left(\eta_\ell^{(q)}\right)^2,
+% \]
+% and let \(U(\tau_{\max,b})\) denote the maximum squared deviation between equal buffer weighting and the normalised stale-weighted coefficients. If \(\eta_s \eta_\ell^{(q)} Q \leq 1/L\) for all local steps \(q\), then the FedStaleWeight iterates satisfy
+% \[
+% \begin{aligned}
+%     \frac{1}{T}\sum_{t=0}^{T}\left\lVert \nabla f(w^t) \right\rVert^2
+%     &\leq \frac{2\left(f(w^0)-f(w^*)\right)}{\eta_s A(Q) T} \\
+%     &\quad + 12 \eta_s^2 \tau_{\max,b}^2 B(Q) Q L^2
+%       \left(\frac{b\tau_{\max,b}+1}{\tau_{\max,b}+1}\right)^2
+%       \left(\sigma_\ell^2 + \sigma_g^2 + G\right) \\
+%     &\quad + 12 B(Q) Q L^2 \left(\sigma_\ell^2 + \sigma_g^2 + G\right)
+%       + 4b^2 U(\tau_{\max,b})G.
+% \end{aligned}
+% \]
+% \end{theorem}
+% \end{definition}
+
+% The original analysis places this stale-weighted update rule in the same smooth non-convex framework as buffered asynchronous FL, with an additional term capturing the deviation induced by reweighting. This separates the systems question of slow-client representation from the optimisation question of whether stale-aware rebalancing remains analysable.
+
+
+
+\section{Asynchronous Submodel Federated Learning}
+\label{sec:async_submodel_related}
+
+\paragraph{Gap between method families.}
+The previous two method families address different bottlenecks and are mostly studied separately. Submodel FL reduces local computation by sending smaller submodels to weaker devices; asynchronous FL reduces wall-clock blocking by accepting updates as clients finish. A mixed-device deployment can need both at once: weak devices may train smaller models and still return later than stronger devices. \texttt{TimelyFL} is the closest prior work, adapting each client's workload so slower devices can join asynchronous aggregation with less staleness \parencite{zhang2023timelyfl}. This dissertation studies a different point in the design space: buffered asynchronous aggregation over nested submodel updates, where the server must aggregate replies that are \textbf{both stale and partial}.
+
+\paragraph{Why coverage becomes dynamic.}
+Parameter coverage is already central to submodel FL. In synchronous \texttt{HeteroFL}-style aggregation, a parameter is updated only by clients whose assigned submodel contains it, so coverage is tied to the selected cohort and model-rate assignment \parencite{diao2021heterofl}. \texttt{FedRolex} changes the selected window over rounds to reduce persistent concentration in one parameter region \parencite{alam2022fedrolex}. In asynchronous submodel FL, whichever clients finish first determine both the stale-update weights and the submodel regions present in that server step. For parameter \(j\), the accepted stale-weighted coverage mass is
+\[
+    c_j^{[s]} = \sum_{i\in\mathcal{B}_s:\, j\in I_i}\alpha_i .
+\]
+In full-model buffered asynchrony, \(c_j^{[s]}=1\) for every parameter touched by the buffer. With submodels, \(c_j^{[s]}\) changes with arrival order, stale-update weights, and model-rate assignment.
+
+\paragraph{\texttt{FedCover} motivation.}
+\label{sec:coverage_mismatch_related}
+\label{sec:fedcover_related}
+The coverage-disabled asynchronous submodel baseline, via direct composition of \texttt{FedBuff}-style buffering and \texttt{HeteroFL}-style slicing, it a valid starting point; However, it leaves this parameter-level missing mass uncorrected. \texttt{FedCover} is motivated as a \textbf{capped correction for under-covered parameter blocks}, not as another generic stale-weighting rule. Section~\ref{sec:fedcover_impl} defines \texttt{FedCover}, the resulting coverage-aware buffered aggregation algorithm. Section~\ref{sec:eval_async_submodel_fl} evaluates the coverage mismatch and the correction's effect on quality and runtime.
+
+
+% \section{From Methods to Evaluation Design}
+% \label{sec:related_method_evaluation_bridge}
+
+% The methods above are selected because they exercise different deployed-system failure modes, not because they exhaust the FL literature. Table~\ref{tab:method_evaluation_bridge} summarises how each family maps onto the dissertation's evaluation questions. The common requirement is that all methods must run through the same physical cluster, configuration surface, logging path, and result-collection workflow; otherwise differences in quality or runtime could be artifacts of the harness rather than consequences of the method.
+
+% \begin{table}[!htbp]
+% \centering
+% \caption{Method families and the evaluation evidence they require.}
+% \label{tab:method_evaluation_bridge}
+% \footnotesize
+% \begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.24\textwidth}>{\raggedright\arraybackslash}p{0.20\textwidth}>{\raggedright\arraybackslash}X>{\centering\arraybackslash}p{0.12\textwidth}}
+% \toprule
+% Method family & Algorithms & Evaluation role & Questions \\
+% \midrule
+% Full-model synchronous baseline & \texttt{FedAvg} & Reference point for full-model quality, synchronous runtime, and client-trip cost across both axes & C1, S1 \\
+% Submodel FL methods & \texttt{HeteroFL}, \texttt{FedRolex}, \texttt{FIARSE} & Client-capacity comparison using submodel quality, train-round latency, and device/rate timing & C1--C3 \\
+% Immediate asynchronous method & \texttt{FedAsync} & Straggler-induced heterogeneity comparison using time-to-target, slow-device update share, and stale-update behaviour & S1--S2 \\
+% Buffered asynchronous methods & \texttt{FedBuff}, \texttt{FedStaleWeight} & Straggler-induced heterogeneity and representation comparison using staleness, buffer behaviour, and aggregate weight share & S1--S3 \\
+% \bottomrule
+% \end{tabularx}
+% \end{table}
+
+% Chapter~\ref{chap:implementation} describes the shared deployment and measurement controls that make these method families comparable on the same physical cluster.
