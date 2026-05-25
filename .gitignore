@@ -41,6 +41,7 @@ refs/FedRolex-main
 /tasks/
 apps/fedctl_research/run_configs
 .claude/
+.vscode/
 apps/fedctl_research/data/
 refs/QuAFL/
 tmp/
