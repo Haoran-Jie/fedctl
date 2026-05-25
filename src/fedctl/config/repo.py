@@ -19,6 +19,20 @@ from .deploy import (
 ResolvedRepoConfig = ResolvedDeployConfig
 SubmitRepoConfig = SubmitDeployConfig
 
+__all__ = [
+    "ResolvedRepoConfig",
+    "SubmitRepoConfig",
+    "get_cluster_image_registry",
+    "get_image_registry",
+    "get_repo_config_label",
+    "get_repo_network_profile_label",
+    "load_repo_config",
+    "parse_submit_repo_config",
+    "resolve_repo_config",
+    "resolve_repo_config_path",
+    "rewrite_image_registry",
+]
+
 
 def load_repo_config(
     base: Path | None = None, config_path: Path | None = None

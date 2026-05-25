@@ -863,6 +863,12 @@ def _validate_jobs(
         if name not in supernodes_services:
             raise ValueError(f"supernodes missing service: {name}")
 
+    _validate_ports(superlink["Job"])
+    _validate_ports(supernodes["Job"])
+    _validate_ports(superexec_serverapp["Job"])
+    for job in superexec_clientapps:
+        _validate_ports(job["Job"])
+
 
 def _supernode_placements(spec: DeploySpec) -> list[SupernodePlacement]:
     if spec.supernodes.placements:
@@ -900,12 +906,6 @@ def _supernode_resources(spec: DeploySpec, device_type: str | None) -> tuple[int
             mem = int(entry.get("mem", default_mem))
             return cpu, mem
     return default_cpu, default_mem
-
-    _validate_ports(superlink["Job"])
-    _validate_ports(supernodes["Job"])
-    _validate_ports(superexec_serverapp["Job"])
-    for job in superexec_clientapps:
-        _validate_ports(job["Job"])
 
 
 def _collect_service_names(job: dict[str, Any]) -> set[str]:

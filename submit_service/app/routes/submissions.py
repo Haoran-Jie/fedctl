@@ -217,7 +217,7 @@ def update_submission_jobs(
     cfg: SubmitConfig = Depends(get_config),
     storage: Storage = Depends(get_storage),
 ) -> SubmissionRecord:
-    record = _reportable_submission(storage, submission_id, request, cfg)
+    _reportable_submission(storage, submission_id, request, cfg)
     updated = storage.update_submission(submission_id, {"jobs": payload.jobs})
     logger.info(
         "submission jobs updated: id=%s keys=%s",

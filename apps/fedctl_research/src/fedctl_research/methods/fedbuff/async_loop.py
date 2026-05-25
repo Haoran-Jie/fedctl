@@ -7,7 +7,6 @@ from dataclasses import dataclass, field
 import math
 import time
 from logging import INFO
-from typing import Any
 
 import torch
 from flwr.app import ArrayRecord, ConfigRecord, Message, MessageType, MetricRecord, RecordDict

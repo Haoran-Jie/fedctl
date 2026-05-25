@@ -24,7 +24,6 @@ from fedctl_research.config import (
     get_masked_cross_entropy_mode,
     get_model_rate_levels,
     get_optimizer_name,
-    get_optional_bool,
     get_optional_float,
     get_optional_int,
     get_partitioning_continuous_column,
@@ -551,7 +550,6 @@ def client_evaluate(
     task = resolve_task(get_str(context.run_config, "task"))
     local_device_type = resolve_device_type_for_context(context)
     partition_id = int(context.node_config["partition-id"])
-    partitioning = get_str(context.run_config, "partitioning")
     base_seed = get_optional_int(context.run_config, "seed")
     if base_seed is not None:
         set_global_seed(derive_seed(base_seed, method_label, "client-eval", task.name, partition_id))
@@ -1204,8 +1202,6 @@ def _run_sync_strategy_rounds(
             messages=list(strategy.configure_evaluate(current_round, arrays, evaluate_config, grid)),
             timeout=timeout,
         )
-        eval_successes = sum(1 for reply in evaluate_replies if not reply.has_error())
-        eval_failures = sum(1 for reply in evaluate_replies if reply.has_error())
         agg_evaluate_metrics = strategy.aggregate_evaluate(current_round, evaluate_replies)
         if agg_evaluate_metrics is not None:
             result.evaluate_metrics_clientapp[current_round] = agg_evaluate_metrics

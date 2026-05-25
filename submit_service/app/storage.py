@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
 import sqlite3
-from pathlib import Path
 from typing import Any
 
 from .config import ensure_sqlite_path

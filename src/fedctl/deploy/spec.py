@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from fedctl.constants import DEFAULT_FLWR_VERSION
 
 from .network import NetworkPlan
+from .plan import SupernodePlacement
 
 
 @dataclass(frozen=True)

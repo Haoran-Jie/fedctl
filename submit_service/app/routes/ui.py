@@ -2065,6 +2065,11 @@ def _job_role_view(job_name: str) -> dict[str, Any]:
     }
 
 
+def _slug(value: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")
+    return slug or "unknown"
+
+
 def _submission_list_command(status_filter: str) -> str:
     return {
         "active": "fedctl submit ls --active",
