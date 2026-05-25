@@ -303,7 +303,7 @@ In full-model buffered asynchrony, \(c_j^{[s]}=1\) for every parameter touched b
 \paragraph{\texttt{FedCover} motivation.}
 \label{sec:coverage_mismatch_related}
 \label{sec:fedcover_related}
-The coverage-disabled asynchronous submodel baseline, via direct composition of \texttt{FedBuff}-style buffering and \texttt{HeteroFL}-style slicing, it a valid starting point; However, it leaves this parameter-level missing mass uncorrected. \texttt{FedCover} is motivated as a \textbf{capped correction for under-covered parameter blocks}, not as another generic stale-weighting rule. Section~\ref{sec:fedcover_impl} defines \texttt{FedCover}, the resulting coverage-aware buffered aggregation algorithm. Section~\ref{sec:eval_async_submodel_fl} evaluates the coverage mismatch and the correction's effect on quality and runtime.
+The coverage-disabled asynchronous submodel baseline, formed by directly composing \texttt{FedBuff}-style buffering with \texttt{HeteroFL}-style slicing, is a valid starting point. However, it leaves this parameter-level missing mass uncorrected. \texttt{FedCover} is motivated as a \textbf{capped correction for under-covered parameter blocks}, not as another generic stale-weighting rule. Section~\ref{sec:fedcover_impl} defines \texttt{FedCover}, the resulting coverage-aware buffered aggregation algorithm. Section~\ref{sec:eval_async_submodel_fl} evaluates the coverage mismatch and the correction's effect on quality and runtime.
 
 
 % \section{From Methods to Evaluation Design}

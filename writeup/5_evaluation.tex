@@ -30,13 +30,15 @@ The chapter is organised around nine evaluation objectives:
   \end{itemize}
 \end{enumerate}
 
+The evaluation also exercises the systems contribution: every run uses the same \texttt{fedctl submit} path, with the run config fixing the workload and the deploy config fixing placement, resources, and optional network impairment. Each submission preserves the request, effective configs, Nomad job mapping, logs, W\&B metrics, and artifacts as replayable evidence.
+
 % The first two sections isolate the method families before combining them. The compute-heterogeneity section evaluates the quality--speed and client-side submodel trade-offs of \texttt{HeteroFL}, \texttt{FedRolex}, and \texttt{FIARSE}. The straggler-induced heterogeneity section evaluates \texttt{FedAsync}, \texttt{FedBuff}, and \texttt{FedStaleWeight} as standard asynchronous baselines, using client trips, wall-clock time, staleness, update share, and aggregate weight share to separate speed from representation. The final section then evaluates \texttt{FedCover}. This makes the chapter's contribution two-level: it first measures asynchronous submodel FL, then tests the proposed coverage correction designed specifically for that setting.
 
 \FloatBarrier
 \section{Compute Heterogeneity}
 \label{sec:eval_compute_heterogeneity}
 
-Compute heterogeneity changes both what a client can train and what comparison is meaningful: smaller submodels may reduce wall-clock cost, but can also change global accuracy and client-side model quality. Original submodel-FL evaluations mainly report accuracy with model-size, FLOP, or storage proxies; the cluster runs here add measured wall-clock time, client timing, and local submodel quality on real edge devices. Building on the heterogeneity in Section~\ref{sec:background_compute_heterogeneity} and the submodel FL methods reviewed in Section~\ref{sec:related_model_heterogeneous_fl}, this section evaluates \texttt{HeteroFL}, \texttt{FedRolex}, and \texttt{FIARSE}. The evaluation first motivates reduced-rate participation with a weak-client inclusion decision, then measures submodel-FL quality, runtime, and bottlenecks, client-side submodel quality, and sensitivity to the client-capability mix.
+Compute heterogeneity changes both feasible training and fair comparison: smaller submodels can reduce wall-clock cost while altering global and client-side quality. Prior submodel-FL work mostly reports accuracy with model-size, FLOP, or storage proxies; these cluster runs add wall-clock time, client timing, and local submodel quality on real edge devices. Building on Sections~\ref{sec:background_compute_heterogeneity} and~\ref{sec:related_model_heterogeneous_fl}, this section evaluates \texttt{HeteroFL}, \texttt{FedRolex}, and \texttt{FIARSE}: first motivating reduced-rate participation via a weak-client inclusion decision, then measuring quality, runtime, bottlenecks, local submodel quality, and client-capability sensitivity.
 
 \FloatBarrier
 \subsection{Weak-Client Inclusion Decision}
@@ -128,7 +130,7 @@ Table~\ref{tab:compute_slow_majority} makes the trade-off explicit. Case~A is fa
 \begin{itemize}[leftmargin=*, nosep]
   \item Excluding slow clients is fastest, but it discards \(10/15\) non-IID partitions and loses almost \(10\) percentage points against full inclusion.
   \item Full-model inclusion gives the best final accuracy, \(73.12\%\), but costs \(137.5\) minutes and can be impractical for weak devices due to memory constraints.
-  \item Reduced-rate inclusion is the practical middle ground: \texttt{HeteroFL} and \texttt{FedRolex} retain all partitions and finish in about \(1\) hour, while \texttt{FIARSE} gives stronger reduced-rate accuracy without realised sparse-kernel speedup.
+  \item Reduced-rate inclusion is the practical middle ground: \texttt{HeteroFL} and \texttt{FedRolex} retain all partitions, while \texttt{FIARSE} gives stronger reduced-rate accuracy without sparse-kernel speedup.
 \end{itemize}
 
 \FloatBarrier
