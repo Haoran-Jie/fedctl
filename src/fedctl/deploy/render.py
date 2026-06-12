@@ -290,6 +290,8 @@ def _netem_env(
     ):
         value = profile_data.get(key)
         if isinstance(value, (int, float)):
+            if key == "rate_latency_ms" and value <= 0:
+                value = 1
             env[env_key] = str(value)
     return env
 
@@ -318,6 +320,8 @@ def _netem_ingress_env(
     ):
         value = profile_data.get(key)
         if isinstance(value, (int, float)):
+            if key == "rate_latency_ms" and value <= 0:
+                value = 1
             env[env_key] = str(value)
     return env
 

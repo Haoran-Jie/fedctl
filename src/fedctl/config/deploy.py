@@ -168,7 +168,7 @@ def resolve_effective_deploy_config(deploy_cfg: dict[str, Any]) -> EffectiveDepl
             "jitter_ms": 0,
             "loss_pct": 0,
             "rate_mbit": 1000,
-            "rate_latency_ms": 0,
+            "rate_latency_ms": 1,
             "rate_burst_kbit": 256,
         },
         "med": {

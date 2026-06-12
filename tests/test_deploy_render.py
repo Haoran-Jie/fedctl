@@ -280,6 +280,42 @@ def test_render_deploy_netem_uses_configured_interface() -> None:
     assert env["NET_INGRESS_IFACE"] == "wlan0"
 
 
+def test_render_deploy_netem_clamps_zero_tbf_latency() -> None:
+    placements = [
+        SupernodePlacement(device_type="rpi5", instance_idx=1, node_id=None),
+    ]
+    network_plan = plan_network(
+        assignments=[],
+        placements=placements,
+        default_profile="low",
+        profiles={
+            "low": {
+                "delay_ms": 0,
+                "jitter_ms": 0,
+                "loss_pct": 0,
+                "rate_mbit": 1000,
+                "rate_latency_ms": 0,
+                "rate_burst_kbit": 256,
+            }
+        },
+    )
+    spec = default_deploy_spec(
+        num_supernodes=1,
+        image="example/superexec:latest",
+        experiment="exp-test",
+        supernodes_by_type={"rpi5": 1},
+        allow_oversubscribe=True,
+        placements=placements,
+        network_plan=network_plan,
+        netem_image="example/netem:latest",
+    )
+    rendered = render_deploy(spec)
+
+    env = rendered.supernodes["Job"]["TaskGroups"][0]["Tasks"][0]["Env"]
+    assert env["NET_RATE_LATENCY_MS"] == "1"
+    assert env["NET_INGRESS_RATE_LATENCY_MS"] == "1"
+
+
 def test_render_deploy_netem_allows_auto_interface_selection() -> None:
     placements = [
         SupernodePlacement(device_type="rpi5", instance_idx=1, node_id=None),

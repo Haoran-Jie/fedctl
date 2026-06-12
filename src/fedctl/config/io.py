@@ -66,7 +66,7 @@ deploy:
   #     superexec_clientapp: false
   #   profiles:
   #     none: {{}}
-  #     low: {{ delay_ms: 0, jitter_ms: 0, loss_pct: 0, rate_mbit: 1000, rate_latency_ms: 0, rate_burst_kbit: 256 }}
+  #     low: {{ delay_ms: 0, jitter_ms: 0, loss_pct: 0, rate_mbit: 1000, rate_latency_ms: 1, rate_burst_kbit: 256 }}
   #     med: {{ delay_ms: 60, jitter_ms: 10, loss_pct: 1.0, rate_mbit: 50, rate_latency_ms: 50, rate_burst_kbit: 256 }}
   #     high: {{ delay_ms: 120, jitter_ms: 25, loss_pct: 2.5, rate_mbit: 20, rate_latency_ms: 50, rate_burst_kbit: 256 }}
   #   # Optional direction-specific overrides.
