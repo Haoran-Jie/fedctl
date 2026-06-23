@@ -15,6 +15,7 @@ submit_service/state/*.db
 ansible/group_vars/tailscale_nodes.local.yml
 ansible/.vault_pass
 writeup/out/
+writeup/out_submit/
 writeup/**/out/
 writeup/tmp/
 writeup/**/_minted/
@@ -42,6 +43,7 @@ refs/FedRolex-main
 apps/fedctl_research/run_configs
 .claude/
 .vscode/
+3243Z-sourcecode/
 apps/fedctl_research/data/
 refs/QuAFL/
 tmp/

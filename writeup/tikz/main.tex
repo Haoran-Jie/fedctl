@@ -89,8 +89,8 @@
     \drawnetwork{#9-g}{\gx}{-1.80}{a,b,c,d}{globaledge}
 
     % column labels
-    \node[collabel] at (\lx,-3.95) {Large client};
-    \node[collabel] at (\sx,-3.95) {Small client};
+    \node[collabel] at (\lx,-3.95) {High-rate client};
+    \node[collabel] at (\sx,-3.95) {Low-rate client};
 
     % elbow arrows: horizontal then vertical
     \draw[flowarrow] (\gx-1.1,-2.75) -| (\lx,-3.80);
@@ -119,24 +119,24 @@
   \node[rowlabel, anchor=west] at (-0.20,-5.75) {Round $j$};
   \node[rowlabel, anchor=west] at (-0.20,-9.35) {Round $j{+}1$};
 
-  % HeteroFL: static nested extraction
+  % HeteroFL: fixed nested submodels
   % large client keeps larger submodel; small client keeps nested smaller one
-  \drawpanel{2.80}{HeteroFL}{heteroflblue}{static nested extraction}
+  \drawpanel{2.80}{HeteroFL}{heteroflblue}{fixed nested submodels}
     {a,b,c,d}{a,b}
     {a,b,c,d}{a,b}
     {hetero}
 
-  % FedRolex: rolling extraction window on 4 nodes
+  % FedRolex: rotating parameter window on 4 nodes
   % large: 3-node window shifts by one
   % small: 2-node window shifts by one
-  \drawpanel{11.3}{FedRolex}{fedrolexpurple}{rolling extraction window}
+  \drawpanel{11.3}{FedRolex}{fedrolexpurple}{rotating parameter window}
     {a,b,c}{c,d}
     {b,c,d}{d,a}
     {rolex}
 
-  % FIARSE: importance-aware selection
+  % FIARSE: importance-aware sparse mask
   % non-contiguous, changed by importance ranking across rounds
-  \drawpanel{19.80}{FIARSE}{fiarsered}{importance-aware selection}
+  \drawpanel{19.80}{FIARSE}{fiarsered}{importance-aware sparse mask}
     {a,c,d}{a,d}
     {a,b,d}{b,c}
     {fiarse}

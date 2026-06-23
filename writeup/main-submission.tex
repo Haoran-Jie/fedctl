@@ -30,15 +30,21 @@
 \usepackage[most]{tcolorbox}
 \tcbuselibrary{minted}
 % tcolorbox writes temporary listing files into the LaTeX output directory;
-% minted v3 no longer exposes an outputdir package option, so make the path
-% explicit for the repository's documented `-outdir=out` build.
+% minted v3 no longer exposes an outputdir package option. The source defaults
+% to the VS Code output directory (`out`); the Makefile overrides this through
+% a generated wrapper so its `out_submit` build remains isolated.
+\providecommand{\fedctlbuildoutputdir}{out}
 \makeatletter
-\def\minted@outputdir{out/}
+\edef\minted@outputdir{\fedctlbuildoutputdir/}
 \makeatother
 \usepackage{algorithm}
 \usepackage{algpseudocode}
+\usepackage{xurl}
 \usepackage{hyperref}
 \usepackage[backend=biber,style=authoryear-comp,maxcitenames=2,uniquelist=false,sorting=nyt]{biblatex}
+\setcounter{biburllcpenalty}{100}
+\setcounter{biburlucpenalty}{200}
+\setcounter{biburlnumpenalty}{100}
 \addbibresource{references.bib}
 \usetikzlibrary{arrows.meta,calc,positioning}
 
@@ -166,12 +172,18 @@
 \title{Fedctl: A Heterogeneous Testbed for Realistic Federated Learning}
 \author{Haoran Jie}
 \date{May 2026}
+\newcommand{\declarationdate}{\number\day\space\ifcase\month\or January\or February\or March\or April\or May\or June\or July\or August\or September\or October\or November\or December\fi\space\number\year}
 \newcommand{\candidatenumber}{3243Z}
 \newcommand{\college}{Robinson College}
 \newcommand{\coursethe}{Computer Science Tripos, Part III}
 \newcommand{\coursefor}{Part III of the Computer Science Tripos}
-\newcommand{\mainwordcount}{11,537}
-\newcommand{\totalpagecount}{69}
+\IfFileExists{\fedctlbuildoutputdir/generated-wordcount.tex}{%
+  \input{\fedctlbuildoutputdir/generated-wordcount}%
+}{%
+  \newcommand{\mainwordcount}{UNKNOWN}%
+  \newcommand{\mainwordcountplain}{UNKNOWN}%
+}
+\newcommand{\totalpagecount}{\ifsubmission 70\else 71\fi}
 \newif\ifsubmission
 % Uncomment for the anonymised submission copy:
 \submissiontrue
@@ -221,7 +233,7 @@ Candidate \candidatenumber
 
 \vspace{\fill}
 \begin{center}
-Submitted in partial fulfillment of the requirements for the\\
+Submitted in partial fulfilment of the requirements for the\\
 \coursethe\\
 University of Cambridge
 \end{center}
@@ -253,8 +265,8 @@ $ texcount -merge -sum -q \
     1_introduction.tex 2_background.tex 3_related_work.tex \
     4_implementation.tex \
     5_evaluation.tex 6_conclusions.tex
-11537
 \end{verbatim}
+% \noindent Output used in this build: \texttt{\mainwordcountplain}
 \end{quote}
 \end{sffamily}
 
@@ -280,11 +292,13 @@ to be made available to the students and staff of the University.
 
 \ifsubmission\else
 \bigskip
-\textbf{Signed:}
+\textbf{Signed:}\hspace{1em}\raisebox{-0.35\height}{%
+  \includegraphics[height=1.15cm]{figures/signature.png}%
+}
 \fi
 
 \bigskip
-\textbf{Date:} 22 May 2026
+\textbf{Date:} \declarationdate
 \vspace{\fill}
 
 \clearpage
@@ -292,6 +306,17 @@ to be made available to the students and staff of the University.
 \singlespacing
 \chapter*{Abstract}
 \input{abstract}
+
+\ifsubmission\else
+\chapter*{Acknowledgements}
+
+I am grateful to my supervisor, Professor Nicholas Lane, for his guidance, encouragement, and perspective throughout this project. His advice helped shape both the systems direction of the work and the way this dissertation frames realistic federated learning evaluation.
+
+I also thank my co-supervisor, Dr Javier Fernandez-Marques, for his generous technical advice, feedback, and practical support. I am grateful to the researchers in CamMLSys for their discussions, suggestions, and feedback on \texttt{fedctl}.
+
+Finally, I thank my family and friends for their patience, support, and encouragement throughout the year. This project would not have been possible without them.
+
+\fi
 
 \tableofcontents
 \clearpage
@@ -307,7 +332,10 @@ to be made available to the students and staff of the University.
 \label{lastcontentpage}
 
 \addcontentsline{toc}{chapter}{Bibliography}
+\begingroup
+\setlength{\emergencystretch}{2em}
 \printbibliography
+\endgroup
 
 \appendix
 \input{Appendix_Notation}

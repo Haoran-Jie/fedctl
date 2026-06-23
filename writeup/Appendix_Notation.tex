@@ -8,16 +8,17 @@ This appendix summarises the main notation used throughout the dissertation. The
 \vspace{-1em}
 \begin{longtable}{@{} p{0.18\linewidth} p{0.78\linewidth} @{}}
 $\mathcal{K}$ & Set of all available clients. \\
-$\mathcal{C}_t$ & Client cohort selected in synchronous round $t$. \\
+$\mathcal{C}_t$ & Client set selected in synchronous round $t$. \\
 $t$ & Synchronous communication-round index. \\
 $s$ & Buffered-asynchronous server-step index. \\
 $T$ & Total number of synchronous rounds. \\
 $S$ & Total number of asynchronous server steps. \\
 $w^{(t)}$ & Global model after synchronous round $t$. \\
 $w^{[s]}$ & Global model after asynchronous server step $s$. \\
+$[w]_j$ & Coordinate \(j\) of model \(w\); bracket notation distinguishes parameter coordinates from client-indexed models such as \(\tilde{w}_k\). \\
 $D_k$ & Local training dataset stored on client $k$. \\
 $n_k$ & Number of training examples used by client $k$. \\
-$p_k$ & Client weight in the global objective; selected-cohort FedAvg normalisation is written explicitly over $\mathcal{C}_t$ in the main text. \\
+$p_k$ & Client weight in the global objective; FedAvg normalisation over the selected client set is written explicitly over $\mathcal{C}_t$ in the main text. \\
 $F_k(w)$ & Local objective of client $k$. \\
 $F(w)$ & Global objective, typically $F(w)=\sum_{k \in \mathcal{K}} p_k F_k(w)$. \\
 $\eta_\ell$ & Client-side learning rate for local optimisation. \\
@@ -29,13 +30,12 @@ $\tilde{w}_k^{(t+1)}$ & Local model returned by client $k$ after training from s
 \section*{Submodel Training}
 \vspace{-1em}
 \begin{longtable}{@{} p{0.18\linewidth} p{0.78\linewidth} @{}}
-$r_k^{(t)}$, $r_k^{[s]}$ & Model rate assigned to client $k$ in synchronous round $t$ or asynchronous dispatch step $s$. \\
+$r_k$ & Fixed model rate assigned to client $k$. \\
 $I_k^{(t)}$, $I_k^{[s]}$ & Parameter subset visible to client $k$ in synchronous round $t$ or asynchronous dispatch step $s$. \\
 $w_{k,0}^{(t)}$ & Client-visible model or submodel used by client $k$ before local training. \\
 $\mathcal{U}_j^{(t)}$ & Set of participating clients whose extracted submodels include global parameter $j$ at round $t$. \\
-$\beta_k$ & Selective aggregation weight for client $k$. In the implemented methods, $\beta_k=n_k$ for \texttt{HeteroFL} and $\beta_k=1$ for \texttt{FedRolex}; \texttt{FIARSE} aggregates sparse nonzero deltas per parameter. \\
-$\Psi$ & Extraction policy that maps a global model and model rate to the client-visible submodel indices. \\
-$s_j$ & Magnitude-based importance score assigned to parameter $j$ for the \texttt{FIARSE} sparse mask. \\
+$\Psi$, $\Psi_{\mathcal{M}}$ & Method-specific extraction policy that maps a global model, model rate, and round index to the client-visible submodel indices. \\
+$s_j^{(t)}$ & Magnitude-based importance score assigned to parameter $j$ for the \texttt{FIARSE} sparse mask in round \(t\). \\
 \end{longtable}
 
 \section*{Buffered-Asynchronous Training}
@@ -47,9 +47,10 @@ $\mathcal{B}$ & Mutable set of accepted updates currently stored in the async bu
 $\mathcal{B}_s$ & Accepted buffer whose aggregate is applied at asynchronous server step $s$. \\
 $v_i$ & Model version originally sent to the client that produced async update $i$. \\
 $\Delta_i$ & Delta associated with async update $i$, using the sign convention $\Delta_i=w^{[v_i]}-\tilde{w}_i$. \\
+$[\Delta_i]_j$, $[\bar{\Delta}^{[s]}]_j$ & Coordinate \(j\) of an individual async delta or buffered aggregate delta. \\
 $\tau_i$ & Staleness of async update $i$, measured in server steps since version $v_i$. \\
-$q_i$ & Nonnegative score assigned to buffered async update $i$ before normalisation. \\
-$\alpha_i$ & Normalised aggregation weight applied to buffered async update $i$, usually $\alpha_i=q_i/\sum_{u\in\mathcal{B}_s}q_u$. \\
+$q_i$ & Nonnegative staleness score assigned to buffered async update $i$ before normalisation. \\
+$\alpha_i$ & Normalised buffer weight applied to buffered async update $i$, usually $\alpha_i=q_i/\sum_{u\in\mathcal{B}_s}q_u$. \\
 $g(\tau_i)$ & Staleness-weighting function used to construct a buffered score from update staleness. \\
 \end{longtable}
 

@@ -20,9 +20,9 @@
 \newcommand{\substratetag}{\impltag{implcomp:substrate}{fedstalebrown}{cluster}}
 \newcommand{\implterm}[2]{\textcolor{#1}{#2}}
 
-This chapter has two parts. The first describes \texttt{fedctl}, the control path used to package, submit, deploy, monitor, and retrieve Flower experiments, and the dissertation-specific Flower application that implements the FL methods, tasks, and diagnostics evaluated in Chapter~\ref{chap:evaluation}. The second introduces \texttt{FedCover} (Sec.~\ref{sec:fedcover_impl}), the coverage-aware aggregation algorithm for asynchronous submodel FL.
+This chapter has two parts. The first part describes how \texttt{fedctl} packages, submits, deploys, monitors, and retrieves Flower experiments, as well as the implementation of the FL methods and tasks evaluated in Chapter~\ref{chap:evaluation} (Sections~\ref{sec:impl_overview}--\ref{sec:impl_flower_application}). The second part introduces \texttt{FedCover} (Section~\ref{sec:fedcover_impl}), the coverage-aware aggregation algorithm for asynchronous submodel FL.
 
-The \texttt{fedctl} implementation follows the lifecycle of a run:
+The \texttt{fedctl} implementation sections follow the lifecycle of a run:
 \[
 \begin{aligned}
 \begin{array}{@{}c@{}}\text{experiment specification}\\[-0.1em]\text{\small Sec.~\ref{sec:impl_configuration}}\end{array}
@@ -41,16 +41,16 @@ The \texttt{fedctl} implementation follows the lifecycle of a run:
 \]
 
 \FloatBarrier
-\section{Overview of the \texttt{fedctl} System}
+\section{\texttt{fedctl} System Overview}
 \label{sec:impl_overview}
 
-The system separates cluster orchestration from experiment logic. \texttt{fedctl} is the orchestration layer: it packages a Flower application, renders the Nomad\footnote{Flower is the federated-learning framework used for these experiments and is widely used for FL work in the Computer Laboratory at the University of Cambridge. Nomad is the scheduler and orchestrator used to place runtime services on cluster machines. Appendix~\ref{def:flower} and Appendix~\ref{def:nomad} give the definitions.} jobs that place its services on the Raspberry Pi cluster, and preserves the resulting run evidence. \texttt{fedctl\_research} is the experiment layer, containing the tasks, methods, and diagnostics evaluated in Chapter~\ref{chap:evaluation}. This separation keeps execution conditions such as images, placement, service discovery, network shaping, logs, and artifacts separate from task construction, data partitioning, local training, evaluation, and aggregation.
+The system consists of two layers. \texttt{fedctl} is the orchestration layer: it packages a Flower application, renders the Nomad\footnote{Nomad is the scheduler and orchestrator used to place runtime services on cluster machines. Appendix~\ref{def:nomad} gives the definition.} jobs that are executed on the Raspberry Pi cluster, and preserves the resulting run evidence. The second layer is the experiment layer, including the tasks, methods, and diagnostics evaluated in Chapter~\ref{chap:evaluation}. This separation keeps execution conditions such as docker images, placement, service discovery, network shaping, and logs separate from task construction, data partitioning, local training, and aggregation.
 
 \FloatBarrier
 \subsection{System decomposition}
 \label{sec:impl_main_components}
 
-Figure~\ref{fig:fedctl_overview} is the component map for the implementation: specification, control plane, Flower runtime, and observability. 
+Figure~\ref{fig:fedctl_overview} shows an overview of the system components: specification, control plane, Flower runtime, and observability. Each component is described in the following paragraphs, with the responsible subcomponents tagged in the figure and linked to their explanatory paragraphs. 
 
 \begin{figure}[!htbp]
 \centering
@@ -94,10 +94,10 @@ Figure~\ref{fig:fedctl_overview} is the component map for the implementation: sp
 \node[runbox, anchor=north] (app) at (7.3, -1.75) {\textbf{Research app}\\\researchapp};
 
 \node[obsbox, anchor=north] (wandb) at (10.95, -0.3) {\textbf{W\&B}\\\wandbtag};
-\node[obsbox, anchor=north] (art) at (10.95, -1.45) {\textbf{Structured artifacts}\\\artifacttag};
+\node[obsbox, anchor=north] (art) at (10.95, -1.45) {\textbf{Structured artefacts}\\\artifacttag};
 \node[obsbox, anchor=north] (ui) at (10.95, -2.9) {\textbf{Submit UI/logs}\\\uilogstag};
 
-\node[basebox] (cluster) at (5.48, -7.32) {\textbf{Cluster substrate}\\\substratetag};
+\node[basebox] (cluster) at (5.48, -7.32) {\textbf{Cluster}\\\substratetag};
 
 \draw[arrow] (config.east) -- (control.west);
 \draw[arrow] (control.east) -- (runtime.west);
@@ -111,43 +111,42 @@ Figure~\ref{fig:fedctl_overview} is the component map for the implementation: sp
 
 \hypertarget{implcomp:run}{}\hypertarget{implcomp:dep}{}
 \paragraph[Configuration.]{Configuration \impltaghead{implcomp:run}{darkblue}{run}\impltaghead{implcomp:dep}{darkblue}{dep}.\footnote{Throughout the following sections, superscript tags such as \textsuperscript{\textbf{\textcolor{darkblue}{[run]}}} identify the responsible component and link back to its explanatory paragraph.}}
-Configuration covers both the application workload and the execution environment. The run side selects the FL method, task, partitioner, model-rate allocation, client sampling, local training budget, evaluation hooks, and random seed. The deployment side specifies typed workers, placement policy, resource reservations, registry and submit-service settings, and optional network profiles.
+Configuration covers both the experiment workload and the deployment environment. The run config selects the FL method, task, partitioner, model-rate allocation, client sampling, and random seed. The deploy config specifies typed workers placement policy, resource reservations, submit-service settings, and network impairments.
 
 \hypertarget{implcomp:request}{}
-\paragraph[Submission and admission control.]{Submission and admission control \impltaghead{implcomp:request}{paletteGreen}{cli}\impltaghead{implcomp:request}{paletteGreen}{svc}.}
-The \texttt{fedctl} CLI resolves the project, configs, and overrides, then prepares the run bundle and submission request. The submit service persists that request, records the reconstructed command, and decides when the run can consume cluster capacity.
+\paragraph[CLI and submit service.]{CLI and submit service \impltaghead{implcomp:request}{paletteGreen}{cli}\impltaghead{implcomp:request}{paletteGreen}{svc}.}
+The \texttt{fedctl} CLI resolves the project, configs, then prepares the run bundle and submission request. The submit service receives the request, records the experiment, and later orchestrates and schedules the execution.
 
 \hypertarget{implcomp:deploy}{}
-\paragraph[Executable environment and deployment.]{Executable environment and deployment \impltaghead{implcomp:deploy}{paletteGreen}{reg}\impltaghead{implcomp:deploy}{paletteGreen}{nomad}\impltaghead{implcomp:deploy}{paletteGreen}{runner}.}
-The registry stores the SuperExec image used to launch the application processes. The Nomad renderer turns the deploy config into the scheduler objects that place those processes, while the submit runner reconstructs the submitted bundle on the cluster before invoking the common deploy-and-run path. Appendix~\ref{def:containers_registry_submit_runner} summarises the supporting container, registry, and submit-runner terminology.
+\paragraph[Deployment environment.]{Deployment environment \impltaghead{implcomp:deploy}{paletteGreen}{reg}\impltaghead{implcomp:deploy}{paletteGreen}{nomad}\impltaghead{implcomp:deploy}{paletteGreen}{runner}.}
+The registry stores the SuperExec image used to launch the Flower application. The Nomad renderer turns the deploy config into concrete nomad jobs to be later deployed, while the submit runner reconstructs the submitted project on the cluster before invoking nomad deployment and flower run. Appendix~\ref{def:containers_registry_submit_runner} defines the registry and submit-runner terminology.
 
 \hypertarget{implcomp:runtime}{}
 \paragraph[Flower runtime.]{Flower runtime \impltaghead{implcomp:runtime}{paletteOrange}{roles}\impltaghead{implcomp:runtime}{paletteOrange}{app}.}
-The run is executed by Flower roles hosted as Nomad-managed containers: SuperLink, SuperNodes, ServerApp, and ClientApps. These roles provide the communication and execution surface; the research app supplies the method and workload code inside them. Appendix~\ref{def:flower_components} gives the fuller Flower component definitions.
+The run is executed by Flower roles hosted as Nomad-managed containers: SuperLink, SuperNodes, ServerApp, and ClientApps. These roles provide the communication and execution surface; the research app supplies the method and workload code inside them. Appendix~\ref{def:flower_components} gives detailed definitions of the Flower components.
 
 \hypertarget{implcomp:observability}{}
 \paragraph[Observability outputs.]{Observability outputs \impltaghead{implcomp:observability}{gray}{wandb}\impltaghead{implcomp:observability}{gray}{art}\impltaghead{implcomp:observability}{gray}{ui}.}
-W\&B captures metrics and summaries; structured artifacts preserve app-specific data; submit-service logs preserve the operational context for failed or delayed runs. Appendix~\ref{def:network_evidence} summarises the supporting evidence terminology.
+W\&B captures metrics and summaries; artefacts preserve any generated file of the experiment; submit-service UI provides a web interface for monitoring and managing experiments. See Appendix~\ref{def:network_evidence} for more details.
 
 \hypertarget{implcomp:substrate}{}
-\paragraph[Cluster substrate.]{Cluster substrate \impltaghead{implcomp:substrate}{fedstalebrown}{cluster}.}
-The cluster substrate provides inventory, Nomad node labels, resource reservations, service networking, and deployment-side network profiles. These properties constrain where and how the FL roles execute.
+\paragraph[Cluster.]{Cluster \impltaghead{implcomp:substrate}{fedstalebrown}{cluster}.}
+The cluster provides inventory, Nomad node labels, resource reservations, service networking, and deployment-side network profiles. These properties constrain where and how the FL roles execute.
 
 \FloatBarrier
-\section{Configuration and Experiment Specification}
+\section{Run and Deployment Configuration}
 \label{sec:impl_configuration}
 
 Configuration is split into two surfaces. The \implterm{darkblue}{run config} \runconf{} describes workload and method choices. The \implterm{darkblue}{deploy config} \deployconf{} describes execution conditions: typed workers, placement, resources, images, and network profile.  This split prevents method parameters from being mixed with deployment conditions, allowing the same workload to be replayed under different hardware and network settings.
 
-See the website \href{http://fedctl.cl.cam.ac.uk/help\#configs}{\underline{configuration help}} (accessible via CL network) for a user-facing reference.
+See the website \href{http://fedctl.cl.cam.ac.uk/help\#configs}{\underline{configuration help}} (accessible via CL network) for detailed reference.
 
 \FloatBarrier
-\subsection[Run config]{Run config: Flower run-config materialization \impltaghead{implcomp:run}{darkblue}{run}}
+\subsection[Run config]{Run config \impltaghead{implcomp:run}{darkblue}{run}}
 
-\paragraph{Input shape.}
-The run config is handed to Flower through its \texttt{--run-config} interface. Flower expects a TOML, while \texttt{fedctl} accepts sectioned TOML (e.g. grouped by run identity, server budget, client training, partitioning, etc). Before execution, \texttt{fedctl} validates the sectioned file and writes the normalized flat TOML expected by Flower.
+The run config is passed to Flower through its \verb|--run-config| flag. Flower expects a TOML file, while \texttt{fedctl} accepts sectioned TOML grouped by run identity, server budget, client training, and partitioning. Before execution, \texttt{fedctl} validates the sectioned file and writes the normalised flat TOML expected by Flower.
 
-For example, a user-facing run-config file can group related settings:
+For example, a run-config file can group related hyperparameters:
 
 \begin{codeblock}{toml}
 [run]
@@ -172,16 +171,14 @@ alpha = 0.5
 % After validation, \texttt{fedctl} materializes the supported keys as the flat TOML expected by Flower, merges command-line overrides for fields such as seed or learning rate, and passes the resulting file to \texttt{flwr run} through Flower's native \texttt{--run-config} mechanism. The submitted artifact records this effective configuration so the remote request can be reconstructed later.
 
 \FloatBarrier
-\subsection[Deploy config]{Deploy config: fedctl execution state \impltaghead{implcomp:dep}{darkblue}{dep}}
+\subsection[Deploy config]{Deploy config \impltaghead{implcomp:dep}{darkblue}{dep}}
 
-\paragraph{Execution-surface config.}
-The deploy config follows a different path. It is consumed by \texttt{fedctl} before Flower starts, rather than converted into Flower's \texttt{--run-config}. It resolves the submit-service endpoint and token, artifact store, submit image, cluster registry, typed SuperNode counts, placement policy, resource reservations, and network profiles. These values control packaging, upload, queue submission, image selection, and Nomad job rendering.
+The deploy config is handled by \texttt{fedctl}. \texttt{fedctl} uses it to resolve the submit-service credentials, artefact store, container images, registry, typed SuperNode counts, placement, resource reservations, and network impairment. These settings determine how the run is packaged, uploaded, queued, and rendered into Nomad jobs.
 
-\paragraph{Resolution and first-run defaults.}
-Deploy config resolution is ordered so that per-run and per-project choices override user defaults. An explicit \texttt{--deploy-config} path has highest priority; otherwise \texttt{fedctl} looks for project-local config, then the active user profile in \texttt{\textasciitilde/.config/fedctl/config.toml}. A fresh install creates a default user deploy config, leaving only the submit-service bearer token for the user to provide.
+\paragraph{Resolution order.}
+Deploy config resolution is ordered so that per-run and per-project choices override user defaults. An explicit \verb|--deploy-config| path has highest priority; otherwise \texttt{fedctl} looks for project-local config, then the global default config, which was created after \texttt{pip install fedctl}.
 
-\paragraph{Concrete deploy config.}
-A minimal deploy config only needs to show the user-facing execution choices; site-specific transport values such as the submit endpoint, artifact store, submit-runner image, and registry are normally supplied by defaults or project profiles:
+A minimal deploy config only requires user credentials to communicate with the submit service; other settings have defaults but can be overridden for flexible control. For example:
 
 \hypertarget{example:concrete-deploy-config}{}
 \begin{codeblock}{yaml}
@@ -209,39 +206,39 @@ deploy:
         loss_pct: 0.5  # packet-loss percentage
 \end{codeblock}
 
-\paragraph{Runtime consumption.}
-The \texttt{submit} block supplies the submit-service identity and bearer token; endpoint, artifact, and image defaults can be overridden when a different cluster or registry is needed.
+The \texttt{submit} block is used before queue submission. It supplies the user, bearer token, submit-service endpoint, artefact store, submit-runner image, and registry defaults; these can be changed for another cluster or registry so enables extensions easily.
 
-The deployment renderer consumes the \texttt{deploy} block. Typed SuperNode counts override the Flower project's flat \texttt{local-simulation.num-supernodes} value, \texttt{placement} controls packing or spreading across hosts, \texttt{resources} becomes Nomad CPU and memory reservations, and \texttt{network} defines named netem profiles. These fields affect SuperLink, SuperNode, and SuperExec jobs, but never appear as Flower \texttt{--run-config} keys.
+The \texttt{deploy} block controls the cluster execution plan. It sets typed SuperNode counts, placement policy, resource reservations, and named \texttt{netem} profiles. \texttt{fedctl} lowers these values into SuperLink, SuperNode, and SuperExec Nomad jobs.
 
 \FloatBarrier
-\section{Remote Execution and Cluster Orchestration}
+\section{Submission and Cluster Orchestration}
 \label{sec:impl_remote_execution}
 
-Remote execution turns a local Flower workload into a reproducible cluster run, preserving the submitted configuration, deployment state, operational logs, and result artifacts.
+The \texttt{fedctl submit run} turns a local Flower application into a reproducible cluster run, preserving the submitted configs, deployment state, logs, and result artefacts.
 
 \FloatBarrier
-\subsection{Run lifecycle}
+\subsection{Submission lifecycle}
 
-Figure~\ref{fig:remote_execution_lifecycle} summarises the remote execution lifecycle.
+Figure~\ref{fig:remote_execution_lifecycle} summarises the \texttt{fedctl} submission lifecycle.
 
 \begin{figure}[!htbp]
 \centering
 \makebox[\textwidth][c]{%
   \includegraphics[width=\textwidth]{figures/remote_execution_lifecycle_clean.pdf}%
 }
-\caption{\textbf{Remote execution lifecycle.}}
+\caption{\textbf{\texttt{fedctl} submission lifecycle.}}
 \label{fig:remote_execution_lifecycle}
 \end{figure}
 
-The request records the Flower project, workload choices, deployment choices, and CLI overrides. The uploaded bundle makes it executable away from the developer machine. The \implterm{paletteGreen}{queue} stores the run persistently; admission checks typed capacity and placement constraints; and the \implterm{paletteGreen}{submit runner} invokes the deployment path: build or select the SuperExec image, render Nomad jobs, configure the Flower federation, and start \texttt{flwr run}. Metrics, \implterm{gray}{structured artifacts}, and \implterm{gray}{logs} then become evaluation evidence.
+The lifecycle has four stages. \textbf{(1) Experiment definition:} the request records the Flower application, run config, deploy config, and CLI overrides. \textbf{(2) Submission and admission:} the uploaded bundle archives the project and resolved configs, while the queue stores the request and passes it through typed-capacity and placement checks. \textbf{(3) Nomad and Flower runtime:} the submit runner builds or selects the SuperExec image, renders Nomad jobs, and starts \texttt{flwr run}. \textbf{(4) Evidence surfaces:} metrics, W\&B records, logs, and structured artefacts can be retrieved and used for later evaluation.
+
 
 \FloatBarrier
 \subsection[Submission interface]{Submission interface \impltaghead{implcomp:request}{paletteGreen}{cli}}
 
-The \implterm{paletteGreen}{submit interface} is the user-facing control surface for remote experiments. \texttt{fedctl submit run} creates the submission; companion commands inspect status, logs, inventory, and results, and can cancel or purge terminal records. See the website \href{http://fedctl.cl.cam.ac.uk/help\#reference}{\underline{command reference}} (accessible via CL network) for the full command set.
+The \implterm{paletteGreen}{submit interface} is the user-facing control surface for submitted cluster experiments. \texttt{fedctl submit run} creates the submission; companion commands inspect status, logs, inventory, and results, and can cancel or purge terminal records. See the website \href{http://fedctl.cl.cam.ac.uk/help\#reference}{\underline{reference}} (accessible via CL network) for the full command set documentation page.
 
-For dissertation experiments, the typical launch form passes a Flower project, a run config \runconf, and a deploy config \deployconf:
+To submit a run, the \texttt{fedctl submit run} command takes a Flower project, a run configuration \runconf, and a deployment configuration \deployconf.\footnote{Additional command-line options are supported (e.g., \texttt{--seed}, \texttt{--priority}, and \texttt{--exp}), but only the primary arguments are described here for brevity.}
 
 \begin{codeblock}{bash}
 fedctl submit run <flower-project> \
@@ -252,23 +249,23 @@ fedctl submit run <flower-project> \
 \paragraph{Request capture.}
 The \implterm{paletteGreen}{CLI} inspects the Flower project, resolves the configs, applies overrides such as seed or run name, and records the reconstructed user-facing command.
 
-\paragraph{Transport and executable environment.}
-As part of creating a submission, the CLI uploads the project and resolved configuration material needed by the remote runner. The request can then execute from the submit node without depending on the developer machine. Transient build products and machine-local state are excluded from the bundle.
+\paragraph{Environment.}
+When creating a submission, the CLI uploads the project and resolved configuration material needed by the submit runner. The request can then execute from the submit node independent from the user machine.
 
-The \implterm{paletteGreen}{submit runner} \submitrunner{} builds or reuses the SuperExec image stored in the \implterm{paletteGreen}{registry} \regtag{}. When possible, the image tag is derived from the build context, Dockerfile, and Flower version, so identical inputs are reused across seed and method sweeps.
+The \implterm{paletteGreen}{submit runner} \submitrunner{} builds or reuses the SuperExec image stored in the \implterm{paletteGreen}{registry} \regtag{}. It starts from a Flower SuperExec base image, copies in the submitted project, and installs the project package, so application dependencies are taken from \texttt{pyproject.toml}. The reuse tag hashes the generated Dockerfile, Flower version, and project inputs such as \texttt{pyproject.toml} and \texttt{src/}, allowing identical environments to be reused across runs.
 
 \FloatBarrier
-\subsection[Queued admission and dispatch]{Queued admission and dispatch \impltaghead{implcomp:request}{paletteGreen}{svc}\impltaghead{implcomp:substrate}{fedstalebrown}{cluster}}
+\subsection[Queue admission and dispatch]{Queue admission and dispatch \impltaghead{implcomp:request}{paletteGreen}{svc}\impltaghead{implcomp:substrate}{fedstalebrown}{cluster}}
 \label{sec:impl_queued_admission}
 
-The \implterm{paletteGreen}{submit service} separates an experiment batch into persistent records and dispatch decisions. A \implterm{paletteGreen}{queue record} stores identity, artifact, runner arguments, priority, status, job mapping, and logs. A dispatcher reconciles queued records with live \implterm{fedstalebrown}{Nomad state}; an admitted record becomes a submit-runner Nomad batch job that downloads the bundle, reports job mappings, and enters the deployment path. Figure~\ref{fig:queue_admission_dispatch} visualises this step.
+The \implterm{paletteGreen}{submit service} passes each submission record into a queue before any Nomad job is scheduled. The record stores the owner, runner arguments, priority, status, job mapping, and logs. The dispatcher fetches the top queue record and checks the live \implterm{fedstalebrown}{Nomad state}; once a request can be admitted, it launches a submit-runner Nomad batch job that downloads the experiment bundle, reports job mappings, then deploys and runs the experiment.
 
 \begin{figure}[!htbp]
 \centering
 \makebox[\textwidth][c]{%
   \includegraphics[width=1.08\textwidth]{figures/queue_admission_dispatch_clean.pdf}%
 }
-\caption{\textbf{Queued admission and dispatch path.}}
+\caption{\textbf{Queue admission and dispatch path.}}
 \label{fig:queue_admission_dispatch}
 \end{figure}
 
@@ -290,21 +287,25 @@ The \implterm{paletteGreen}{submit service} separates an experiment batch into p
 % \label{tab:submit_admission_inputs}
 % \end{table}
 
-\paragraph{Capacity and placement decision.}
-Queueing is typed-capacity admission control. For strict deployments, the dispatcher accounts for whole typed worker bundles before dispatching, so a run requesting ten \texttt{rpi4} and ten \texttt{rpi5} workers waits until those devices are available. Placement can then either spread logical workers across distinct hosts, prefer spreading before reuse, or deliberately oversubscribe physical hosts.\footnote{These choices are controlled through the deploy config under \texttt{deploy.placement}, including \texttt{spread\_across\_hosts}, \texttt{prefer\_spread\_across\_hosts}, and \texttt{allow\_oversubscribe}.} Oversubscribed deployments use resource-based admission from live CPU and memory availability rather than exclusive device reservation, and the selected placement policy remains part of the recorded run state.
+\paragraph{Capacity-aware admission.}
+Admission is typed and capacity-aware on top of being first-in-first-out. For strict deployments, the dispatcher admits a run only when the requested device mix is available, so a run asking for ten \texttt{rpi4} and ten \texttt{rpi5} workers waits until the cluster has sufficient capacity. Placement can then spread logical workers across distinct hosts, prefer spreading before reuse, or deliberately oversubscribe physical hosts.\footnote{These choices are controlled through the deploy config under \texttt{deploy.placement}, including \texttt{spread\_across\_hosts}, \texttt{prefer\_spread\_across\_hosts}, and \texttt{allow\_oversubscribe}.} Oversubscribed deployments use live CPU and memory resource constraints rather than exclusive device reservation, and the selected placement policy remains part of the recorded run state.
+
+Figure~\ref{fig:queue_admission_dispatch} provides a concrete example. Running jobs are considered first, then queued pending submissions are checked in order of priority and arrival time. The dispatcher combines the submission record, image, placement policy, live inventory, and existing reservations to decide whether the run can be admitted. If the checks pass, it reserves the client and server capacity before starting the submit runner.
+
+
 
 \FloatBarrier 
 \subsection[Nomad rendering and service wiring]{Nomad rendering and service wiring \impltaghead{implcomp:deploy}{paletteGreen}{nomad}\impltaghead{implcomp:runtime}{paletteOrange}{roles}}
 
-At this point, \texttt{fedctl} has a resolved deployment plan: the Flower roles to run, the device classes they should use, their resource reservations, and any network profiles. The \implterm{paletteGreen}{Nomad renderer} is the bridge from that plan to the cluster. It emits and submits the job specifications for SuperLink, SuperNodes, ServerApp, and ClientApps, starting the services first so their endpoints are discoverable before \texttt{flwr run} launches the application. Table~\ref{tab:nomad_flower_role_mapping} maps the Flower roles to the scheduler objects used in this deployment; Appendix~\ref{def:nomad} provides the Nomad vocabulary behind those objects.
+At this point, \texttt{fedctl} has a deployment plan: the Flower roles to run, the device classes they should use, their resource reservations, and any network profiles. The \implterm{paletteGreen}{Nomad renderer} is the bridge from that plan to the cluster. It emits and submits the job specifications for SuperLink, SuperNodes, ServerApp, and ClientApps, starting the services in order so their endpoints are discoverable before \texttt{flwr run} eventually launches the application. Table~\ref{tab:nomad_flower_role_mapping} maps the Flower roles to the scheduler objects used in this deployment; Appendix~\ref{def:nomad} introduces the Nomad terminology used throughout this section.
 
 \begin{table}[!htbp]
 \centering
 \small
-{\renewcommand{\arraystretch}{1.18}
+{\renewcommand{\arraystretch}{1.2}
 \begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{0.16\textwidth}>{\raggedright\arraybackslash}p{0.28\textwidth}>{\raggedright\arraybackslash}X@{}}
 \toprule
-\textbf{Flower role} & \textbf{Nomad mapping} & \textbf{Purpose in the run} \\
+\textbf{Flower role} & \textbf{Nomad mapping} & \textbf{Description} \\
 \midrule
 SuperLink & Link-class service job & Hosts the central Flower endpoints used by SuperNodes and the ServerApp. \\
 SuperNodes & Service job with one task group per logical client & Provide client-side runtime endpoints; in \texttt{fedctl}, one endpoint is paired with each logical client and device placement. \\
@@ -321,10 +322,10 @@ ClientApp & One service job per logical client & Runs each client application ag
 % The control plane starts SuperLink first, then SuperNodes, then server-app and client-app SuperExec jobs. It writes the deployment manifest, configures the Flower project to use the remote federation, and invokes \texttt{flwr run <project> remote-deployment} with the materialized run config. Flower sees a normal remote deployment, while \texttt{fedctl} has already fixed placement, network, and service wiring.
 
 \paragraph{Service discovery.}
-Runtime addresses are injected through Nomad service definitions. SuperNodes discover the SuperLink service; the ServerApp receives the SuperLink ServerApp endpoint; and each ClientApp receives the corresponding SuperNode ClientApp endpoint. This makes the deployment robust to changing allocation IPs and ports across runs.
+Runtime dynamic IP addresses are injected through Nomad service discovery. SuperNodes discover the SuperLink service; the ServerApp receives the SuperLink ServerApp endpoint; and each ClientApp receives the corresponding SuperNode ClientApp endpoint. This makes the deployment robust to changing IPs and ports across runs.
 
 \paragraph{Runtime metadata.}
-The renderer also injects experiment and placement metadata into the runtime. ClientApp containers receive the logical client index, device type, experiment identity, and, where strict placement is used, node identity. The research app \researchapp{} records this metadata with client metrics, which is what allows the evaluation to group training time, update share, and submodel quality by device class.
+The renderer also injects experiment and placement metadata into the runtime. ClientApp containers receive the logical client index, device type, experiment identity, and, where strict placement is used, node identity. The research app \researchapp{} records this metadata with client metrics. This allows the evaluation to group training time, update share, and submodel quality by device class.
 
 % Direct and queued runs converge on this downstream deployment path, so batch experiments and interactive debugging sessions exercise the same deployment code. The resulting operational state is exposed through the \implterm{gray}{submit-service UI and logs}, detailed in Appendix~\ref{appendix:observability_submit_ui}.
 
@@ -333,45 +334,43 @@ The renderer also injects experiment and placement metadata into the runtime. Cl
 \section{Controlling Real Hardware Heterogeneity}
 \label{sec:impl_heterogeneity_control}
 
-Hardware heterogeneity is inherent in a real edge cluster, but it must be controlled to support meaningful experiments. \texttt{fedctl} makes each client's hardware class and network conditions explicit at deployment time. Device-aware placement assigns logical clients to hardware classes; network impairment applies controlled communication conditions.
+Hardware heterogeneity is inherent in a real edge cluster, but it must be controlled to support reproducible experiments. \texttt{fedctl} exposes two deployment controls: typed client placement for compute heterogeneity, and network impairment for straggler-induced heterogeneity.
 
 \FloatBarrier
-\subsection[Device-aware placement]{Device-aware placement \impltaghead{implcomp:dep}{darkblue}{dep}\impltaghead{implcomp:deploy}{paletteGreen}{nomad}\impltaghead{implcomp:substrate}{fedstalebrown}{cluster}}
+\subsection[Typed client placement]{Typed client placement \impltaghead{implcomp:dep}{darkblue}{dep}\impltaghead{implcomp:deploy}{paletteGreen}{nomad}\impltaghead{implcomp:substrate}{fedstalebrown}{cluster}}
 
-Device-aware placement exposes hardware heterogeneity as a declarative deployment variable. A run specifies \implterm{darkblue}{typed SuperNodes}, where each type corresponds to a hardware class such as \texttt{rpi4} or \texttt{rpi5}. Figure~\ref{fig:device_placement} traces this topology request to the device-labelled metrics used in the evaluation.
+Typed client placement turns a requested client topology into scheduler constraints over the physical cluster. A run specifies typed clients, where each type corresponds to a worker class such as \texttt{rpi4} or \texttt{rpi5}. Figure~\ref{fig:device_placement} traces this topology request to the device-labelled metrics used in the evaluation.
 
 \begin{figure}[!htbp]
 \centering
 \makebox[\textwidth][c]{%
   \includegraphics[width=\textwidth]{figures/device_placement_clean.pdf}%
 }
-\caption{\textbf{Device-aware placement and metadata flow.}}
+\caption{\textbf{Typed client placement and metadata flow.}}
 \label{fig:device_placement}
 \end{figure}
 
-\paragraph{Typed SuperNodes.}
-The interface is the \texttt{--supernodes} flag, which defines the logical topology as typed counts and overrides the deploy config \deployconf{} when present\footnote{If omitted, the same specification is read from \texttt{deploy.supernodes}. In both cases, the run records a typed SuperNode topology rather than a flat pool of interchangeable clients.}:
+\paragraph{Typed clients.}
+The interface is the \verb|--supernodes| flag\footnote{In Flower, a SuperNode is the client-side runtime endpoint used in a deployed federation. In \texttt{fedctl}, each typed logical client is materialised as one SuperNode endpoint plus one paired client execution job.}, which defines the logical client topology as typed counts and overrides the deploy config \deployconf{} when present\footnote{If omitted, the same specification is read from \texttt{deploy.supernodes}. In both cases, the run records a typed logical-client topology rather than a flat pool of interchangeable clients.}:
 \begin{codeblock}{bash}
 fedctl submit run <project>
   --supernodes rpi4=10, rpi5=10
 \end{codeblock}
 
 
-\paragraph{Deployment realisation.}
-At deployment time, typed SuperNodes are mapped onto physical nodes by matching the requested type to \implterm{fedstalebrown}{Nomad node metadata}. Placement can be strictly pinned, constrained by device class, or expressed as a soft affinity. \footnote{It is enforced either by pinning to \texttt{node.unique.id} or by constraining \texttt{meta.device\_type}.}
+At deployment time, typed clients are mapped onto physical nodes by matching the requested type to \implterm{fedstalebrown}{Nomad node metadata}. Placement can be strictly pinned, constrained by device class, or expressed as soft constraints.\footnote{It is enforced either by pinning to \texttt{node.unique.id} or by constraining \texttt{meta.device\_type}.}
 
 \paragraph{Execution pairing.}
-Each typed SuperNode is realised as a paired runtime: a Flower SuperNode communication endpoint and a corresponding client execution job. The pair shares a device-class constraint and a common instance index, so each logical SuperNode corresponds to exactly one communication endpoint and one execution context.
+Each typed client is realised as a paired runtime: a Flower SuperNode communication endpoint and a corresponding client execution job. The pair shares a device-class constraint and a common instance index, so each logical client corresponds to exactly one communication endpoint and one execution context.
 
-\paragraph{Evaluation linkage.}
-Device type and instance identity are exposed to the application via environment variables, and are recorded with client metrics. This links deployment to evaluation: compute-heterogeneity experiments assign different model rates to \texttt{rpi4} and \texttt{rpi5}, while diagnostics such as training time, update share, aggregation weight, and staleness are analysed by device class.
+Device type and identity are exposed to the application via environment variables, and are recorded with client metrics. This links deployment to evaluation: compute-heterogeneity experiments assign different model rates to \texttt{rpi4} and \texttt{rpi5}, while diagnostics such as training time, update share, aggregation weight, and staleness are analysed by device class.
 
 \FloatBarrier
 \subsection[Network impairment]{Network impairment \impltaghead{implcomp:dep}{darkblue}{dep}\impltaghead{implcomp:deploy}{paletteGreen}{nomad}}
 
-Network impairment exposes communication heterogeneity as a deployment variable rather than a property of the FL method implementation. The deploy config \deployconf{} assigns a named impairment profile to each logical SuperNode. When a profile is active, \texttt{fedctl} renders the corresponding SuperNode task so that \texttt{flower-supernode} starts through a generated wrapper. The wrapper installs Linux traffic-control rules, verifies the resulting configuration, and then executes the normal SuperNode process. The research application and aggregation code therefore observe the same Flower runtime interface, while the deployment layer controls the network path.
+Network impairment exposes network communication as a deployment variable. The deploy config \deployconf{} assigns a named impairment profile to each logical SuperNode. When a profile is active, \texttt{fedctl} renders the corresponding SuperNode task so that \texttt{flower-supernode} starts through a generated wrapper. The wrapper installs Linux traffic-control rules before executing the SuperNode process. The Flower application therefore observes the same runtime interface; the deployment layer controls the network path.
 
-\texttt{netem} is Linux's network-emulation facility for adding delay, jitter, packet loss, and bandwidth shaping; Appendix~\ref{def:network_evidence} gives the short definition used in this dissertation. Figure~\ref{fig:network_impairment} summarises the path from profile definition to logical assignment, Nomad rendering, wrapper setup, and ingress/egress enforcement.
+\texttt{netem} is Linux's network-emulation facility for adding delay, jitter, packet loss, and bandwidth shaping. Figure~\ref{fig:network_impairment} illustrates the network impairment pipeline from profile definition to logical assignment, Nomad rendering, wrapper setup, and ingress/egress enforcement.
 
 \begin{figure}[!htbp]
 \centering
@@ -383,7 +382,7 @@ Network impairment exposes communication heterogeneity as a deployment variable 
 \end{figure}
 
 \paragraph{Profiles and assignment.}
-A network profile is a named collection of traffic-shaping parameters consumed by the wrapper; \hyperlink{example:concrete-deploy-config}{\underline{the earlier deploy-config example}} gives one \texttt{mild} profile. Profiles may be symmetric or direction-specific, with \texttt{default\_profile} supplying the fallback when no explicit assignment is given. Assignments are resolved after typed placement, so selectors such as \texttt{rpi4[*]} or \texttt{rpi5[1]} refer to logical SuperNodes rather than physical hostnames. Direction-specific mappings use the tuple order \texttt{(ingress, egress)}, and the submit-time \texttt{--net} flag can override the deploy-config default.
+A network profile is a named collection of traffic-shaping parameters consumed by the wrapper. \hyperlink{example:concrete-deploy-config}{\underline{earlier deploy-config example}} gives one \texttt{mild} profile. Assignments are resolved after typed placement, so selectors such as \texttt{rpi4[*]} mean all \texttt{rpi4} nodes, while \texttt{rpi5[1]} refers to the first \texttt{rpi5} node. Direction-specific impairment uses the tuple order \texttt{(ingress, egress)}. For example:
 
 \begin{table}[!htbp]
 \centering
@@ -405,17 +404,23 @@ A network profile is a named collection of traffic-shaping parameters consumed b
 \label{tab:impl_network_profiles}
 \end{table}
 
-\paragraph{Wrapper enforcement.}
-At deployment time, \texttt{fedctl} validates the selected profiles, expands typed selectors, and renders each affected SuperNode task to run as \texttt{root} with Docker \texttt{NET\_ADMIN}. The task receives \texttt{NET\_*} variables and starts through the generated wrapper script. Egress impairment attaches \texttt{tc qdisc} rules directly to the task interface. Ingress impairment redirects packets through an \texttt{ifb} device before applying the same token-bucket and \texttt{netem} controls. The wrapper then \texttt{exec}s \texttt{flower-supernode}, so the deployed FL application continues to use the normal Flower interface.
+\begin{codeblock}{bash}
+fedctl submit run <project>
+  --net "rpi4[*]=mild,rpi5[1]=none,rpi5[2]=(mild,none)"
+\end{codeblock}
+
+
+\paragraph{Impairment setup.}
+At deployment time, \texttt{fedctl} turns the selected profiles into per-SuperNode startup rules. It first validates profile names and expands typed selectors such as \texttt{rpi4[*]} into concrete logical SuperNodes. For each impaired SuperNode, the rendered Nomad task receives the selected profile through \texttt{NET\_*} environment variables and runs a Linux traffic-control wrapper before launching \texttt{flower-supernode}. The wrapper applies egress rules directly on the task interface; for ingress rules, it redirects incoming traffic through an \texttt{ifb} device before applying the same \texttt{netem} and bandwidth controls.
+
 
 % \paragraph{Experimental scope.}
 % The reported network experiments apply impairment at the SuperNode role. This targets the communication path between logical clients and the Flower federation while keeping server and client application code unchanged. The same wrapper mechanism could also be enabled for ServerApp or ClientApp SuperExec roles, but those extensions are not used in the dissertation experiments.
 
-\FloatBarrier
-\section{Flower Application and Method Layer}
+\section{Research App and FL Method Implementation}
 \label{sec:impl_flower_application}
 
-The dissertation-specific FL logic is implemented in the \implterm{paletteOrange}{research app} \researchapp{}. It resolves run configs, constructs tasks and models, loads partitions, executes local client work, coordinates server-side methods, and records method-level outputs. Figure~\ref{fig:application_method_layer} shows the boundary between deployment metadata, shared server/client task code, and the evidence consumed by Chapter~\ref{chap:evaluation}.
+The \implterm{paletteOrange}{research app} \researchapp{} is the Flower application that supplies the experiment logic evaluated in Chapter~\ref{chap:evaluation}. It resolves run configs, constructs tasks and models, loads partitions, executes local client work, coordinates server-side methods, and records method-level outputs. Figure~\ref{fig:application_method_layer} shows the boundary between deployment metadata, shared server/client task code, and the evidence consumed by Chapter~\ref{chap:evaluation}.
 
 \begin{figure}[!htbp]
 \centering
@@ -428,23 +433,23 @@ The dissertation-specific FL logic is implemented in the \implterm{paletteOrange
 
 \subsection[Research-app interface]{Research-app interface \impltaghead{implcomp:runtime}{paletteOrange}{app}}
 
-The server and client entry points share one task interface. A run config selects the task, model, partitioner, method, optimizer settings, local budget, and evaluation path; the task implementation then supplies model construction, partition loading, local training, local evaluation, and centralized evaluation. Appendix~\ref{appendix:evaluation_tasks} summarises the evaluation datasets and task models instantiated through this interface.
+The server and client entry points share one task interface. A run config selects the task, model, partitioner, method, optimiser settings, local budget, and evaluation path; the task implementation then supplies model construction, partition loading, local training, local evaluation, and centralised evaluation. Appendix~\ref{appendix:evaluation_tasks} summarises the evaluation datasets and task models instantiated through this interface.
 
-Clients return updated parameters together with loss, example count, timing, throughput, device type, model rate, and partition identity. The server records target attainment, centralized evaluation, asynchronous staleness, accepted-update metadata, and method-specific diagnostics. This evidence path is what lets Chapter~\ref{chap:evaluation} relate accuracy, runtime, submodel quality, and slow-device influence back to the deployment choices fixed by \texttt{fedctl}.
+Clients return updated parameters together with loss, example count, timing, throughput, device type, model rate, and partition identity. The server records target attainment, centralised evaluation, asynchronous staleness, accepted-update metadata, and method-specific diagnostics. This evidence path is what lets Chapter~\ref{chap:evaluation} relate accuracy, runtime, submodel quality, and slow-device influence back to the deployment choices fixed by \texttt{fedctl}.
 
 \FloatBarrier
-\subsection{Implemented method families}
+\subsection{FL method implementation}
 
-The method layer implements the families evaluated in Chapter~\ref{chap:evaluation}. Chapter~\ref{chap:related_work} gives prior-method context, and Appendix~\ref{appendix:algorithms} gives unified pseudocode; here the emphasis is on the implementation distinctions needed for deployed experiments.
+The method layer implements the families evaluated in Chapter~\ref{chap:evaluation}. Appendix~\ref{appendix:algorithms} gives unified pseudocode for each method; here the emphasis is on the implementation details for deployment.
 
 \paragraph{Full-model synchronous training.}
 \texttt{FedAvg} is the full-model synchronous baseline. The server broadcasts the same global model to selected clients, waits for the configured replies, and aggregates returned models by example count.
 
 \paragraph{Submodel training.}
-\texttt{HeteroFL}, \texttt{FedRolex}, and \texttt{FIARSE} share one partial-training pipeline: select the client-visible parameter subset, train locally, scatter returned updates back into the global model, and aggregate only covered regions. They differ in the selection rule: fixed nested slices for \texttt{HeteroFL}, rolling windows for \texttt{FedRolex}, and sparse importance masks for \texttt{FIARSE}. \texttt{FIARSE} follows the paper's sparse-mask training mechanism, but executes those masks through dense PyTorch kernels on worker CPUs, so improved submodel quality does not necessarily translate into measured wall-clock speedup.
+\texttt{HeteroFL}, \texttt{FedRolex}, and \texttt{FIARSE} share one partial-training pipeline: select the client-visible parameter subset, train locally, scatter returned updates back into the global model, and aggregate only covered regions. They differ in the selection rule, as Figure~\ref{fig:model_heterogeneity_method_overview} summarises: fixed nested slices for \texttt{HeteroFL}, rolling windows for \texttt{FedRolex}, and sparse importance masks for \texttt{FIARSE}. \texttt{FIARSE} follows the paper's sparse-mask training mechanism, but executes those masks through dense PyTorch kernels on worker CPUs, so improved submodel quality does not necessarily translate into measured wall-clock speedup.
 
 \paragraph{Buffered asynchronous training.}
-\texttt{FedBuff} and \texttt{FedStaleWeight} use a custom buffered asynchronous server loop so the implementation can control in-flight concurrency, buffering, staleness, and accepted-update logging. \texttt{FedStaleWeight} changes only the buffer weighting rule, using the stale-aware weighting described in Section~\ref{sec:fedstaleweight_related}. The server records both update share and weight share, separating arrival frequency from aggregate influence.
+\texttt{FedBuff} and \texttt{FedStaleWeight} use a buffered asynchronous server loop so the implementation can control in-flight concurrency, buffering, staleness, and accepted-update logging. \texttt{FedStaleWeight} changes only the buffer weighting rule, using the stale-aware weighting described in Section~\ref{sec:fedstaleweight_related}. The server records both update share and weight share, separating arrival frequency from aggregate influence.
 
 \paragraph{Asynchronous submodel FL.}
 \texttt{FedCover} combines the buffered asynchronous loop with HeteroFL-style nested submodels. Each reply carries its model rate and trained parameter slice, allowing the server to scatter the returned delta into the global parameter space and measure which parameters were covered. Section~\ref{sec:fedcover_impl} introduces the resulting coverage-aware aggregation algorithm.
@@ -453,29 +458,43 @@ The method layer implements the families evaluated in Chapter~\ref{chap:evaluati
 \section{\texttt{FedCover}: Coverage-Aware Buffered Aggregation}
 \label{sec:fedcover_impl}
 
-This section defines \texttt{FedCover} for asynchronous submodel FL, the setting introduced in Section~\ref{sec:async_submodel_related}. The base path combines \texttt{FedBuff}-style buffering with \texttt{HeteroFL}-style nested slicing; \texttt{FedCover} keeps that path and adds only a capped inverse-coverage correction to each aggregated parameter delta.
+Section~\ref{sec:async_submodel_related} motivates the coverage mismatch created by stale partial submodel replies. This section defines \texttt{FedCover}, the server-side correction used in the implementation. The baseline is \texttt{Async-HeteroFL}: \texttt{FedBuff}-style buffering combined with \texttt{HeteroFL}-style nested slicing. \texttt{FedCover} further rescales each covered parameter delta by a capped inverse-coverage gain.
 
 \paragraph{Buffered submodel replies.}
-At server step \(s\), let \(\mathcal{B}_s\) be the accepted buffer, let \(\alpha_i\) be the stale-update weight for reply \(i\), and let \(I_i\) be the submodel parameter set trained by that reply. The shared asynchronous sign convention is \(\Delta_i=w^{[v_i]}-\tilde{w}_i\), with local component \(\Delta_{i,j}\) defined when \(j \in I_i\).
+At server step \(s\), let \(\mathcal{B}_s\) be the accepted buffer, let \(q_i\) be the staleness score for reply \(i\), and let
+\[
+    \alpha_i =
+    \frac{q_i}{\sum_{u\in\mathcal{B}_s}q_u}
+\]
+be its normalised buffer weight. Let \(I_i\) be the submodel parameter set trained by reply \(i\). The shared asynchronous sign convention is \(\Delta_i=w^{[v_i]}-\tilde{w}_i\), where \(v_i\) is the server version downloaded by the client, with local coordinate \([\Delta_i]_j\) defined when \(j \in I_i\).
 
 \paragraph{Parameter-level coverage.}
-The buffered partial-model delta for parameter \(j\) is
+The buffered model delta for parameter \(j\) is
 \[
-    \bar{\Delta}_j^{[s]}
+    [\bar{\Delta}^{[s]}]_j
     =
     \sum_{i \in \mathcal{B}_s}
-    \alpha_i \mathbf{1}[j \in I_i]\Delta_{i,j}.
+    \alpha_i \mathbf{1}[j \in I_i][\Delta_i]_j.
 \]
-FedCover also measures the observed coverage mass,
+FedCover defines the observed coverage mass \(c_j^{[s]}\) for parameter \(j\) as:,
 \[
     c_j^{[s]} =
     \sum_{i \in \mathcal{B}_s}
     \alpha_i \mathbf{1}[j \in I_i].
 \]
-The weights \(\alpha_i\) are normalized over the accepted buffer, so \(0 \le c_j^{[s]} \le 1\). The coverage mass is the stale-weighted accepted mass whose submodel contains \(j\), not a count of buffered replies. Thus, under-covered parameters receive a smaller effective update even when the buffer itself is full.
+This can be seen as the sum of the buffer weights for the accepted replies whose submodel contains parameter \(j\). The buffer weights \(\alpha_i\) are normalised over the accepted buffer reply staleness score \(q_i\), so \(0 \le c_j^{[s]} \le 1\). Thus, before correction, parameters covered by stale replies contribute less to the buffered model delta.
 
 \paragraph{Inverse-coverage gain.}
-Figure~\ref{fig:fedcover_coverage_gain} illustrates coverage mass for one parameter and the resulting gain curve.
+Under nested submodels, shared prefix parameters have high coverage mass, while outer blocks used only by larger model rates have lower coverage mass. 
+\texttt{FedCover} scales coverage mass with a capped inverse-coverage gain. Figure~\ref{fig:fedcover_coverage_gain} shows one accepted buffer and the resulting gain curve.
+
+The gain for parameter \(j\) is
+\[
+    \kappa_j^{[s]}
+    =
+    \min\!\left(\kappa_{\max}, (c_j^{[s]})^{-\gamma}\right)
+    \quad \text{for } c_j^{[s]} > 0.
+\]
 
 \begin{figure}[!htbp]
 \centering
@@ -568,27 +587,19 @@ Figure~\ref{fig:fedcover_coverage_gain} illustrates coverage mass for one parame
     {\(\kappa(c)=\min(\kappa_{\max},c^{-\gamma})\), applied only when \(c>0\)};
 \end{tikzpicture}
 \end{adjustbox}
-\caption{FedCover converts partial-model coverage into an inverse-coverage gain. The left panel shows one accepted buffer in which parameter \(j\) is present in only three replies, giving \(c_j^{[s]}=0.60\). The right panel shows the corresponding gain curve for an illustrative hyperparameter choice; the flat region is the gain cap, not an additional coverage threshold.}
+\caption{\textbf{FedCover converts partial-model coverage into an inverse-coverage gain}. The left panel shows one accepted buffer in which parameter \(j\) is present in only three replies out of five, giving \(c_j^{[s]}=0.60\). The right shows the corresponding gain curve for an example hyperparameter choice, giving \(\kappa=1.29\); the flat region is the gain cap \(\kappa_{\max}\).}
 \label{fig:fedcover_coverage_gain}
 \end{figure}
-
-Under nested submodels, shared prefix parameters have high coverage mass, while outer blocks used only by larger model rates have lower coverage mass. The server converts coverage mass directly into a capped inverse-coverage gain,
-\[
-    \kappa_j^{[s]}
-    =
-    \min\!\left(\kappa_{\max}, (c_j^{[s]})^{-\gamma}\right)
-    \quad \text{for } c_j^{[s]} > 0.
-\]
 
 \paragraph{Corrected server update.}
 The server applies
 \[
-    w_j^{[s+1]}
+    [w^{[s+1]}]_j
     =
-    w_j^{[s]} - \eta_s \kappa_j^{[s]}\bar{\Delta}_j^{[s]}
+    [w^{[s]}]_j - \eta_s \kappa_j^{[s]}[\bar{\Delta}^{[s]}]_j
     \quad \text{when } c_j^{[s]} > 0,
 \]
-and leaves \(w_j\) unchanged when the buffer contains no update for that parameter. The correction only rescales parameters that appear in the accepted buffer; it does not impute updates for parameters with \(c_j^{[s]}=0\). Full coverage gives \(\kappa_j^{[s]}=1\); lower coverage increases the update by an inverse-coverage factor, with \(\gamma\) controlling the correction strength and \(\kappa_{\max}\) preventing excessive amplification. If all clients train the full model, \texttt{FedCover} reduces to ordinary buffered asynchronous aggregation; setting \(\gamma=0\) recovers the coverage-disabled asynchronous \texttt{HeteroFL} baseline.
+and leaves \([w^{[s+1]}]_j=[w^{[s]}]_j\) when the buffer contains no update for that parameter. Full coverage gives \(\kappa_j^{[s]}=1\), while lower coverage scales the update by the inverse-coverage gain. The hyperparameter \(\gamma\) controls correction strength, and \(\kappa_{\max}\) prevents excessive amplification.
 
 \FloatBarrier
 % \section{Repository Organisation}

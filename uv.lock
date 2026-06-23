@@ -84,7 +84,7 @@ wheels = [
 
 [[package]]
 name = "fedctl"
-version = "0.1.5"
+version = "0.1.13"
 source = { editable = "." }
 dependencies = [
     { name = "boto3" },

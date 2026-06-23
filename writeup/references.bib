@@ -7,26 +7,38 @@
 }
 
 @article{xiao2017fashionmnist,
-  title         = {{Fashion-MNIST}: A Novel Image Dataset for Benchmarking Machine Learning Algorithms},
-  author        = {Xiao, Han and Rasul, Kashif and Vollgraf, Roland},
-  journal       = {CoRR},
-  volume        = {abs/1708.07747},
-  year          = {2017},
-  eprint        = {1708.07747},
-  archivePrefix = {arXiv},
-  url           = {https://arxiv.org/abs/1708.07747}
+  author       = {Han Xiao and
+                  Kashif Rasul and
+                  Roland Vollgraf},
+  title        = {Fashion-MNIST: a Novel Image Dataset for Benchmarking Machine Learning
+                  Algorithms},
+  journal      = {CoRR},
+  volume       = {abs/1708.07747},
+  year         = {2017},
+  url          = {http://arxiv.org/abs/1708.07747},
+  eprinttype   = {arXiv},
+  eprint       = {1708.07747},
+  timestamp    = {Mon, 13 Aug 2018 16:47:27 +0200},
+  biburl       = {https://dblp.org/rec/journals/corr/abs-1708-07747.bib},
+  bibsource    = {dblp computer science bibliography, https://dblp.org}
 }
 
+
 @article{pace1997sparse,
-  title   = {Sparse Spatial Autoregressions},
-  author  = {Pace, R. Kelley and Barry, Ronald},
-  journal = {Statistics \& Probability Letters},
-  volume  = {33},
-  number  = {3},
-  pages   = {291--297},
-  year    = {1997},
-  doi     = {10.1016/S0167-7152(96)00140-X}
+title = {Sparse spatial autoregressions},
+journal = {Statistics \& Probability Letters},
+volume = {33},
+number = {3},
+pages = {291-297},
+year = {1997},
+issn = {0167-7152},
+doi = {https://doi.org/10.1016/S0167-7152(96)00140-X},
+url = {https://www.sciencedirect.com/science/article/pii/S016771529600140X},
+author = {R. {Kelley Pace} and Ronald Barry},
+keywords = {Spatial autoregression, SAR, Sparse matrices},
+abstract = {Given local spatial error dependence, one can construct sparse spatial weight matrices. As an illustration of the power of such sparse structures, we computed a simultaneous autoregression using 20 640 observations in under 19 min despite needing to compute a 20 640 by 20 640 determinant 10 times.}
 }
+
 
 @article{mcmahan2017fedavg,
   author       = {H. Brendan McMahan and
@@ -44,6 +56,7 @@
   biburl       = {https://dblp.org/rec/journals/corr/McMahanMRA16.bib},
   bibsource    = {dblp computer science bibliography, https://dblp.org}
 }
+
 
 @article{kairouz2021advances,
   author       = {Peter Kairouz and
@@ -116,6 +129,7 @@
   bibsource    = {dblp computer science bibliography, https://dblp.org}
 }
 
+
 @article{wang2021field,
   author       = {Jianyu Wang and
                   Zachary Charles and
@@ -182,7 +196,54 @@
   bibsource    = {dblp computer science bibliography, https://dblp.org}
 }
 
-@inproceedings{li2020heterogeneous,
+@inproceedings{bonawitz2017secureaggregation,
+author = {Bonawitz, Keith and Ivanov, Vladimir and Kreuter, Ben and Marcedone, Antonio and McMahan, H. Brendan and Patel, Sarvar and Ramage, Daniel and Segal, Aaron and Seth, Karn},
+title = {Practical Secure Aggregation for Privacy-Preserving Machine Learning},
+year = {2017},
+isbn = {9781450349468},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3133956.3133982},
+doi = {10.1145/3133956.3133982},
+abstract = {We design a novel, communication-efficient, failure-robust protocol for secure aggregation of high-dimensional data. Our protocol allows a server to compute the sum of large, user-held data vectors from mobile devices in a secure manner (i.e. without learning each user's individual contribution), and can be used, for example, in a federated learning setting, to aggregate user-provided model updates for a deep neural network. We prove the security of our protocol in the honest-but-curious and active adversary settings, and show that security is maintained even if an arbitrarily chosen subset of users drop out at any time. We evaluate the efficiency of our protocol and show, by complexity analysis and a concrete implementation, that its runtime and communication overhead remain low even on large data sets and client pools. For 16-bit input values, our protocol offers $1.73 x communication expansion for 210 users and 220-dimensional vectors, and 1.98 x expansion for 214 users and 224-dimensional vectors over sending data in the clear.},
+booktitle = {Proceedings of the 2017 ACM SIGSAC Conference on Computer and Communications Security},
+pages = {1175--1191},
+numpages = {17},
+keywords = {federated learning, machine learning, privacy-preserving protocols, secure aggregation},
+location = {Dallas, Texas, USA},
+series = {CCS '17}
+}
+
+
+@inproceedings{dwork2006calibrating,
+author = {Dwork, Cynthia and McSherry, Frank and Nissim, Kobbi and Smith, Adam},
+title = {Calibrating noise to sensitivity in private data analysis},
+year = {2006},
+isbn = {3540327312},
+publisher = {Springer-Verlag},
+address = {Berlin, Heidelberg},
+url = {https://doi.org/10.1007/11681878_14},
+doi = {10.1007/11681878_14},
+abstract = {We continue a line of research initiated in [10,11]on privacy-preserving statistical databases. Consider a trusted server that holds a database of sensitive information. Given a query function f mapping databases to reals, the so-called true answer is the result of applying f to the database. To protect privacy, the true answer is perturbed by the addition of random noise generated according to a carefully chosen distribution, and this response, the true answer plus noise, is returned to the user.Previous work focused on the case of noisy sums, in which f = ∑ig(xi), where xi denotes the ith row of the database and g maps database rows to [0,1]. We extend the study to general functions f, proving that privacy can be preserved by calibrating the standard deviation of the noise according to the sensitivity of the function f. Roughly speaking, this is the amount that any single argument to f can change its output. The new analysis shows that for several particular applications substantially less noise is needed than was previously understood to be the case.The first step is a very clean characterization of privacy in terms of indistinguishability of transcripts. Additionally, we obtain separation results showing the increased value of interactive sanitization mechanisms over non-interactive.},
+booktitle = {Proceedings of the Third Conference on Theory of Cryptography},
+pages = {265--284},
+numpages = {20},
+location = {New York, NY},
+series = {TCC'06}
+}
+
+@inproceedings{abadi2016deep, series={CCS '16},
+   title={Deep Learning with Differential Privacy},
+   url={http://dx.doi.org/10.1145/2976749.2978318},
+   DOI={10.1145/2976749.2978318},
+   booktitle={Proceedings of the 2016 ACM SIGSAC Conference on Computer and Communications Security},
+   publisher={ACM},
+   author={Abadi, Martin and Chu, Andy and Goodfellow, Ian and McMahan, H. Brendan and Mironov, Ilya and Talwar, Kunal and Zhang, Li},
+   year={2016},
+   month=Oct, pages={308--318},
+   collection={CCS '16} }
+
+@article{li2020heterogeneous,
   author       = {Anit Kumar Sahu and
                   Tian Li and
                   Maziar Sanjabi and
@@ -201,22 +262,16 @@
   bibsource    = {dblp computer science bibliography, https://dblp.org}
 }
 
-@article{diao2021heterofl,
-  author       = {Enmao Diao and
-                  Jie Ding and
-                  Vahid Tarokh},
-  title        = {HeteroFL: Computation and Communication Efficient Federated Learning
-                  for Heterogeneous Clients},
-  journal      = {CoRR},
-  volume       = {abs/2010.01264},
-  year         = {2020},
-  url          = {https://arxiv.org/abs/2010.01264},
-  eprinttype   = {arXiv},
-  eprint       = {2010.01264},
-  timestamp    = {Mon, 12 Oct 2020 17:53:10 +0200},
-  biburl       = {https://dblp.org/rec/journals/corr/abs-2010-01264.bib},
-  bibsource    = {dblp computer science bibliography, https://dblp.org}
+
+
+@inproceedings{diao2021heterofl,
+  title     = {{HeteroFL}: Computation and Communication Efficient Federated Learning for Heterogeneous Clients},
+  author    = {Diao, Enmao and Ding, Jie and Tarokh, Vahid},
+  booktitle = {International Conference on Learning Representations},
+  year      = {2021},
+  url       = {https://openreview.net/forum?id=TNkPBBYFkXg}
 }
+
 
 @inproceedings{alam2022fedrolex,
     title={FedRolex: Model-Heterogeneous Federated Learning with Rolling Sub-Model Extraction}, 
@@ -228,14 +283,14 @@
     url={https://arxiv.org/abs/2212.01548}, 
 }
 
-@inproceedings{zhang2023timelyfl,
-  title     = {{TimelyFL}: Heterogeneity-aware Asynchronous Federated Learning with Adaptive Partial Training},
-  author    = {Zhang, Tuo and Gao, Lei and Lee, Sunwoo and Zhang, Mi and Avestimehr, Salman},
-  booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition Workshops},
-  pages     = {5064--5073},
-  year      = {2023},
-  doi       = {10.1109/CVPRW59228.2023.00535},
-  url       = {https://arxiv.org/abs/2304.06947}
+@misc{zhang2023timelyfl,
+      title={TimelyFL: Heterogeneity-aware Asynchronous Federated Learning with Adaptive Partial Training}, 
+      author={Tuo Zhang and Lei Gao and Sunwoo Lee and Mi Zhang and Salman Avestimehr},
+      year={2023},
+      eprint={2304.06947},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/2304.06947}, 
 }
 
 @misc{wu2024fiarse,
@@ -248,17 +303,22 @@
       url={https://arxiv.org/abs/2407.19389}, 
 }
 
-@inproceedings{mostafa2019parameter,
-  title        = {Parameter Efficient Training of Deep Convolutional Neural Networks by Dynamic Sparse Reparameterization},
-  author       = {Hesham Mostafa and Xin Wang},
-  booktitle    = {Proceedings of the 36th International Conference on Machine Learning},
-  pages        = {4646--4655},
-  year         = {2019},
-  series       = {Proceedings of Machine Learning Research},
-  volume       = {97},
-  publisher    = {PMLR},
-  url          = {https://proceedings.mlr.press/v97/mostafa19a.html}
+@InProceedings{mostafa2019parameter,
+  title = 	 {Parameter efficient training of deep convolutional neural networks by dynamic sparse reparameterization},
+  author =       {Mostafa, Hesham and Wang, Xin},
+  booktitle = 	 {Proceedings of the 36th International Conference on Machine Learning},
+  pages = 	 {4646--4655},
+  year = 	 {2019},
+  editor = 	 {Chaudhuri, Kamalika and Salakhutdinov, Ruslan},
+  volume = 	 {97},
+  series = 	 {Proceedings of Machine Learning Research},
+  month = 	 {09--15 Jun},
+  publisher =    {PMLR},
+  pdf = 	 {http://proceedings.mlr.press/v97/mostafa19a/mostafa19a.pdf},
+  url = 	 {https://proceedings.mlr.press/v97/mostafa19a.html},
+  abstract = 	 {Modern deep neural networks are typically highly overparameterized. Pruning techniques are able to remove a significant fraction of network parameters with little loss in accuracy. Recently, techniques based on dynamic reallocation of non-zero parameters have emerged, allowing direct training of sparse networks without having to pre-train a large dense model. Here we present a novel dynamic sparse reparameterization method that addresses the limitations of previous techniques such as high computational cost and the need for manual configuration of the number of free parameters allocated to each layer. We evaluate the performance of dynamic reallocation methods in training deep convolutional networks and show that our method outperforms previous static and dynamic reparameterization methods, yielding the best accuracy for a fixed parameter budget, on par with accuracies obtained by iteratively pruning a pre-trained dense model. We further investigated the mechanisms underlying the superior generalization performance of the resultant sparse networks. We found that neither the structure, nor the initialization of the non-zero parameters were sufficient to explain the superior performance. Rather, effective learning crucially depended on the continuous exploration of the sparse network structure space during training. Our work suggests that exploring structural degrees of freedom during training is more effective than adding extra parameters to the network.}
 }
+
 
 @inproceedings{jayakumar2020topkast,
   title        = {Top-KAST: Top-K Always Sparse Training},
@@ -338,14 +398,6 @@
   note = {Accessed 2026-03-31}
 }
 
-@misc{tailscale,
-  title = {Tailscale},
-  author = {{Tailscale Inc.}},
-  year = {2026},
-  url = {https://tailscale.com/},
-  note = {Accessed 2026-03-31}
-}
-
 @misc{ansible,
   title = {Ansible Documentation},
   author = {{Red Hat}},
@@ -372,141 +424,254 @@
   bibsource    = {dblp computer science bibliography, https://dblp.org}
 }
 
-@inproceedings{bonawitz2019towards,
-  title     = {Towards Federated Learning at Scale: System Design},
-  author    = {Bonawitz, Keith and Eichner, Hubert and Grieskamp, Wolfgang and Huba, Dzmitry and Ingerman, Alex and Ivanov, Vladimir and Kiddon, Chlo{\'e} and Kone{\v{c}}n{\'y}, Jakub and Mazzocchi, Stefano and McMahan, H. Brendan and Van Overveldt, Timon and Petrou, David and Ramage, Daniel and Roselander, Jason},
-  booktitle = {Proceedings of Machine Learning and Systems},
-  volume    = {1},
-  pages     = {374--388},
-  year      = {2019},
-  url       = {https://proceedings.mlsys.org/paper_files/paper/2019/hash/7b770da633baf74895be22a8807f1a8f-Abstract.html}
+
+
+
+@article{bonawitz2019towards,
+  author       = {Kallista A. Bonawitz and
+                  Hubert Eichner and
+                  Wolfgang Grieskamp and
+                  Dzmitry Huba and
+                  Alex Ingerman and
+                  Vladimir Ivanov and
+                  Chlo{\'{e}} Kiddon and
+                  Jakub Kone{\v{c}}n{\'y} and
+                  Stefano Mazzocchi and
+                  H. Brendan McMahan and
+                  Timon Van Overveldt and
+                  David Petrou and
+                  Daniel Ramage and
+                  Jason Roselander},
+  title        = {Towards Federated Learning at Scale: System Design},
+  journal      = {CoRR},
+  volume       = {abs/1902.01046},
+  year         = {2019},
+  url          = {http://arxiv.org/abs/1902.01046},
+  eprinttype   = {arXiv},
+  eprint       = {1902.01046},
+  timestamp    = {Thu, 14 Oct 2021 09:14:58 +0200},
+  biburl       = {https://dblp.org/rec/journals/corr/abs-1902-01046.bib},
+  bibsource    = {dblp computer science bibliography, https://dblp.org}
 }
+
 
 @article{caldas2018leaf,
-  title         = {{LEAF}: A Benchmark for Federated Settings},
-  author        = {Caldas, Sebastian and Duddu, Sai Meher Karthik and Wu, Peter and Li, Tian and Kone{\v{c}}n{\'y}, Jakub and McMahan, H. Brendan and Smith, Virginia and Talwalkar, Ameet},
-  journal       = {CoRR},
-  volume        = {abs/1812.01097},
-  year          = {2018},
-  eprint        = {1812.01097},
-  archivePrefix = {arXiv},
-  url           = {https://arxiv.org/abs/1812.01097}
+  author       = {Sebastian Caldas and
+                  Peter Wu and
+                  Tian Li and
+                  Jakub Kone{\v{c}}n{\'y} and
+                  H. Brendan McMahan and
+                  Virginia Smith and
+                  Ameet Talwalkar},
+  title        = {{LEAF:} {A} Benchmark for Federated Settings},
+  journal      = {CoRR},
+  volume       = {abs/1812.01097},
+  year         = {2018},
+  url          = {http://arxiv.org/abs/1812.01097},
+  eprinttype   = {arXiv},
+  eprint       = {1812.01097},
+  timestamp    = {Wed, 23 Dec 2020 09:35:18 +0100},
+  biburl       = {https://dblp.org/rec/journals/corr/abs-1812-01097.bib},
+  bibsource    = {dblp computer science bibliography, https://dblp.org}
 }
 
-@inproceedings{lai2022fedscale,
-  title     = {{FedScale}: Benchmarking Model and System Performance of Federated Learning at Scale},
-  author    = {Lai, Fan and Dai, Yinwei and Singapuram, Sanjay and Liu, Jiachen and Zhu, Xiangfeng and Madhyastha, Harsha and Chowdhury, Mosharaf},
-  booktitle = {Proceedings of the 39th International Conference on Machine Learning},
-  pages     = {11814--11827},
-  year      = {2022},
-  volume    = {162},
-  series    = {Proceedings of Machine Learning Research},
-  publisher = {PMLR},
-  url       = {https://proceedings.mlr.press/v162/lai22a.html}
+@article{lai2022fedscale,
+  author       = {Fan Lai and
+                  Yinwei Dai and
+                  Xiangfeng Zhu and
+                  Mosharaf Chowdhury},
+  title        = {FedScale: Benchmarking Model and System Performance of Federated Learning},
+  journal      = {CoRR},
+  volume       = {abs/2105.11367},
+  year         = {2021},
+  url          = {https://arxiv.org/abs/2105.11367},
+  eprinttype   = {arXiv},
+  eprint       = {2105.11367},
+  timestamp    = {Tue, 09 Sep 2025 12:23:39 +0200},
+  biburl       = {https://dblp.org/rec/journals/corr/abs-2105-11367.bib},
+  bibsource    = {dblp computer science bibliography, https://dblp.org}
 }
 
-@inproceedings{lai2021oort,
-  title     = {Oort: Efficient Federated Learning via Guided Participant Selection},
-  author    = {Lai, Fan and Zhu, Xiangfeng and Madhyastha, Harsha V. and Chowdhury, Mosharaf},
-  booktitle = {15th {USENIX} Symposium on Operating Systems Design and Implementation ({OSDI} 21)},
-  pages     = {19--35},
-  year      = {2021},
-  publisher = {{USENIX} Association},
-  url       = {https://www.usenix.org/conference/osdi21/presentation/lai}
+
+@article{lai2021oort,
+  author       = {Fan Lai and
+                  Xiangfeng Zhu and
+                  Harsha V. Madhyastha and
+                  Mosharaf Chowdhury},
+  title        = {Oort: Informed Participant Selection for Scalable Federated Learning},
+  journal      = {CoRR},
+  volume       = {abs/2010.06081},
+  year         = {2020},
+  url          = {https://arxiv.org/abs/2010.06081},
+  eprinttype   = {arXiv},
+  eprint       = {2010.06081},
+  timestamp    = {Tue, 09 Sep 2025 12:23:39 +0200},
+  biburl       = {https://dblp.org/rec/journals/corr/abs-2010-06081.bib},
+  bibsource    = {dblp computer science bibliography, https://dblp.org}
 }
 
-@inproceedings{li2020fedprox,
-  title     = {Federated Optimization in Heterogeneous Networks},
-  author    = {Li, Tian and Sahu, Anit Kumar and Zaheer, Manzil and Sanjabi, Maziar and Talwalkar, Ameet and Smith, Virginia},
-  booktitle = {Proceedings of Machine Learning and Systems},
-  volume    = {2},
-  pages     = {429--450},
-  year      = {2020},
-  url       = {https://proceedings.mlsys.org/paper/2020/file/1f5fe83998a09396ebe6477d9475ba0c-Paper.pdf}
+@article{li2020fedprox,
+  author       = {Anit Kumar Sahu and
+                  Tian Li and
+                  Maziar Sanjabi and
+                  Manzil Zaheer and
+                  Ameet Talwalkar and
+                  Virginia Smith},
+  title        = {On the Convergence of Federated Optimization in Heterogeneous Networks},
+  journal      = {CoRR},
+  volume       = {abs/1812.06127},
+  year         = {2018},
+  url          = {http://arxiv.org/abs/1812.06127},
+  eprinttype   = {arXiv},
+  eprint       = {1812.06127},
+  timestamp    = {Wed, 23 Dec 2020 09:35:18 +0100},
+  biburl       = {https://dblp.org/rec/journals/corr/abs-1812-06127.bib},
+  bibsource    = {dblp computer science bibliography, https://dblp.org}
 }
 
 @article{hsu2019measuring,
-  title         = {Measuring the Effects of Non-Identical Data Distribution for Federated Visual Classification},
-  author        = {Hsu, Tzu-Ming Harry and Qi, Hang and Brown, Matthew},
-  journal       = {CoRR},
-  volume        = {abs/1909.06335},
-  year          = {2019},
-  eprint        = {1909.06335},
-  archivePrefix = {arXiv},
-  url           = {https://arxiv.org/abs/1909.06335}
+  author       = {Tzu{-}Ming Harry Hsu and
+                  Hang Qi and
+                  Matthew Brown},
+  title        = {Measuring the Effects of Non-Identical Data Distribution for Federated
+                  Visual Classification},
+  journal      = {CoRR},
+  volume       = {abs/1909.06335},
+  year         = {2019},
+  url          = {http://arxiv.org/abs/1909.06335},
+  eprinttype   = {arXiv},
+  eprint       = {1909.06335},
+  timestamp    = {Wed, 01 Apr 2020 15:30:17 +0200},
+  biburl       = {https://dblp.org/rec/journals/corr/abs-1909-06335.bib},
+  bibsource    = {dblp computer science bibliography, https://dblp.org}
 }
 
-@inproceedings{karimireddy2020scaffold,
-  title     = {{SCAFFOLD}: Stochastic Controlled Averaging for Federated Learning},
-  author    = {Karimireddy, Sai Praneeth and Kale, Satyen and Mohri, Mehryar and Reddi, Sashank J. and Stich, Sebastian U. and Suresh, Ananda Theertha},
-  booktitle = {Proceedings of the 37th International Conference on Machine Learning},
-  pages     = {5132--5143},
-  year      = {2020},
-  volume    = {119},
-  series    = {Proceedings of Machine Learning Research},
-  publisher = {PMLR},
-  url       = {https://proceedings.mlr.press/v119/karimireddy20a.html}
+
+@article{karimireddy2020scaffold,
+  author       = {Sai Praneeth Karimireddy and
+                  Satyen Kale and
+                  Mehryar Mohri and
+                  Sashank J. Reddi and
+                  Sebastian U. Stich and
+                  Ananda Theertha Suresh},
+  title        = {{SCAFFOLD:} Stochastic Controlled Averaging for On-Device Federated
+                  Learning},
+  journal      = {CoRR},
+  volume       = {abs/1910.06378},
+  year         = {2019},
+  url          = {http://arxiv.org/abs/1910.06378},
+  eprinttype   = {arXiv},
+  eprint       = {1910.06378},
+  timestamp    = {Wed, 16 Oct 2019 16:25:53 +0200},
+  biburl       = {https://dblp.org/rec/journals/corr/abs-1910-06378.bib},
+  bibsource    = {dblp computer science bibliography, https://dblp.org}
 }
 
-@inproceedings{wang2020fednova,
-  title     = {Tackling the Objective Inconsistency Problem in Heterogeneous Federated Optimization},
-  author    = {Wang, Jianyu and Liu, Qinghua and Liang, Hao and Joshi, Gauri and Poor, H. Vincent},
-  booktitle = {Advances in Neural Information Processing Systems},
-  volume    = {33},
-  pages     = {7611--7623},
-  year      = {2020},
-  url       = {https://papers.nips.cc/paper_files/paper/2020/hash/564127c03caab942e503ee6f810f54fd-Abstract.html}
+
+@article{wang2020fednova,
+  author       = {Jianyu Wang and
+                  Qinghua Liu and
+                  Hao Liang and
+                  Gauri Joshi and
+                  H. Vincent Poor},
+  title        = {Tackling the Objective Inconsistency Problem in Heterogeneous Federated
+                  Optimization},
+  journal      = {CoRR},
+  volume       = {abs/2007.07481},
+  year         = {2020},
+  url          = {https://arxiv.org/abs/2007.07481},
+  eprinttype   = {arXiv},
+  eprint       = {2007.07481},
+  timestamp    = {Wed, 15 Oct 2025 07:24:02 +0200},
+  biburl       = {https://dblp.org/rec/journals/corr/abs-2007-07481.bib},
+  bibsource    = {dblp computer science bibliography, https://dblp.org}
 }
 
-@inproceedings{nishio2018fedcs,
-  title     = {Client Selection for Federated Learning with Heterogeneous Resources in Mobile Edge},
-  author    = {Nishio, Takayuki and Yonetani, Ryo},
-  booktitle = {2019 {IEEE} International Conference on Communications},
-  pages     = {1--7},
-  year      = {2019},
-  publisher = {{IEEE}},
-  url       = {https://arxiv.org/abs/1804.08333}
+
+@article{nishio2018fedcs,
+  author       = {Takayuki Nishio and
+                  Ryo Yonetani},
+  title        = {Client Selection for Federated Learning with Heterogeneous Resources
+                  in Mobile Edge},
+  journal      = {CoRR},
+  volume       = {abs/1804.08333},
+  year         = {2018},
+  url          = {http://arxiv.org/abs/1804.08333},
+  eprinttype   = {arXiv},
+  eprint       = {1804.08333},
+  timestamp    = {Mon, 13 Aug 2018 16:47:52 +0200},
+  biburl       = {https://dblp.org/rec/journals/corr/abs-1804-08333.bib},
+  bibsource    = {dblp computer science bibliography, https://dblp.org}
 }
 
-@inproceedings{chai2020tifl,
-  title     = {{TiFL}: A Tier-based Federated Learning System},
-  author    = {Chai, Zheng and Ali, Ahsan and Zawad, Syed and Truex, Stacey and Anwar, Ali and Baracaldo, Nathalie and Zhou, Yi and Ludwig, Heiko and Yan, Feng and Cheng, Yue},
-  booktitle = {Proceedings of the 29th International Symposium on High-Performance Parallel and Distributed Computing},
-  pages     = {125--136},
-  year      = {2020},
-  publisher = {ACM},
-  url       = {https://research.ibm.com/publications/tifl-a-tier-based-federated-learning-system}
+
+@article{chai2020tifl,
+  author       = {Zheng Chai and
+                  Ahsan Ali and
+                  Syed Zawad and
+                  Stacey Truex and
+                  Ali Anwar and
+                  Nathalie Baracaldo and
+                  Yi Zhou and
+                  Heiko Ludwig and
+                  Feng Yan and
+                  Yue Cheng},
+  title        = {TiFL: {A} Tier-based Federated Learning System},
+  journal      = {CoRR},
+  volume       = {abs/2001.09249},
+  year         = {2020},
+  url          = {https://arxiv.org/abs/2001.09249},
+  eprinttype   = {arXiv},
+  eprint       = {2001.09249},
+  timestamp    = {Tue, 29 Nov 2022 14:53:03 +0100},
+  biburl       = {https://dblp.org/rec/journals/corr/abs-2001-09249.bib},
+  bibsource    = {dblp computer science bibliography, https://dblp.org}
 }
 
-@inproceedings{horvath2021fjord,
-  title     = {{FjORD}: Fair and Accurate Federated Learning under heterogeneous targets with Ordered Dropout},
-  author    = {Horv{\'a}th, Samuel and Laskaridis, Stefanos and Almeida, M{\'a}rio and Leontiadis, Ilias and Venieris, Stylianos I. and Lane, Nicholas D.},
-  booktitle = {Advances in Neural Information Processing Systems},
-  volume    = {34},
-  pages     = {12876--12889},
-  year      = {2021},
-  url       = {https://proceedings.neurips.cc/paper/2021/hash/6aed000af86a084f9cb0264161e29dd3-Abstract.html}
+
+
+@article{horvath2021fjord,
+  author       = {Samuel Horv{\'{a}}th and
+                  Stefanos Laskaridis and
+                  M{\'{a}}rio Almeida and
+                  Ilias Leontiadis and
+                  Stylianos I. Venieris and
+                  Nicholas D. Lane},
+  title        = {FjORD: Fair and Accurate Federated Learning under heterogeneous targets
+                  with Ordered Dropout},
+  journal      = {CoRR},
+  volume       = {abs/2102.13451},
+  year         = {2021},
+  url          = {https://arxiv.org/abs/2102.13451},
+  eprinttype   = {arXiv},
+  eprint       = {2102.13451},
+  timestamp    = {Thu, 21 Apr 2022 14:54:22 +0200},
+  biburl       = {https://dblp.org/rec/journals/corr/abs-2102-13451.bib},
+  bibsource    = {dblp computer science bibliography, https://dblp.org}
 }
+
 
 @article{li2019qffl,
-  title         = {Fair Resource Allocation in Federated Learning},
-  author        = {Li, Tian and Sanjabi, Maziar and Beirami, Ahmad and Smith, Virginia},
-  journal       = {CoRR},
-  volume        = {abs/1905.10497},
-  year          = {2019},
-  eprint        = {1905.10497},
-  archivePrefix = {arXiv},
-  url           = {https://arxiv.org/abs/1905.10497}
+  author       = {Tian Li and
+                  Maziar Sanjabi and
+                  Virginia Smith},
+  title        = {Fair Resource Allocation in Federated Learning},
+  journal      = {CoRR},
+  volume       = {abs/1905.10497},
+  year         = {2019},
+  url          = {http://arxiv.org/abs/1905.10497},
+  eprinttype   = {arXiv},
+  eprint       = {1905.10497},
+  timestamp    = {Wed, 23 Dec 2020 09:35:18 +0100},
+  biburl       = {https://dblp.org/rec/journals/corr/abs-1905-10497.bib},
+  bibsource    = {dblp computer science bibliography, https://dblp.org}
 }
 
+
 @inproceedings{li2021ditto,
-  title     = {Ditto: Fair and Robust Federated Learning Through Personalization},
-  author    = {Li, Tian and Hu, Shengyuan and Beirami, Ahmad and Smith, Virginia},
-  booktitle = {Proceedings of the 38th International Conference on Machine Learning},
-  pages     = {6357--6368},
-  year      = {2021},
-  volume    = {139},
-  series    = {Proceedings of Machine Learning Research},
-  publisher = {PMLR},
-  url       = {https://proceedings.mlr.press/v139/li21h.html}
+  title={Ditto: Fair and Robust Federated Learning Through Personalization},
+  author={Tian Li and Shengyuan Hu and Ahmad Beirami and Virginia Smith},
+  booktitle={International Conference on Machine Learning},
+  year={2020},
+  url={https://api.semanticscholar.org/CorpusID:235446706}
 }

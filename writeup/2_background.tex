@@ -2,18 +2,21 @@
 \chapter{Background}
 \label{chap:background}
 
-This chapter establishes the setting used throughout the dissertation. It first defines FL through the standard global objective and synchronous \texttt{FedAvg} loop, which provide the reference point for later method comparisons (Section~\ref{sec:problem_setting}). It then separates the heterogeneity mechanisms that matter for the evaluation: data heterogeneity changes local objectives, compute heterogeneity changes the model work clients can feasibly perform, and straggler-induced heterogeneity changes update arrival time, staleness, and influence (Section~\ref{sec:heterogeneity_problems}).
+This chapter establishes the background. Section~\ref{sec:problem_setting} introduces FL through the global objective and the synchronous \texttt{FedAvg} training pipeline, which serves as the reference for later comparisons. Section~\ref{sec:heterogeneity_problems} defines the three forms of heterogeneity under realistic edge FL: data heterogeneity changes clients' data distributions; compute heterogeneity changes clients' local training capabilities; and straggler-induced heterogeneity changes update timing, staleness, and influence.
 
-\section{Federated Learning Setting}
+\section{Federated Learning}
 \label{sec:problem_setting}
 
-Federated learning (FL) trains a shared model across distributed clients without centralising their raw data \parencite{mcmahan2017fedavg,kairouz2021advances,bonawitz2019towards}. Let \(\mathcal{K}\) denote the client set, \(D_k\) the local dataset held by client \(k\), and \(w\) the global model parameters. The standard objective is \footnote{The mathematical symbols and notation used throughout the dissertation are summarised in Appendix~\ref{chap:notation}.}
+Federated learning (FL) enables clients to collaboratively train a model without centralising their data \parencite{mcmahan2017fedavg,kairouz2021advances,bonawitz2019towards}.\footnote{Decentralised training does not itself guarantee privacy: deployed FL is often combined with secure aggregation, which hides individual client updates while allowing the server to recover their aggregate, or differential privacy, which adds calibrated noise to FL updates to limit the information that can be inferred about any client \parencite{bonawitz2017secureaggregation,dwork2006calibrating,abadi2016deep}. These privacy mechanisms are orthogonal to the systems heterogeneity studied here.} Let \(\mathcal{K}\) denote the client set, \(D_k\) the local dataset held by client \(k\), \(n_k=|D_k|\), \(n=\sum_{j\in\mathcal{K}}n_j\), and \(w\) the global model parameters. The FL objective is\footnote{The mathematical symbols and notation used throughout the dissertation are summarised in Appendix~\ref{chap:notation}.}
 \[
-    F(w) = \sum_{k \in \mathcal{K}} p_k F_k(w),
+    \min_w F(w),
     \qquad
-    F_k(w) = \frac{1}{|D_k|}\sum_{(x,y)\in D_k} \ell(w;x,y),
+    F(w) = \sum_{k \in \mathcal{K}} \frac{n_k}{n} F_k(w),
+    \qquad
+    F_k(w) = \frac{1}{n_k}\sum_{(x,y)\in D_k} \ell(w;x,y).
 \]
-where \(p_k\) is usually uniform or proportional to \(|D_k|\). In a synchronous \texttt{FedAvg} round, the server sends \(w^{(t)}\) to a selected client set \(\mathcal{C}_t\), each client performs local optimisation, and the server averages returned models:
+Here, \(\ell\) is the per-example loss.
+In a synchronous \texttt{FedAvg} round, the server sends \(w^{(t)}\) to the selected client set \(\mathcal{C}_t\), each client performs local optimisation, and the server aggregates the returned models:
 \[
     \tilde{w}_k^{(t+1)}
     =
@@ -21,11 +24,9 @@ where \(p_k\) is usually uniform or proportional to \(|D_k|\). In a synchronous 
     \qquad
     w^{(t+1)}
     =
-    \sum_{k\in\mathcal{C}_t}
-    \frac{|D_k|}{\sum_{j\in\mathcal{C}_t}|D_j|}
-    \tilde{w}_k^{(t+1)}.
+    \frac{\sum_{k\in\mathcal{C}_t} n_k \tilde{w}_k^{(t+1)}}
+         {\sum_{h\in\mathcal{C}_t} n_h}.
 \]
-Figure~\ref{fig:background_fl_round} connects this optimisation view to the deployed execution path used in the experiments: selected clients train locally, updates cross the network boundary, and the server records the configuration and runtime evidence needed to interpret the result.
 
 \begin{figure}[!htbp]
 \centering
@@ -102,7 +103,7 @@ Figure~\ref{fig:background_fl_round} connects this optimisation view to the depl
 \node[axis, draw=paletteGreen!80!black, fill=paletteGreen!10, text=paletteGreen!65!black, minimum width=4.70cm, text width=4.25cm]
   at (0.45,-3.40) {compute: feasible local model work};
 \node[axis, draw=darkblue!70!black, fill=darkblue!7, text=darkblue!70!black, minimum width=4.70cm, text width=4.25cm]
-  at (5.85,-3.40) {straggler-induced: arrival time and staleness};
+  at (5.85,-3.40) {straggler-induced: update timing and staleness};
 
 \node[
   draw=paletteOrange!85!black,
@@ -113,21 +114,22 @@ Figure~\ref{fig:background_fl_round} connects this optimisation view to the depl
   minimum height=0.52cm
 ]
   at (-3,-1.72)
-  {\textcolor{paletteOrange!90!black}{\(F(w)=\sum_k p_kF_k(w)\) is estimated without centralising raw data}};
+  {\textcolor{paletteOrange!90!black}{\(F(w)=\sum_k (n_k/n)F_k(w)\) is estimated without centralising raw data}};
 \end{tikzpicture}
 \end{adjustbox}
 \caption{\textbf{Federated-learning abstraction and deployed execution path.}}
 \label{fig:background_fl_round}
 \end{figure}
 
-This abstraction separates optimisation from raw-data movement. However, it abstracts away the systems path taken by each update: client selection, device placement, local training time, communication time, queueing, and failure handling. In a homogeneous cluster these effects may be small enough to treat as engineering detail. On heterogeneous edge hardware they become part of the experimental treatment, because they determine which clients can train, how long a round takes, and which updates actually influence the model.
+This abstraction describes how models are trained and aggregated, but it hides many of the systems effects, including client selection, local training time, communication, and aggregation. In homogeneous settings or under simulation, these effects may be negligible. On heterogeneous settings they become hard to ignore as they often lead to the bottleneck in the deployed system: how long a round takes, which client is available, how much influence a client has on the global model.
 
-This dissertation is therefore closest to the \textbf{cross-device edge-FL setting} in its systems assumptions: clients are resource-constrained devices, device capability matters, and availability or completion time can vary \parencite{kairouz2021advances,wang2021field,bonawitz2019towards}. The experiments use an addressable Raspberry Pi cluster so that the same physical hardware can be reused across methods and the source of heterogeneity can be measured.
+Figure~\ref{fig:background_fl_round} makes this concrete by connecting the FL training pipeline to the three forms of heterogeneity defined in Section~\ref{sec:heterogeneity_problems} and shows where they enter the evaluation.
 
+\FloatBarrier
 \section{Heterogeneity in Federated Learning}
 \label{sec:heterogeneity_problems}
 
-Real edge-FL deployments are heterogeneous in several ways. User devices collect different data, expose different processor and memory budgets, and return updates through networks with variable latency, bandwidth, and availability \parencite{kairouz2021advances,wang2021field,bonawitz2019towards,lai2022fedscale}. Treating these effects as one generic ``heterogeneity'' problem hides the mechanism being tested. This dissertation separates them into \textbf{data heterogeneity, compute heterogeneity, and straggler-induced heterogeneity} so that each method family is evaluated against the deployment pressure it is designed to address.
+Realistic edge-FL deployments are heterogeneous in several ways. Clients collect different data, expose different processor and memory budgets, and return updates through networks with variable latency, bandwidth, and availability \parencite{kairouz2021advances,wang2021field,bonawitz2019towards,lai2022fedscale}. Treating these effects as one generic ``heterogeneity'' problem hides and mixes the underlying mechanisms. This dissertation separates them into \textbf{data heterogeneity, compute heterogeneity, and straggler-induced heterogeneity} so that each method family is evaluated against the heterogeneity it is designed to address.
 
 \begin{figure}[H]
 \centering
@@ -177,38 +179,41 @@ Real edge-FL deployments are heterogeneous in several ways. User devices collect
 \draw[arrow] (straggler.south) -- (note.north -| straggler.south);
 \end{tikzpicture}
 \end{adjustbox}
-\caption{\textbf{Three forms of heterogeneity used in this dissertation.} The taxonomy separates data-distribution, local-capacity, and update-timing effects.}
+\caption{\textbf{Three forms of heterogeneity used in this dissertation.}}
 \label{fig:background_heterogeneity_forms}
 \end{figure}
 
 \subsection{Data Heterogeneity}
 
-Data heterogeneity means that client datasets need not be sampled from the same distribution. Formally, \(D_k \not\sim D_j\) for some clients \(k,j\), so the local objectives \(F_k\) can point in different optimisation directions. This is a standard FL challenge \parencite{kairouz2021advances,wang2021field}. It can appear as label skew, where clients observe different class proportions; feature skew, where the input distribution differs across clients; or device-correlated skew, where the data distribution is systematically tied to hardware class or availability. In this dissertation it is not the only focus, but it is deliberately included because it interacts with systems heterogeneity: if slower devices also hold different labels or feature ranges, then excluding or underweighting those devices changes both runtime and learned behaviour. The evaluation therefore uses both IID and non-IID partitions, and includes one device-correlated ablation to test whether stale-aware weighting can compensate when slow devices carry distinct data.
+Data heterogeneity means that clients' local datasets are non-IID. Formally, \(D_k \not\sim D_j\) for some clients \(k,j\). Therefore, the local objectives \(F_k\) can point in different optimisation directions. This is a standard FL challenge \parencite{kairouz2021advances,wang2021field}. It can appear as label skew, where clients observe different class proportions; feature skew, where the input distribution differs across clients; or device-correlated skew, where the data distribution is correlated with hardware class. In this dissertation, it is included because it interacts with systems heterogeneity: clients may have distinct data distributions because hardware capabilities can correlate with where and how data are collected. The evaluation therefore explores both IID and non-IID partitioning, and includes a device-correlated partitioning ablation to test whether stale-aware weighting can compensate when data distributions are correlated with client capabilities.
 
 \subsection{Compute Heterogeneity}
 \label{sec:background_compute_heterogeneity}
 
-Compute heterogeneity refers to differences in the local model work that clients can support, including \textbf{processor speed, memory capacity, and the feasible batch or model size} \parencite{li2020fedprox,lai2022fedscale}. The evaluation represents this with mixed \texttt{rpi4} and \texttt{rpi5} workers. In real deployments, the problem is not only that weaker devices take longer: for some model--device pairs, holding the full model, activations, and optimiser state may be unrealistic. If every selected client nevertheless trains the full model, then synchronous round time is governed by the slowest selected client:
+Compute heterogeneity refers to differences in client compute capabilities, including processor speed, memory capacity, and the batch size or model size constraints \parencite{li2020fedprox,lai2022fedscale}. The evaluation represents this with mixed \texttt{rpi4} and \texttt{rpi5} workers. Under real deployments, the problem is not only that weaker devices perform each local step more slowly, but also that for some model--device pairs, holding the full model may be infeasible due to limited memory. A per-client time and memory constraint can be:
 \[
-    T_{\mathrm{round}}^{(t)}
-    =
-    \max_{k\in\mathcal{C}_t}
-    T_k^{\mathrm{train}}(w, B_k, E)
-    +
-    T_{\mathrm{sync}}^{(t)},
-\]
-where \(B_k\) is the local batch size, \(E\) the number of local epochs, and \(T_{\mathrm{sync}}^{(t)}\) groups the communication and orchestration cost for the round. Submodel FL changes this cost model by assigning smaller subnetworks to weaker clients \parencite{diao2021heterofl,horvath2021fjord,alam2022fedrolex,wu2024fiarse}. If \(r_k^{(t)}\in(0,1]\) is client \(k\)'s model rate in round \(t\), then
-\[
-    w_{k,0}^{(t)} = \operatorname{Slice}(w^{(t)}, I_k^{(t)}),
+    T_k^{\mathrm{train}}(m, B_k, E)
+    \approx
+    \frac{
+      E\left\lceil n_k / B_k \right\rceil \Phi(m, B_k)
+    }{\rho_k},
     \qquad
-    \frac{|I_k^{(t)}|}{|w^{(t)}|} \approx r_k^{(t)}.
+    M_k(m,B_k) \le \bar{M}_k,
 \]
-The resulting question is not only whether smaller local models reduce runtime, but whether they make participation feasible while preserving useful full-model and submodel quality.
+where \(m\) is the trainable model, \(B_k\) the local batch size, \(E\) the number of local epochs, \(\Phi(m,B_k)\) the per-batch training work, \(\rho_k\) the client's effective throughput, \(M_k(m,B_k)\) the memory required to store the model and its gradients, and \(\bar{M}_k\) the memory budget. 
+
+A weaker client has lower throughput \(\rho_k\) and memory budget \(\bar{M}_k\), which increases local training time \(T_k^{\mathrm{train}}\) and restricts feasible model sizes \(M_k\). Submodel FL resolves this by assigning smaller subnetworks to weaker clients \parencite{diao2021heterofl,horvath2021fjord,alam2022fedrolex,wu2024fiarse}. Let \(r_k\in(0,1]\) denote client \(k\)'s model rate. The server sends only the parameter subset indexed by \(I_k^{(t)}\) to the client:
+\[
+    w_{k,0}^{(t)} = w^{(t)}_{I_k^{(t)}},
+    \qquad
+    \frac{|I_k^{(t)}|}{|w^{(t)}|} \approx r_k.
+\]
+This not only gives faster updates from weaker clients, but also lets the assigned submodel fit within memory constraints that a full model would exceed. This allows valuable client data to contribute to the global model while also producing useful, deployable local submodels for inference.
 
 \subsection{Straggler-Induced Heterogeneity}
 \label{sec:background_straggler_heterogeneity}
 
-Straggler-induced heterogeneity arises even when all clients train the same model. A client update has an end-to-end completion time
+Straggler-induced heterogeneity arises due to variations in client completion times. A client update has an end-to-end completion time
 \[
     C_k^{(t)}
     =
@@ -220,13 +225,13 @@ Straggler-induced heterogeneity arises even when all clients train the same mode
     +
     T_{k,\mathrm{queue}}^{(t)},
 \]
-combining model download, local training, upload, and deployment/runtime overhead. Network conditions change the communication terms through delay, jitter, loss, bandwidth, and asymmetry. Synchronous FL waits for a fixed cohort, so the maximum completion time dominates a round. Asynchronous FL avoids that barrier, but introduces \textbf{stale updates}: if a client trained on server version \(v_i\) and the server is now at step \(s\), then \textbf{staleness \(\tau\)} is:
+combining model download, local training, upload, and deployment/runtime overhead. Network conditions change the communication terms through delay, jitter, loss, bandwidth, and asymmetry. Synchronous FL waits for all the selected clients in each round, so the completion time is determined by the slowest client. Asynchronous FL avoids that issue by allowing clients to respond at different times. However, this introduces \textbf{stale updates}: if a client trained on server version \(v_i\) and the server is now at step \(s\), then \textbf{staleness \(\tau\)} is:
 \[
     \tau_i = s - v_i.
 \]
 This distinction motivates methods different from those used for compute heterogeneity, including asynchronous aggregation and systems-aware client scheduling \parencite{xie2019asynchronous,nguyen2022fedbuff,ma2024fedstaleweight,lai2021oort}.
 
-These heterogeneity axes lead to the method families reviewed in Chapter~\ref{chap:related_work}. Compute heterogeneity motivates submodel FL, where clients train different-sized slices of a shared model. Straggler-induced heterogeneity motivates asynchronous FL, where the server need not wait for the slowest clients. Their intersection motivates asynchronous submodel FL.
+% These heterogeneity axes lead to the method families reviewed in Chapter~\ref{chap:related_work}. Compute heterogeneity motivates submodel FL, where clients train different-sized slices of a shared model. Straggler-induced heterogeneity motivates asynchronous FL, where the server need not wait for the slowest clients. Their intersection motivates asynchronous submodel FL.
 
 % \subsection{Why the Axes Must Be Separated}
 

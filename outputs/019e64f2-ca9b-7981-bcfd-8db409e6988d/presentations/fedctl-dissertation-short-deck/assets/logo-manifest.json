@@ -1,0 +1,47 @@
+[
+  {
+    "name": "cambridge_crest",
+    "source": "/Users/samueljie/Library/CloudStorage/OneDrive/Uni/Computer_Science/Year4/Dissertation/fedctl/outputs/019e64f2-ca9b-7981-bcfd-8db409e6988d/presentations/fedctl-dissertation-short-deck/assets/keynote_raw/image1-10.png",
+    "output": "/Users/samueljie/Library/CloudStorage/OneDrive/Uni/Computer_Science/Year4/Dissertation/fedctl/outputs/019e64f2-ca9b-7981-bcfd-8db409e6988d/presentations/fedctl-dissertation-short-deck/assets/logos/cambridge_crest.png",
+    "size": [
+      208,
+      243
+    ]
+  },
+  {
+    "name": "flower",
+    "source": "/Users/samueljie/Library/CloudStorage/OneDrive/Uni/Computer_Science/Year4/Dissertation/fedctl/outputs/019e64f2-ca9b-7981-bcfd-8db409e6988d/presentations/fedctl-dissertation-short-deck/assets/keynote_raw/Flower head dark - yellow filling - white border-4503.png",
+    "output": "/Users/samueljie/Library/CloudStorage/OneDrive/Uni/Computer_Science/Year4/Dissertation/fedctl/outputs/019e64f2-ca9b-7981-bcfd-8db409e6988d/presentations/fedctl-dissertation-short-deck/assets/logos/flower.png",
+    "size": [
+      1024,
+      902
+    ]
+  },
+  {
+    "name": "camlsys",
+    "source": "/Users/samueljie/Library/CloudStorage/OneDrive/Uni/Computer_Science/Year4/Dissertation/fedctl/outputs/019e64f2-ca9b-7981-bcfd-8db409e6988d/presentations/fedctl-dissertation-short-deck/assets/keynote_raw/dodo_svetla-4500.png",
+    "output": "/Users/samueljie/Library/CloudStorage/OneDrive/Uni/Computer_Science/Year4/Dissertation/fedctl/outputs/019e64f2-ca9b-7981-bcfd-8db409e6988d/presentations/fedctl-dissertation-short-deck/assets/logos/camlsys.png",
+    "size": [
+      1015,
+      1016
+    ]
+  },
+  {
+    "name": "fedctl",
+    "source": "/Users/samueljie/Library/CloudStorage/OneDrive/Uni/Computer_Science/Year4/Dissertation/fedctl/submit_service/app/static/fedctl-circle-transparent.png",
+    "output": "/Users/samueljie/Library/CloudStorage/OneDrive/Uni/Computer_Science/Year4/Dissertation/fedctl/outputs/019e64f2-ca9b-7981-bcfd-8db409e6988d/presentations/fedctl-dissertation-short-deck/assets/logos/fedctl.png",
+    "size": [
+      784,
+      666
+    ]
+  },
+  {
+    "name": "cambridge_header",
+    "source": "/Users/samueljie/Library/CloudStorage/OneDrive/Uni/Computer_Science/Year4/Dissertation/fedctl/outputs/019e64f2-ca9b-7981-bcfd-8db409e6988d/presentations/fedctl-dissertation-short-deck/assets/keynote_raw/header_cambridge-4613.jpg",
+    "output": "/Users/samueljie/Library/CloudStorage/OneDrive/Uni/Computer_Science/Year4/Dissertation/fedctl/outputs/019e64f2-ca9b-7981-bcfd-8db409e6988d/presentations/fedctl-dissertation-short-deck/assets/logos/cambridge_header.jpg",
+    "size": [
+      2627,
+      980
+    ]
+  }
+]

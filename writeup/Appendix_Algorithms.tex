@@ -1,8 +1,8 @@
 % !TeX root = main.tex
-\chapter{Federated Training Algorithms}
+\chapter[Federated Training Algorithms]{FL Algorithms}
 \label{appendix:algorithms}
 
-This appendix gives the federated learning methods used in the dissertation in a unified pseudocode style. It is intended for comparison rather than verbatim reproduction of the original papers, and uses the notation collected in Appendix~\ref{chap:notation}. The pseudocode follows the implemented behaviour of the dissertation harness, with logging, centralised evaluation, and artefact collection omitted.
+This appendix gives the federated learning methods used in the dissertation in a unified pseudocode style. It is intended for comparison and uses the notation collected in Appendix~\ref{chap:notation}. The pseudocode follows the implementation behaviour, with logging, centralised evaluation, and artefact collection omitted.
 
 
 \section{Full-model synchronous training}
@@ -16,7 +16,7 @@ This appendix gives the federated learning methods used in the dissertation in a
 \Statex \textbf{Server initialisation:}
 \State initialise global model $w^{(0)}$
 \For{$t = 0$ to $T-1$}
-    \State sample client cohort $\mathcal{C}_t \subseteq \mathcal{K}$
+    \State sample client set $\mathcal{C}_t \subseteq \mathcal{K}$
     \ForAll{$k \in \mathcal{C}_t$ \textbf{in parallel}}
         \State send $w^{(t)}$ to client $k$
     \EndFor
@@ -31,12 +31,11 @@ This appendix gives the federated learning methods used in the dissertation in a
 
     \Statex
     \Statex \textbf{Server aggregation:}
-    \State compute selected-cohort example-weighted mean update
+    \State compute example-weighted mean over $\mathcal{C}_t$
     \[
         \bar{\Delta}^{(t)} \gets
-        \sum_{k \in \mathcal{C}_t}
-        \frac{n_k}{\sum_{j \in \mathcal{C}_t} n_j}
-        \left(\tilde{w}_k^{(t+1)} - w^{(t)}\right)
+        \frac{\sum_{k \in \mathcal{C}_t} n_k\left(\tilde{w}_k^{(t+1)} - w^{(t)}\right)}
+             {\sum_{h \in \mathcal{C}_t} n_h}
     \]
     \State \textcolor{fedavggreen}{\textbf{FedAvg:} \hspace{0.4em} $w^{(t+1)} \gets w^{(t)} + \bar{\Delta}^{(t)}$}
 \EndFor
@@ -51,15 +50,15 @@ The three implemented submodel FL methods share the same overall structure: the 
 \caption{\textcolor{heteroflblue}{\texttt{HeteroFL}}, \textcolor{fedrolexpurple}{\texttt{FedRolex}}, and \textcolor{fiarsered}{\texttt{FIARSE}}}
 \label{alg:partial_training_family}
 \begin{algorithmic}[1]
-\Require total clients $\mathcal{K}$, rounds $T$, local epochs $E$, model-rate assigner $\mathcal{A}$, extraction policy $\Psi$, aggregation weights $\beta_k$
+\Require total clients $\mathcal{K}$, local example counts $\{n_k\}$, rounds $T$, local epochs $E$, model-rate lookup $\mathcal{A}$, extraction policy $\Psi$
 \Ensure final global model $w^{(T)}$
 \Statex \textbf{Server initialisation:}
 \State initialise full global model $w^{(0)}$
 \For{$t = 0$ to $T-1$}
-    \State sample client cohort $\mathcal{C}_t \subseteq \mathcal{K}$
-    \State assign model rates $\{r_k^{(t)} : k \in \mathcal{C}_t\} \gets \mathcal{A}(\mathcal{C}_t, t)$
+    \State sample client set $\mathcal{C}_t \subseteq \mathcal{K}$
+    \State look up fixed model rates $\{r_k : k \in \mathcal{C}_t\} \gets \mathcal{A}(\mathcal{C}_t)$
     \ForAll{$k \in \mathcal{C}_t$ \textbf{in parallel}}
-        \State compute trainable subset $I_k^{(t)} \gets \Psi(w^{(t)}, r_k^{(t)}, t)$ \Comment{\textcolor{heteroflblue}{static nested} / \textcolor{fedrolexpurple}{rolling window} / \textcolor{fiarsered}{sparse mask}}
+        \State compute trainable subset $I_k^{(t)} \gets \Psi(w^{(t)}, r_k, t)$ \Comment{\textcolor{heteroflblue}{static nested} / \textcolor{fedrolexpurple}{rolling window} / \textcolor{fiarsered}{sparse mask}}
         \State construct client-visible model $w_{k,0}^{(t)}$ from $w^{(t)}$ and $I_k^{(t)}$
         \State send $w_{k,0}^{(t)}$ to client $k$
     \EndFor
@@ -77,11 +76,11 @@ The three implemented submodel FL methods share the same overall structure: the 
     \For{each global parameter index $j$}
         \State $\mathcal{U}_j^{(t)} \gets \{k \in \mathcal{C}_t : j \in I_k^{(t)}\}$
         \If{$\mathcal{U}_j^{(t)} \neq \emptyset$}
-            \State $w_j^{(t+1)} \gets
-            \dfrac{\sum_{k \in \mathcal{U}_j^{(t)}} \beta_k \tilde{w}_{k,j}^{(t+1)}}
-                  {\sum_{k \in \mathcal{U}_j^{(t)}} \beta_k}$ \Comment{\textcolor{heteroflblue}{example-weighted} / \textcolor{fedrolexpurple}{unweighted} / \textcolor{fiarsered}{example-weighted}}
+            \State $[w^{(t+1)}]_j \gets
+            \dfrac{\sum_{k \in \mathcal{U}_j^{(t)}} n_k [\tilde{w}_k^{(t+1)}]_j}
+                  {\sum_{h \in \mathcal{U}_j^{(t)}} n_h}$ \Comment{selective \texttt{FedAvg} over contributors}
         \Else
-            \State $w_j^{(t+1)} \gets w_j^{(t)}$
+            \State $[w^{(t+1)}]_j \gets [w^{(t)}]_j$
         \EndIf
     \EndFor
 \EndFor
@@ -90,23 +89,23 @@ The three implemented submodel FL methods share the same overall structure: the 
 
 \subsection{Method instantiations}
 
-Within the shared partial-training skeleton, the methods differ in how they define the trainable subset and how the server combines returned updates. \textcolor{heteroflblue}{\texttt{HeteroFL}} uses a static nested extractor with example-weighted averaging, \textcolor{fedrolexpurple}{\texttt{FedRolex}} uses a rolling extractor with unweighted averaging, and \textcolor{fiarsered}{\texttt{FIARSE}} uses sparse importance masks with nonzero-delta aggregation.
+Within the shared partial-training skeleton, the methods differ primarily in how they define the trainable subset. \textcolor{heteroflblue}{\texttt{HeteroFL}} uses a static nested extractor with example-weighted selective averaging, \textcolor{fedrolexpurple}{\texttt{FedRolex}} uses a rolling extractor and defaults to equal client weighting in the reference paper, and \textcolor{fiarsered}{\texttt{FIARSE}} uses sparse importance masks with nonzero-delta aggregation.
 
 \paragraph{\textcolor{heteroflblue}{\texttt{HeteroFL}}.}
-The extraction policy $\Psi$ uses a \textbf{static nested} selection rule: for each hidden layer, the client receives a prefix subnetwork at rate $r_k^{(t)}$, and the server uses example-weighted selective averaging with $\beta_k = n_k$.
+The extraction policy $\Psi$ uses a \textbf{static nested} selection rule: for each hidden layer, the client receives a prefix subnetwork at rate $r_k$, and the server uses example-weighted selective averaging over the clients that contributed each parameter.
 
 \paragraph{\textcolor{fedrolexpurple}{\texttt{FedRolex}}.}
-\texttt{FedRolex} replaces static extraction with a \textbf{rolling window} over eligible channels, so the selected submodel advances with round index $t$. In the implemented variant, selective averaging is \textbf{unweighted}, so $\beta_k = 1$.
+\texttt{FedRolex} replaces static extraction with a \textbf{rolling window} over eligible channels, so the selected submodel advances with round index $t$. In the implemented variant, selective averaging is \textbf{unweighted}, matching the reference paper's default equal-client weighting.
 
 \paragraph{\textcolor{fiarsered}{\texttt{FIARSE}}}.
 \texttt{FIARSE} replaces dense slicing with an \textbf{importance-aware sparse mask}. For each maskable parameter \(j\), the client computes the salience score
 \[
-    s_j \gets |w_j|,
+    s_j^{(t)} \gets |[w^{(t)}]_j|,
 \]
 then keeps parameters above the model-rate threshold. Two threshold modes are implemented:
 \begin{itemize}[topsep=4pt, itemsep=4pt]
-    \item \textbf{Layerwise:} compute a separate top-\(r_k^{(t)}\) threshold within each maskable parameter tensor.
-    \item \textbf{Global:} compute one top-\(r_k^{(t)}\) threshold across all maskable parameter tensors.
+    \item \textbf{Layerwise:} compute a separate top \(r_k\) fraction threshold within each maskable parameter tensor.
+    \item \textbf{Global:} compute one top \(r_k\) fraction threshold across all maskable parameter tensors.
 \end{itemize}
 During local training, the binary mask is applied with the straight-through estimator used by the FIARSE reference mechanism. At aggregation, the server averages only nonzero returned deltas for each parameter and applies the configured server learning rate.
 
@@ -135,7 +134,7 @@ During local training, the binary mask is applied with the straight-through esti
         \State dispatch another train request if an idle client is available and $|\mathcal{Q}| < M$
     \EndFor
     \If{$|\mathcal{B}| = K$}
-        \State choose aggregation weights $\{\alpha_i : i \in \mathcal{B}\}$ \Comment{\textcolor{fedbuffteal}{uniform/decay} or \textcolor{fedstalebrown}{fair}}
+        \State choose buffer weights $\{\alpha_i : i \in \mathcal{B}\}$ \Comment{\textcolor{fedbuffteal}{uniform/decay} or \textcolor{fedstalebrown}{fair}}
         \State compute buffered update
         \[
             \bar{\Delta}^{[s]} \gets \sum_{i \in \mathcal{B}} \alpha_i \Delta_i
@@ -173,33 +172,33 @@ The final mode is the fairness weighting used by the implemented \texttt{FedStal
 \caption{\texttt{FedCover}}
 \label{alg:fedcover}
 \begin{algorithmic}[1]
-\Require available clients $\mathcal{K}$, asynchronous server steps $S$, train concurrency $M$, buffer size $K$, model-rate assigner $\mathcal{A}$, nested extractor $\Psi$, server learning rate $\eta_s$, coverage power $\gamma$, maximum gain $\kappa_{\max}$
+\Require available clients $\mathcal{K}$, asynchronous server steps $S$, train concurrency $M$, buffer size $K$, model-rate lookup $\mathcal{A}$, nested extractor $\Psi$, server learning rate $\eta_s$, coverage power $\gamma$, maximum gain $\kappa_{\max}$
 \Ensure final global model $w^{[S]}$
 \State initialise full global model $w^{[0]}$
 \For{$s = 0,\ldots,S-1$}
-    \State keep at most $M$ asynchronous client trainings in flight using rates $r_k \gets \mathcal{A}(k,s)$ and slices $I_k \gets \Psi(w^{[s]}, r_k, s)$
+    \State keep at most $M$ asynchronous client trainings in flight using fixed rates $r_k \gets \mathcal{A}(k)$ and slices $I_k \gets \Psi(w^{[s]}, r_k, s)$
     \State collect the next buffer $\mathcal{B}_s$ of $K$ valid replies
     \ForAll{replies $i \in \mathcal{B}_s$}
         \State recover the sent version $v_i$, trained index set $I_i$, and returned submodel $\tilde{w}_i$
         \State compute slice delta $\Delta_i \gets \textsc{Slice}(w^{[v_i]}, I_i)-\tilde{w}_i$ and staleness $\tau_i \gets s-v_i$
-        \State set stale-update score $q_i \gets g(\tau_i)$
+        \State set staleness score $q_i \gets g(\tau_i)$
     \EndFor
-    \State normalise stale-update weights $\alpha_i \gets q_i / \sum_{u \in \mathcal{B}_s} q_u$
+    \State normalise buffer weights $\alpha_i \gets q_i / \sum_{u \in \mathcal{B}_s} q_u$
     \State set $w^{[s+1]} \gets w^{[s]}$
     \ForAll{parameter indices $j \in \bigcup_{i\in\mathcal{B}_s} I_i$}
         \State compute partial delta and coverage mass
         \[
-            \bar{\Delta}_j^{[s]} =
-            \sum_{i\in\mathcal{B}_s}\alpha_i\mathbf{1}[j\in I_i]\Delta_{i,j},
+            [\bar{\Delta}^{[s]}]_j =
+            \sum_{i\in\mathcal{B}_s}\alpha_i\mathbf{1}[j\in I_i][\Delta_i]_j,
             \qquad
             c_j^{[s]} =
             \sum_{i\in\mathcal{B}_s}\alpha_i\mathbf{1}[j\in I_i]
         \]
         \State set $\kappa_j^{[s]} \gets \min\!\left(\kappa_{\max}, (c_j^{[s]})^{-\gamma}\right)$
-        \State update $w_j^{[s+1]} \gets w_j^{[s]} - \eta_s \kappa_j^{[s]} \bar{\Delta}_j^{[s]}$
+        \State update $[w^{[s+1]}]_j \gets [w^{[s]}]_j - \eta_s \kappa_j^{[s]} [\bar{\Delta}^{[s]}]_j$
     \EndFor
 \EndFor
 \end{algorithmic}
 \end{algorithm}
 
-\texttt{FedCover} differs from the coverage-disabled asynchronous submodel baseline only in the coverage-gain step. With $\gamma=0$ or $\kappa_{\max}=1$, the coverage gain is one and the method reduces to buffered asynchronous partial training with the same model-rate assignment. With full-model clients, every trained parameter has $c_j=1$, so the coverage correction again disappears.
+\texttt{FedCover} differs from uncorrected \texttt{Async-HeteroFL} only in the coverage-gain step. With $\gamma=0$ or $\kappa_{\max}=1$, the coverage gain is one and the method reduces to buffered asynchronous partial training with the same fixed model rates. With full-model clients, every trained parameter has $c_j=1$, so the coverage correction again disappears.

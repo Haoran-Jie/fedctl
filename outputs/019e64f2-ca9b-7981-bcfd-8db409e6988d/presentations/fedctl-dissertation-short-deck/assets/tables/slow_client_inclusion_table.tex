@@ -1,0 +1,35 @@
+\documentclass[border=2pt]{standalone}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{booktabs}
+\usepackage{makecell}
+\usepackage[table]{xcolor}
+
+\definecolor{slowcaseA}{HTML}{0C5DA5}
+\definecolor{slowcaseB}{HTML}{00B945}
+\definecolor{slowcaseC}{HTML}{FF9500}
+\definecolor{slowcaseD}{HTML}{FF2C00}
+\definecolor{slowcaseE}{HTML}{845B97}
+\definecolor{evalBestText}{HTML}{B54747}
+\definecolor{evalSecondText}{HTML}{2E5FA7}
+\newcommand{\evalbest}[1]{\textcolor{evalBestText}{{\bfseries #1}}}
+\newcommand{\evalsecond}[1]{\textcolor{evalSecondText}{#1}}
+
+\begin{document}
+\begingroup
+\scriptsize
+\setlength{\tabcolsep}{2.6pt}
+\renewcommand{\arraystretch}{1.18}
+\begin{tabular}{clcccr}
+\toprule
+Case & Method & Data & \makecell{\texttt{rpi4}\\rate} & \makecell{Accuracy\\(\%)} & \makecell{Runtime\\(min)} \\
+\midrule
+\textcolor{slowcaseA}{\textbf{A}} & \texttt{FedAvg}   & \(5/15\)  & excluded & \(63.59 \pm 2.69\) & \(38.8 \pm 3.9\) \\
+\textcolor{slowcaseB}{\textbf{B}} & \texttt{FedAvg}   & \(15/15\) & \(1.0\)  & \(73.12 \pm 0.95\) & \(137.5 \pm 8.5\) \\
+\textcolor{slowcaseC}{\textbf{C}} & \texttt{HeteroFL} & \(15/15\) & \(1/8\)  & \evalsecond{\(64.30 \pm 2.35\)} & \evalbest{\(56.5 \pm 15.2\)} \\
+\textcolor{slowcaseD}{\textbf{D}} & \texttt{FedRolex} & \(15/15\) & \(1/8\)  & \(62.74 \pm 2.87\) & \evalsecond{\(60.8 \pm 17.6\)} \\
+\textcolor{slowcaseE}{\textbf{E}} & \texttt{FIARSE}   & \(15/15\) & \(1/8\)  & \evalbest{\(67.83 \pm 1.71\)} & \(155.1 \pm 14.9\) \\
+\bottomrule
+\end{tabular}
+\endgroup
+\end{document}

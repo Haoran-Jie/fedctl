@@ -5,7 +5,9 @@
 \providecommand{\evalqanchor}[1]{\hypertarget{eval:#1}{\textbf{#1}}}
 \providecommand{\evalqref}[1]{\hyperlink{eval:#1}{\textbf{#1}}}
 
-This chapter uses \texttt{fedctl} to evaluate heterogeneous FL methods under real hardware and network effects rather than abstract delay or capacity models. The evaluation considers three complementary axes. First, compute heterogeneity asks whether weaker devices should train smaller subnetworks. Second, straggler-induced heterogeneity asks whether asynchronous coordination reduces time-to-target, defined as the elapsed wall-clock time required to reach a fixed validation-accuracy threshold, when clients return updates at uneven rates. Third, asynchronous submodel FL combines both forms of heterogeneity by studying asynchronous aggregation over heterogeneous submodel updates.
+This chapter uses \texttt{fedctl} to evaluate heterogeneous FL methods under real hardware and network effects rather than abstract delay or capacity models. The evaluation considers three complementary axes: \emph{compute heterogeneity} (Section~\ref{sec:eval_compute_heterogeneity}) asks whether weaker devices should train smaller subnetworks; \emph{straggler-induced heterogeneity} (Section~\ref{sec:eval_network_heterogeneity}) asks whether asynchronous FL reduces time-to-target, the elapsed wall-clock time required to reach a performance threshold; and \emph{asynchronous submodel FL} (Section~\ref{sec:eval_async_submodel_fl}) combines both forms of heterogeneity and evaluates asynchronous aggregation over heterogeneous submodel updates.
+
+The experiments use California Housing, Fashion-MNIST, and CIFAR-10; Appendix~\ref{appendix:evaluation_tasks} summarises the dataset details, partitioning regimes, preprocessing, and task models.
 
 The chapter is organised around nine evaluation objectives:
 
@@ -30,7 +32,7 @@ The chapter is organised around nine evaluation objectives:
   \end{itemize}
 \end{enumerate}
 
-The evaluation also exercises the systems contribution: every run uses the same \texttt{fedctl submit} path, with the run config fixing the workload and the deploy config fixing placement, resources, and optional network impairment. Each submission preserves the request, effective configs, Nomad job mapping, logs, W\&B metrics, and artifacts as replayable evidence.
+The evaluation also emphasises the systems contribution: every run uses reproducible \texttt{fedctl submit run}, with the run config controlling the workload and the deploy config controlling placement, resources, and network impairment. Each submission preserves the request, effective configs, Nomad job mapping, logs, W\&B metrics, and artefacts as evidence.
 
 % The first two sections isolate the method families before combining them. The compute-heterogeneity section evaluates the quality--speed and client-side submodel trade-offs of \texttt{HeteroFL}, \texttt{FedRolex}, and \texttt{FIARSE}. The straggler-induced heterogeneity section evaluates \texttt{FedAsync}, \texttt{FedBuff}, and \texttt{FedStaleWeight} as standard asynchronous baselines, using client trips, wall-clock time, staleness, update share, and aggregate weight share to separate speed from representation. The final section then evaluates \texttt{FedCover}. This makes the chapter's contribution two-level: it first measures asynchronous submodel FL, then tests the proposed coverage correction designed specifically for that setting.
 
@@ -38,13 +40,13 @@ The evaluation also exercises the systems contribution: every run uses the same 
 \section{Compute Heterogeneity}
 \label{sec:eval_compute_heterogeneity}
 
-Compute heterogeneity changes both feasible training and fair comparison: smaller submodels can reduce wall-clock cost while altering global and client-side quality. Prior submodel-FL work mostly reports accuracy with model-size, FLOP, or storage proxies; these cluster runs add wall-clock time, client timing, and local submodel quality on real edge devices. Building on Sections~\ref{sec:background_compute_heterogeneity} and~\ref{sec:related_model_heterogeneous_fl}, this section evaluates \texttt{HeteroFL}, \texttt{FedRolex}, and \texttt{FIARSE}: first motivating reduced-rate participation via a weak-client inclusion decision, then measuring quality, runtime, bottlenecks, local submodel quality, and client-capability sensitivity.
+Compute heterogeneity affects both client participation and runtime: weaker clients may be unable to train the full model, or may make synchronous rounds slower. Submodel FL addresses this by assigning smaller models to weaker clients. Prior work often reports accuracy with model-size, FLOP, or storage proxies; this dissertation strengthens the comparison by measuring wall-clock time, client timing, and local submodel quality on real edge devices. Building on Sections~\ref{sec:background_compute_heterogeneity} and~\ref{sec:related_model_heterogeneous_fl}, this section evaluates \texttt{HeteroFL}, \texttt{FedRolex}, and \texttt{FIARSE}: first motivating reduced-rate participation via a weak-client inclusion decision, then measuring quality, runtime, bottlenecks, local submodel quality, and client-capability sensitivity.
 
 \FloatBarrier
 \subsection{Weak-Client Inclusion Decision}
 
 \paragraph{Setup.}
-Reflecting edge deployments where lower-capability devices may be more numerous than high-performance clients, the experiment models \(15\) logical clients: \(5\) placed on stronger \texttt{rpi5} devices and \(10\) placed on weaker \texttt{rpi4} devices, with non-IID data assigned to every client. This subsection addresses \evalqref{C1}: the deployment trade-off between excluding the weaker majority, training those clients with full models, or including them through reduced-capacity submodels. This choice affects both runtime and whether clients placed on weaker devices can feasibly train the assigned model. A useful method should therefore \textbf{retain the weak clients' data while avoiding the synchronous-round cost and memory pressure of full-model training}.
+This experiment models \(15\) logical clients: \(5\) placed on stronger \texttt{rpi5} devices and \(10\) placed on weaker \texttt{rpi4} devices, with non-IID data assigned to every client. This reflects realistic edge deployments where lower-capability devices may be more numerous than high-performance clients.  This subsection addresses \evalqref{C1}: the deployment trade-off between excluding the weaker majority, training those clients with full models, or including them through reduced-capacity submodels. Ideal FL methods should therefore retain the weak clients' data while avoiding the synchronous-round cost and memory pressure of full-model training.
 \begin{figure}[!htbp]
 \centering
 \begin{tikzpicture}[
@@ -79,7 +81,7 @@ Reflecting edge deployments where lower-capability devices may be more numerous 
 \label{fig:compute_slow_majority_scenario}
 \end{figure}
 
-Figure~\ref{fig:compute_slow_majority_scenario} summarises the deployment choice. The CIFAR-10 non-IID experiment uses \(20\) server rounds, \(3\) local epochs, and a shared \(15\)-partition data universe. Case~A excludes the ten weaker-device clients and trains only on the five \texttt{rpi5} partitions. Cases~B--E use all clients: full-model \texttt{FedAvg} trains everyone at rate \(1.0\), while \texttt{HeteroFL}, \texttt{FedRolex}, and \texttt{FIARSE} assign the ten \texttt{rpi4} clients rate \(1/8\). Case~B shows the full-model alternative, where weak clients keep all data but must train the full model.
+Figure~\ref{fig:compute_slow_majority_scenario} summarises the deployment choice. The CIFAR-10 non-IID experiment uses \(20\) server rounds, \(3\) local epochs. Case~A excludes the ten weaker-device clients and trains only on the five \texttt{rpi5} partitions. Case~B includes all clients with full-model \texttt{FedAvg}, so weak clients keep their data but must train the full model at rate \(1.0\). Cases~C--E include all clients through reduced-rate submodels: \texttt{HeteroFL}, \texttt{FedRolex}, and \texttt{FIARSE} assign the ten \texttt{rpi4} clients rate \(1/8\).
 
 \definecolor{slowcaseA}{HTML}{0C5DA5}
 \definecolor{slowcaseB}{HTML}{00B945}
@@ -99,7 +101,7 @@ Figure~\ref{fig:compute_slow_majority_scenario} summarises the deployment choice
 \begin{adjustbox}{max width=\textwidth}
 \begin{tabular}{cllccrrr}
 \toprule
-Case & Clients & Method & Data used & \texttt{rpi4} rate & Accuracy & \makecell{Runtime\\(min)} & \makecell{Mean train\\round (s)} \\
+Case & Clients & Method & Data used & \texttt{rpi4} rate & \makecell{Accuracy\\(\%)} & \makecell{Runtime\\(min)} & \makecell{Mean train\\round (s)} \\
 \midrule
 \textcolor{slowcaseA}{\textbf{A}} & \(5\) \texttt{rpi5} & \texttt{FedAvg}   & \(5/15\) & excluded & \(63.59\pm2.69\) & \(38.8\pm3.9\)   & \(76.1\pm11.5\)   \\
 \textcolor{slowcaseB}{\textbf{B}} & \(5\) \texttt{rpi5}+\(10\) \texttt{rpi4} & \texttt{FedAvg}   & \(15/15\) & \(1.0\)  & \(73.12\pm0.95\) & \(137.5\pm8.5\) & \(373.4\pm17.5\) \\
@@ -114,7 +116,8 @@ Case & Clients & Method & Data used & \texttt{rpi4} rate & Accuracy & \makecell{
 \end{table}
 
 \paragraph{Interpretation.}
-Table~\ref{tab:compute_slow_majority} makes the trade-off explicit. Case~A is fastest at \(38.8\) minutes because it trains only on the strong-device partitions, but it uses only \(5/15\) partitions and stops nearly ten percentage points below full-model inclusion. Case~B gives the highest final accuracy at \(73.12\%\), but is slowest at \(137.5\) minutes and can be impractical on weak devices because full-model training needs more memory. Reduced-rate inclusion is the practical middle ground: \texttt{HeteroFL} and \texttt{FedRolex} keep all partitions while finishing in \(56\)--\(61\) minutes, and \texttt{FIARSE} gives the best reduced-rate accuracy at \(67.83\%\). Its sparse masks are executed by dense PyTorch kernels in this deployment, however, so testing the paper's wall-clock efficiency argument would require sparse kernels or hardware-supported sparse execution.
+Table~\ref{tab:compute_slow_majority} makes the trade-off explicit. Case~A is fastest at \(38.8\) minutes because it trains only on the strong-device partitions, but it uses only \(5/15\) partitions and stops nearly ten percentage points below full-model inclusion. Case~B gives the highest final accuracy at \(73.12\%\), but is slowest at \(137.5\) minutes and can be impractical on weak devices because full-model training needs more memory. 
+Submodel FL is the practical middle ground: \texttt{HeteroFL} and \texttt{FedRolex} keep all partitions while finishing in \(56\)--\(61\) minutes, and \texttt{FIARSE} gives the best reduced-rate accuracy at \(67.83\%\). However, its sparse masks are executed by dense PyTorch kernels in this deployment, so testing the paper's wall-clock efficiency argument would require sparse kernels or hardware-supported sparse execution.
 
 % \begin{figure}[!htbp]
 % \centering
@@ -128,18 +131,18 @@ Table~\ref{tab:compute_slow_majority} makes the trade-off explicit. Case~A is fa
 
 \paragraph{Takeaways.}
 \begin{itemize}[leftmargin=*, nosep]
-  \item Excluding slow clients is fastest, but it discards \(10/15\) non-IID partitions and loses almost \(10\) percentage points against full inclusion.
-  \item Full-model inclusion gives the best final accuracy, \(73.12\%\), but costs \(137.5\) minutes and can be impractical for weak devices due to memory constraints.
-  \item Reduced-rate inclusion is the practical middle ground: \texttt{HeteroFL} and \texttt{FedRolex} retain all partitions, while \texttt{FIARSE} gives stronger reduced-rate accuracy without sparse-kernel speedup.
+  \item Excluding slow clients is fastest, but it discards \(10/15\) non-IID partitions and loses almost \(10\)\% in performance against full inclusion.
+  \item Full-model inclusion gives the best final accuracy, \(73.12\%\), but costs \(137.5\) minutes and can be infeasible for weak devices due to memory constraints.
+  \item Submodel FL is the practical middle ground: \texttt{HeteroFL} and \texttt{FedRolex} retain all partitions, while \texttt{FIARSE} gives stronger reduced-rate accuracy without sparse-kernel speedup.
 \end{itemize}
 
 \FloatBarrier
 \subsection{Submodel FL on Mixed Devices: Quality and Runtime}
 
 \paragraph{Setup.}
-The previous subsection showed why reduced-rate inclusion is the relevant deployment choice: excluding weak clients loses data, while full-model inclusion is slow and can exceed weak-device memory budgets. This subsection addresses \evalqref{C2} by asking whether that choice remains useful beyond the motivating CIFAR-10 case. It sweeps \texttt{HeteroFL}, \texttt{FedRolex}, and \texttt{FIARSE} across tasks and data regimes on a mixed \texttt{rpi4}/\texttt{rpi5} testbed, measuring global quality, client-side submodel quality, end-to-end runtime, and client-level bottlenecks.
+The previous subsection motivates submodel FL as a practical middle ground: excluding weak clients loses data, while full-model inclusion is slow and can exceed weak-device memory budgets. This subsection addresses \evalqref{C2} by asking whether that choice remains useful beyond the motivating CIFAR-10 case. It sweeps \texttt{HeteroFL}, \texttt{FedRolex}, and \texttt{FIARSE} across tasks and data regimes on a mixed \texttt{rpi4}/\texttt{rpi5} testbed, measuring global quality, client-side submodel quality, end-to-end runtime, and client-level bottlenecks.
 
-The benchmark uses a \(20\)-node mixed-device testbed, \(10\times\texttt{rpi4}+10\times\texttt{rpi5}\), for California Housing, Fashion-MNIST, and CIFAR-10. Appendix~\ref{appendix:evaluation_tasks} describes these datasets and task models; using a fixed testbed keeps cross-task comparisons consistent.
+The benchmark uses a \(20\)-logical-client mixed deployment slice drawn from the 50-device Raspberry Pi cluster: \(10\) \texttt{rpi4} and \(10\) \texttt{rpi5} clients for California Housing, Fashion-MNIST, and CIFAR-10. Appendix~\ref{appendix:evaluation_tasks} describes these datasets and task models.
 
 Submodel clients receive one of four model rates, \(0.125,0.25,0.5,1.0\), where the rate is the fraction of the full trainable parameter budget available locally. As shown in Figure~\ref{fig:compute_model_rate_assignment}, smaller rates are assigned to \texttt{rpi4} clients and larger rates to \texttt{rpi5} clients, with \(5\) clients in each group. The remaining run settings are listed in Appendix~\ref{appendix:evaluation_settings}.
 
@@ -311,7 +314,7 @@ Task & Data & Method &
 
 
 \paragraph{Interpretation.}
-\texttt{FedAvg} remains the strongest full-model quality reference, reaching \(83.88\%\) on IID Fashion-MNIST, \(79.38\%\) on IID CIFAR-10, and \(R^2=0.724\) on IID California Housing. Among the heterogeneous methods, \texttt{FIARSE} gives the strongest image-task quality profile: on non-IID Fashion-MNIST it reaches \(76.38\%\) global accuracy, compared with \(69.73\%\) for \texttt{HeteroFL} and \(64.13\%\) for \texttt{FedRolex}; on non-IID CIFAR-10 it reaches \(70.55\%\), compared with \(64.86\%\) and \(65.72\%\). California Housing is the exception: under non-IID data, \texttt{HeteroFL} gives the strongest heterogeneous-method global score.
+\texttt{FedAvg} remains the strongest full-model performance reference, reaching \(83.88\%\) on IID Fashion-MNIST, \(79.38\%\) on IID CIFAR-10, and \(R^2=0.724\) on IID California Housing. Among the heterogeneous methods, \texttt{FIARSE} gives the strongest performance: on non-IID Fashion-MNIST it reaches \(76.38\%\) global accuracy, compared with \(69.73\%\) for \texttt{HeteroFL} and \(64.13\%\) for \texttt{FedRolex}; on non-IID CIFAR-10 it reaches \(70.55\%\), compared with \(64.86\%\) and \(65.72\%\). California Housing is the exception: under non-IID data, \texttt{HeteroFL} gives the strongest heterogeneous-method global score.
 
 
 
@@ -357,7 +360,7 @@ The client timing diagnostic in Figure~\ref{fig:compute_cifar10_client_train_tim
 \subsection{Client-Side Submodel Quality}
 
 \paragraph{Setup.}
-This subsection addresses \evalqref{C3} by checking whether aggregate quality hides weak client-side submodels. To measure this, the final server model is converted into each rate-specific submodel, sent to every client, and evaluated on that client's local evaluation partition; the figures plot these per-client scores rather than centralized test scores. Figure~\ref{fig:compute_cifar10_seed1340_local_submodel_grid} reports the CIFAR-10 diagnostic, Figure~\ref{fig:compute_california_local_submodel_dist} reports the corresponding California Housing diagnostic, and Appendix~\ref{appendix:fashion_mnist_local_submodel_dist} gives the Fashion-MNIST counterpart.
+This subsection addresses \evalqref{C3} by checking whether global performance trades off with weaker client-side submodels. To measure this, the final server model is converted into each rate-specific submodel, sent to every client, and evaluated on that client's local evaluation partition; the figures plot these per-client scores rather than centralised test scores. Figure~\ref{fig:compute_cifar10_seed1340_local_submodel_grid} reports the CIFAR-10 diagnostic, Figure~\ref{fig:compute_california_local_submodel_dist} reports the corresponding California Housing diagnostic, and Appendix~\ref{appendix:fashion_mnist_local_submodel_dist} gives the Fashion-MNIST counterpart.
 
 \begin{figure}[!htbp]
 \centering
@@ -426,7 +429,7 @@ In the \(1\) vs \(1/4\) and \(1\) vs \(1/16\) columns, accuracy improves as the 
 \section{Straggler-Induced Heterogeneity}
 \label{sec:eval_network_heterogeneity}
 
-Straggler-induced heterogeneity changes when updates arrive, how stale they are when applied, and how often slower devices influence the server model, as introduced in Section~\ref{sec:background_straggler_heterogeneity}. Previous asynchronous-FL evaluations often simulate staleness or client delay; the cluster runs here measure completion time, staleness, update share, and aggregate weight share directly. The corresponding method family is asynchronous FL, reviewed in Section~\ref{sec:related_async_fl}. This section evaluates asynchronous FL before Section~\ref{sec:eval_async_submodel_fl} combines it with submodel training.
+Straggler-induced heterogeneity changes when updates arrive, how stale they are when applied, and how often slower devices influence the server model, as introduced in Section~\ref{sec:background_straggler_heterogeneity}. Previous asynchronous-FL evaluations often simulate staleness or client delay; the cluster runs here measure completion time, staleness, update share, and aggregate weight share directly. The corresponding method family is asynchronous FL, reviewed in Section~\ref{sec:related_async_fl}. This section evaluates asynchronous FL before later Section~\ref{sec:eval_async_submodel_fl} combines it with submodel training.
 
 \FloatBarrier
 \subsection{Asynchronous FL Across Data and Device Heterogeneity}
@@ -434,7 +437,7 @@ Straggler-induced heterogeneity changes when updates arrive, how stale they are 
 \paragraph{Setup.}
 This subsection addresses \evalqref{S1}: how asynchronous FL behaves across data regimes and device placements. The CIFAR-10 benchmark crosses \texttt{IID} versus \texttt{non-IID} data with two placements: a homogeneous all-\texttt{rpi5} baseline and a mixed \texttt{rpi4}/\texttt{rpi5} straggler setting. Since all clients train the same model capacity, the placement contrast reflects straggler-induced timing rather than submodel-capacity effects. The methods are \texttt{FedAvg}, \texttt{FedAsync}, \texttt{FedBuff}, and \texttt{FedStaleWeight}, abbreviated as \texttt{FedSW} in compact tables and figures; Appendix~\ref{appendix:evaluation_settings}, Table~\ref{tab:appendix_straggler_settings}, lists their run budgets, buffer sizes, and concurrency settings.
 
-The endpoint is the first server evaluation reaching \(60\%\) accuracy. Time-to-target reports elapsed wall-clock time, while trips to target counts completed client updates to the same threshold; slow-device update share and aggregate-weight share diagnose representation. Figure~\ref{fig:network_main_setup_matrix} summarises the setup and shared stopping rule. Reporting both time and trips separates faster update arrival from better data efficiency, which matters when deployed FL methods are chosen for usable models under a wall-clock budget.
+The threshold here is the first point at which the global model reaches \(60\%\) accuracy. Time-to-target reports elapsed wall-clock time, while trips to target counts completed client updates to the same threshold; slow-device update share and aggregate-weight share diagnose representation. Figure~\ref{fig:network_main_setup_matrix} summarises the setup and shared stopping rule. Reporting both time and trips separates faster update arrival from better data efficiency, which matters when deployed FL methods are chosen for usable models under a wall-clock budget.
 
 % The mixed-topology rows are completed reruns under the intended placement; earlier submissions had inherited the packed all-\texttt{rpi5} deploy config.
 
@@ -557,7 +560,7 @@ Data & Topology & Method
 % {\centering\scriptsize \textcolor{evalBestText}{\textbf{Red bold}} text marks the \textbf{best} value and \textcolor{evalSecondText}{blue} text the \textbf{second-best} value among comparable entries.\par}
 
 \paragraph{Interpretation.}
-The all-\texttt{rpi5} rows are the negative control: \texttt{FedAvg} reaches the target first in both IID and non-IID settings, while some asynchronous non-IID seeds do not reach target within the trip budget. Mixed topology reverses the wall-clock result. In IID mixed runs, \texttt{FedAsync} reaches target in \(137\pm6\) client trips and \(622\pm9\) s, compared with \(195\pm0\) trips and \(2097\pm5\) s for \texttt{FedAvg}; it is also fastest in non-IID mixed runs. Asynchrony therefore helps under mixed completion times, not simply under non-IID data.
+The all-\texttt{rpi5} rows are the negative control: \texttt{FedAvg} reaches the target first in both IID and non-IID settings, while some asynchronous non-IID seeds do not reach target within the trip budget. Mixed topology reverses the wall-clock result. In IID mixed runs, \texttt{FedAsync} reaches target in \(137\pm6\) client trips and \(622\pm9\) s, compared with \(195\pm0\) trips and \(2097\pm5\) s for \texttt{FedAvg}; it is also fastest in non-IID mixed runs. Asynchronous FL therefore helps under mixed completion times, not simply under non-IID data.
 
 
 Figure~\ref{fig:network_main_accuracy_combined} shows that asynchronous methods are not consistently more data-efficient. In the all-\texttt{rpi5} panels, \texttt{FedAvg} reaches \(60\%\) with fewer completed trips. The deployment advantage appears only in the wall-clock row: the mixed \texttt{FedAvg} curves are stretched far to the right because synchronous rounds wait for slow devices. \texttt{FedAsync} is fastest, but its speed has a representation cost: \texttt{rpi4} clients provide only about \(12\)--\(13\%\) of accepted updates and roughly \(7\%\) of aggregate weight. \texttt{FedStaleWeight} is slower but raises \texttt{rpi4} aggregate weight to roughly \(28\)--\(30\%\), much closer to the \(5/15\) population share.
@@ -671,11 +674,11 @@ This subsection addresses \evalqref{S2}: how network perturbations affect asynch
 \end{table}
 
 \paragraph{Interpretation.}
-For synchronous \texttt{FedAvg}, impairment mainly stretches round duration rather than changing optimization progress: the target remains near \(420\)--\(425\) client trips, while mean wall-clock time rises from \(4043\) s with no added impairment to \(4286\)--\(4500\) s under the stressed profiles. The medium profile is the slowest \texttt{FedAvg} case, but the two asymmetric profiles are close to the mild profile, so impairment severity is not captured by latency alone.
+For synchronous \texttt{FedAvg}, the trip count stays near \(420\)--\(425\) across profiles, suggesting that impairment mainly stretches round duration rather than changing optimisation progress. The wall-clock means rise from \(4043\) s with no added impairment to \(4286\)--\(4500\) s under the stressed profiles, but the intervals are wide, especially for the asymmetric profiles. The safe conclusion is therefore that impairment affects elapsed time more than trip efficiency here; the precise ordering of stressed profiles should not be overinterpreted.
 
-\texttt{FedAsync} remains the fastest method in every profile, usually reaching target in \(360\)--\(393\) trips and \(1100\)--\(1340\) s under impairment, but it keeps \texttt{rpi4} aggregate weight near \(8\%\). Its profile-to-profile variation is smaller than the gap to the synchronous baseline, indicating that asynchronous progress is robust to deployment-side network perturbations.
+\texttt{FedAsync} has the fastest mean target time in every profile, usually reaching target in \(360\)--\(393\) trips and \(1100\)--\(1340\) s under impairment, but it keeps \texttt{rpi4} aggregate weight near \(8\%\). Its profile-to-profile variation is smaller than the gap to the synchronous baseline, suggesting robustness to these deployment-side perturbations, while the overlapping intervals make exact profile rankings uncertain.
 
-\texttt{FedStaleWeight} with \(K=10\) is the strongest buffered setting: it is slower than \texttt{FedAsync}, but reaches target in every seed and keeps \texttt{rpi4} weight near \(30\%\). The buffered methods are also where the profiles matter most. For \(K=10\), the mild profile is the slowest \texttt{FedBuff} and \texttt{FedStaleWeight} condition, while the medium and asymmetric profiles are closer to each other. This suggests that buffer-fill timing and arrival ordering, not only raw network severity, determine wall-clock target time. Reducing the buffer to \(K=5\) helps \texttt{FedBuff} more reliably than \texttt{FedStaleWeight}; \texttt{FedStaleWeight} with \(K=5\) has large accuracy variance and often fails to reach target under impairment.
+\texttt{FedStaleWeight} with \(K=10\) is the strongest buffered setting: it is slower than \texttt{FedAsync}, but reaches target in every seed and keeps \texttt{rpi4} weight near \(30\%\). The buffered methods show more profile sensitivity than \texttt{FedAsync}, but the overlapping intervals again argue against a strict severity ranking. The useful interpretation is that buffer-fill timing and arrival ordering, not only raw network parameters, shape wall-clock target time. Reducing the buffer to \(K=5\) helps \texttt{FedBuff} more reliably than \texttt{FedStaleWeight}; \texttt{FedStaleWeight} with \(K=5\) has large accuracy variance and often fails to reach target under impairment.
 
 Figure~\ref{fig:network_async_participation_staleness} tests the arrival mechanism directly. Across all buffered panels, rows \(11\)--\(15\) are darker and less frequent than rows \(1\)--\(10\), showing that \texttt{rpi4} clients contribute fewer accepted updates and those updates arrive with higher staleness. The \(K=5\) panels have higher absolute staleness for both device classes, while \(K=10\) makes the device-class contrast sharper because most \texttt{rpi5} updates are near-fresh but accepted \texttt{rpi4} updates remain stale. Thus the representation issue is not only how often slow clients arrive, but also how much influence their stale updates receive after aggregation weighting. The corresponding \texttt{FedAsync}-only trace is included as Figure~\ref{fig:appendix_network_fedasync_participation_staleness} in Appendix~\ref{appendix:additional_figures}.
 
@@ -815,17 +818,17 @@ The previous sections evaluate synchronous submodel training and standard asynch
 \subsection{Feasibility Across Tasks and Data Regimes}
 
 \paragraph{Setup.}
-This subsection addresses \evalqref{A1}: whether asynchronous submodel FL is feasible across tasks and data regimes. The comparison uses the same \(20\)-node mixed deployment and nested \texttt{HeteroFL} rate assignment as the compute benchmark. Methods are synchronous \texttt{HeteroFL}, coverage-disabled asynchronous \texttt{HeteroFL} labelled \texttt{Async-HeteroFL}, \texttt{FedCover}, and \texttt{FedBuff}; \texttt{Async-HeteroFL} is the direct buffered composition isolating \texttt{FedCover}'s coverage correction. Unlike workload-adaptive approaches such as \texttt{TimelyFL}, this experiment keeps the nested rate assignment fixed and tests aggregation-side coverage. Appendix~\ref{appendix:evaluation_settings}, Table~\ref{tab:appendix_fedcover_settings}, lists run settings. All \texttt{FedCover} rows use \(\kappa_{\max}=3\), so sweep differences reflect \(\gamma\), not the correction cap.
+This subsection addresses \evalqref{A1}: whether asynchronous submodel FL is feasible across tasks and data regimes. The comparison uses the same \(20\)-node mixed deployment and nested \texttt{HeteroFL} rate assignment as the compute benchmark. Methods are synchronous \texttt{HeteroFL}, the direct-composition baseline, \texttt{Async-HeteroFL}, \texttt{FedCover}, and \texttt{FedBuff}; \texttt{Async-HeteroFL} combines \texttt{FedBuff}-style buffering with \texttt{HeteroFL}-style nested slicing but applies no coverage correction. Appendix~\ref{appendix:evaluation_settings}, Table~\ref{tab:appendix_fedcover_settings}, elaborates on the detailed run hyperparameter settings. All \texttt{FedCover} rows use \(\kappa_{\max}=3\), so sweep differences reflect \(\gamma\), not the correction cap. Post-warm-up target time subtracts the first \(20\) completed client trips, corresponding to one synchronous \texttt{HeteroFL} round or five \(K=4\) asynchronous buffer updates.
 
 \paragraph{Interpretation.}
-The table shows that the combined setting is operationally feasible rather than merely a conceptual composition. Asynchronous submodel variants reach target in all CIFAR-10 runs, including the non-IID regime where synchronous \texttt{HeteroFL} reaches the \(60\%\) target for only \(2/3\) seeds. Fashion-MNIST shows the same feasibility pattern under IID data and a harder non-IID case: every cap-matched \texttt{FedCover} setting reaches the \(75\%\) target for every seed, while the synchronous and coverage-disabled baselines each have at least one censored seed. \texttt{FedBuff} is retained as an asynchronous reference, but it is not capacity-matched to the submodel methods and is therefore unranked.
+The table shows that the combined setting is operationally feasible rather than merely a conceptual composition. Asynchronous submodel variants reach target in all CIFAR-10 runs, including the non-IID regime where synchronous \texttt{HeteroFL} reaches the \(60\%\) target for only \(2/3\) seeds. Fashion-MNIST shows the same feasibility pattern under IID data and a harder non-IID case: every cap-matched \texttt{FedCover} setting reaches the \(75\%\) target for every seed, while synchronous \texttt{HeteroFL} and uncorrected \texttt{Async-HeteroFL} each have at least one censored seed. \texttt{FedBuff} is retained as an asynchronous reference, but it is not capacity-matched to the submodel methods and is therefore unranked.
 
 
 \paragraph{Takeaways.}
 \begin{itemize}[leftmargin=*, nosep]
   \item Asynchronous submodel FL is feasible across the CIFAR-10 and Fashion-MNIST settings.
-  \item Non-IID Fashion-MNIST is the hardest feasibility case, with censored seeds for the synchronous and coverage-disabled baselines.
-  \item \texttt{Async-HeteroFL} is the controlled coverage-disabled baseline for the next subsection; \texttt{FedBuff} remains contextual because it is not capacity-matched.
+  \item Non-IID Fashion-MNIST is the hardest feasibility case, with censored seeds for synchronous \texttt{HeteroFL} and uncorrected \texttt{Async-HeteroFL}.
+  \item \texttt{Async-HeteroFL} is the controlled uncorrected baseline for the next subsection; \texttt{FedBuff} remains contextual because it is not capacity-matched.
 \end{itemize}
 
 \begin{table}[H]
@@ -836,7 +839,7 @@ The table shows that the combined setting is operationally feasible rather than 
 % Notes: values are mean +/- standard deviation over seeds 1337--1339.
 % The target is first centralized accuracy >= the task/data target stated in the surrounding paragraph.
 % Daggered trip/time cells are lower-bound aggregates: one or more seeds did not reach target, so the final observed run point was substituted.
-% Post-warm-up time subtracts the first 20 completed client trips: one synchronous HeteroFL round or five async buffered server steps.
+% Post-warm-up time subtracts the first 20 completed client trips: one synchronous HeteroFL round or five K=4 async buffered server steps.
 % rpi4 weight share is aggregate server weight assigned to rpi4 updates; synchronous HeteroFL has the structural 50% share.
 % Coverage gain is the mean FedCover multiplicative correction; the daggered async-HeteroFL value is the disabled-correction baseline.
 % All FedCover rows use kappa_max = 3; gamma is the swept coverage-power parameter.
@@ -892,26 +895,26 @@ Task & Data & Method & \makecell{Trips\\to target} & \makecell{Time to\\target (
 \label{sec:eval_coverage_mismatch}
 
 \paragraph{Setup.}
-Building on the same runs reported in Table~\ref{tab:fedcover_async_submodel}, this subsection addresses \evalqref{A2}: whether \texttt{FedCover}'s coverage correction improves asynchronous submodel FL. The capacity-matched comparison is synchronous \texttt{HeteroFL}, coverage-disabled asynchronous \texttt{HeteroFL}, and \texttt{FedCover} across \(\gamma\) values. \texttt{FedBuff} remains an asynchronous reference rather than a capacity-matched baseline.
+Building on the same runs reported in Table~\ref{tab:fedcover_async_submodel}, this subsection addresses \evalqref{A2}: whether \texttt{FedCover}'s coverage correction improves asynchronous submodel FL. The capacity-matched comparison is synchronous \texttt{HeteroFL}, uncorrected \texttt{Async-HeteroFL}, and \texttt{FedCover} across \(\gamma\) values. \texttt{FedBuff} serves as a reference since it is trained with full model parameters.
 
 \paragraph{Interpretation.}
-On CIFAR-10 IID, \texttt{FedCover} gives the clearest target-time improvement among capacity-matched methods: \(\gamma=1.5\) reduces mean time to target from \(24.2\) minutes for synchronous \texttt{HeteroFL} and \(33.9\) minutes for coverage-disabled asynchronous \texttt{HeteroFL} to \(13.7\) minutes, with the lowest trip count and post-warm-up target time. With the cap fixed, \(\gamma=1.0\) is now close behind at \(13.8\) minutes and \(9.7\) post-warm-up minutes. The non-IID setting strengthens the need for the larger correction: \(\gamma=1.5\) reaches the \(60\%\) target in \(16.3\) minutes, compared with \(38.2\) minutes for the coverage-disabled asynchronous baseline and \(18.8\) minutes for \(\gamma=1.0\).
+On CIFAR-10 IID, \texttt{FedCover} gives the clearest target-time improvement among capacity-matched methods: \(\gamma=1.5\) reduces mean time to target from \(24.2\) minutes for synchronous \texttt{HeteroFL} and \(33.9\) minutes for uncorrected \texttt{Async-HeteroFL} to \(13.7\) minutes, with the lowest trip count and post-warm-up target time. With the cap fixed, \(\gamma=1.0\) is now close behind at \(13.8\) minutes and \(9.7\) post-warm-up minutes. The non-IID setting strengthens the need for the larger correction: \(\gamma=1.5\) reaches the \(60\%\) target in \(16.3\) minutes, compared with \(38.2\) minutes for uncorrected \texttt{Async-HeteroFL} and \(18.8\) minutes for \(\gamma=1.0\).
 
-Fashion-MNIST repeats the same main pattern on a second image task. In IID, \(\gamma=1.5\) reaches the \(80\%\) target in \(6.0\) minutes and reduces post-warm-up time to \(4.4\) minutes, only slightly ahead of \(\gamma=1.0\). In non-IID, \(\gamma=1.5\) is again the strongest target-time setting; \(\gamma=1.0\) has the second-best post-warm-up mean, while \(\gamma=0.5\) is marginally second on total target time.
+Fashion-MNIST repeats the same main pattern. In IID, \(\gamma=1.5\) reaches the \(80\%\) target in \(6.0\) minutes and reduces post-warm-up time to \(4.4\) minutes, only slightly ahead of \(\gamma=1.0\). In non-IID, \(\gamma=1.5\) is again the strongest target-time setting; \(\gamma=1.0\) has the second-best post-warm-up mean, while \(\gamma=0.5\) is marginally second on total target time.
 
-Figure~\ref{fig:fedcover_post_warmup_speedup} makes the post-warm-up pattern clearer. Every \(\gamma\) setting has positive mean speedup over coverage-disabled \texttt{Async-HeteroFL} after warm-up. The IID panels show the cleanest trend: larger \(\gamma\) and larger observed coverage gain \(\bar{\kappa}\) give consistent speedup, with \(\gamma=1.0\) close to \(\gamma=1.5\). The non-IID panels are more seed-sensitive for weaker corrections, but \(\gamma=1.5\) gives the largest average speedup in both tasks, reaching roughly \(56\%\) on CIFAR-10 and \(48\%\) on Fashion-MNIST. This supports the interpretation that \texttt{FedCover} is compensating for under-covered parameter blocks after warm-up, while also showing that the strongest correction matters most under data skew. Its \texttt{rpi4} aggregate weight remains close to the coverage-disabled asynchronous baseline, so the improvement comes from coverage-aware aggregation rather than simply increasing slow-device aggregate weight.
+Figure~\ref{fig:fedcover_post_warmup_speedup} makes the post-warm-up pattern clearer. Every \(\gamma\) setting has positive mean speedup over uncorrected \texttt{Async-HeteroFL} after warm-up. The IID panels show the cleanest trend: larger \(\gamma\) and larger observed coverage gain \(\bar{\kappa}\) give consistent speedup, with \(\gamma=1.0\) close to \(\gamma=1.5\). The non-IID panels are more seed-sensitive for weaker corrections, but \(\gamma=1.5\) gives the largest average speedup in both tasks, reaching roughly \(56\%\) on CIFAR-10 and \(48\%\) on Fashion-MNIST. This supports the interpretation that \texttt{FedCover} is compensating for under-covered parameter blocks after warm-up, while also showing that the strongest correction matters most under data skew. Its \texttt{rpi4} aggregate weight remains close to uncorrected \texttt{Async-HeteroFL}, so the improvement comes from coverage-aware aggregation rather than simply increasing slow-device aggregate weight.
 
 \begin{figure}[!htbp]
 \centering
 \includegraphics[width=\textwidth]{figures/fedcover_post_warmup_speedup.pdf}
-\caption{\textbf{Post-warm-up speedup from coverage-aware aggregation.} Bars show mean paired-seed speedup over coverage-disabled \texttt{Async-HeteroFL}; open circles show seeds.}
+\caption{\textbf{Post-warm-up speedup from coverage-aware aggregation.} Bars show mean paired-seed speedup over uncorrected \texttt{Async-HeteroFL}; open circles show seeds.}
 \label{fig:fedcover_post_warmup_speedup}
 \end{figure}
 
 \paragraph{Takeaways.}
 
 \begin{itemize}[leftmargin=*, nosep]
-  \item \texttt{FedCover} improves the coverage-disabled \texttt{Async-HeteroFL} baseline across all task--regime pairs, especially in target time and post-warm-up time.
+  \item \texttt{FedCover} improves uncorrected \texttt{Async-HeteroFL} across all task--regime pairs, especially in target time and post-warm-up time.
   \item With \(\kappa_{\max}\) fixed, \(\gamma=1.0\) nearly matches \(\gamma=1.5\) on IID data, while \(\gamma=1.5\) is strongest under non-IID data.
   \item The gains are not explained by slow-device reweighting: \texttt{rpi4} aggregate weight stays close to \texttt{Async-HeteroFL}, so the improvement is consistent with correcting under-covered parameter blocks.
 \end{itemize}

@@ -13,7 +13,7 @@ This appendix defines the systems terms used in the implementation chapter. The 
 Flower is an open-source framework for defining and running federated-learning workloads \parencite{beutel2022flower}. In this dissertation, Flower is the layer in which the server-side coordination logic and client-side training logic are written; \texttt{fedctl} supplies the surrounding deployment path that places those roles on the cluster, configures them, and preserves the resulting evidence.
 \end{definition}
 
-Flower separates the project-specific learning logic from the runtime processes that connect a federation. A Flower project can therefore be run locally for development or connected to a remote federation in which server-side and client-side work execute as separate processes. \texttt{fedctl} uses this separation: it keeps the learning problem inside the Flower project, while controlling placement, network conditions, images, logs, and artifacts outside Flower.
+Flower separates the project-specific learning logic from the runtime processes that connect a federation. A Flower project can therefore be run locally for development or connected to a remote federation in which server-side and client-side work execute as separate processes. \texttt{fedctl} uses this separation: it keeps the learning problem inside the Flower project, while controlling placement, network conditions, images, logs, and artefacts outside Flower.
 
 \section{Flower Runtime Components}
 \label{def:flower_components}
@@ -44,7 +44,7 @@ The main Nomad terms used in Chapter~\ref{chap:implementation} are:
   \item[Job] A submitted unit of work. \texttt{fedctl} renders separate jobs for Flower runtime services, application executors, and submit-runner work.
   \item[Task group] A group of tasks that Nomad schedules together. \texttt{fedctl} uses task groups to represent repeated logical-client roles such as SuperNodes.
   \item[Allocation] A concrete placement of a task group on a physical Nomad client node.
-  \item[Constraint] A scheduling rule. Device-aware placement uses constraints such as matching a requested worker type to Nomad node metadata.
+  \item[Constraint] A scheduling rule. Typed client placement uses constraints such as matching a requested worker type to Nomad node metadata.
   \item[Service] A named network endpoint registered by a running task. Flower roles discover each other through these services rather than through hard-coded IP addresses.
 \end{description}
 
@@ -63,7 +63,7 @@ A container image packages the code and dependencies required to run a process. 
 The submit runner is a short-lived cluster job launched by the submit service. It downloads the submitted bundle, reconstructs the user request, builds or selects the SuperExec image, renders the Nomad jobs, and starts the Flower run.
 \end{definition}
 
-This extra runner layer keeps the user's laptop out of the critical path after submission. Once a run has been accepted, queueing, deployment, logging, and artifact capture proceed on the cluster side.
+This extra runner layer keeps the user's laptop out of the critical path after submission. Once a run has been accepted, queueing, deployment, logging, and artefact capture proceed on the cluster side.
 
 \section{Network Impairment and Evidence}
 \label{def:network_evidence}
@@ -74,7 +74,7 @@ This extra runner layer keeps the user's laptop out of the critical path after s
 \end{definition}
 
 \begin{definition}
-\textbf{W\&B and structured artifacts.}
-Weights \& Biases (W\&B) stores experiment metrics and run summaries. Structured artifacts are files emitted by the research application, such as event-level asynchronous-update logs and per-client diagnostic rows. Together with submit-service logs, they form the evidence path used to regenerate tables, figures, and failure diagnostics.
+\textbf{W\&B and structured artefacts.}
+Weights \& Biases (W\&B) stores experiment metrics and run summaries. Structured artefacts are files emitted by the research application, such as event-level asynchronous-update logs and per-client diagnostic rows. Together with submit-service logs, they form the evidence path used to regenerate tables, figures, and failure diagnostics.
 \end{definition}
 %TC:endignore

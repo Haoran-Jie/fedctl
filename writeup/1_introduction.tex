@@ -2,43 +2,41 @@
 \chapter{Introduction}
 \label{chap:introduction}
 
-Federated learning (FL) trains shared models across distributed clients without centralising raw data \parencite{mcmahan2017fedavg}, but edge deployments make evaluation systems-dependent: clients may differ in data, processor speed, memory pressure, network path, and availability \parencite{bonawitz2019towards,lai2022fedscale}. This dissertation evaluates heterogeneous edge FL through two deployment pressures, \textbf{compute heterogeneity} and \textbf{straggler-induced heterogeneity}, retaining data heterogeneity where it interacts with the system. To make these effects measurable, I developed \textbf{fedctl}: a command-line and browser-facing framework for Flower apps on a Nomad-managed Raspberry Pi cluster. A user submits a Flower project with \texttt{fedctl submit run <project-dir>} and can inspect queue state, logs, and result artifacts through either interface. Using this infrastructure, the dissertation evaluates submodel FL\footnote{This dissertation uses \emph{submodel FL} as shorthand for partial-training-based model-heterogeneous FL: methods in which the server maintains a shared global model, sends each selected client an extracted smaller submodel, and maps the returned partial update back into the global model. Section~\ref{sec:related_model_heterogeneous_fl} defines this family.}, asynchronous FL, and their combination on real hardware; this dissertation also proposes \texttt{FedCover}, a coverage-aware aggregation algorithm for asynchronous submodel FL.
+Federated learning (FL) trains shared models across distributed clients without centralising data \parencite{mcmahan2017fedavg}, but edge deployments make evaluation systems-dependent: clients may differ in data, processor speed, memory pressure, network conditions, and availability \parencite{bonawitz2019towards,lai2022fedscale}. This dissertation evaluates FL methods under \textbf{compute heterogeneity}, \textbf{straggler-induced heterogeneity}, and data heterogeneity where it interacts with the system. To make these effects measurable, I developed \textbf{fedctl}: a command-line framework with a browser-based interface for deploying Flower\footnote{Flower is the federated-learning framework used for these experiments and is widely used for FL work in the Computer Laboratory at the University of Cambridge \parencite{beutel2022flower}.} applications on a Raspberry Pi cluster. A user can submit a Flower app with \texttt{fedctl submit run <project-dir>} and control reproducible client placement and network impairment. Using \texttt{fedctl}, the dissertation evaluates submodel FL\footnote{This dissertation uses \emph{submodel FL} as shorthand for partial-training-based model-heterogeneous FL: methods in which the server maintains a shared global model, sends each selected client an extracted smaller submodel, and maps the returned partial update back into the global model. Section~\ref{sec:related_model_heterogeneous_fl} defines this family.}, asynchronous FL, and their combination, asynchronous submodel FL; it also proposes \texttt{FedCover}, a coverage-aware aggregation algorithm for asynchronous submodel FL.
 
 \section{Motivation: Evaluating Heterogeneous FL on Edge}
 
-\paragraph{Setting the scene: federated learning beyond centralised data.}
-FL is often motivated by privacy, ownership, bandwidth, or governance constraints that prevent raw data from being centralised \parencite{kairouz2021advances,wang2021field}. In edge deployments, decentralisation also changes the systems setting itself \parencite{bonawitz2019towards}. A client is not simply a data partition: it is a physical device with its own processor, memory pressure, network path, and availability. 
+\paragraph{Setting the scene: realistic FL edge deployments.}
+FL is often motivated by privacy, ownership, bandwidth, or regulatory constraints that prevent data from being centralised \parencite{kairouz2021advances,wang2021field}. In edge deployments, decentralisation also changes the systems setting \parencite{bonawitz2019towards}. A client is not simply a data partition: it is a physical device with its own processor, memory pressure, network path, and availability. 
 
-\paragraph{Challenges in edge FL: heterogeneity becomes part of the training loop.}
-A Raspberry Pi 4 and a Pi 5 can run the same code, but they do not contribute equally. If every selected client trains the full model synchronously, weaker devices can dominate round time or encounter memory constraints. If updates are accepted asynchronously, faster devices can contribute more frequently, with lower staleness, and therefore exert greater aggregate influence. This dissertation therefore distinguishes two deployment pressures: \textbf{compute heterogeneity}, which changes feasible local model work, and \textbf{straggler-induced heterogeneity}, which changes update arrival time, staleness, and aggregation dynamics.
+\paragraph{Challenges in edge FL: heterogeneity.}
+A Raspberry Pi 4 and a Pi 5 can train the same model locally. However, their influence on the deployed system differs: weaker devices can dominate round latency or face memory constraints. In asynchronous FL, this system heterogeneity can also influence global fairness, as faster clients update more frequently. This dissertation therefore separates \textbf{compute heterogeneity}, which affects feasible local workload, from \textbf{straggler-induced heterogeneity}, which affects update timing, staleness, and aggregation dynamics.
 
-\paragraph{Heterogeneous FL methods: addressing different bottlenecks.}
-Existing methods address these deployment pressures in different ways. Submodel FL methods such as \texttt{HeteroFL}, \texttt{FedRolex}, and \texttt{FIARSE} reduce compute and memory demands by assigning smaller local models to weaker clients \parencite{diao2021heterofl,alam2022fedrolex,wu2024fiarse}. Asynchronous methods such as \texttt{FedAsync}, \texttt{FedBuff}, and \texttt{FedStaleWeight} address completion-time variation by changing when updates are incorporated \parencite{xie2019asynchronous,nguyen2022fedbuff,ma2024fedstaleweight}. Their intersection, asynchronous submodel FL, combines uneven update timing with partial model updates.
+\paragraph{Heterogeneous FL methods: addressing system bottlenecks.}
+Existing methods address these heterogeneities in different ways. \textbf{Submodel FL} methods such as \texttt{HeteroFL}, \texttt{FedRolex}, and \texttt{FIARSE} reduce compute and memory demands by assigning smaller local models to weaker clients \parencite{diao2021heterofl,alam2022fedrolex,wu2024fiarse}. \textbf{Asynchronous FL} methods such as \texttt{FedAsync}, \texttt{FedBuff}, and \texttt{FedStaleWeight} address completion-time variation by changing when responses are aggregated \parencite{xie2019asynchronous,nguyen2022fedbuff,ma2024fedstaleweight}. Their intersection, \textbf{asynchronous submodel FL}, combines uneven update timing with partial model updates.
 
-\paragraph{Unanswered questions in real-hardware evaluation.}
-Many heterogeneous-FL evaluations abstract away the deployment conditions that determine practical utility \parencite{wang2021field,diao2021heterofl,alam2022fedrolex,nguyen2022fedbuff,lai2022fedscale}. Homogeneous hardware, simulation, and simplified delay models remove the effects these methods are intended to address: unequal completion times, runtime bottlenecks, slow-device exclusion, and asymmetric client influence. Consequently, final accuracy alone cannot show whether a method improved wall-clock efficiency, preserved slow-device representation, or produced useful smaller models for weaker devices. A second gap is methodological: submodel FL and asynchronous FL are mostly studied separately, although prior work such as \texttt{TimelyFL} adapts partial training for asynchronous participation \parencite{zhang2023timelyfl}. Their combination is feasible, but asynchronous submodel updates make \textbf{parameter coverage} part of the aggregation problem. \textbf{What do these methods buy on real hardware, and how should asynchronous aggregation change when clients train different submodels?} This dissertation addresses these questions through reproducible cluster runs and by \textbf{introducing \texttt{FedCover}}, a coverage-aware aggregation algorithm.
+\paragraph{Evaluation gaps for heterogeneous FL.}
+This dissertation addresses two gaps in heterogeneous FL evaluation. First, many evaluations abstract away practical deployment conditions \parencite{wang2021field,diao2021heterofl,alam2022fedrolex,nguyen2022fedbuff,lai2022fedscale}; homogeneous hardware, simulation, and simplified delay models remove the effects these methods are intended to address\footnote{Unequal completion times, runtime bottlenecks, memory constraints, heterogeneous bandwidth, intermittent client availability, weak client exclusion, stale-update bias, and asymmetric client influence.}. Comprehensive evaluation therefore requires measuring both model performance and deployment behaviour. Second, submodel FL and asynchronous FL are mostly studied separately. Prior work such as \texttt{TimelyFL} combines the two method families through client workload coordination for timely participation \parencite{zhang2023timelyfl}. This dissertation studies the complementary server-side problem: improving parameter coverage instability under stale, partial updates. \textit{How do these method families behave on real hardware, and how should the server aggregate stale partial submodel updates?} This dissertation answers these questions through reproducible \texttt{fedctl} experiments and by proposing \texttt{FedCover}, a coverage-aware aggregation algorithm for asynchronous submodel FL.
 
 \section{Project Aims}
 \label{sec:project_aims}
-
-This dissertation asks: \textit{how should heterogeneous FL methods be deployed and measured when heterogeneity is a property of the hardware and network, rather than merely a simulation?}
 
 \begin{aimbox}
 \textbf{\textcolor{darkblue}{Main aims}}
 
 \begin{enumerate}[label=(\alph*), topsep=6pt, itemsep=6pt]
-  \item \label{aim:a}\textbf{Develop \texttt{fedctl}} as a reusable framework for submitting, deploying, and inspecting Flower workloads on a heterogeneous edge cluster.
+  \item \label{aim:a}\textbf{Develop \texttt{fedctl}} as a framework for submitting, deploying, and inspecting Flower applications on a heterogeneous edge cluster.
   \begin{enumerate}[label=(\arabic*), leftmargin=2.5em, topsep=2pt, itemsep=2pt]
-    \item \label{aim:a.1}submit and queue Flower projects as repeatable runs;
-    \item \label{aim:a.2}support deployment monitoring, execution tracing, and status, log, and artifact inspection through CLI and browser interfaces;
-    \item \label{aim:a.3}preserve deployment settings and runtime metadata for later analysis.
+    \item \label{aim:a.1}submit and queue Flower applications as reproducible runs;
+    \item \label{aim:a.2}support deployment monitoring, execution tracing, and status, log, and artefact inspection through CLI and browser interfaces;
+    \item \label{aim:a.3}preserve deployment settings and runtime metadata for analysis.
   \end{enumerate}
   \item \label{aim:b}\textbf{Construct a realistic testbed} using mixed \texttt{rpi4}/\texttt{rpi5} workers, explicit device placement, and deployment-side control over execution conditions.
   \item \label{aim:c}\textbf{Evaluate compute heterogeneity under real local-compute bottlenecks}, comparing full-model training with submodel FL methods using accuracy, runtime, client timing, and submodel quality.
   \begin{enumerate}[label=(\arabic*), leftmargin=2.5em, topsep=2pt, itemsep=2pt]
     \item \label{aim:c.1}compare \texttt{FedAvg}, \texttt{HeteroFL}, \texttt{FedRolex}, and \texttt{FIARSE};
-    \item \label{aim:c.2}separate final utility from wall-clock runtime and client timing;
-    \item \label{aim:c.3}evaluate deployed submodel quality after training.
+    \item \label{aim:c.2}separate final performance from wall-clock runtime and client timing;
+    \item \label{aim:c.3}evaluate deployed submodel quality.
   \end{enumerate}
 \end{enumerate}
 \end{aimbox}
@@ -46,14 +44,21 @@ This dissertation asks: \textit{how should heterogeneous FL methods be deployed 
 \begin{aimbox}
 \textbf{\textcolor{darkblue}{Extension aims}}
 \begin{enumerate}[label=(\alph*), topsep=6pt, itemsep=6pt]
-  \item \label{eaim:a}\textbf{Add controls for straggler-induced heterogeneity}, including deployment-side network impairment and per-device diagnostics.
+  \item \label{eaim:a}\textbf{Add controlled network-impairment support} to the deployment layer.
   \begin{enumerate}[label=(\arabic*), leftmargin=2.5em, topsep=2pt, itemsep=2pt]
-    \item \label{eaim:a.1}apply latency, jitter, loss, and rate-limit profiles;
-    \item \label{eaim:a.2}record timing, staleness, update-share, and aggregate-influence diagnostics.
+    \item \label{eaim:a.1}apply latency, jitter, loss, and rate-limit profiles through deployment config;
+    \item \label{eaim:a.2}record the selected impairment profile and runtime metadata for analysis.
   \end{enumerate}
-  \item \label{eaim:b}\textbf{Implement asynchronous FL methods} in the shared Flower application layer.
+
+  \item \label{eaim:b}\textbf{Evaluate straggler-induced heterogeneity under real mixed-device and controlled network conditions}, comparing synchronous and asynchronous FL methods using time-to-target, client trips, staleness, and update share.
+  \begin{enumerate}[label=(\arabic*), leftmargin=2.5em, topsep=2pt, itemsep=2pt]
+    \item \label{eaim:b.1}compare \texttt{FedAvg}, \texttt{FedAsync}, \texttt{FedBuff}, and \texttt{FedStaleWeight};
+    \item \label{eaim:b.2}measure time-to-target and client-trip efficiency;
+    \item \label{eaim:b.3}diagnose slow-client representation through update share, aggregate-weight share, and staleness.
+  \end{enumerate}
+
   \item \label{eaim:c}\textbf{Design \texttt{FedCover}}, a coverage-aware aggregation algorithm for asynchronous submodel FL.
-  \item \label{eaim:d}\textbf{Evaluate time-to-target and slow-client representation} under mixed-device and controlled network conditions.
+  \item \label{eaim:d}\textbf{Evaluate asynchronous submodel FL}, testing whether buffered asynchronous aggregation over nested submodel updates is feasible and whether \texttt{FedCover} improves the resulting quality--runtime trade-off.
 \end{enumerate}
 \end{aimbox}
 
@@ -64,14 +69,14 @@ This dissertation makes the following contributions.
 \begin{aimbox}
 \textbf{\textcolor{darkblue}{Key contributions}}
 \begin{enumerate}[label=(\alph*), topsep=6pt, itemsep=6pt]
-  \item \textbf{Developed \texttt{fedctl}:} an open-source CLI and browser-facing framework for submitting, deploying, monitoring, and retrieving Flower applications while preserving deployment logs, artifacts, W\&B evidence, placement, network settings, timing, staleness, and device-labelled influence. \footnote{\texttt{fedctl} can be installed with \texttt{pip install fedctl}. The deployed UI is available at \href{http://fedctl.cl.cam.ac.uk}{\texttt{fedctl.cl.cam.ac.uk}} for Cambridge Computer Laboratory users on the CL network or via the VPN.}
-  \item \textbf{Proposed \texttt{FedCover}:} a coverage-aware buffered aggregation algorithm for asynchronous submodel FL, improving on the coverage-disabled baseline in the post-warm-up target-time view.
-  \item \textbf{Established asynchronous submodel FL:} a deployed evaluation of buffered asynchronous aggregation over nested submodel updates, showing that the direct combination is feasible across the evaluated settings and that timing-dependent buffers make parameter coverage a measurable aggregation variable.
+  \item \textbf{Developed \texttt{fedctl}:} an open-source CLI and browser-facing framework for submitting, deploying, monitoring, and retrieving Flower applications while preserving deployment logs, artefacts, W\&B evidence, placement, network settings, timing, staleness, and client influence.\footnote{\texttt{fedctl} can be installed with \texttt{pip install fedctl}. The deployed UI is available at \href{http://fedctl.cl.cam.ac.uk}{\texttt{fedctl.cl.cam.ac.uk}} for Cambridge Computer Laboratory users on the CL network or via the VPN.}
+  \item \textbf{Proposed \texttt{FedCover}:} a coverage-aware buffered aggregation algorithm for asynchronous submodel FL, improving on uncorrected \texttt{Async-HeteroFL}.
+  % \item \textbf{Evaluated asynchronous submodel FL:} a deployed evaluation of buffered asynchronous aggregation over nested submodel updates, showing that the direct combination is feasible across the evaluated settings and that timing-dependent buffers make parameter coverage a measurable aggregation variable.
   \item \textbf{Evaluated submodel FL under compute heterogeneity:} an empirical comparison of whether smaller client models improve the quality--speed trade-off under real local-compute bottlenecks, using \texttt{FedAvg} and implemented \texttt{HeteroFL}, \texttt{FedRolex}, and \texttt{FIARSE} while measuring submodel quality.
   \item \textbf{Evaluated asynchronous FL under straggler-induced heterogeneity:} an empirical comparison of when asynchronous coordination improves time-to-target under mixed completion times and controlled network conditions, using \texttt{FedAsync}, \texttt{FedBuff}, and \texttt{FedStaleWeight} while measuring slow-device influence.
-  \item \textbf{Constructed a heterogeneous Raspberry Pi cluster for FL evaluation:} a 50-device edge cluster built from \(30\times\texttt{rpi4}\) and \(20\times\texttt{rpi5}\) workers, provisioned with Ansible and orchestrated through Nomad as the heterogeneous deployment substrate for the evaluation. See Appendix~\ref{appendix:physical_testbed} for the cluster physical setup.
+  \item \textbf{Constructed a heterogeneous Raspberry Pi cluster for FL evaluation:} a 50-device edge cluster built from \(30\) \texttt{rpi4} and \(20\) \texttt{rpi5} workers, provisioned with Ansible and orchestrated through Nomad as the heterogeneous deployment substrate for the evaluation. See Appendix~\ref{appendix:physical_testbed} for the cluster physical setup.
 \end{enumerate}
 \end{aimbox}
 
-\paragraph{Dissertation Structure.}
-The remainder is organised as follows: Chapter~\ref{chap:background} defines the heterogeneous edge-FL setting; Chapter~\ref{chap:related_work} reviews the method families; Chapter~\ref{chap:implementation} presents \texttt{fedctl} and \texttt{FedCover}; Chapter~\ref{chap:evaluation} evaluates compute heterogeneity, straggler-induced heterogeneity, and asynchronous submodel FL on the Raspberry Pi cluster; and Chapter~\ref{chap:conclusions} summarises the completed work and future directions. The appendices collect notation, systems definitions, algorithms, datasets, reproducibility settings, and extra figures.
+\section{Dissertation Structure}
+The remainder chapters are organised as follows: Chapter~\ref{chap:background} introduces the heterogeneous edge-FL setting with three forms of heterogeneity. Chapter~\ref{chap:related_work} reviews the method families. Chapter~\ref{chap:implementation} presents \texttt{fedctl} and \texttt{FedCover}. Chapter~\ref{chap:evaluation} evaluates compute heterogeneity, straggler-induced heterogeneity, and asynchronous submodel FL using \texttt{fedctl}. Chapter~\ref{chap:conclusions} summarises the completed work and future work. The appendices collect notation, systems definitions, algorithms, datasets, reproducibility settings, and extra figures.

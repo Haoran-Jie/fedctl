@@ -7,7 +7,7 @@ This appendix records the current configuration families used to reproduce the d
 \section{Evaluation Settings}
 \label{appendix:evaluation_settings}
 
-The tables below collect the main run settings that are referenced but not repeated in Chapter~\ref{chap:evaluation}. They are summaries of the resolved run and deploy configs, not a replacement for the archived artifacts attached to each submitted run.
+The tables below collect the main run settings that are referenced but not repeated in Chapter~\ref{chap:evaluation}. They are summaries of the resolved run and deploy configs, not a replacement for the archived artefacts attached to each submitted run.
 
 \begin{table}[!htbp]
 \centering
@@ -63,9 +63,9 @@ Setting & Value \\
 Deployment & \(20\) logical clients on \(10\times\texttt{rpi4}+10\times\texttt{rpi5}\). \\
 Tasks and data & CIFAR-10 and Fashion-MNIST under IID and Dirichlet non-IID \(\alpha=0.3\). \\
 Submodel assignment & Nested \texttt{HeteroFL} rates \(0.125,0.25,0.5,1.0\), matched to the compute-heterogeneity assignment. \\
-Methods & Synchronous \texttt{HeteroFL}, coverage-disabled asynchronous \texttt{HeteroFL}, \texttt{FedCover} with \(\gamma\in\{0.25,0.5,1.0,1.5\}\), and \texttt{FedBuff}. \\
+Methods & Synchronous \texttt{HeteroFL}, uncorrected \texttt{Async-HeteroFL}, \texttt{FedCover} with \(\gamma\in\{0.25,0.5,1.0,1.5\}\), and \texttt{FedBuff}. \\
 Targets & CIFAR-10: \(70\%\) IID and \(60\%\) non-IID. Fashion-MNIST: \(80\%\) IID and \(75\%\) non-IID. \\
-Warm-up adjustment & Post-warm-up time subtracts the first \(20\) completed client trips. \\
+Warm-up adjustment & Post-warm-up time subtracts the first \(20\) completed client trips: one synchronous \texttt{HeteroFL} round or five \(K=4\) asynchronous buffer updates. \\
 Seeds & \(1337\)--\(1339\). \\
 \bottomrule
 \end{tabularx}
@@ -148,7 +148,7 @@ Profile & Delay & Jitter & Loss & Rate & Direction \\
 \FloatBarrier
 \section{Representative Commands}
 
-The following commands show the reproducibility pattern rather than every submitted run. Multi-seed runs are encoded by the run config itself, and a single run can be forced with \texttt{--seed} when needed.
+The following commands show the reproducibility pattern rather than every submitted run. Multi-seed runs are encoded by the run config itself, and a single run can be forced with \verb|--seed| when needed.
 
 \begin{codeblock}[minted options app={breaklines,breakanywhere,fontsize=\footnotesize}]{bash}
 fedctl submit run apps/fedctl_research \
@@ -171,4 +171,4 @@ fedctl submit run apps/fedctl_research \
   --stream
 \end{codeblock}
 
-For archival runs, the submit artifact stores the resolved request, copied external run config as \path{.fedctl/run_config.toml} when applicable, deployment metadata, role logs, and result artifacts. This is the reproducibility surface used by the submit-service UI and by the result retrieval workflow.
+For archival runs, the submit artefact stores the resolved request, copied external run config as \path{.fedctl/run_config.toml} when applicable, deployment metadata, role logs, and result artefacts. This is the reproducibility surface used by the submit-service UI and by the result retrieval workflow.
